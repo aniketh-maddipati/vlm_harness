@@ -20,7 +20,23 @@
   // Settings (MENUS.md): stored per user by the Mac (UserDefaults). The page reads 'lumina-prefs' from
   // localStorage when it starts and hands every change to lumina.setPrefs. The web view's storage is
   // not persistent, so seed it before the page's constructor runs.
-  if (cfg.prefs && typeof cfg.prefs === 'object') { try { localStorage.setItem('lumina-prefs', JSON.stringify(cfg.prefs)); } catch (_) {} }
+  // Edit's first-run card remembers dismissal in its own key, which dies with the web view, so the
+  // card returned on every launch (and on every dev reload). The Mac keeps that in the same prefs
+  // object, under `editIntro`. It is not part of what the page reads: Sets keeps every key it stored
+  // and would hand `editIntro` back as one of its own. A later setPrefs is the page's object only,
+  // so the flag is merged on the way to the Mac or the next launch loses it.
+  const INTRO_KEY = 'lumina.edit.intro.v1', INTRO_PREF = 'editIntro';
+  let introSeen = !!(cfg.prefs && cfg.prefs[INTRO_PREF]);
+  const pagePrefs = p => { const o = Object.assign({}, p && typeof p === 'object' ? p : {}); delete o[INTRO_PREF]; return o; };
+  const prefsForMac = p => { const o = pagePrefs(p); if (introSeen) o[INTRO_PREF] = true; return o; };
+  const livePrefs = () => { try { const p = current && current.state && current.state.prefs; if (p && typeof p === 'object') return p; } catch (_) {} try { return JSON.parse(localStorage.getItem('lumina-prefs') || '{}'); } catch (_) { return {}; } };
+  const rememberIntro = () => { if (introSeen) return; introSeen = true; try { native('setPrefs', { prefs: prefsForMac(livePrefs()) }); } catch (_) {} };
+  if (cfg.prefs && typeof cfg.prefs === 'object') { try { localStorage.setItem('lumina-prefs', JSON.stringify(pagePrefs(cfg.prefs))); } catch (_) {} }
+  try {
+    const rawSet = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) { rawSet.call(this, k, v); if (this === localStorage && k === INTRO_KEY && v) rememberIntro(); };
+  } catch (_) {}
+  if (introSeen) { try { localStorage.setItem(INTRO_KEY, '1'); } catch (_) {} }
 
   const b64 = u8 => {
     let s = '';
@@ -178,7 +194,9 @@
   const saveLeaving = () => { try { saveNow(true); } catch (_) {} };
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveLeaving(); });
   window.addEventListener('blur', saveLeaving);
-  window.addEventListener('pagehide', saveLeaving);
+  // A reload (the web view's menu, a hot reload that didn't get there first) tears the page down
+  // without Edit unmounting: the Metal view would stay where it was, over whatever opens next.
+  window.addEventListener('pagehide', () => { saveLeaving(); try { if (edit.state().visible) edit.layout(null, false); } catch (_) {} });
   const saveLoop = () => {
     try { saveNow(); } finally { setTimeout(saveLoop, 2000); }
   };
@@ -210,7 +228,7 @@
     // Lumina's own files for the open shoot (never RAWs or .xmp): size in bytes, and remove.
     workingFiles: () => shootId ? native('workingFiles', { id: shootId }) : Promise.resolve(0),
     removeWorkingFiles: () => shootId ? native('removeShoot', { id: shootId }).then(ok => { shootId = null; lastSaved = ''; base = null; return ok; }) : Promise.resolve(false),
-    setPrefs: prefs => native('setPrefs', { prefs }),
+    setPrefs: prefs => native('setPrefs', { prefs: prefsForMac(prefs) }),
     // Permissions (SAFETY.md 5).
     openSettings: what => native('openSettings', { what: what || 'files' }),
     checkAccess: () => native('checkAccess', {}),
@@ -733,6 +751,33 @@
   // Full-size layers (the photo itself, crop and grid overlays) are looked into, never cut out:
   // a hole that size would show the page's empty canvas instead of the photo.
   const MAX_HOLES = 16;
+  // Dialogs fade in (`rise` / `born`: opacity 0 on the first frame). Holes are read once on that
+  // frame unless something asks again, so a card that is still fading is a hole too, and its
+  // animation finishing asks again. One layout per frame, same as the chips.
+  let holesObs = null, holesRaf = 0, dialogPending = false;
+  const dialogRetried = new WeakSet();
+  const scheduleHoles = () => {
+    if (holesRaf) return;
+    holesRaf = requestAnimationFrame(() => {
+      holesRaf = 0;
+      if (!(ed.visible && ed.rect && ed.autoHoles)) { dialogPending = false; return; }
+      dialogPending = false;
+      const h = holesOf(ed.rect);
+      if (JSON.stringify(h) !== ed.holesKey) edit.layout(ed.rect, true, { holes: h, auto: true });
+      if (dialogPending) scheduleHoles();
+    });
+  };
+  // `finished` resolves once, including when the animation has already ended. A second look at the
+  // same animation does not ask again.
+  const armDialog = d => {
+    if (typeof d.getAnimations !== 'function') return;
+    for (const a of d.getAnimations()) {
+      if (a.__luminaHole) continue;
+      a.__luminaHole = true;
+      a.finished.then(() => scheduleHoles(), () => {});
+    }
+  };
+  const fadingIn = el => typeof el.getAnimations === 'function' && el.getAnimations().some(a => a.playState === 'running' || a.playState === 'pending' || a.playState === 'paused');
   const holesOf = rect => {
     const root = document.querySelector('[data-lumina="canvas"]'), out = [];
     if (!root || !rect || !(rect.w > 0) || !(rect.h > 0)) return out;
@@ -751,6 +796,23 @@
       }
     };
     walk(root, 0);
+    // A dialog the page puts over everything (Edit's first-run card, Sets' sheets) is outside the
+    // canvas element: without a hole the photo covers it, and the page behind its dimmed backdrop
+    // takes no input with nothing on screen to close. Opacity 0 with no animation is hidden. Opacity
+    // 0 while `rise` is running is the card on its first frame: treat it as showing, and look once
+    // more on the next frame in case the animation was not registered yet.
+    for (const d of document.querySelectorAll('[role="dialog"]')) {
+      if (out.length >= MAX_HOLES) break;
+      if (root.contains(d)) continue;
+      const cs = getComputedStyle(d);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      if (+cs.opacity === 0 && !fadingIn(d)) { if (!dialogRetried.has(d)) { dialogRetried.add(d); dialogPending = true; } continue; }
+      armDialog(d);
+      const b = d.getBoundingClientRect(); if (b.width < 1 || b.height < 1) continue;
+      const x0 = Math.max(rect.x, Math.floor(b.left) - 1), y0 = Math.max(rect.y, Math.floor(b.top) - 1);
+      const x1 = Math.min(rect.x + rect.w, Math.ceil(b.right) + 1), y1 = Math.min(rect.y + rect.h, Math.ceil(b.bottom) + 1);
+      if (x1 > x0 && y1 > y0) out.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+    }
     // Sets' working-files pill sits over the Edit canvas too, outside its element.
     const pill = document.querySelector('[data-lumina="cache-pill-edit"]'), pb = pill && pill.getBoundingClientRect();
     if (pb && pb.width >= 1 && pb.height >= 1 && out.length < MAX_HOLES) {
@@ -761,19 +823,16 @@
     return out;
   };
   // The chips come and go without the rect changing: watch the canvas element and send the new
-  // holes with the same rect, once per frame at most.
-  let holesObs = null, holesRaf = 0;
+  // holes with the same rect, once per frame at most. Dialogs come and go outside the canvas
+  // element; removing one is a child on body, and a fade finishing is armed from holesOf.
   const watchHoles = on => {
     if (!on) { if (holesObs) holesObs.disconnect(); holesObs = null; return; }
     const root = document.querySelector('[data-lumina="canvas"]'); if (!root || (holesObs && holesObs.root === root)) return;
     if (holesObs) holesObs.disconnect();
-    holesObs = new MutationObserver(() => {
-      zoomWatch();
-      if (holesRaf) return;
-      holesRaf = requestAnimationFrame(() => { holesRaf = 0; if (ed.visible && ed.rect && ed.autoHoles) { const h = holesOf(ed.rect); if (JSON.stringify(h) !== ed.holesKey) edit.layout(ed.rect, true, { holes: h, auto: true }); } });
-    });
+    holesObs = new MutationObserver(() => { zoomWatch(); scheduleHoles(); });
     holesObs.root = root;
     holesObs.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+    holesObs.observe(document.body, { childList: true, subtree: true });
   };
   // The page zooms and pans its own picture (pinch, ⌃-wheel, the zoom pill, a drag) with a CSS
   // transform on the layer that holds the photo's box; the canvas above it has to show the same
@@ -906,7 +965,7 @@
       // Edit shows again with the photo it left on (no canvasEnter follows): its hooks are new, so the facts go again.
       const back = !!r && !ed.rect && !!ed.rel && ed.entered;
       ed.autoHoles = !!r && !Array.isArray(r.holes);
-      if (ed.autoHoles) { edit.layout(r, true, { holes: holesOf(r) }); watchHoles(true); }
+      if (ed.autoHoles) { edit.layout(r, true, { holes: holesOf(r) }); watchHoles(true); if (dialogPending) scheduleHoles(); }
       else { edit.layout(r, !!r); if (!r) watchHoles(false); }
       if (back) pushFacts(true);
     },

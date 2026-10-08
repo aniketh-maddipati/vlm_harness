@@ -623,6 +623,65 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(await page.evaluate(async () => (await lumina.notices()) === 'React 18.3.1 · MIT\n'), 'acknowledgements: lumina.notices() is the app\'s text');
   await page.evaluate(() => lumina.emit('openCancel', {})); await page.waitForTimeout(100);
   ok(bridge.cancels === 1, 'opening: Esc (openCancel) stops the listing', bridge.cancels);
+
+  // Edit's first-run card. Fresh storage shows it, and the canvas has to leave a hole for it even
+  // while its fade is still at opacity 0 (the frame that used to skip it). Esc stores the dismissal
+  // with the Mac's prefs; a later setPrefs must not drop it. A page opened with those prefs has no card.
+  { const covers = (h, b, r) => {
+      const x0 = Math.max(b.x, r.x), y0 = Math.max(b.y, r.y), x1 = Math.min(b.x + b.w, r.x + r.w), y1 = Math.min(b.y + b.h, r.y + r.h);
+      return x1 - x0 >= 8 && y1 - y0 >= 8 && h.x <= x0 + 2 && h.y <= y0 + 2 && h.x + h.w >= x1 - 2 && h.y + h.h >= y1 - 2;
+    };
+    const n0 = bridge.canvas.layouts.length;
+    await page.evaluate(() => __lumina.logic().setView('edit', true));
+    await page.waitForTimeout(500);
+    const card = await page.evaluate(() => { const d = document.querySelector('[role="dialog"][aria-label="Editing in Lumina"]'); if (!d) return null; const b = d.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height, op: +getComputedStyle(d).opacity }; });
+    const last = bridge.canvas.layouts.slice(n0).filter(x => x.visible).pop();
+    ok(!!(card && last && last.holes.some(h => covers(h, card, last))), 'edit intro: the open card is a hole in the canvas', { card, holes: last && last.holes });
+    const n1 = bridge.canvas.layouts.length;
+    const faded = await page.evaluate(() => {
+      const d = document.querySelector('[role="dialog"][aria-label="Editing in Lumina"]');
+      d.getAnimations().forEach(a => a.cancel());
+      d.style.opacity = '0';
+      const a = d.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 60000, fill: 'both' });
+      a.pause(); a.currentTime = 0;
+      d.appendChild(document.createElement('i'));
+      return +getComputedStyle(d).opacity;
+    });
+    await page.waitForTimeout(300);
+    const card0 = await page.evaluate(() => { const d = document.querySelector('[role="dialog"][aria-label="Editing in Lumina"]'); const b = d.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; });
+    const last0 = bridge.canvas.layouts.slice(n1).filter(x => x.visible).pop();
+    ok(faded < 0.05 && !!(last0 && last0.holes.some(h => covers(h, card0, last0))), 'edit intro: a card still at opacity 0 mid fade-in is a hole', { faded, holes: last0 && last0.holes });
+    const nH = bridge.canvas.layouts.length;
+    const placed = await page.evaluate(() => {
+      const r = lumina.edit.state().rect, h = document.createElement('div');
+      h.id = '__hiddenDialog'; h.setAttribute('role', 'dialog');
+      h.style.cssText = 'position:fixed;left:' + (r.x + 20) + 'px;top:' + (r.y + 20) + 'px;width:48px;height:48px;opacity:0';
+      document.body.appendChild(h);
+      return { x: r.x + 20, y: r.y + 20 };
+    });
+    await page.waitForTimeout(300);
+    const hid = bridge.canvas.layouts.slice(nH).filter(x => x.visible).pop() || last0;
+    ok(!(hid && hid.holes.some(h => Math.abs(h.x - placed.x) < 8 && Math.abs(h.y - placed.y) < 8)), 'edit intro: a dialog left at opacity 0 with no animation is not a hole', hid && hid.holes);
+    await page.evaluate(() => { const h = document.getElementById('__hiddenDialog'); if (h) h.remove(); });
+    await key(page, 'Escape');
+    await page.waitForTimeout(100);
+    ok(bridge.prefs && bridge.prefs.editIntro === true, 'edit intro: Esc persists the seen flag in prefs', bridge.prefs);
+    ok(await page.evaluate(() => localStorage.getItem('lumina.edit.intro.v1') === '1' && !('editIntro' in __lumina.logic().state.prefs)), 'edit intro: the page\'s own prefs do not carry the flag');
+    await page.evaluate(() => __lumina.logic().setPref({ rating: 2 }));
+    ok(bridge.prefs && bridge.prefs.editIntro === true && bridge.prefs.rating === 2, 'edit intro: a later setPrefs keeps the flag', bridge.prefs);
+    const bridge2 = new Bridge();
+    const p2 = await open(browser, bridge2, { prefs: { rating: 2, editIntro: true } });
+    ok(await p2.page.evaluate(() => localStorage.getItem('lumina.edit.intro.v1') === '1' && !('editIntro' in __lumina.logic().state.prefs) && __lumina.logic().state.prefs.rating === 2), 'edit intro: a later launch seeds the seen key and not the page\'s prefs');
+    await p2.page.evaluate(() => __lumina.logic().setView('edit', true));
+    await p2.page.waitForTimeout(400);
+    ok(await p2.page.evaluate(() => !document.querySelector('[role="dialog"][aria-label="Editing in Lumina"]')), 'edit intro: that launch opens Edit with no card');
+    await p2.page.evaluate(() => __lumina.logic().setPref({ rating: 1 }));
+    ok(bridge2.prefs && bridge2.prefs.editIntro === true && bridge2.prefs.rating === 1, 'edit intro: setPrefs on the later launch keeps the flag', bridge2.prefs);
+    ok(p2.errors.length === 0, 'edit intro: no page errors on the later launch', p2.errors);
+    await p2.ctx.close();
+    await page.evaluate(() => __lumina.logic().setView('cull', true));
+    await page.waitForTimeout(200); }
+
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
 
   ok(errors.length === 0, 'no page errors', errors);

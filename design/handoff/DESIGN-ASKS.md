@@ -1139,3 +1139,26 @@ words should also be in the app, in the app's own look.
   trust-model work): `mailto:` to that address and the one LinkedIn URL.
 - The sheets' text matches `docs/release/listing/privacy.md` and `support.md`; when one changes, so does the other.
 - `probe.sh screens` gains both sheets in prototype and app mode.
+
+## Prompt 19 — untouched Edit sliders read as live; an emptied picks-only pass goes back to all photos (paste into Claude Design)
+
+Owner's call 2026-10-07, made in the page here ahead of the design handoff (a sync before this
+lands overwrites both). Two looks read as a broken app:
+
+- Edit drew every slider the photo has not changed with a grey label and a grey value (`#9A958D`,
+  the colour of a disabled control). A photo that is "As shot" has changed none, so the whole panel
+  looked locked, most of all with nothing picked yet.
+- Pick's picks-only pass (⇧P) folds a row with nothing kept into its time label and a thin bar.
+  Un-keeping the last photo of the pass left every row folded: a page of time labels and bars with
+  no photo and nothing saying why.
+
+> In Edit v22's `sliderRow`, a slider's label is `#EFECE6` whether or not its value was changed, and
+> an unchanged value is `#B8B3AB` (changed stays `#EFECE6`; gold when active, as now). In Sets v11,
+> when the picks-only pass is showing and a decision leaves nothing kept, the page goes back to all
+> photos and the footer says `Nothing kept in this pass · showing all photos`. Nothing else changes.
+
+### How Prompt 19 is checked once its handoff lands
+
+- Edit on a photo that is "As shot": every slider label is `#EFECE6`; after Auto the changed rows'
+  values are `#EFECE6` and the rest `#B8B3AB`.
+- Pick: keep one photo, ⇧P, un-keep it. All photos are shown again and the footer says so.
