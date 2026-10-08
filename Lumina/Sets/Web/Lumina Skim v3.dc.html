@@ -63,6 +63,7 @@ input[type=range]{accent-color:#B8B3AB}
           <div role="tab" tabIndex="0" aria-selected="{{ lt.on }}" onClick="{{ lt.go }}" style="position:relative;height:24px;display:grid;place-items:center;font-size:12px;color:{{ lt.fg }};cursor:pointer;border-radius:5px" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ lt.t }}</div>
         </sc-for>
       </div>
+      <sc-if value="{{ unsupOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="unsupported" role="status" style="margin-left:16px;flex:none;color:#FFD27A;white-space:nowrap">{{ unsupLine }}</div></sc-if>
       <sc-if value="{{ recNoteOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="marks-back" role="status" style="margin-left:16px;flex:none;color:#A9D18E;white-space:nowrap;animation:fade 160ms ease-out">{{ recNote }}</div></sc-if>
       <sc-if value="{{ loadOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="load-status" role="status" aria-live="polite" onClick="{{ progToggle }}" title="P" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;cursor:pointer;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ loadLine }}</span></div></sc-if>
       <sc-if value="{{ haltOn }}" hint-placeholder-val="{{ false }}"><div role="button" tabIndex="0" onClick="{{ resumeRead }}" style="margin-left:10px;flex:none;height:24px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Go on</div></sc-if>
@@ -105,7 +106,8 @@ input[type=range]{accent-color:#B8B3AB}
       <div data-screen-label="Open" onDragOver="{{ dropOver }}" onDragLeave="{{ dropLeave }}" onDrop="{{ dropIn }}" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
         <div style="max-width:min(1000px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,5vh,56px) clamp(16px,4vw,48px) 40px;display:flex;flex-direction:column;gap:24px">
           <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · M4V</span></div>
-          <sc-if value="{{ webPrev }}" hint-placeholder-val="{{ false }}"><div data-lumina="web-preview" style="color:#B8B3AB;line-height:1.5">Web preview: Safari reads your clips on this Mac; nothing is uploaded. The Mac app reads faster. For the best result, open one shoot at a time and keep each clip’s .XML beside it.</div></sc-if>
+          <sc-if value="{{ webPrev }}" hint-placeholder-val="{{ false }}"><div data-lumina="web-preview" style="color:#B8B3AB;line-height:1.5">Web preview: your clips are read on this Mac; nothing is uploaded. Use Safari: it plays every Sony format, the same as the Lumina app. Open one shoot at a time and keep each clip’s .XML beside it.</div></sc-if>
+          <sc-if value="{{ notSafari }}" hint-placeholder-val="{{ false }}"><div data-lumina="use-safari" role="note" style="color:#FFD27A;line-height:1.5">This browser can’t play 10-bit H.264 (XAVC S-I, XAVC S 10-bit), the a7S III’s main formats. Open this page in Safari for those; XAVC HS and 8-bit clips work here.</div></sc-if>
           <sc-if value="{{ nowOn }}" hint-placeholder-val="{{ false }}">
             <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1)">
               <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px"><span style="color:#9A958D">Open now</span><span style="font-size:14px;color:#EFECE6">{{ nowName }}</span><span style="color:#B8B3AB">{{ nowLine }}</span></div>
@@ -880,7 +882,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
     const sk = st.step === 'skim';
@@ -1172,7 +1174,7 @@ class Component extends DCLogic {
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
     const root = rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
     const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true}, clips, gaps:[]};
-    if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear();
+    if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0;
     this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.want = null; this.setState({}, () => this.save());
     this.setState({impMsg:null, imp:{n:clips.length, done:0}}); this.clockStart(d, true);
     this.runQueue(clips.slice(), this.qTok);
@@ -1230,7 +1232,7 @@ class Component extends DCLogic {
       if (!c._file && this.d && this.d.shoot && this.d.shoot.real) { st1 = 'open again'; stC = '#FFD27A'; gone++; }
       else if (isR) { st1 = 'reading'; stC = '#EFECE6'; }
       else if (fs === 'pending') { st1 = running ? 'waiting' : 'not read'; stC = '#9A958D'; wait++; }
-      else if (fs === 'unreliable') { const later = running && c.why === 'timeout' && !(c.tries > 1); st1 = later ? 'slow · trying again later' : c.why === 'timeout' ? 'can\u2019t read · too slow' : 'can\u2019t read · damaged or cut short'; stC = later ? '#FFD27A' : '#FF8A7A'; if (!later) bad++; }
+      else if (fs === 'unreliable') { const later = running && c.why === 'timeout' && !(c.tries > 1); st1 = later ? 'slow · trying again later' : c.why === 'unsupported' ? 'this browser can\u2019t play its format' : c.why === 'timeout' ? 'can\u2019t read · too slow' : 'can\u2019t read · damaged or cut short'; stC = later ? '#FFD27A' : '#FF8A7A'; if (!later) bad++; }
       else if (c.short) { st1 = 'cut short · ' + this.tc(c.dur) + ' of ' + this.tc(c.xdur); stC = '#FFD27A'; ready++; }
       else { st1 = c.first ? 'first look' : c.thin ? 'ready · frames let go' : 'ready'; stC = c.first || c.thin ? '#B8B3AB' : '#A9D18E'; ready++; }
       return {id:c.id, name:c.name, nameC:isR ? '#EFECE6' : '#B8B3AB', st:st1, stC, bg:isR ? 'rgba(239,236,230,0.07)' : c.id === st.cur ? 'rgba(239,236,230,0.04)' : 'transparent',
@@ -1249,7 +1251,7 @@ class Component extends DCLogic {
     }
     return {progOn:st.progOn && n > 0, progToggle:() => this.setState(s => ({progOn:!s.progOn})),
       progGo:e => { const id = e.currentTarget.getAttribute('data-prog'); if (!this.byId || !this.byId[id]) return; this.wantScroll = ['[data-clip="' + id + '"]']; this.setState({step:'skim', lv:Math.max(1, Math.min(st.lv, 2)), cur:id, gi:this.gOfAll ? (this.gOfAll[id] ?? st.gi) : st.gi, sel:[], box:null}); },
-      progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:() => this.setState(s => ({pfOn:!s.pfOn})), recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running ? ' · first look ' + this.fmtSec(this.lastClock.allIn) + ', all ' + this.fmtSec(this.lastClock.done) : ''), haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
+      progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:() => this.setState(s => ({pfOn:!s.pfOn})), recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running ? ' · first look ' + this.fmtSec(this.lastClock.allIn) + ', all ' + this.fmtSec(this.lastClock.done) : ''), unsupOn:(this.unsup || 0) > 0, unsupLine:(this.unsup || 0) > 0 ? this.plural(this.unsup, 'clip') + ' in a format this browser can\u2019t play' + (this.notSafari() ? ' · open in Safari' : '') : '', haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
       paceOn, paceLine:paceOn ? 'Reading ' + this.paceWord(h) : '',
       progPill:running ? (st.imp.pass === 2 ? 'measuring ' : 'reading ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + (bad ? ' · ' + bad + ' can\u2019t read' : ''), loadOn:running && n > 0, loadLine,
       progPillC:running ? '#EFECE6' : '#B8B3AB', progPillBg:st.progOn ? 'rgba(239,236,230,0.1)' : 'transparent',
@@ -1271,7 +1273,7 @@ class Component extends DCLogic {
         while (this.prio && this.prio.length) { const x = this.prio.shift(); if (x.thin) await this.readClip(x, tok); if (tok !== this.qTok) return; }
         const c = list[k++]; if (!c) return; const idx = idxOf(c);
         if (idx.length) { const a = performance.now(); await this.readClip(c, tok, idx); if (this.clock) (this.clock['ms' + pass] || (this.clock['ms' + pass] = [])).push(Math.round(performance.now() - a));
-          if (c.why) { c.tries = (c.tries || 0) + 1; this.failRun = (this.failRun || 0) + 1; if (this.failRun >= 3 && !this.halt) { this.halt = true; if (this.clock) this.clock.halts = (this.clock.halts || 0) + 1; this.setState(s => ({tick:(s.tick || 0) + 1})); } } else this.failRun = 0; }
+          if (c.why === 'unsupported') { this.unsup = (this.unsup || 0) + 1; } else if (c.why) { c.tries = (c.tries || 0) + 1; this.failRun = (this.failRun || 0) + 1; if (this.failRun >= 3 && !this.halt) { this.halt = true; if (this.clock) this.clock.halts = (this.clock.halts || 0) + 1; this.setState(s => ({tick:(s.tick || 0) + 1})); } } else this.failRun = 0; }
         while (this.halt && tok === this.qTok) await new Promise(r => setTimeout(r, 400));
         if (tok !== this.qTok) return;
         if (pass === 1) this.regap();
@@ -1286,7 +1288,7 @@ class Component extends DCLogic {
     const f = this.firstIdx(); this.halt = false; this.failRun = 0;
     await this.runPass(this.coverOrder(list), tok, c => c.frames[f] ? [] : [f], 1); if (tok !== this.qTok) return;
     // the ones that timed out get one more go, with three times the patience
-    const again = list.filter(c => c.why && c.why !== 'no video'); if (again.length) { this.tmul = 3; await this.runPass(again, tok, c => [f], 1.5); this.tmul = 1; if (tok !== this.qTok) return; }
+    const again = list.filter(c => c.why && c.why !== 'no video' && c.why !== 'unsupported'); if (again.length) { this.tmul = 3; await this.runPass(again, tok, c => [f], 1.5); this.tmul = 1; if (tok !== this.qTok) return; }
     if (this.clock) this.clock.allIn = Math.round(performance.now() - this.clock.t0);
     if (!this.state.cuts && !this.userCut) this.setState({nCut:this.fitCut(this.d.clips.length)});
     const two = list.filter(c => !c.facts || c.facts.state !== 'unreliable');
@@ -1322,7 +1324,7 @@ class Component extends DCLogic {
       this.reading.add(c.id); this.lastProg = Date.now();
       const url = URL.createObjectURL(c._file), v = document.createElement('video');
       v.muted = true; v.preload = 'auto'; v.playsInline = true; this.vOpen = (this.vOpen || 0) + 1; const t0 = performance.now();
-      const wait = (ev, ms) => new Promise((res, rej) => { const to = setTimeout(() => { v.removeEventListener(ev, ok); v.removeEventListener('error', bad); rej('timeout'); }, ms); function ok() { clearTimeout(to); v.removeEventListener('error', bad); res(); } function bad() { clearTimeout(to); v.removeEventListener(ev, ok); rej('error'); } v.addEventListener(ev, ok, {once:true}); v.addEventListener('error', bad, {once:true}); });
+      const wait = (ev, ms) => new Promise((res, rej) => { const to = setTimeout(() => { v.removeEventListener(ev, ok); v.removeEventListener('error', bad); rej('timeout'); }, ms); function ok() { clearTimeout(to); v.removeEventListener('error', bad); res(); } function bad() { clearTimeout(to); v.removeEventListener(ev, ok); rej(v.error && v.error.code === 4 ? 'unsupported' : 'error'); } v.addEventListener(ev, ok, {once:true}); v.addEventListener('error', bad, {once:true}); });
       try {
         v.src = url; await wait('loadedmetadata', 10000 * (this.tmul || 1));
         if (v.readyState < 2) { try { await wait('loadeddata', 5000); } catch (x) {} }
@@ -1408,7 +1410,7 @@ class Component extends DCLogic {
   realReading() { const st = this.state; return !!(this.d && !this.d.__mock && st.imp && st.imp.done < st.imp.n); }
   // Back to the card that was open before a test load: its frames were kept, unfinished clips carry on.
   unpark = () => {
-    const p = this.parked; if (!p) return; this.qTok = {}; this.prio = []; this.reading.clear(); if (this.d && this.d.__mock) this.dropFrames(this.d.clips); this.parked = null;
+    const p = this.parked; if (!p) return; this.unsup = 0; this.qTok = {}; this.prio = []; this.reading.clear(); if (this.d && this.d.__mock) this.dropFrames(this.d.clips); this.parked = null;
     this.loadData(p.d, 'skim'); this.setState({memOn:false});
     const todo = p.d.clips.filter(c => c._file && (!c.facts || c.facts.state !== 'unreliable') && this.frameIdx().some(i => !c.frames[i]));
     if (todo.length) this.runQueue(todo, this.qTok);
@@ -1544,6 +1546,8 @@ class Component extends DCLogic {
     this.setState({exDone:'Saved ' + a.download + ' · ' + this.plural(x.n, 'clip')});
   };
   static CARDS = [['fx5', 'FX5 Sample Pack', 'SONY FX5 · Visual Park, free']];
+  // Chromium (Chrome, Comet, Arc, Brave, Edge) has no 10-bit H.264; Safari and the Lumina app (WebKit) play it.
+  notSafari() { const u = navigator.userAgent; return /Chrome\/|Chromium\/|CriOS\/|Firefox\//.test(u); }
   cardList() {
     if (window.luminaPreview) return [];
     if (this._cards) return this._cards; const S = window.LuminaVideoSamples; if (!S) return [];
@@ -1591,7 +1595,7 @@ class Component extends DCLogic {
         return rows; })(),
       memSaved:[{k:'this shoot', v:has ? this.plural(Object.keys(st.marks).length, 'mark') : '—'}, {k:'all shoots', v:this.plural(ms.saved, 'shoot') + ' · ' + (ms.savedB < 1e6 ? Math.max(1, Math.round(ms.savedB / 1024)) + ' KB' : this.fmtB(ms.savedB))}],
       memSavedH:this.hostStore() ? 'Saved on this Mac' : 'Saved in this browser',
-      webPrev:!!window.luminaPreview, memNote:'Nothing leaves this Mac.', memMore:!!st.memMore && !window.luminaPreview, memMoreOn:!window.luminaPreview, memMoreT:st.memMore ? 'Less' : 'More', memMoreGo:() => this.setState(s => ({memMore:!s.memMore})),
+      webPrev:!!window.luminaPreview, notSafari:this.notSafari(), memNote:'Nothing leaves this Mac.', memMore:!!st.memMore && !window.luminaPreview, memMoreOn:!window.luminaPreview, memMoreT:st.memMore ? 'Less' : 'More', memMoreGo:() => this.setState(s => ({memMore:!s.memMore})),
       memCtl:(() => { const mp = this.mp, opt = (k, val, t, tip) => ({t, tip:tip || '', on:mp[k] === val, bg:mp[k] === val ? '#EFECE6' : 'rgba(239,236,230,0.08)', fg:mp[k] === val ? '#1E1D1B' : '#EFECE6', go:() => this.setMp(k, val)});
         const perClip = ms.fr && ms.n ? ms.frB / Math.max(1, ms.fr) * (mp.per || 8) : 21000 * (mp.per || 8) * Math.pow((mp.size || 320) / 320, 2);
         const holds = b => b === 'all' ? 'every clip' : '≈ ' + Math.floor(b * 1048576 / Math.max(1, perClip)).toLocaleString() + ' clips';
