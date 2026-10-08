@@ -34,10 +34,18 @@ input[type=range]{accent-color:#B8B3AB}
     <div style="position:relative;flex:none">
       <div data-lumina="memory-pill" role="button" tabIndex="0" aria-label="Working memory" aria-expanded="{{ memOn }}" onClick="{{ memToggle }}" style="height:26px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:7px;color:#B8B3AB;cursor:pointer;background:{{ memBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:grid;grid-template-columns:repeat(2,4px);gap:2px"><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:rgba(239,236,230,0.3)"></span></span>{{ memPill }}</div>
       <sc-if value="{{ memOn }}" hint-placeholder-val="{{ false }}">
-        <div data-lumina="memory" role="dialog" aria-label="Working memory" style="position:absolute;right:0;top:32px;z-index:35;width:330px;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:12px;animation:fade 100ms ease-out;white-space:normal;line-height:1.45">
+        <div data-lumina="memory" role="dialog" aria-label="Working memory" style="position:absolute;right:0;top:32px;z-index:35;width:360px;max-height:calc(100vh - 90px);overflow-y:auto;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:12px;animation:fade 100ms ease-out;white-space:normal;line-height:1.45">
           <span style="font-size:13px;font-weight:600;color:#EFECE6">Working memory</span>
           <div style="display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A;font-weight:700">In this tab</span><sc-for list="{{ memTab }}" as="mr" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ mr.k }}</span><span style="color:#EFECE6">{{ mr.v }}</span></div></sc-for></div>
           <div style="display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A;font-weight:700">{{ memSavedH }}</span><sc-for list="{{ memSaved }}" as="mr" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ mr.k }}</span><span style="color:#EFECE6">{{ mr.v }}</span></div></sc-for></div>
+          <div data-lumina="memory-controls" style="display:flex;flex-direction:column;gap:7px"><span style="color:#FFD27A;font-weight:700">Controls</span>
+            <sc-for list="{{ memCtl }}" as="mc" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start"><span style="color:#9A958D;padding-top:2px">{{ mc.k }}</span><div style="display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ mc.opts }}" as="o" hint-placeholder-count="4"><span role="button" tabIndex="0" aria-pressed="{{ o.on }}" onClick="{{ o.go }}" title="{{ o.tip }}" style="padding:2px 7px;border-radius:5px;background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ o.t }}</span></sc-for></div></div></sc-for>
+            <span style="color:#9A958D">{{ memCtlNote }}</span>
+          </div>
+          <div data-lumina="test-load" style="display:flex;flex-direction:column;gap:7px"><span style="color:#FFD27A;font-weight:700">Test load</span>
+            <sc-for list="{{ memTest }}" as="mc" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start"><span style="color:#9A958D;padding-top:2px">{{ mc.k }}</span><div style="display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ mc.opts }}" as="o" hint-placeholder-count="4"><span role="button" tabIndex="0" aria-pressed="{{ o.on }}" onClick="{{ o.go }}" title="{{ o.tip }}" style="padding:2px 7px;border-radius:5px;background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ o.t }}</span></sc-for></div></div></sc-for>
+            <span style="color:#9A958D">Made-up clips in memory only: frames are drawn and measured like real ones, nothing is read from or written to disk. Opening one replaces what is open; its marks are not saved.</span>
+          </div>
           <span style="color:#9A958D">{{ memNote }}</span>
           <div style="display:flex;flex-direction:column;gap:6px">
             <sc-for list="{{ memBtns }}" as="mb" hint-placeholder-count="3"><div role="button" tabIndex="0" onClick="{{ mb.go }}" style="padding:8px 10px;border-radius:9px;background:{{ mb.bg }};opacity:{{ mb.op }};cursor:pointer;display:flex;flex-direction:column;gap:2px" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="color:{{ mb.fg }};font-weight:600">{{ mb.t }}</span><span style="color:{{ mb.subC }}">{{ mb.sub }}</span></div></sc-for>
@@ -214,14 +222,14 @@ input[type=range]{accent-color:#B8B3AB}
     </sc-if>
 
     <sc-if value="{{ lv1 }}" hint-placeholder-val="{{ false }}">
-      <div data-screen-label="Takes" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:10px clamp(16px,2.2vw,40px) 40px;animation:unfurl 180ms ease-out">
+      <div data-screen-label="Takes" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" onScroll="{{ scScroll }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:10px clamp(16px,2.2vw,40px) 40px;animation:unfurl 180ms ease-out">
         <sc-for list="{{ secs }}" as="s" hint-placeholder-count="2">
           <sc-if value="{{ s.bnd }}" hint-placeholder-val="{{ false }}">
             <div data-nobox="1" data-lumina="boundary" data-bi="{{ s.gi }}" style="height:30px;display:flex;align-items:center;gap:12px;margin:10px 0 4px;color:{{ s.bFg }}"><div style="flex:1;height:1px;background:{{ s.bLine }}"></div><span>{{ s.why }}</span><div style="flex:1;height:1px;background:{{ s.bLine }}"></div></div>
           </sc-if>
           <div data-sec="{{ s.gi }}" style="display:flex;flex-direction:column;gap:12px;padding:6px 0 10px">
-            <div data-nobox="1" style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6">{{ s.title }}</span><span style="color:#B8B3AB">{{ s.count }}</span><span style="color:#9A958D">{{ s.size }}</span><span style="color:#9A958D">{{ s.hWhy }}</span><span style="flex:1"></span><span style="color:#9A958D">{{ s.prog }}</span></div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,{{ tileMin }}px),1fr));gap:{{ tileGap }}">
+            <div data-nobox="1" style="height:26px;overflow:hidden;display:flex;align-items:baseline;gap:12px;white-space:nowrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;line-height:26px;color:#EFECE6">{{ s.title }}</span><span style="color:#B8B3AB">{{ s.count }}</span><span style="color:#9A958D">{{ s.size }}</span><span style="color:#9A958D">{{ s.hWhy }}</span><span style="flex:1"></span><span style="color:#9A958D">{{ s.prog }}</span></div>
+            <div><div style="height:{{ s.padT }}px"></div><div style="display:grid;grid-template-columns:repeat({{ tileCols }},minmax(0,1fr));gap:{{ tileGap }}">
               <sc-for list="{{ s.tiles }}" as="p" hint-placeholder-count="6">
                 <div data-clip="{{ p.id }}" onMouseEnter="{{ tEnter }}" onClick="{{ tClick }}" onDoubleClick="{{ tDbl }}" style="position:relative;display:flex;flex-direction:column;gap:7px;padding:7px;margin:-7px;border-radius:9px;background:{{ p.bg }};outline:{{ p.out }};outline-offset:1px">
                   <div style="position:relative;border-radius:4px;overflow:hidden">
@@ -230,13 +238,13 @@ input[type=range]{accent-color:#B8B3AB}
                     <sc-if value="{{ p.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:#161514;color:{{ p.markC }};font-weight:700">{{ p.mark }}</div></sc-if>
                     <sc-if value="{{ p.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ p.ghostC }};font-weight:700;opacity:0.7">{{ p.ghostT }}</div></sc-if>
                   </div>
-                  <div style="display:flex;align-items:baseline;gap:8px;color:#B8B3AB;white-space:nowrap"><span style="color:#EFECE6">{{ p.name }}</span><span>{{ p.dur }}</span><span style="color:#9A958D">{{ p.size }}</span><span style="flex:1"></span><span style="color:#9A958D">{{ p.time }}</span></div>
-                  <div style="display:flex;gap:4px;flex-wrap:wrap;min-height:20px">
+                  <div style="height:18px;line-height:18px;overflow:hidden;display:flex;align-items:baseline;gap:8px;color:#B8B3AB;white-space:nowrap"><span style="color:#EFECE6">{{ p.name }}</span><span>{{ p.dur }}</span><span style="color:#9A958D">{{ p.size }}</span><span style="flex:1"></span><span style="color:#9A958D">{{ p.time }}</span></div>
+                  <div style="display:flex;gap:4px;height:20px;overflow:hidden">
                     <sc-for list="{{ p.chips }}" as="c" hint-placeholder-count="2"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for>
                   </div>
                 </div>
               </sc-for>
-            </div>
+            </div><div style="height:{{ s.padB }}px"></div></div>
           </div>
         </sc-for>
         <sc-if value="{{ boxOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:{{ box.x }}px;top:{{ box.y }}px;width:{{ box.w }}px;height:{{ box.h }}px;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.85);background:rgba(255,210,122,0.06);border-radius:3px;pointer-events:none"></div></sc-if>
@@ -338,6 +346,44 @@ class Component extends DCLogic {
   static LV = ['Scenes','Clips','Viewer'];
   state = {progOn:false,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
+  // Memory controls, per viewer: how many MB of frames stay in memory, frames per clip, their size, and the reading pace.
+  static MEMDEF = {budget:256, per:8, size:320, pace:'auto'};
+  mp = (() => { try { return {...Component.MEMDEF, ...JSON.parse(localStorage.getItem('lumina-skimprefs:mem') || '{}')}; } catch (x) { return {...Component.MEMDEF}; } })();
+  setMp(k, v) { this.mp = {...this.mp, [k]:v}; try { localStorage.setItem('lumina-skimprefs:mem', JSON.stringify(this.mp)); } catch (x) {} if (k === 'budget') this.enforce(); this.setState(s => ({tick:(s.tick || 0) + 1})); }
+  frameIdx() { const n = this.mp.per || 8; return n >= 8 ? [0, 1, 2, 3, 4, 5, 6, 7] : Array.from({length:n}, (_, k) => Math.floor((k + 0.5) * 8 / n)); }
+  setFrame(c, i, blob) { c.frameSz = c.frameSz || []; const old = c.frames[i]; if (old && old.indexOf('blob:') === 0) URL.revokeObjectURL(old); c.frames[i] = blob ? URL.createObjectURL(blob) : null; c.frameSz[i] = blob ? blob.size : 0; c.thin = false; }
+  // Over the budget: the clips farthest from the one you are on give up their frames, all but one first, then that one.
+  // The 24 clips around you are never touched. Their measures stay; frames come back when you get near them.
+  enforce() {
+    const B = this.mp.budget; if (!B || B === 'all' || !this.d) return; const cap = B * 1048576, C = this.d.clips;
+    let tot = 0; C.forEach(c => (c.frameSz || []).forEach((b, i) => { if (c.frames[i]) tot += b || 0; }));
+    if (tot <= cap) return;
+    const at = this.byId && this.byId[this.state.cur] ? this.byId[this.state.cur]._i : 0, goal = cap * 0.9;
+    const far = C.filter(c => Math.abs(c._i - at) > 12 && c.frames && c.frames.some(Boolean)).sort((a, b) => Math.abs(b._i - at) - Math.abs(a._i - at));
+    for (const pass of [1, 0]) for (const c of far) {
+      if (tot <= goal) break;
+      const have = c.frames.map((u, i) => u ? i : -1).filter(i => i >= 0); if (have.length <= pass) continue;
+      const keep = pass ? have.reduce((a, b) => Math.abs(b - 3.5) < Math.abs(a - 3.5) ? b : a) : -1;
+      have.forEach(i => { if (i === keep) return; tot -= (c.frameSz && c.frameSz[i]) || 0; URL.revokeObjectURL(c.frames[i]); c.frames[i] = null; if (c.frameSz) c.frameSz[i] = 0; });
+      c.thin = true; this.dropped = (this.dropped || 0) + 1;
+    }
+  }
+  // Frames given up come back for the clip you move to and its neighbours, ahead of anything still waiting.
+  refill() {
+    const st = this.state, c = this.byId && this.byId[st.cur]; if (!c || !this.d) return;
+    const near = this.d.clips.filter(x => Math.abs(x._i - c._i) <= 4 && x.thin && (x._file || x._mock) && x.facts && x.facts.state !== 'pending').sort((a, b) => Math.abs(a._i - c._i) - Math.abs(b._i - c._i));
+    if (!near.length) return; this.prio = near.concat((this.prio || []).filter(x => !near.includes(x)));
+    if (!this.busy) this.drainPrio();
+  }
+  async drainPrio() { const tok = this.qTok; while (this.prio && this.prio.length && tok === this.qTok && !this.busy) { const x = this.prio.shift(); if (x.thin) await this.readClip(x, tok); } }
+  effHealth() {
+    const h = this.health || {level:0, duty:1, reason:''}, D = [1, 0.6, 0.25, 0];
+    const want = {auto:0, eased:1, slow:2, paused:3}[this.mp.pace] || 0, sim = this.simHeat || 0;
+    let level = h.level || 0, reason = h.reason || '';
+    if (sim > level) { level = sim; reason = 'test: Mac ' + ['', 'warm', 'hot', 'very hot'][sim]; }
+    if (want > level) { level = want; reason = 'set by you'; }
+    return {...h, level, duty:D[level], reason, thermal:sim > (h.thermal || 0) ? sim : h.thermal};
+  }
   scRef = el => { this.sc = el; };
   scrubRef = el => { this.scrubEl = el; };
   panRef = el => { this.panEl = el; };
@@ -370,6 +416,8 @@ class Component extends DCLogic {
     if (this.d && (L.m !== s0.marks || L.d !== s0.dis || L.c !== s0.cuts)) { const first = !this._ls; this._ls = {m:s0.marks, d:s0.dis, c:s0.cuts}; if (!first) this.save(); }
     if (this.wantScroll) { const w = this.wantScroll; this.wantScroll = null; this.scrollTo(w[0], w[1]); }
     const zk = this._zk || {}; this._zk = {cur:s0.cur, lv:s0.lv, step:s0.step};
+    if (zk.cur !== s0.cur && this.d) this.refill();
+    if (s0.lv === 1 && this.sc && (zk.lv !== 1 || this.sc.clientHeight !== s0.scH)) this.scScroll();
     if (zk.cur !== s0.cur || zk.lv !== s0.lv || zk.step !== s0.step) { const ps = zk, r = {}; if (s0.zc !== 1 && (ps.cur !== s0.cur || s0.lv < 2 || s0.step !== 'skim')) r.zc = 1; if (s0.noKeep && (s0.lv < 2 || s0.step !== 'skim')) r.noKeep = false; if (Object.keys(r).length) this.setState(r); }
     this.syncVid();
   }
@@ -443,8 +491,9 @@ class Component extends DCLogic {
   tone(c, i, big) {
     const f = c.facts && c.facts.state === 'ready' ? c.facts : {};
     const h = c.look ? c.look.hue : 40, ev = this.frameEv(c), pv = this.pvOn(c);
+    if (c.frames && !c.frames[i]) { let j = -1; for (let k = 1; k < 8 && j < 0; k++) { if (c.frames[i - k]) j = i - k; else if (c.frames[i + k]) j = i + k; } if (j >= 0) i = j; }
     if (c.frames && c.frames[i]) return {bg:'url(' + c.frames[i] + ') center/cover', flt:pv ? this.pvFlt(c) : 'none', anim:'fade 220ms ease-out'};
-    if (c._file) return c.facts && c.facts.state === 'unreliable' ? {bg:'#262523', flt:'none', anim:'none'} : {bg:'#2E2C29', flt:'none', anim:'breathe 1.8s ease-in-out ' + (i * 0.11).toFixed(2) + 's infinite'};
+    if (c._file || c._mock) return c.facts && c.facts.state === 'unreliable' ? {bg:'#262523', flt:'none', anim:'none'} : {bg:'#2E2C29', flt:'none', anim:'breathe 1.8s ease-in-out ' + (i * 0.11).toFixed(2) + 's infinite'};
     let L = 0.5 + ev * 0.085 + Math.sin((i + 1) * 1.7 + c._i) * 0.035 + (f.clip || 0) / 40;
     if (f.bump === i) L += 0.28;
     L = Math.max(0.1, Math.min(0.96, L));
@@ -508,6 +557,14 @@ class Component extends DCLogic {
   redo() { const st = this.state; if (!st.redo.length) return; const step = st.redo[st.redo.length - 1]; this.setState({redo:st.redo.slice(0, -1), undo:[...st.undo, step]}); this.flash(this.apply(step, false)); }
   flash(t) { clearTimeout(this.flT); this.setState({flash:t}); this.flT = setTimeout(() => this.setState({flash:null}), 2200); }
   // navigation
+  // Clips grid geometry, worked out rather than measured, so only the rows near the screen are built.
+  tileGeo() {
+    const st = this.state, sc = this.sc, z = st.z1 || 1, gy = Math.round(20 * Math.min(1, z + 0.2)), gx = Math.round(18 * Math.min(1, z + 0.2));
+    const pad = Math.min(40, Math.max(16, st.vw * 0.022)), W = Math.max(200, (sc && sc.clientWidth ? sc.clientWidth : st.vw) - 2 * pad), tmin = Math.min(W, Math.round(272 * z));
+    const cols = Math.max(1, Math.floor((W + gx) / (tmin + gx))), tw = (W - (cols - 1) * gx) / cols, fh = (tw - 6) / 4 * 9 / 16;
+    const th = 2 * fh + 2 + 7 + 18 + 7 + 20; return {cols, tw, th, gy, gx, pitch:th + gy};
+  }
+  scScroll = () => { if (this.scRaf) return; this.scRaf = requestAnimationFrame(() => { this.scRaf = 0; const sc = this.sc; if (!sc) return; const st = this.state, g = this.tileGeo(); if (Math.abs(sc.scrollTop - (st.scTop || 0)) > g.pitch * 0.5 || sc.clientHeight !== st.scH) this.setState({scTop:sc.scrollTop, scH:sc.clientHeight}); }); };
   scrollTo(sel, top) {
     const sc = this.sc; if (!sc || !sc.isConnected) return; const el = sc.querySelector(sel); if (!el) return;
     const r = el.getBoundingClientRect(), cr = sc.getBoundingClientRect();
@@ -796,7 +853,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
     const sk = st.step === 'skim';
@@ -833,7 +890,7 @@ class Component extends DCLogic {
       isEmpty:sk && empty,
       stripOn:sk && !empty && st.lv >= 1, takeStripOn:sk && !empty && st.lv >= 2,
       lv0:sk && !empty && st.lv === 0, lv1:sk && !empty && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
-      scRef:this.scRef, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
+      scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick,
       wClick:this.wClick, 
       scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, picMove:this.picMove, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef,
@@ -879,12 +936,22 @@ class Component extends DCLogic {
     }
     // takes level
     if (vals.lv1) {
+      const geo = this.tileGeo(), vTop = (st.scTop || 0) - (st.scH || st.vh), vBot = (st.scTop || 0) + 2 * (st.scH || st.vh); let y = 10;
+      const curIdx = id => id;
+      vals.tileCols = geo.cols; vals.tileGap = geo.gy + 'px ' + geo.gx + 'px';
       vals.secs = G.filter(g => g.vis.length).map(g => {
         const dn = g.clips.filter(c => st.marks[c.id]).length, bndOk = g.i > 0;
+        // this section's rows on screen (or around the clip you're on), the rest as spacers of the same height
+        const rows = Math.ceil(g.vis.length / geo.cols), gTop = y + (bndOk ? 44 : 0) + 6 + 26 + 12; y = gTop + rows * geo.pitch - geo.gy + 10;
+        let r0 = Math.max(0, Math.floor((vTop - gTop) / geo.pitch)), r1 = Math.min(rows, Math.ceil((vBot - gTop) / geo.pitch));
+        const ci = g.vis.findIndex(c => c.id === st.cur); if (ci >= 0) { const cr = Math.floor(ci / geo.cols); r0 = r1 > r0 ? Math.min(r0, Math.max(0, cr - 2)) : Math.max(0, cr - 2); r1 = Math.max(r1, Math.min(rows, cr + 3)); }
+        if (r1 <= r0) { r0 = rows; r1 = rows; }
+        const vis = g.vis.slice(r0 * geo.cols, r1 * geo.cols), padT = r1 > r0 ? r0 * geo.pitch : Math.max(0, rows * geo.pitch - geo.gy), padB = r1 > r0 ? (rows - r1) * geo.pitch : 0;
         return {gi:g.i, title:g.title, count:g.vis.length === g.clips.length ? this.plural(g.clips.length, 'clip') : g.vis.length + ' of ' + this.plural(g.clips.length, 'clip'), size:this.fmtB(g.bytes), why:g.why,
           hWhy:bndOk ? '' : g.why, bnd:bndOk, bFg:'#9A958D', bLine:'rgba(239,236,230,0.12)',
           prog:dn + ' of ' + g.clips.length + ' decided',
-          tiles:g.vis.map(c => {
+          padT:Math.round(padT), padB:Math.round(padB),
+          tiles:vis.map(c => {
             const m = st.marks[c.id] || null, isSel = selSet.has(c.id), isCur = st.cur === c.id;
             const gm = ghostFor(isSel, isCur);
             const gc = gm ? (MK[gm] || '#B8B3AB') : null, ch = this.chips(c);
@@ -969,7 +1036,7 @@ class Component extends DCLogic {
     d.shoot.name = v && v.name ? v.name : this.freeName(base, key);
   }
   save() {
-    const s = this.state; if (!this.d || !this.d.clips.length) return;
+    const s = this.state; if (!this.d || !this.d.clips.length || this.d.__mock) return;
     const none = !Object.keys(s.marks).length && !Object.keys(s.dis).length && !s.cuts;
     const sh = this.d.shoot, meta = this.d.__sample ? {} : {name:sh.name, n:this.d.clips.length, bytes:sh.bytes, days:sh.days, prof:this.d.profAns || null};
     this.persist(this.storeKey(), none && this.d.__sample ? null : JSON.stringify({marks:s.marks, dis:s.dis, cuts:s.cuts, at:Date.now(), ...meta}));
@@ -1078,7 +1145,7 @@ class Component extends DCLogic {
     this.hT = setTimeout(() => this.healthTick(), 2000);
   }
   async paceWait(tok) {
-    const h = () => this.health || {level:0, duty:1};
+    const h = () => this.effHealth();
     while (h().level >= 3 && tok === this.qTok) { this.paused = true; await new Promise(r => setTimeout(r, 1000)); }
     if (this.paused) { this.paused = false; this.setState(s => ({tick:(s.tick || 0) + 1})); }
     const d = h().duty || 1, work = this.readMs || 0;
@@ -1087,7 +1154,7 @@ class Component extends DCLogic {
   heatWord(t) { return ['normal', 'warm', 'hot', 'very hot'][t] || 'normal'; }
   paceWord(h) { if (!h || !h.level) return 'full speed'; return (['full speed', 'eased', 'slowed', 'paused'][h.level] || 'slowed') + (h.reason ? ' · ' + h.reason : ''); }
   progVals() {
-    const st = this.state, C = this.d ? this.d.clips : [], h = this.health, running = !!(st.imp && st.imp.done < st.imp.n);
+    const st = this.state, C = this.d ? this.d.clips : [], h = this.effHealth(), running = !!(st.imp && st.imp.done < st.imp.n);
     let ready = 0, wait = 0, bad = 0, gone = 0; const reading = this.readingId;
     const rows = C.map(c => {
       const fr = (c.frames || []).filter(Boolean).length, isR = c.id === reading, fs = c.facts ? c.facts.state : 'pending';
@@ -1096,7 +1163,7 @@ class Component extends DCLogic {
       else if (isR) { st1 = 'reading'; stC = '#EFECE6'; }
       else if (fs === 'pending') { st1 = running ? 'waiting' : 'not read'; stC = '#9A958D'; wait++; }
       else if (fs === 'unreliable') { st1 = 'can’t read'; stC = '#FF8A7A'; bad++; }
-      else { st1 = 'ready'; stC = '#A9D18E'; ready++; }
+      else { st1 = c.thin ? 'ready · frames let go' : 'ready'; stC = c.thin ? '#B8B3AB' : '#A9D18E'; ready++; }
       return {id:c.id, name:c.name, nameC:isR ? '#EFECE6' : '#B8B3AB', st:st1, stC, bg:isR ? 'rgba(239,236,230,0.07)' : c.id === st.cur ? 'rgba(239,236,230,0.04)' : 'transparent',
         sub:(c.dur ? this.fmtDur(c.dur) + ' · ' : '') + this.fmtB(c.bytes) + (c.w ? ' · ' + c.w + '×' + c.h : '') + (c.fps ? ' · ' + c.fps + 'p' : ''),
         segs:[0, 1, 2, 3, 4, 5, 6, 7].map(i => ({c:c.frames && c.frames[i] ? (isR ? '#EFECE6' : '#5B5854') : 'rgba(239,236,230,0.1)'}))};
@@ -1105,7 +1172,7 @@ class Component extends DCLogic {
     const paceOn = !!(h && h.level > 0 && running);
     return {progOn:st.progOn && n > 0, progToggle:() => this.setState(s => ({progOn:!s.progOn})),
       progGo:e => { const id = e.currentTarget.getAttribute('data-prog'); if (!this.byId || !this.byId[id]) return; this.wantScroll = ['[data-clip="' + id + '"]']; this.setState({step:'skim', lv:Math.max(1, Math.min(st.lv, 2)), cur:id, gi:this.gOfAll ? (this.gOfAll[id] ?? st.gi) : st.gi, sel:[], box:null}); },
-      progH:running ? 'Adding clips · ' + st.imp.done + ' of ' + n : this.plural(n, 'clip') + ' added', progSum:sum, progRows:st.progOn ? rows : [],
+      progH:running ? 'Adding clips · ' + st.imp.done + ' of ' + n : this.plural(n, 'clip') + ' added', progSum:sum, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
       paceOn, paceLine:paceOn ? 'Reading ' + this.paceWord(h) : '',
       progPill:running ? (h && h.level >= 3 ? 'paused · ' + (h.reason || 'cooling') : 'adding ' + st.imp.done + ' of ' + n + (h && h.level ? ' · ' + (h.reason || 'slowed') : '')) : this.plural(n, 'clip') + (bad ? ' · ' + bad + ' can’t read' : ''),
       progPillC:running ? '#EFECE6' : '#B8B3AB', progPillBg:st.progOn ? 'rgba(239,236,230,0.1)' : 'transparent',
@@ -1114,11 +1181,13 @@ class Component extends DCLogic {
       noKeepOn:!!st.noKeep && st.lv >= 2, noKeepBack:this.noKeepBack, noKeepStay:this.noKeepStay};
   }
   async runQueue(list, tok) {
-    for (const c of list) { if (tok !== this.qTok) return; await this.paceWait(tok); if (tok !== this.qTok) return; await this.readClip(c, tok); if (tok !== this.qTok) return; this.regap(); this.setState(s => ({imp:{n:s.imp ? s.imp.n : list.length, done:(s.imp ? s.imp.done : 0) + 1}})); }
+    for (const c of list) { if (tok !== this.qTok) return; await this.paceWait(tok); if (tok !== this.qTok) return; while (this.prio && this.prio.length) { const x = this.prio.shift(); if (x.thin) await this.readClip(x, tok); if (tok !== this.qTok) return; } await this.readClip(c, tok); if (tok !== this.qTok) return; this.regap(); this.setState(s => ({imp:{n:s.imp ? s.imp.n : list.length, done:(s.imp ? s.imp.done : 0) + 1}})); }
     if (tok === this.qTok && !this.state.cuts && !this.userCut) this.setState({nCut:this.fitCut(this.d.clips.length)});
   }
   readClip(c, tok) {
+    if (c._mock) return this.mockRead(c, tok);
     return new Promise(async done => {
+      this.busy = true;
       const url = URL.createObjectURL(c._file), v = document.createElement('video');
       v.muted = true; v.preload = 'auto'; v.playsInline = true; this.vOpen = (this.vOpen || 0) + 1; this.readingId = c.id; const t0 = performance.now();
       const wait = (ev, ms) => new Promise((res, rej) => { const to = setTimeout(() => { v.removeEventListener(ev, ok); v.removeEventListener('error', bad); rej('timeout'); }, ms); function ok() { clearTimeout(to); v.removeEventListener('error', bad); res(); } function bad() { clearTimeout(to); v.removeEventListener(ev, ok); rej('error'); } v.addEventListener(ev, ok, {once:true}); v.addEventListener('error', bad, {once:true}); });
@@ -1128,20 +1197,20 @@ class Component extends DCLogic {
         c.dur = isFinite(v.duration) ? v.duration : 0; c.w = v.videoWidth; c.h = v.videoHeight;
         if (!c.w || !c.dur) throw 'no video';
         const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180; const ctx = cv.getContext('2d', {willReadFrequently:true}), px = [];
-        for (let i = 0; i < 8; i++) {
+        for (const i of this.frameIdx()) {
           if (tok !== this.qTok) throw 'stopped';
           v.currentTime = Math.min(c.dur - 0.05, (i + 0.5) / 8 * c.dur); await wait('seeked', 8000); await this.painted(v);
           // WebKit can answer 'seeked' before the frame is decoded: a black frame. Look again, then leave it out of the measures.
           let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!this.blank(im)) break; im = null; await new Promise(r => setTimeout(r, 120 + k * 160)); }
           if (!im) continue;
-          const fb = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.72)); c.frameSz = c.frameSz || []; c.frames[i] = fb ? URL.createObjectURL(fb) : null; c.frameSz[i] = fb ? fb.size : 0; px.push(this.pix(this.toDisplay(im, c)));
+          const fb = await this.frameBlob(cv); this.setFrame(c, i, fb); this.enforce(); px.push(this.pix(this.toDisplay(im, c)));
           this.setState(s => ({tick:s.tick + 1}));
         }
         if (!px.length) throw 'no frames';
         c.facts = this.factsOf(px); this.noteSpeed((performance.now() - t0) / px.length);
       } catch (x) { if (x !== 'stopped' && c.facts.state === 'pending') c.facts = {state:'unreliable'}; }
-      URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {} this.vOpen--; this.readingId = null; this.readMs = performance.now() - t0;
-      this.setState(s => ({tick:s.tick + 1})); done();
+      URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {} this.vOpen--; this.readingId = null; this.readMs = performance.now() - t0; this.busy = false;
+      this.setState(s => ({tick:s.tick + 1})); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);
     });
   }
   static SL3T = [0.0000, 0.0000, 0.0000, 0.0007, 0.0239, 0.0469, 0.0754, 0.1118, 0.1498, 0.1903, 0.2337, 0.2803, 0.3303, 0.3835, 0.4395, 0.4976, 0.5569, 0.6161, 0.6742, 0.7298, 0.7822, 0.8309, 0.8759, 0.9178, 0.9578, 0.9972, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000];
@@ -1190,6 +1259,68 @@ class Component extends DCLogic {
         return;
       } catch (e) {} finally { if (url) URL.revokeObjectURL(url); v.removeAttribute('src'); }
     }
+  }
+  // Measured at 320 wide always (the measures don't move with the setting); kept at the size chosen.
+  frameBlob(cv) {
+    const w = this.mp.size || 320; if (w >= 320) return new Promise(r => cv.toBlob(r, 'image/jpeg', 0.72));
+    const o = this.smallCv || (this.smallCv = document.createElement('canvas')); o.width = w; o.height = Math.round(w * 9 / 16);
+    o.getContext('2d').drawImage(cv, 0, 0, o.width, o.height); return new Promise(r => o.toBlob(r, 'image/jpeg', 0.72));
+  }
+  // ---- Test load: made-up shoots shaped like real ones, nothing on disk.
+  // Clip counts, lengths and bitrates are typical of each kind of day; sizes are what the camera would have written.
+  static LOADS = [
+    ['vlog', 'Vlog day', 150, 12, 3, 90, 100, 10, 'a7S III · XAVC S 4K 24p · 100 Mb/s'],
+    ['wedding', 'Wedding', 600, 18, 2, 900, 150, 12, 'a7S III · XAVC HS 4K · 150 Mb/s'],
+    ['event', 'Event · action', 1500, 6, 1, 45, 100, 8, 'a7 III · XAVC S 4K · 100 Mb/s'],
+    ['stress', 'Stress', 4000, 5, 1, 30, 240, 14, 'a7S III · XAVC S-I 4K · 240 Mb/s'],
+  ];
+  rng(seed) { let x = seed >>> 0 || 1; return () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }
+  openTest(key) {
+    const L = Component.LOADS.find(l => l[0] === key); if (!L) return; const [, title, n, med, lo, hi, mbps, hours, gear] = L, R = this.rng(n * 7919);
+    const clips = []; let t = Date.UTC(2026, 9, 3, 9, 0, 0), scene = 0, left = 0;
+    for (let k = 0; k < n; k++) {
+      if (left <= 0) { left = 3 + Math.floor(R() * 14); scene++; t += (hours * 3600 / Math.max(1, n / 8)) * (0.5 + R() * 2) * 1000; }
+      left--;
+      const dur = Math.max(lo, Math.min(hi, Math.round(med * Math.exp((R() + R() + R() - 1.5) * 1.2) * 10) / 10));
+      const id = 'T' + String(k + 1).padStart(5, '0'), iso = new Date(t).toISOString().slice(0, 19);
+      clips.push({id, name:'C' + String(k + 1).padStart(4, '0') + '.MP4', path:'TEST/' + id, t:iso, dur, fps:key === 'event' ? 60 : 24, w:3840, h:2160, bytes:Math.round(dur * mbps * 125000), codec:'MP4',
+        profile:{gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'sidecar'}, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:Math.floor(scene * 47 % 360)}, _mock:{scene, seed:k, R:R()}});
+      t += (dur + 4 + R() * 40) * 1000;
+    }
+    const days = {}; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
+    const d = {shoot:{name:'Test · ' + title + ' · ' + n.toLocaleString() + ' clips', days:Object.keys(days).length, bytes:clips.reduce((a, c) => a + c.bytes, 0), free:null, rate:clips[0].fps, photos:0, real:false, source:gear}, clips, gaps:[]};
+    d.__mock = true; this.qTok = {}; this.prio = []; this.dropFrames(this.d && this.d.clips); this.regap(d); this.sampleKey = null; this.spd = []; this.spdBase = 0;
+    this.loadData(d, 'skim'); this.setState({imp:{n:clips.length, done:0}, memOn:false, impMsg:null}); this.runQueue(clips.slice(), this.qTok);
+  }
+  // A made-up clip read like a real one: frames drawn, encoded and measured on this Mac, at the decode time of the
+  // footage it stands for (4K long GOP ≈ 20 ms a frame here, more when the Mac is warm).
+  mockRead(c, tok) {
+    return new Promise(async done => {
+      this.busy = true; this.readingId = c.id; const t0 = performance.now();
+      const cv = this.mockCv || (this.mockCv = document.createElement('canvas')); cv.width = 320; cv.height = 180; const ctx = cv.getContext('2d', {willReadFrequently:true}), px = [], m = c._mock;
+      try {
+        for (const i of this.frameIdx()) {
+          if (tok !== this.qTok) throw 'stopped';
+          const h = c.look.hue, R = this.rng(m.seed * 31 + i + 1), lift = 0.3 + m.R * 0.25 + (i === 5 && m.R > 0.8 ? 0.3 : 0);
+          // S-Log3 looks flat: low contrast, raised blacks. Sky, a horizon and a few shapes that move from frame to frame.
+          const g = ctx.createLinearGradient(0, 0, 0, 180); g.addColorStop(0, 'hsl(' + (h + 190) % 360 + ',18%,' + Math.round(lift * 100 + 18) + '%)'); g.addColorStop(0.55, 'hsl(' + (h + 30) % 360 + ',14%,' + Math.round(lift * 70 + 12) + '%)'); g.addColorStop(1, 'hsl(' + h + ',10%,' + Math.round(lift * 50 + 10) + '%)');
+          ctx.fillStyle = g; ctx.fillRect(0, 0, 320, 180);
+          for (let k = 0; k < 9; k++) { ctx.fillStyle = 'hsla(' + (h + k * 40) % 360 + ',16%,' + Math.round(20 + R() * 45) + '%,0.8)'; const x = (R() * 300 + i * 9 * (k % 3)) % 320; ctx.fillRect(x, 70 + R() * 90, 10 + R() * 60, 8 + R() * 50); }
+          // sensor grain, so frames compress like real footage (≈ 20 KB at large), not like flat colour
+          if (!this.noiseCv) { const nc = document.createElement('canvas'); nc.width = 320; nc.height = 180; const nx = nc.getContext('2d'), nd = nx.createImageData(320, 180), R2 = this.rng(99); for (let q = 0; q < nd.data.length; q += 4) { const v = R2() * 255; nd.data[q] = v; nd.data[q + 1] = v; nd.data[q + 2] = v; nd.data[q + 3] = 255; } nx.putImageData(nd, 0, 0); this.noiseCv = nc; }
+          ctx.globalAlpha = 0.16; ctx.drawImage(this.noiseCv, (i * 37) % 64 - 64, (m.seed * 13) % 32 - 32, 384, 216); ctx.globalAlpha = 1;
+          if (m.R < 0.12) { ctx.filter = 'blur(2.5px)'; ctx.drawImage(cv, 0, 0); ctx.filter = 'none'; }
+          const im = ctx.getImageData(0, 0, 320, 180);
+          await new Promise(r => setTimeout(r, 20 * (1 + (this.simHeat || 0) * 0.6)));
+          const fb = await this.frameBlob(cv); if (tok !== this.qTok) throw 'stopped';
+          this.setFrame(c, i, fb); this.enforce(); px.push(this.pix(this.toDisplay(im, c)));
+          this.setState(s => ({tick:s.tick + 1}));
+        }
+        c.facts = this.factsOf(px); this.noteSpeed((performance.now() - t0) / px.length);
+      } catch (x) { if (x !== 'stopped' && c.facts.state === 'pending') c.facts = {state:'unreliable'}; }
+      this.readingId = null; this.readMs = performance.now() - t0; this.busy = false;
+      this.setState(s => ({tick:s.tick + 1})); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);
+    });
   }
   // Measures again from the frames already made, after a profile answer changes what the preview shows.
   async remeasure(list) {
@@ -1306,7 +1437,21 @@ class Component extends DCLogic {
       memTab:[{k:'clips open', v:ms.n ? ms.n + ' · read in place' : 'none'}, {k:'frames made', v:ms.fr + ' · ' + this.fmtB(ms.frB)}, {k:'measured', v:ms.meas + ' of ' + ms.n}, {k:'videos open', v:String(this.vOpen || 0)}, {k:'undo steps', v:String(st.undo.length)}, {k:'video decode', v:this.cal == null ? 'not measured' : this.calDev <= 2 ? 'matches the files' : 'corrected · up to ' + this.calDev + ' levels'}],
       memSaved:[{k:'this shoot', v:has ? this.plural(Object.keys(st.marks).length, 'mark') : '—'}, {k:'all shoots', v:this.plural(ms.saved, 'shoot') + ' · ' + (ms.savedB < 1e6 ? Math.max(1, Math.round(ms.savedB / 1024)) + ' KB' : this.fmtB(ms.savedB))}],
       memSavedH:this.hostStore() ? 'Saved on this Mac' : 'Saved in this browser',
-      memNote:'Nothing leaves this Mac. Frames are kept while the shoot is open.',
+      memNote:'Nothing leaves this Mac. Frames are kept while the shoot is open, up to the limit above.',
+      memCtl:(() => { const mp = this.mp, opt = (k, val, t, tip) => ({t, tip:tip || '', on:mp[k] === val, bg:mp[k] === val ? '#EFECE6' : 'rgba(239,236,230,0.08)', fg:mp[k] === val ? '#1E1D1B' : '#EFECE6', go:() => this.setMp(k, val)});
+        const perClip = ms.fr && ms.n ? ms.frB / Math.max(1, ms.fr) * (mp.per || 8) : 21000 * (mp.per || 8) * Math.pow((mp.size || 320) / 320, 2);
+        const holds = b => b === 'all' ? 'every clip' : '≈ ' + Math.floor(b * 1048576 / Math.max(1, perClip)).toLocaleString() + ' clips';
+        return [
+          {k:'frames kept', opts:[64, 128, 256, 512, 'all'].map(b => opt('budget', b, b === 'all' ? 'no limit' : b + ' MB', 'holds ' + holds(b) + ' at full frames'))},
+          {k:'per clip', opts:[2, 4, 8].map(n => opt('per', n, n + ' frames', n === 8 ? 'every scrub step' : 'fewer steps, ' + Math.round(n / 8 * 100) + '% of the memory and reading'))},
+          {k:'frame size', opts:[[160, 'small'], [240, 'medium'], [320, 'large']].map(([w, t]) => opt('size', w, t, w + '×' + Math.round(w * 9 / 16) + ' · ' + Math.round(Math.pow(w / 320, 2) * 100) + '% of large'))},
+          {k:'reading', opts:[['auto', 'by heat'], ['eased', 'eased'], ['slow', 'slow'], ['paused', 'paused']].map(([v, t]) => opt('pace', v, t, v === 'auto' ? 'slows only when the Mac is warm, short of memory or on Low Power' : 'never faster than this'))}];
+      })(),
+      memCtlNote:(() => { const mp = this.mp, B = mp.budget, used = ms.frB, thin = (this.d ? this.d.clips : []).filter(c => c.thin).length;
+        return 'Frames ' + this.fmtB(used) + (B === 'all' ? '' : ' of ' + B + ' MB') + (thin ? ' · ' + this.plural(thin, 'clip') + ' let go of frames, far from where you are' : '') + '. Size and frames per clip apply to frames made from now on.'; })(),
+      memTest:[
+        {k:'open', opts:Component.LOADS.map(L => ({t:L[1] + ' ' + L[2].toLocaleString(), tip:L[8] + ' · ' + L[3] + ' s typical', on:!!(d && d.__mock && d.shoot.name.indexOf(L[1]) >= 0), bg:'rgba(239,236,230,0.08)', fg:'#EFECE6', go:() => this.openTest(L[0])}))},
+        {k:'heat', opts:[0, 1, 2, 3].map(l => ({t:['real', 'warm', 'hot', 'very hot'][l], tip:l ? 'pretend the Mac is ' + ['', 'warm', 'hot', 'very hot'][l] : 'what the Mac reports', on:(this.simHeat || 0) === l, bg:(this.simHeat || 0) === l ? '#EFECE6' : 'rgba(239,236,230,0.08)', fg:(this.simHeat || 0) === l ? '#1E1D1B' : '#EFECE6', go:() => { this.simHeat = l; this.setState(s => ({tick:(s.tick || 0) + 1})); }}))}],
       memBtns:[
         {t:ms.fr ? 'Make frames again · ' + ms.fr + ' frames, ' + this.fmtB(ms.frB) : 'Make frames again', sub:ms.fr ? 'Frames are dropped now and made again in the background. Marks stay.' : 'No frames made yet.', subC:'#B8B3AB', go:this.clearFrames, op:ms.fr ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'},
         {t:st.memConfirm ? 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + '? Click again to forget' : 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark'), sub:'Deletes this shoot\u2019s marks for good. Clips are not touched.', subC:st.memConfirm ? '#FF8A7A' : '#B8B3AB', go:this.forgetMarks, op:has ? 1 : 0.45, bg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.08)', fg:st.memConfirm ? '#FF8A7A' : '#EFECE6'},
@@ -1322,7 +1467,7 @@ class Component extends DCLogic {
       download:this.download, hintLead:''
     };
     Object.assign(v, this.progVals());
-    { const h = this.health; if (h) v.memTab = v.memTab.concat([{k:'Mac heat', v:h.web ? 'not readable in a browser' : this.heatWord(h.thermal) + (h.lowPower ? ' · Low Power Mode' : '')}, {k:'memory', v:h.web ? '—' : (['fine', 'tight', 'short'][h.pressure] || 'fine') + (h.footprintMB ? ' · Lumina ' + this.fmtB(h.footprintMB * 1048576) : '') + (h.memGB ? ' of ' + Math.round(h.memGB) + ' GB' : '')}, {k:'reading pace', v:this.paceWord(h) + (h.slowdown && h.slowdown !== 1 ? ' · ' + h.slowdown.toFixed(1) + '× frame time' : '')}]); }
+    { const h = this.health ? this.effHealth() : null; if (h) v.memTab = v.memTab.concat([{k:'Mac heat', v:h.web ? 'not readable in a browser' : this.heatWord(h.thermal) + (h.lowPower ? ' · Low Power Mode' : '')}, {k:'memory', v:h.web ? '—' : (['fine', 'tight', 'short'][h.pressure] || 'fine') + (h.footprintMB ? ' · Lumina ' + this.fmtB(h.footprintMB * 1048576) : '') + (h.memGB ? ' of ' + Math.round(h.memGB) + ' GB' : '')}, {k:'reading pace', v:this.paceWord(h) + (h.slowdown && h.slowdown !== 1 ? ' · ' + h.slowdown.toFixed(1) + '× frame time' : '')}]); }
     if (v.isSkim && has && !st.held) { const nh = this.navHints(); v.hints = nh.list; v.hintLead = nh.lead; }
     if (v.isExport) {
       const x = this.buildX(), ex = st.ex, G = this.G || [];

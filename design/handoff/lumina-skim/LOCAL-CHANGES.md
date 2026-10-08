@@ -89,3 +89,6 @@ Seen and left for the design (not changed here):
 24. Double-click in the Viewer: Export when something is kept, otherwise "Nothing marked Keep yet" with Back to Clips (⏎) and Stay (esc).
 25. Reading is paced by heat, Low Power Mode, memory pressure and decode speed (app: skimHealth; browser: decode speed only). Working memory shows Mac heat, memory, reading pace.
 26. Shoots with one name are numbered ("Card", "Card 2"); saved marks are keyed by the clips themselves, not the folder name and count.
+27. Working memory ▸ Controls: frames kept (64 / 128 / 256 / 512 MB / no limit), frames per clip (2 / 4 / 8), frame size (small / medium / large), reading (by heat / eased / slow / paused). Over the limit, clips farthest from where you are let go of their frames (one kept first); they come back when you get near.
+28. Working memory ▸ Test load: Vlog day 150, Wedding 600, Event 1,500, Stress 4,000 made-up clips, drawn and measured in memory, nothing on disk, not saved; heat: real / warm / hot / very hot.
+29. Clips builds only the rows near the screen and around the current clip (fixed tile heights), so a 1,500-clip shoot moves at ~35 ms a key.
