@@ -751,6 +751,18 @@
       }
     };
     walk(root, 0);
+    // A dialog the page puts over everything (Edit's first-run card, Sets' sheets) is outside the
+    // canvas element: without a hole the photo covers it, and the page behind its dimmed backdrop
+    // takes no input with nothing on screen to close.
+    for (const d of document.querySelectorAll('[role="dialog"]')) {
+      if (out.length >= MAX_HOLES) break;
+      if (root.contains(d)) continue;
+      const cs = getComputedStyle(d); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+      const b = d.getBoundingClientRect(); if (b.width < 1 || b.height < 1) continue;
+      const x0 = Math.max(rect.x, Math.floor(b.left) - 1), y0 = Math.max(rect.y, Math.floor(b.top) - 1);
+      const x1 = Math.min(rect.x + rect.w, Math.ceil(b.right) + 1), y1 = Math.min(rect.y + rect.h, Math.ceil(b.bottom) + 1);
+      if (x1 > x0 && y1 > y0) out.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+    }
     // Sets' working-files pill sits over the Edit canvas too, outside its element.
     const pill = document.querySelector('[data-lumina="cache-pill-edit"]'), pb = pill && pill.getBoundingClientRect();
     if (pb && pb.width >= 1 && pb.height >= 1 && out.length < MAX_HOLES) {
@@ -774,6 +786,8 @@
     });
     holesObs.root = root;
     holesObs.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+    // Dialogs come and go outside the canvas element.
+    holesObs.observe(document.body, { childList: true, subtree: true });
   };
   // The page zooms and pans its own picture (pinch, ⌃-wheel, the zoom pill, a drag) with a CSS
   // transform on the layer that holds the photo's box; the canvas above it has to show the same
