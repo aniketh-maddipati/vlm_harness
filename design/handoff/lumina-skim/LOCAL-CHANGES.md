@@ -69,3 +69,17 @@ Seen and left for the design (not changed here):
 16. **Clips, not only folders.** The drop zone reads `Drop a card, a folder or clips` and the button `Choose…`; the
     file input is made `multiple` on the element (the template's `multiple=""` doesn't survive the render), so
     several clips picked at once all come through. Loose clips open as `Imported clips`.
+17. **The preview corrects for the engine's own video decode.** Every engine converts BT.709-tagged video before a
+    filter or a canvas sees it, and Sony tags every clip BT.709. On load the page decodes a 256-step grey ramp
+    (lossless H.264, or VP9 where H.264 isn't available; tagged like the camera's clips, 1.7 KB and 0.8 KB, embedded)
+    and folds the inverse of what it reads back into the S-Log3 table (now 256 points) of the preview filter and the
+    measures. The memory panel's `video decode` row says `matches the files` or `corrected · up to N levels`.
+18. **Scenes · Clips · Viewer**, an editor's words, for Chapters · Takes · Clip. The slider reads
+    `fewer scenes ⟷ more scenes` and `N scenes`. Fine print is gone: no gap reason under a scene, no "against middle
+    grey", "lowest of 8 frames", "far from its neighbours", "shoot is mostly", "free space: not readable here";
+    Open says `MP4 · MOV · MXF · M4V` and `Read only.`
+19. **As many scenes as fit, by default.** The gap cut is the largest that shows every scene without scrolling
+    (every gap cut when all the clips fit), set on open, again when loading finishes, and on resize, unless the
+    slider was moved by hand. Loading no longer folds the shoot back to the fewest scenes.
+20. **Scenes shot back to back are joined.** A short line joins two neighbouring scenes in a row when less than
+    60 s passed between them (by capture time, so it holds across folders opened together later).

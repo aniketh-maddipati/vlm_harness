@@ -69,7 +69,7 @@ input[type=range]{accent-color:#B8B3AB}
     <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Open" onDragOver="{{ dropOver }}" onDragLeave="{{ dropLeave }}" onDrop="{{ dropIn }}" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
         <div style="max-width:min(1000px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,5vh,56px) clamp(16px,4vw,48px) 40px;display:flex;flex-direction:column;gap:24px">
-          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · Sony sidecars are read when present</span></div>
+          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · M4V</span></div>
           <sc-if value="{{ nowOn }}" hint-placeholder-val="{{ false }}">
             <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1)">
               <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px"><span style="color:#9A958D">Open now</span><span style="font-size:14px;color:#EFECE6">{{ nowName }}</span><span style="color:#B8B3AB">{{ nowLine }}</span></div>
@@ -79,7 +79,7 @@ input[type=range]{accent-color:#B8B3AB}
           <div data-lumina="drop" role="button" tabIndex="0" onClick="{{ pickFolder }}" style="min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
             <span style="font-size:16px;color:#EFECE6">Drop a card, a folder or clips</span>
             <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>Choose…</span>
-            <span style="color:#9A958D">Clips are read in this tab. Nothing is uploaded or changed.</span>
+            <span style="color:#9A958D">Read only.</span>
           </div>
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#FFD27A">{{ impMsg }}</div></sc-if>
@@ -136,7 +136,7 @@ input[type=range]{accent-color:#B8B3AB}
             <sc-if value="{{ exDoneOn }}" hint-placeholder-val="{{ false }}"><span role="status" style="color:#A9D18E">{{ exDone }}</span></sc-if>
           </div>
           <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
-            <span style="font-size:13px;font-weight:600;color:#EFECE6">By chapter</span>
+            <span style="font-size:13px;font-weight:600;color:#EFECE6">By scene</span>
             <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
               <sc-for list="{{ exGroups }}" as="eg" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 70px;gap:10px;padding:8px 12px;background:#262523"><span style="color:#EFECE6">{{ eg.title }}</span><span style="color:#A9D18E;text-align:right">{{ eg.k }}</span><span style="color:#FFD27A;text-align:right">{{ eg.m }}</span></div></sc-for>
             </div>
@@ -169,22 +169,23 @@ input[type=range]{accent-color:#B8B3AB}
       <div data-screen-label="Chapters" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:18px clamp(16px,2.2vw,40px) 40px;animation:unfurl 180ms ease-out">
         <sc-if value="{{ sliderOn }}" hint-placeholder-val="{{ true }}">
           <div data-nobox="1" data-lumina="gap-slider" style="display:flex;align-items:center;gap:12px;margin-bottom:22px;color:#9A958D;flex-wrap:wrap">
-            <span>chapters</span>
+            <span>fewer scenes</span>
             <input type="range" aria-label="gap slider" min="0" max="{{ gapMax }}" step="1" value="{{ nCut }}" onChange="{{ gapChange }}" style="flex:0 1 360px;min-width:160px"></input>
-            <span>takes</span>
+            <span>more scenes</span>
             <span style="color:#EFECE6;margin-left:10px">{{ gapLine }}</span>
           </div>
         </sc-if>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:26px 22px">
           <sc-for list="{{ chs }}" as="g" hint-placeholder-count="5">
-            <div data-gi="{{ g.i }}" onMouseEnter="{{ gEnter }}" onClick="{{ gClick }}" onDoubleClick="{{ gDbl }}" style="display:flex;flex-direction:column;gap:7px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;opacity:{{ g.op }}">
+            <div data-gi="{{ g.i }}" onMouseEnter="{{ gEnter }}" onClick="{{ gClick }}" onDoubleClick="{{ gDbl }}" style="position:relative;display:flex;flex-direction:column;gap:7px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;opacity:{{ g.op }}">
+              <sc-if value="{{ g.join }}" hint-placeholder-val="{{ false }}"><div data-lumina="scene-join" title="{{ g.joinT }}" style="position:absolute;left:-14px;top:{{ g.jy }}px;width:22px;height:2px;margin-top:-1px;border-radius:1px;background:rgba(239,236,230,0.45);pointer-events:none"></div></sc-if>
               <div style="position:relative;aspect-ratio:16/9;border-radius:3px;overflow:hidden">
                 <div style="position:absolute;inset:0;background:{{ g.thumb }};filter:{{ g.flt }};animation:{{ g.anim }}"></div>
                 <div style="position:absolute;inset:0;border-radius:3px;box-shadow:{{ g.edge }};pointer-events:none"></div>
                 <sc-if value="{{ g.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ g.ghostC }};font-weight:700;opacity:0.7">{{ g.ghostT }}</div></sc-if>
               </div>
               <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6;white-space:nowrap">{{ g.title }}</span><span style="color:#9A958D;white-space:nowrap">{{ g.size }}</span></div>
-              <div style="display:flex;justify-content:space-between;gap:8px;color:#B8B3AB"><span>{{ g.count }}</span><span style="color:#9A958D;text-align:right">{{ g.why }}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:8px;color:#B8B3AB"><span>{{ g.count }}</span></div>
               <sc-if value="{{ g.dotsOn }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-wrap:wrap;gap:3px"><sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="10"><span style="width:6px;height:6px;border-radius:50%;background:{{ d.c }}"></span></sc-for></div></sc-if>
               <sc-if value="{{ g.barOn }}" hint-placeholder-val="{{ false }}"><div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:rgba(239,236,230,0.16)"><sc-for list="{{ g.segs }}" as="s" hint-placeholder-count="3"><span style="width:{{ s.w }};background:{{ s.c }}"></span></sc-for></div></sc-if>
             </div>
@@ -307,7 +308,7 @@ input[type=range]{accent-color:#B8B3AB}
 <script type="text/x-dc" data-dc-script data-props="{&quot;startStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Open&quot;,&quot;options&quot;:[&quot;Open&quot;,&quot;Skim&quot;,&quot;Export&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;startLevel&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Chapters&quot;,&quot;options&quot;:[&quot;Chapters&quot;,&quot;Takes&quot;,&quot;Clip&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   static MK = {keep:'#A9D18E', maybe:'#FFD27A', cut:'#FF8A7A'};
-  static LV = ['Chapters','Takes','Clip'];
+  static LV = ['Scenes','Clips','Viewer'];
   state = {ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',x:'cut'};
   scRef = el => { this.sc = el; };
@@ -320,9 +321,9 @@ class Component extends DCLogic {
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
     window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu);
     window.addEventListener('wheel', this._wh, {passive:false}); window.addEventListener('blur', this._bl);
-    this._rs = () => this.setState({vw:window.innerWidth, vh:window.innerHeight}); window.addEventListener('resize', this._rs);
+    this._rs = () => this.setState({vw:window.innerWidth, vh:window.innerHeight}, () => { if (this.hasShoot() && !this.userCut && !this.state.cuts) this.setState({nCut:this.fitCut(this.d.clips.length)}); }); window.addEventListener('resize', this._rs);
     // S-Log3 / S-Gamut3.Cine → Rec.709: the curve per channel, then the gamut, fitted to the full transform in display space.
-    this.syncStore();
+    this.syncStore(); this.calibrate();
     this._kw = e => { if ((e.metaKey || e.ctrlKey) && (e.key === 'w' || e.key === 'W')) { e.preventDefault(); this.closeShoot(); } }; window.addEventListener('keydown', this._kw);
     if (!document.getElementById('lumina-pv-filters')) document.body.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" id="lumina-pv-filters" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><filter id="lumina-slog3" color-interpolation-filters="sRGB" x="0" y="0" width="1" height="1"><feComponentTransfer><feFuncR type="table" tableValues="0.0000 0.0000 0.0000 0.0007 0.0239 0.0469 0.0754 0.1118 0.1498 0.1903 0.2337 0.2803 0.3303 0.3835 0.4395 0.4976 0.5569 0.6161 0.6742 0.7298 0.7822 0.8309 0.8759 0.9178 0.9578 0.9972 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncG type="table" tableValues="0.0000 0.0000 0.0000 0.0007 0.0239 0.0469 0.0754 0.1118 0.1498 0.1903 0.2337 0.2803 0.3303 0.3835 0.4395 0.4976 0.5569 0.6161 0.6742 0.7298 0.7822 0.8309 0.8759 0.9178 0.9578 0.9972 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncB type="table" tableValues="0.0000 0.0000 0.0000 0.0007 0.0239 0.0469 0.0754 0.1118 0.1498 0.1903 0.2337 0.2803 0.3303 0.3835 0.4395 0.4976 0.5569 0.6161 0.6742 0.7298 0.7822 0.8309 0.8759 0.9178 0.9578 0.9972 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/></feComponentTransfer><feColorMatrix type="matrix" values="1.9014 -0.8790 -0.0434 0.0000 0.0067 -0.1553 1.3955 -0.2447 0.0000 0.0003 0.0021 -0.3185 1.3129 0.0000 -0.0011 0 0 0 1 0"/></filter></svg>');
   }
@@ -356,7 +357,7 @@ class Component extends DCLogic {
     if (saved) { marks = saved.marks || {}; dis = saved.dis || {}; if (saved.prof) this.applyProfile(d, saved.prof); }
     this.gapBy = {}; (d.gaps || []).forEach(g => this.gapBy[g.after] = g.s);
     this.gapsSorted = (d.gaps || []).slice().sort((a, b) => b.s - a.s);
-    const nCut = this.gapsSorted.filter(g => g.s >= 1200).length;
+    const nCut = this.fitCut(d.clips.length); this.userCut = false;
     const allUnknown = d.clips.length > 0 && d.clips.every(c => !c.profile || !c.profile.gamma);
     const lv = {Chapters:0, Takes:1, Clip:2, Frame:3}[this.props.startLevel] || 0;
     this.lastMark = null;
@@ -425,8 +426,9 @@ class Component extends DCLogic {
   cutSet() { const st = this.state; return st.cuts ? new Set(st.cuts) : new Set(this.gapsSorted.slice(0, st.nCut).map(g => g.after)); }
   buildGroups() {
     const st = this.state, d = this.d, C = d.clips, out = [];
-    const cut = this.cutSet(); let g0 = null, why = 'first clip on the card';
-    C.forEach((c, i) => { if (!g0) { g0 = {key:'t' + i, clips:[], why}; out.push(g0); } g0.clips.push(c); if (cut.has(c.id) && i < C.length - 1) { g0 = null; why = 'gap of ' + this.fmtGap(this.gapBy[c.id] || 0); } });
+    const cut = this.cutSet(); let g0 = null, why = '';
+    let gapS = null;
+    C.forEach((c, i) => { if (!g0) { g0 = {key:'t' + i, clips:[], why, gapS}; out.push(g0); } g0.clips.push(c); if (cut.has(c.id) && i < C.length - 1) { g0 = null; gapS = this.gapBy[c.id] || 0; why = 'gap of ' + this.fmtGap(gapS); } });
     out.forEach(g => { const a = g.clips[0], e = this.endIso(g.clips[g.clips.length - 1]); g.title = this.hm(a.t) + ' – ' + this.hm(e) + (e.slice(0, 10) !== a.t.slice(0, 10) ? ' next day' : ''); });
     out.forEach((g, i) => {
       g.i = i; g.bytes = g.clips.reduce((s, c) => s + c.bytes, 0);
@@ -716,7 +718,14 @@ class Component extends DCLogic {
     v = Math.max(0, Math.min(this.gapsSorted.length, v));
     this.setState({nCut:v});
   };
-  gapChange = e => this.gapsSet(+e.target.value);
+  gapChange = e => { this.userCut = true; this.gapsSet(+e.target.value); };
+  // As many scenes as fit the window without scrolling: every gap cut when all the clips fit.
+  sceneGrid() { const st = this.state, pad = Math.min(40, Math.max(16, st.vw * 0.022)), W = Math.max(250, st.vw - 2 * pad), cols = Math.max(1, Math.floor((W + 22) / 272)), tw = (W - (cols - 1) * 22) / cols; return {cols, tw}; }
+  fitCut(n) {
+    const gs = this.gapsSorted || [], {cols, tw} = this.sceneGrid(), th = tw * 9 / 16 + 74 + 26, avail = this.state.vh - 52 - 44 - 30 - 48 - 120;
+    const fit = cols * Math.max(1, Math.floor(avail / th));
+    return Math.max(0, Math.min(gs.length, n <= fit ? gs.length : fit - 1));
+  }
 
   renderVals() {
     const st = this.state, MK = Component.MK;
@@ -775,7 +784,7 @@ class Component extends DCLogic {
     vals.handOpen = () => this.setStep('export');
     vals.wells = ['keep', 'maybe', 'cut'].map(m => ({m, n:markN[m], c:MK[m], bg:'rgba(239,236,230,0.05)', ring:'rgba(239,236,230,0.1)'}));
     vals.cutSoFar = 'cut so far: ' + this.fmtB(markB.cut);
-    vals.freeTxt = (d.shoot.free == null ? 'free space: not readable here' : 'card: ' + this.fmtB(d.shoot.free) + ' free');
+    vals.freeTxt = (d.shoot.free == null ? '' : 'card: ' + this.fmtB(d.shoot.free) + ' free');
     // hints
     vals.hints = empty ? [{k:'⌘O', t:'open'}] : st.held ? [{k:'tap', t:st.held}, {k:'⏎', t:st.held}, {k:'let go', t:'nothing happens'}] : [];
     // strips
@@ -786,14 +795,15 @@ class Component extends DCLogic {
     if (vals.lv0) {
       const gs = this.gapsSorted;
       vals.sliderOn = C.length > 1; vals.gapMax = gs.length; vals.nCut = st.nCut; vals.gapChange = this.gapChange;
-      vals.gapLine = this.plural(G.length, 'chapter') + (st.cuts ? ' · boundaries moved by you' : st.nCut === 0 ? ' · no gaps cut' : st.nCut >= gs.length ? ' · every gap cut' : ' · gaps over ' + this.fmtGap(gs[st.nCut - 1].s));
+      vals.gapLine = this.plural(G.length, 'scene') + (st.cuts ? ' · moved by you' : '');
       vals.chs = G.map(g => {
         const t0 = this.tone(g.clips[0], 0), dn = {keep:0, maybe:0, cut:0};
         g.clips.forEach(c => { const m = st.marks[c.id]; if (m) dn[m]++; });
         const anySel = g.vis.some(c => selSet.has(c.id)), isCur = st.gi === g.i;
         const gm = st.held ? (st.sel.length ? (anySel ? st.held : null) : (isCur ? st.held : null)) : null;
         const n = g.clips.length, few = n <= 48;
-        return {i:g.i, title:g.title, size:this.fmtB(g.bytes), count:g.vis.length === n ? this.plural(n, 'clip') : g.vis.length + ' of ' + this.plural(n, 'clip') + ' shown', why:g.why,
+        const sg = this.sceneGrid(), join = g.i > 0 && g.gapS != null && g.gapS <= 60 && g.i % sg.cols !== 0;
+        return {join, joinT:'continuous · ' + this.fmtGap(g.gapS || 0) + ' apart', jy:Math.round(8 + sg.tw * 9 / 32), i:g.i, title:g.title, size:this.fmtB(g.bytes), count:g.vis.length === n ? this.plural(n, 'clip') : g.vis.length + ' of ' + this.plural(n, 'clip') + ' shown', why:g.why,
           thumb:t0.bg, flt:t0.flt, anim:t0.anim, edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : 'none', ghost:!!gm, ghostT:gm || '', ghostC:gm ? MK[gm] : '#B8B3AB',
           bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.6)' : 'none', op:g.vis.length ? 1 : 0.4,
           dotsOn:few, dots:few ? g.clips.map(c => ({c:st.marks[c.id] ? MK[st.marks[c.id]] : 'rgba(239,236,230,0.2)'})) : [],
@@ -825,17 +835,17 @@ class Component extends DCLogic {
       const secAt = sf * c.dur;
       const dsx = k => disL.includes(k) ? ' · dismissed' : '';
       const facts = [];
-      if (f.state === 'pending') facts.push({k:'measuring', v:'exposure, clipping, sharpness and motion are still being measured', c:'#9A958D'});
+      if (f.state === 'pending') facts.push({k:'measuring', v:'still being measured', c:'#9A958D'});
       else if (f.state === 'unreliable') facts.push({k:'measures', v:'couldn\'t be read for this clip', c:'#9A958D'});
       else {
-        facts.push({k:'exposure', v:(f.ev > 0 ? '+' : f.ev < 0 ? '−' : '') + Math.abs(f.ev).toFixed(1) + ' stops against middle grey' + (pv ? ', after the preview' : '') + dsx('ev')});
+        facts.push({k:'exposure', v:(f.ev > 0 ? '+' : f.ev < 0 ? '−' : '') + Math.abs(f.ev).toFixed(1) + ' stops' + dsx('ev')});
         facts.push({k:'clipped', v:this.pct(f.clip) + dsx('clip')});
         facts.push({k:'crushed', v:this.pct(f.crush) + dsx('crush')});
-        facts.push({k:'sharpness', v:f.sharp.toFixed(2) + ' lowest of 8 frames · ' + (f.sharp < 0.35 ? 'soft' : 'sharp') + dsx('soft')});
+        facts.push({k:'sharpness', v:(f.sharp < 0.35 ? 'soft' : 'sharp') + ' · ' + f.sharp.toFixed(2) + dsx('soft')});
         facts.push({k:'motion', v:(f.motion || 'steady') + dsx('motion')});
-        facts.push({k:'bump', v:(f.bump != null ? 'frame ' + (f.bump + 1) + ' far from its neighbours' : 'none') + dsx('bump')});
+        facts.push({k:'bump', v:(f.bump != null ? 'frame ' + (f.bump + 1) : 'none') + dsx('bump')});
       }
-      facts.push({k:'rate', v:(c.fps ? c.fps + 'p' : 'unknown') + (c.fps !== d.shoot.rate ? ' · shoot is mostly ' + d.shoot.rate + 'p' : '') + dsx('rate')});
+      facts.push({k:'rate', v:(c.fps ? c.fps + 'p' : 'unknown') + dsx('rate')});
       facts.push({k:'duration', v:this.fmtDur(c.dur)});
       facts.push({k:'size', v:this.fmtB(c.bytes)});
       facts.push({k:'format', v:c.w + '×' + c.h + ' · ' + c.codec});
@@ -865,7 +875,7 @@ class Component extends DCLogic {
       const cw = Math.max(0, x - fit.gap), more = list.length - k, before = s0, after = list.length - s0 - k;
       const span = gq ? gq.title : '', extra = (before ? '‹ ' + before + ' more · ' : '') + (after ? after + ' more ›' : '');
       vals.row = {items, cw, connOn:k >= 2, l0:Math.round(centers[0] || 0), lw:Math.round((centers[centers.length - 1] || 0) - (centers[0] || 0)), ticks:centers.slice(1, -1).map(cx => ({x:Math.round(cx)})),
-        label:span + ' · same chapter · ' + this.plural(list.length, 'clip') + (more ? ' · ' + extra.replace(/ · $/, '') : ''),
+        label:span + ' · same scene · ' + this.plural(list.length, 'clip') + (more ? ' · ' + extra.replace(/ · $/, '') : ''),
         oneOn:k < 2 && list.length > 1, one:'1 of ' + list.length + ' clips in ' + span + (more ? ' · ' + extra.replace(/ · $/, '') : '') + ' · ⇧← ⇧→ to move'};
     }
     Object.assign(vals, this.extraVals(markN, markB, und));
@@ -960,7 +970,7 @@ class Component extends DCLogic {
   regap(d) { d = d || this.d; const C = d.clips; d.gaps = []; for (let i = 0; i < C.length - 1; i++) d.gaps.push({after:C[i].id, s:Math.max(0, Math.round((new Date(C[i + 1].t) - new Date(C[i].t)) / 1000 - C[i].dur))}); this.gapBy = {}; d.gaps.forEach(g => this.gapBy[g.after] = g.s); this.gapsSorted = d.gaps.slice().sort((a, b) => b.s - a.s); }
   async runQueue(list, tok) {
     for (const c of list) { if (tok !== this.qTok) return; await this.readClip(c, tok); if (tok !== this.qTok) return; this.regap(); this.setState(s => ({imp:{n:s.imp ? s.imp.n : list.length, done:(s.imp ? s.imp.done : 0) + 1}})); }
-    if (tok === this.qTok && !this.state.cuts) { const g = this.gapsSorted; this.setState({nCut:g.filter(x => x.s >= 1200).length || g.filter(x => x.s >= 300).length}); }
+    if (tok === this.qTok && !this.state.cuts && !this.userCut) this.setState({nCut:this.fitCut(this.d.clips.length)});
   }
   readClip(c, tok) {
     return new Promise(async done => {
@@ -993,10 +1003,48 @@ class Component extends DCLogic {
   static SL3M = [1.9014, -0.8790, -0.0434, 0.0067, -0.1553, 1.3955, -0.2447, 0.0003, 0.0021, -0.3185, 1.3129, -0.0011];
   toDisplay(img, c) {
     const p = this.prof(c); if (!p || p.g !== 'S-Log3') return img;
-    const L = this.sl3Lut || (this.sl3Lut = (() => { const T = Component.SL3T, n = T.length - 1, a = new Float32Array(256); for (let v = 0; v < 256; v++) { const x = v / 255 * n, i = Math.min(n - 1, Math.floor(x)), f = x - i; a[v] = T[i] + (T[i + 1] - T[i]) * f; } return a; })());
+    const L = this.sl3Lut || (this.sl3Lut = this.sl3Table());
     const M = Component.SL3M, D = img.data, out = new Uint8ClampedArray(D.length);
     for (let i = 0; i < D.length; i += 4) { const r = L[D[i]], g = L[D[i + 1]], b = L[D[i + 2]]; out[i] = (M[0] * r + M[1] * g + M[2] * b + M[3]) * 255; out[i + 1] = (M[4] * r + M[5] * g + M[6] * b + M[7]) * 255; out[i + 2] = (M[8] * r + M[9] * g + M[10] * b + M[11]) * 255; out[i + 3] = 255; }
     return {data:out, width:img.width, height:img.height};
+  }
+  // The S-Log3 curve for each level the page sees: the camera's code value first (undoing this engine's own
+  // conversion of BT.709-tagged video, measured by calibrate()), then Sony's curve, fitted at 33 points.
+  sl3Table() {
+    const T = Component.SL3T, n = T.length - 1, cal = this.cal, a = new Float32Array(256);
+    for (let v = 0; v < 256; v++) { const code = cal ? cal[v] : v / 255, x = code * n, i = Math.min(n - 1, Math.floor(x)), f = x - i; a[v] = T[i] + (T[i + 1] - T[i]) * f; }
+    return a;
+  }
+  // Every engine shows BT.709-tagged video through its own conversion before a filter or a canvas sees it
+  // (Chromium lifts the shadows by about 14 levels; WebKit on the Mac uses its own curve). Sony tags every
+  // clip BT.709, log or not, so the page measures its engine once: a 256-step grey ramp, encoded losslessly
+  // and tagged like the camera's clips, decoded here and read back. The inverse goes into the S-Log3 table of
+  // the preview filter and of the measures.
+  static RAMP = {h264:['video/mp4', 'video/mp4; codecs="avc1.64001e"', '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'], vp9:['video/webm', 'video/webm; codecs="vp9"', 'GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAMTEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEyTbuMU6uEHFO7a1OsggL97AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiECPQAAAAAAAFlSua9WuAQAAAAAAAEzXgQFzxYh0heJLKm0KBpyBACK1nIN1bmSIgQCGhVZfVlA5g4EBI+ODhB3NZQDgnbCCAQC6gRCagQJVsJBVuoEBVbGBAVW7gQFVuYEBElTDZ0CAc3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9pjwItjxYh0heJLKm0KBmfIpUWjh0VOQ09ERVJEh5hMYXZjNjAuMzEuMTAyIGxpYnZweC12cDlnyKFFo4hEVVJBVElPTkSHkzAwOjAwOjAxLjAwMDAwMDAwMAAfQ7Z1QT/ngQCjQSOBAACAgkmDQkAP8AD2ADgkHBgAAAAgAAAHjP///2xQTYyTsPNdNvLr3cKYGiaOAOhXkOk0s2ri3ktBiyaiJNCYXH69RUYW9T1Sm7VicmYxqgC17yMlKJZdAAAAAAAAEssGJyY6h0mm3l17uFMDRNHAHQryHSaWbVxbyWgxZNREmhMLj9eoqMLd+rbYdC4iaBIddx2DE5MdQ6R4AAAAAAADgyWgxZNREmhMLj9eoqMLd+rbYdC4iaBIddx2DE5MdQ6TTby693CmBomjgDoV5DpNLNq4t5LQYsmoiSQAAAAAAACWQliXHlh7bCYKIW/E8/VGCWw69RUYW6O2Rl3kOk0fsZAFgdeRvJaDFmr11cOFMDRL42+s6K/h7rvkYWAAAAAAAACjlIEB9ACGAECSnABAAAACAAANEWX4HFO7a5G7j7OBALeK94EB8YIBuPCBAw==']};
+  async calibrate() {
+    for (const k of ['h264', 'vp9']) {
+      const [mime, probe, b64] = Component.RAMP[k], v = document.createElement('video'); let url = null;
+      if (!v.canPlayType(probe)) continue;
+      try {
+        const bin = atob(b64), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        url = URL.createObjectURL(new Blob([u8], {type:mime})); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+        await new Promise((res, rej) => { const to = setTimeout(() => rej('timeout'), 4000); v.onloadeddata = () => { clearTimeout(to); res(); }; v.onerror = () => { clearTimeout(to); rej('error'); }; });
+        await this.painted(v);
+        const c = document.createElement('canvas'); c.width = 256; c.height = 16; const x = c.getContext('2d', {willReadFrequently:true}); x.drawImage(v, 0, 0, 256, 16);
+        const D = x.getImageData(0, 8, 256, 1).data, obs = [];
+        for (let i = 0; i < 256; i++) obs.push((D[i * 4] + D[i * 4 + 1] + D[i * 4 + 2]) / 765);
+        for (let i = 1; i < 256; i++) if (obs[i] < obs[i - 1]) obs[i] = obs[i - 1];
+        if (obs[255] - obs[0] < 0.5) continue;
+        const inv = new Float32Array(256); let j = 0;
+        for (let o = 0; o < 256; o++) { const t = o / 255; while (j < 254 && obs[j + 1] < t) j++; const a = obs[j], b = obs[j + 1]; inv[o] = Math.max(0, Math.min(1, (b > a ? j + Math.max(0, Math.min(1, (t - a) / (b - a))) : j) / 255)); }
+        this.cal = inv; this.sl3Lut = null; this.calDev = Math.round(Math.max(...obs.map((o, i) => Math.abs(o * 255 - i))));
+        const tv = Array.from(this.sl3Table(), y => y.toFixed(4)).join(' ');
+        document.querySelectorAll('#lumina-slog3 feFuncR, #lumina-slog3 feFuncG, #lumina-slog3 feFuncB').forEach(f => f.setAttribute('tableValues', tv));
+        document.documentElement.dataset.luminaCal = JSON.stringify({engine:k, at:[0, 32, 64, 128, 192, 255].map(i => Math.round(obs[i] * 255))});
+        this.setState(s => ({tick:(s.tick || 0) + 1}));
+        return;
+      } catch (e) {} finally { if (url) URL.revokeObjectURL(url); v.removeAttribute('src'); }
+    }
   }
   // Measures again from the frames already made, after a profile answer changes what the preview shows.
   async remeasure(list) {
@@ -1088,20 +1136,20 @@ class Component extends DCLogic {
       const g = G[st.gi]; if (!g) return {lead:'', list:out};
       add('↓', 'open ' + g.title); add('←', G[st.gi - 1] && G[st.gi - 1].title); add('→', G[st.gi + 1] && G[st.gi + 1].title);
       add('K M X', 'hold + tap · mark ' + this.plural(g.vis.length, 'clip')); add('⌘⏎', 'export');
-      return {lead:'Chapters · ' + g.title, list:out};
+      return {lead:'Scenes · ' + g.title, list:out};
     }
     const ng = cg ? G.slice(cg.i + 1).find(x => x.vis.length) : null;
     if (st.lv === 1) {
-      add('↑', 'Chapters · ' + (cg ? cg.title : '')); add('↓', 'open ' + nm(st.cur)); add('←', prev && nm(prev)); add('→', next && nm(next));
-      add('⇧↓', ng && 'next chapter · ' + ng.title); add('K M X', 'mark ' + nm(st.cur) + ', move on'); add('esc', 'put back');
-      return {lead:'Takes · ' + nm(st.cur), list:out};
+      add('↑', 'Scenes · ' + (cg ? cg.title : '')); add('↓', 'open ' + nm(st.cur)); add('←', prev && nm(prev)); add('→', next && nm(next));
+      add('⇧↓', ng && 'next scene · ' + ng.title); add('K M X', 'mark ' + nm(st.cur) + ', move on'); add('esc', 'put back');
+      return {lead:'Clips · ' + nm(st.cur), list:out};
     }
     const fi = Math.round(st.fx);
     if (st.lv === 2) {
-      add('↑', 'Takes · ' + (cg ? cg.title : '')); add('← →', 'scrub'); add('⇧→', next && nm(next)); add('K M X', 'mark ' + nm(st.cur)); add('V', 'preview ' + (st.pv ? 'off' : 'on'));
-      return {lead:'Clip · ' + nm(st.cur), list:out};
+      add('↑', 'Clips · ' + (cg ? cg.title : '')); add('← →', 'scrub'); add('⇧→', next && nm(next)); add('K M X', 'mark ' + nm(st.cur)); add('V', 'preview ' + (st.pv ? 'off' : 'on'));
+      return {lead:'Viewer · ' + nm(st.cur), list:out};
     }
-    add('↑', 'Clip · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M X', 'mark ' + nm(st.cur));
+    add('↑', 'Viewer · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M X', 'mark ' + nm(st.cur));
     return {lead:'Frame ' + (fi + 1) + ' · ' + nm(st.cur), list:out};
   }
   extraVals(markN, markB, und) {
@@ -1110,10 +1158,10 @@ class Component extends DCLogic {
     const v = {isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
       stepTabs:steps.map((s, i) => ({t:s[1], on:i === si, fg:i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), go:() => this.setStep(s[0])})),
       memOn:st.memOn, memToggle:() => this.setState({memOn:!st.memOn, memConfirm:false, closeConfirm:false}), memBg:st.memOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)', memPill:this.fmtB(ms.tabB),
-      memTab:[{k:'clips open', v:ms.n ? ms.n + ' · read from the card, not copied' : 'none'}, {k:'frames made', v:ms.fr + ' · ' + this.fmtB(ms.frB)}, {k:'measured', v:ms.meas + ' of ' + ms.n}, {k:'videos open', v:String(this.vOpen || 0)}, {k:'undo steps', v:String(st.undo.length)}],
+      memTab:[{k:'clips open', v:ms.n ? ms.n + ' · read in place' : 'none'}, {k:'frames made', v:ms.fr + ' · ' + this.fmtB(ms.frB)}, {k:'measured', v:ms.meas + ' of ' + ms.n}, {k:'videos open', v:String(this.vOpen || 0)}, {k:'undo steps', v:String(st.undo.length)}, {k:'video decode', v:this.cal == null ? 'not measured' : this.calDev <= 2 ? 'matches the files' : 'corrected · up to ' + this.calDev + ' levels'}],
       memSaved:[{k:'this shoot', v:has ? this.plural(Object.keys(st.marks).length, 'mark') : '—'}, {k:'all shoots', v:this.plural(ms.saved, 'shoot') + ' · ' + (ms.savedB < 1e6 ? Math.max(1, Math.round(ms.savedB / 1024)) + ' KB' : this.fmtB(ms.savedB))}],
       memSavedH:this.hostStore() ? 'Saved on this Mac' : 'Saved in this browser',
-      memNote:'No network requests. Frames and measurements are made here, from the clips\u2019 pixels, and kept only while the shoot is open.',
+      memNote:'Nothing leaves this Mac. Frames are kept while the shoot is open.',
       memBtns:[
         {t:ms.fr ? 'Make frames again · ' + ms.fr + ' frames, ' + this.fmtB(ms.frB) : 'Make frames again', sub:ms.fr ? 'Frames are dropped now and made again in the background. Marks stay.' : 'No frames made yet.', subC:'#B8B3AB', go:this.clearFrames, op:ms.fr ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'},
         {t:st.memConfirm ? 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + '? Click again to forget' : 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark'), sub:'Deletes this shoot\u2019s marks for good. Clips are not touched.', subC:st.memConfirm ? '#FF8A7A' : '#B8B3AB', go:this.forgetMarks, op:has ? 1 : 0.45, bg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.08)', fg:st.memConfirm ? '#FF8A7A' : '#EFECE6'},
