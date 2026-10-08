@@ -22,6 +22,6 @@ echo "$(git -C "$ROOT" rev-parse --short HEAD) $(date -u +%Y-%m-%dT%H:%M:%SZ)" >
 
 command -v npx >/dev/null || { echo "Needs Node (npx). Install it from nodejs.org or 'brew install node', then run this again." >&2; exit 1; }
 npx --yes wrangler whoami >/dev/null 2>&1 || npx --yes wrangler login
-npx --yes wrangler pages project list 2>/dev/null | grep -q "\b$PROJECT\b" || npx --yes wrangler pages project create "$PROJECT" --production-branch main
+npx --yes wrangler pages project list 2>/dev/null | grep -qw "$PROJECT" || npx --yes wrangler pages project create "$PROJECT" --production-branch main
 npx --yes wrangler pages deploy "$SITE" --project-name "$PROJECT" --branch main --commit-dirty=true
 echo "Live at https://$PROJECT.pages.dev  ($(cat "$SITE/version.txt"))"
