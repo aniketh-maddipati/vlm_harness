@@ -43,3 +43,11 @@ Seen and left for the design (not changed here):
    The FX5 sample no longer opens itself on Open; a design preview that starts on Skim still gets it.
 8. **Loading.** A frame not made yet is a plain panel that breathes (opacity 0.4–0.9, 1.8 s, staggered 110 ms
    across the 8 frames), and a made frame fades in over 220 ms. A clip whose length isn't read yet shows `—`.
+9. **Clips with no profile could not be previewed.** Re-exports and clips copied without their sidecar carry no
+   profile, so the switch was disabled for good. The preview line now asks, on one line:
+   `no profile in these clips · shot in  S-Log3  S-Log2  HLG  none`. The answer goes to every clip of the shoot
+   that has no profile, reads `S-Log3 · S-Gamut3.Cine · as you set it`, and is saved with the shoot's marks.
+10. **The S-Log3 preview is the real transform.** The CSS stand-in (`contrast saturate brightness`) was 13.5
+    levels off on average against Sony's S-Log3 / S-Gamut3.Cine → Rec.709 (36 at p95). An SVG filter
+    (`#lumina-slog3`: a 33-point curve per channel, then a 3 × 3 gamut matrix with offsets, fitted in display space
+    on frames of two S-Log3 clips) is 0.8 off on average and 3.4 at p95 (of 255). S-Log2 and HLG keep the stand-in.
