@@ -6,6 +6,7 @@
 #   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests,
 #   LookStringTests, LookMathTests (the look grammar and the stage maths on synthetic ramps),
 #   LookCanvasTests (the canvas schedule, the warm-up plan, the byte cache, the RAW tiers and the pin rule),
+#   VideoPolicyTests (the video module's budgets, tiers, pacing, pressure order and profile → transform; Lumina/Sets/Video/VideoPolicy.swift),
 #   SetsShootStoreTests (a shoot id from the page stays inside the store),
 #   SetsShootImportTests (sessions from before the sandbox are brought over, R1e),
 #   SetsExportMetadataTests, SetsOfflineTests, SetsExternalLinksTests (docs/release/TRUST.md I5, I7).
@@ -19,6 +20,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
 B="$HERE/Build"; rm -rf "$B"; mkdir -p "$B/Lumina" "$B/Tests"
 for f in SetsFileOps SetsShootStore SetsExport SetsIngest SetsExportMetadata SetsOffline SetsExternalLinks; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
 for f in LookString LookRules LookMath LookCanvasSchedule LookWarmPlan LookByteCache LookRawPolicy LookLensShading; do cp "$ROOT/Lumina/Sets/Look/$f.swift" "$B/Lumina/"; done
+cp "$ROOT/Lumina/Sets/Video/VideoPolicy.swift" "$B/Lumina/"
 cp "$ROOT/Lumina/Sets/Look/rules-v1.json" "$B/rules-v1.json"     # LookMathTests read it via LUMINA_RULES (only this folder is mounted)
 # swift-corelibs-foundation's FileManager.replaceItemAt fails on Linux and deletes the original
 # (checked with swift 6.1). Darwin's is correct. In this copy only, the replace is the POSIX rename
@@ -45,7 +47,7 @@ extension URLResourceKey { static let volumeAvailableCapacityForImportantUsageKe
 extension URLResourceValues { var volumeAvailableCapacityForImportantUsage: Int64? { nil } }
 SWIFT
 cp "$ROOT/LuminaLogicTests/SetsTrustTests.swift" "$ROOT/LuminaLogicTests/LookStringTests.swift" "$ROOT/LuminaLogicTests/LookMathTests.swift" \
-   "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" \
+   "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" "$ROOT/LuminaLogicTests/VideoPolicyTests.swift" \
    "$ROOT/LuminaLogicTests/SetsShootStoreTests.swift" "$ROOT/LuminaLogicTests/SetsShootImportTests.swift" \
    "$ROOT/LuminaLogicTests/SetsExportMetadataTests.swift" "$ROOT/LuminaLogicTests/SetsOfflineTests.swift" "$ROOT/LuminaLogicTests/SetsExternalLinksTests.swift" "$B/Tests/"
 # SetsFileOpsTests and SetsSidecarTests without any test that needs Core Image, or the locked-file
