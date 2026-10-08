@@ -69,7 +69,13 @@ input[type=range]{accent-color:#B8B3AB}
     </div>
     <div style="flex:0 1 auto;min-width:120px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;max-width:380px">
       <div data-lumina="preview" role="switch" tabIndex="0" aria-checked="{{ pvA }}" aria-disabled="{{ pvDis }}" onClick="{{ pvToggle }}" style="display:flex;align-items:center;gap:8px;cursor:pointer;opacity:{{ pvOp }}" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:12px;color:#EFECE6">Rec.709 preview</span><span style="position:relative;width:28px;height:16px;border-radius:8px;background:{{ pvTrack }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ pvKnob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span></div>
-      <div style="display:flex;align-items:center;gap:4px;max-width:100%;white-space:nowrap"><span data-lumina="preview-line" style="font-size:10.5px;color:#9A958D;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pvLine }}</span><sc-for list="{{ askOpts }}" as="ao" hint-placeholder-count="4"><span data-lumina="profile-answer" role="button" tabIndex="0" aria-pressed="{{ ao.on }}" onClick="{{ ao.go }}" style="flex:none;font-size:10.5px;padding:1px 6px;border-radius:4px;background:{{ ao.bg }};color:{{ ao.fg }};font-weight:{{ ao.fw }};cursor:pointer" style-hover="background:rgba(239,236,230,0.18)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ ao.t }}</span></sc-for></div>
+      <div style="display:flex;align-items:center;gap:4px;max-width:100%;white-space:nowrap"><span data-lumina="preview-line" style="font-size:10.5px;color:#9A958D;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pvLine }}</span><sc-for list="{{ askOpts }}" as="ao" hint-placeholder-count="4"><span data-lumina="profile-answer" role="button" tabIndex="0" aria-pressed="{{ ao.on }}" onClick="{{ ao.go }}" style="flex:none;font-size:10.5px;padding:1px 6px;border-radius:4px;background:{{ ao.bg }};color:{{ ao.fg }};font-weight:{{ ao.fw }};cursor:pointer" style-hover="background:rgba(239,236,230,0.18)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ ao.t }}</span></sc-for><span data-lumina="profiles" role="button" tabIndex="0" aria-expanded="{{ pfOn }}" onClick="{{ pfToggle }}" title="What the preview does for each kind of clip" style="flex:none;font-size:10.5px;padding:1px 6px;border-radius:4px;background:{{ pfBg }};color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">profiles</span></div>
+      <sc-if value="{{ pfOn }}" hint-placeholder-val="{{ false }}">
+        <div data-lumina="profile-card" role="dialog" aria-label="Picture profiles" style="position:absolute;right:20px;top:96px;z-index:36;width:min(420px,calc(100vw - 40px));box-sizing:border-box;padding:12px 14px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:8px;animation:fade 100ms ease-out;white-space:normal;line-height:1.45">
+          <span style="font-size:13px;font-weight:600;color:#EFECE6">Picture profiles in this shoot</span>
+          <sc-for list="{{ pfRows }}" as="pf" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px"><span style="color:#EFECE6">{{ pf.what }}</span><span style="color:#B8B3AB;white-space:nowrap">{{ pf.n }}</span><span style="grid-column:1 / -1;color:{{ pf.c }}">{{ pf.does }}</span><div style="grid-column:1 / -1;display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ pf.asks }}" as="ao" hint-placeholder-count="0"><span role="button" tabIndex="0" aria-pressed="{{ ao.on }}" onClick="{{ ao.go }}" style="padding:1px 7px;border-radius:4px;background:{{ ao.bg }};color:{{ ao.fg }};cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ ao.t }}</span></sc-for></div></div></sc-for>
+        </div>
+      </sc-if>
     </div>
   </div>
   </sc-if>
@@ -845,7 +851,17 @@ class Component extends DCLogic {
   noKeepBack = () => { this.setState({noKeep:false}); this.furl(); };
   noKeepStay = () => this.setState({noKeep:false});
   pvToggle = () => { const st = this.state; if (this.pvDisabled()) return; this.setState({pv:!st.pv}); this.api('preview', !st.pv); };
-  pvDisabled() { return this.d && this.d.clips.length > 0 && this.d.clips.every(c => !c.profile || !c.profile.gamma); }
+  needsPv(c) { const g = c.profile && c.profile.gamma; return g === 'S-Log3' || g === 'S-Log2' || g === 'HLG'; }
+  // Nothing to convert: every clip is already Rec.709 or has no profile we know.
+  pvDisabled() { return this.d && this.d.clips.length > 0 && !this.d.clips.some(c => this.needsPv(c)); }
+  // One row per profile and camera: what the preview does for those clips.
+  profRows() {
+    const C = this.d ? this.d.clips : [], by = {}, CAM = {'ILCE-7M3':'a7 III', 'ILCE-7SM3':'a7S III', 'ILCE-7M4':'a7 IV', 'ILCE-7RM5':'a7R V', 'ILME-FX3':'FX3', 'ILME-FX30':'FX30', 'ILME-FX6V':'FX6'};
+    C.forEach(c => { const g = c.profile && c.profile.gamma ? c.profile.gamma : '?', k = g + '|' + (c.cam || '') + '|' + (c.profile && c.profile.source === 'you' ? 'you' : ''); (by[k] || (by[k] = {g, cam:c.cam, you:c.profile && c.profile.source === 'you', n:0, b:0})).n++; by[k].b += c.bytes || 0; });
+    const does = {'S-Log3':['shown as Rec.709 · exact conversion', '#A9D18E'], 'S-Log2':['shown as Rec.709 · approximate', '#FFD27A'], 'HLG':['shown as Rec.709 · approximate', '#FFD27A'], 'none':['already Rec.709 · nothing to convert', '#B8B3AB'], '?':['no profile found (no sidecar) · if these were shot in Log, say which:', '#FFD27A']};
+    return Object.values(by).sort((a, b) => b.n - a.n).map(r => ({what:(r.g === '?' ? 'Unknown profile' : r.g === 'none' ? 'Rec.709 (standard)' : r.g) + (r.cam ? ' · ' + (CAM[r.cam] || r.cam) : '') + (r.you ? ' · as you set it' : ''), n:this.plural(r.n, 'clip') + ' · ' + this.fmtB(r.b), does:(r.you ? 'as you set it · ' : '') + (does[r.g] || ['shown as the file is', '#B8B3AB'])[0], c:(does[r.g] || ['', '#B8B3AB'])[1],
+      asks:r.g === '?' || r.you ? ['S-Log3', 'S-Log2', 'HLG', 'none'].map(g => { const on = this.d.profAns === g; return {t:g === 'none' ? 'Rec.709' : g, on, bg:on ? '#B8B3AB' : 'rgba(239,236,230,0.1)', fg:on ? '#1E1D1B' : '#EFECE6', go:() => this.setProfile(g)}; }) : []}));
+  }
   gapsSet(v) {
     if (!this.gapsSorted) return;
     v = Math.max(0, Math.min(this.gapsSorted.length, v));
@@ -863,7 +879,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
     const sk = st.step === 'skim';
@@ -875,17 +891,20 @@ class Component extends DCLogic {
     const visN = this.flat.length, hidden = C.length - visN;
     const lvTabs = Component.LV.map((t, i) => ({t, on:st.lv === i, fg:st.lv === i ? '#EFECE6' : '#9A958D', go:() => this.setLv(i)}));
     const curC = this.byId[st.cur];
-    const allUnknown = this.pvDisabled();
+    const allUnknown = !empty && this.d.clips.every(c => !c.profile || !c.profile.gamma), allRec = !empty && this.d.clips.every(c => c.profile && c.profile.gamma === 'none'), noPv = this.pvDisabled();
     let pvLine;
     const pr0 = curC ? this.prof(curC) : null;
     if (empty) pvLine = 'no clips';
-    else if (allUnknown) pvLine = 'no profile in these clips · shot in';
+    else if (allRec) pvLine = 'already Rec.709 · nothing to convert';
+    else if (allUnknown) pvLine = 'no profile found · shot in';
+    else if (noPv && !pr0) pvLine = 'nothing to convert · this clip shot in';
+    else if (noPv) pvLine = 'already Rec.709 · nothing to convert';
     else if (!st.pv) pvLine = 'off · showing files as they are';
     else if (!pr0) pvLine = 'no profile in this clip · shot in';
     else if (pr0.src === 'as you set it') pvLine = 'shot in';
-    else if (pr0.g === 'none') pvLine = 'none · showing this file as it is';
-    else pvLine = pr0.g + ' · ' + pr0.p + ' · ' + pr0.src;
-    const pvOnUi = st.pv && !allUnknown;
+    else if (pr0.g === 'none') pvLine = 'this clip is already Rec.709';
+    else pvLine = pr0.g + (pr0.g === 'S-Log3' ? '' : ' · approximate') + ' → Rec.709 · ' + pr0.src;
+    const pvOnUi = st.pv && !noPv;
     const ans = this.d && this.d.profAns, askOn = !empty && st.step === 'skim' && (allUnknown || (curC && (!pr0 || pr0.src === 'as you set it')));
     const askOpts = askOn ? ['S-Log3', 'S-Log2', 'HLG', 'none'].map(g => ({t:g, on:ans === g, bg:ans === g ? '#B8B3AB' : 'rgba(239,236,230,0.1)', fg:ans === g ? '#1E1D1B' : '#EFECE6', fw:ans === g ? 700 : 400, go:() => this.setProfile(g)})) : [];
     const ghostFor = (sel, isCur) => {
@@ -896,7 +915,7 @@ class Component extends DCLogic {
       ...base,
       shootName:d.shoot.name, shootLine:empty ? 'no clips' : this.plural(C.length, 'clip') + (d.shoot.photos ? ' · ' + d.shoot.photos + ' photos' : '') + ' · ' + this.plural(d.shoot.days, 'day') + ' · ' + this.fmtB(d.shoot.bytes),
       lvX:st.lv * 68, lvTabs,
-      pvA:pvOnUi, pvDis:allUnknown, pvOp:allUnknown ? 0.45 : 1, pvTrack:pvOnUi ? '#B8B3AB' : 'rgba(239,236,230,0.18)', pvKnob:pvOnUi ? '14px' : '2px', pvLine, askOpts, pvToggle:this.pvToggle,
+      pvA:pvOnUi, pvDis:noPv, pvOp:noPv ? 0.45 : 1, pvTrack:pvOnUi ? '#B8B3AB' : 'rgba(239,236,230,0.18)', pvKnob:pvOnUi ? '14px' : '2px', pvLine, askOpts, pvToggle:this.pvToggle,
       isEmpty:sk && empty,
       stripOn:sk && !empty && st.lv >= 1, takeStripOn:sk && !empty && st.lv >= 2,
       lv0:sk && !empty && st.lv === 0, lv1:sk && !empty && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
@@ -1141,11 +1160,11 @@ class Component extends DCLogic {
     const clips = [];
     for (const f of vids) {
       const base = f.name.replace(/\.\w+$/, ''), sc = xml[base.toUpperCase()];
-      let prof = {gamma:null, primaries:null, source:'none'}, t = null, fps = 0, xdur = 0;
+      let prof = {gamma:null, primaries:null, source:'none'}, t = null, fps = 0, xdur = 0, cam = '';
       if (sc) { try { const tx = await sc.text(); const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1];
-        prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:'sidecar'}; if (cd) t = cd.slice(0, 19); if (fr) fps = Math.round(+fr); const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) xdur = +du / +fr; } catch (x) {} }
+        prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:'sidecar'}; if (cd) t = cd.slice(0, 19); if (fr) fps = Math.round(+fr); const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) xdur = +du / +fr; cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {} }
       if (!t) t = this.iso(f.lastModified);
-      clips.push({id:'F' + String(clips.length + 1).padStart(4, '0'), name:f.name, xdur, path:rel(f), t, dur:0, fps, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f});
+      clips.push({id:'F' + String(clips.length + 1).padStart(4, '0'), name:f.name, xdur, cam, path:rel(f), t, dur:0, fps, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f});
     }
     clips.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
     const rates = {}; clips.forEach(c => { if (c.fps) rates[c.fps] = (rates[c.fps] || 0) + 1; });
@@ -1229,7 +1248,7 @@ class Component extends DCLogic {
     }
     return {progOn:st.progOn && n > 0, progToggle:() => this.setState(s => ({progOn:!s.progOn})),
       progGo:e => { const id = e.currentTarget.getAttribute('data-prog'); if (!this.byId || !this.byId[id]) return; this.wantScroll = ['[data-clip="' + id + '"]']; this.setState({step:'skim', lv:Math.max(1, Math.min(st.lv, 2)), cur:id, gi:this.gOfAll ? (this.gOfAll[id] ?? st.gi) : st.gi, sel:[], box:null}); },
-      progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running ? ' · first look ' + this.fmtSec(this.lastClock.allIn) + ', all ' + this.fmtSec(this.lastClock.done) : ''), haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
+      progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:() => this.setState(s => ({pfOn:!s.pfOn})), recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running ? ' · first look ' + this.fmtSec(this.lastClock.allIn) + ', all ' + this.fmtSec(this.lastClock.done) : ''), haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
       paceOn, paceLine:paceOn ? 'Reading ' + this.paceWord(h) : '',
       progPill:running ? (st.imp.pass === 2 ? 'measuring ' : 'reading ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + (bad ? ' · ' + bad + ' can\u2019t read' : ''), loadOn:running && n > 0, loadLine,
       progPillC:running ? '#EFECE6' : '#B8B3AB', progPillBg:st.progOn ? 'rgba(239,236,230,0.1)' : 'transparent',
@@ -1548,7 +1567,7 @@ class Component extends DCLogic {
     }
     const fi = Math.round(st.fx);
     if (st.lv === 2) {
-      add('↑', 'Clips · ' + (cg ? cg.title : '')); add('← →', 'scrub'); add('⇧→', next && nm(next)); add('K M C', 'mark ' + nm(st.cur)); add('V', 'preview ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('2×click', 'done here');
+      add('↑', 'Clips · ' + (cg ? cg.title : '')); add('← →', 'scrub'); add('⇧→', next && nm(next)); add('K M C', 'mark ' + nm(st.cur)); if (!this.pvDisabled()) add('V', 'preview ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('2×click', 'done here');
       return {lead:'Viewer · ' + nm(st.cur), list:out};
     }
     add('↑', 'Viewer · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M C', 'mark ' + nm(st.cur));
