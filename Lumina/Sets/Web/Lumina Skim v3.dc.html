@@ -1265,19 +1265,15 @@ class Component extends DCLogic {
     const photos = files.filter(f => /\.(arw|dng|cr3|cr2|nef|raf|orf|rw2|jpe?g|heic)$/i.test(f.name)).length;
     if (!vids.length) { this.setState({impMsg:photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
     const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
-    const clips = [];
-    for (const f of vids) {
-      const base = f.name.replace(/\.\w+$/, ''), sc = xml[base.toUpperCase()];
-      let prof = {gamma:null, primaries:null, source:'none'}, t = null, fps = 0, xdur = 0, cam = '', ltc = '';
-      // Sony writes the same NonRealTimeMeta XML into the end of every XAVC file (the last ~2 KB), so a clip
-      // copied without its M01.XML sidecar still says its camera, profile, length and timecode. Read 16 KB at most.
-      let tx = null; if (sc) { try { tx = await sc.text(); } catch (x) {} }
-      let src = 'sidecar'; if (!tx || !/NonRealTimeMeta/i.test(tx)) { try { const tl = await f.slice(Math.max(0, f.size - 16384)).text(), at = tl.lastIndexOf('<NonRealTimeMeta'); if (at >= 0) { tx = tl.slice(at); src = 'file'; } } catch (x) {} }
-      if (tx) { try { const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1];
-        prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:src}; ltc = (tx.match(/<LtcChange[^>]*value="([0-9A-Fa-f]{8})"/) || [])[1] || ''; if (cd) t = cd.slice(0, 19); if (fr) fps = Math.round(+fr); const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) xdur = +du / +fr; cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {} }
-      if (!t) t = this.iso(f.lastModified);
-      clips.push({id:'F' + String(clips.length + 1).padStart(4, '0'), name:f.name, xdur, cam, ltc, path:rel(f), t, dur:0, fps, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f});
-    }
+    // Listing: every clip's name, size, date and (Sony) length, capture time, camera, profile and timecode, from small
+    // reads only, 16 files at a time, before any picture is decoded. The scenes can be moved as soon as this is done.
+    const tL = performance.now(), lt = this.listTok = {};
+    this.setState({impMsg:'Listing ' + this.plural(vids.length, 'clip') + '…'});
+    const metas = await this.inBatches(vids, 16, f => this.tailMeta(f, xml[f.name.replace(/\.\w+$/, '').toUpperCase()]));
+    if (lt !== this.listTok) return;
+    const tM = performance.now(), from = {file:0, sidecar:0, none:0};
+    const clips = vids.map((f, i) => { const m = metas[i]; from[m.prof.source] = (from[m.prof.source] || 0) + 1;
+      return {id:'F' + String(i + 1).padStart(4, '0'), name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, path:rel(f), t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; });
     clips.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
     const rates = {}; clips.forEach(c => { if (c.fps) rates[c.fps] = (rates[c.fps] || 0) + 1; });
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
@@ -1285,9 +1281,27 @@ class Component extends DCLogic {
     const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true}, clips, gaps:[]};
     if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0;
     this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.want = null; this.setState({}, () => this.save());
-    this.setState({impMsg:null, imp:{n:clips.length, done:0}}); this.clockStart(d, true);
+    this.clockStart(d, true); const k = this.clock; k.meta = Math.round(tM - tL); k.metaFrom = from;
+    // 'listed' is from the folder being handed over to the clips being drawn with their info; the reading starts after.
+    this.setState({impMsg:null, imp:{n:clips.length, done:0}}, () => { if (this.clock !== k || k.listed != null) return; k.listed = Math.round(performance.now() - tL); this.clockSave({name:k.name, n:k.n, bytes:k.bytes, real:true, at:k.at, meta:k.meta, metaFrom:k.metaFrom, listed:k.listed, partial:true}); });
     this.runQueue(clips.slice(), this.qTok);
   }
+  // What a Sony clip says about itself (NonRealTimeMeta, from the sidecar or the end of the file): no decode.
+  sonyMeta(tx, src) {
+    const o = {prof:{gamma:null, primaries:null, source:'none'}, t:null, fps:0, xdur:0, cam:'', ltc:''}; if (!tx) return o;
+    try { const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1];
+      o.prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:src}; o.ltc = (tx.match(/<LtcChange[^>]*value="([0-9A-Fa-f]{8})"/) || [])[1] || ''; if (cd) o.t = cd.slice(0, 19); if (fr) o.fps = Math.round(+fr); const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) o.xdur = +du / +fr; o.cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {}
+    return o;
+  }
+  // Sony writes the same NonRealTimeMeta XML into the end of every XAVC file (the last ~2 KB), so a clip
+  // copied without its M01.XML sidecar still says its camera, profile, length and timecode. Reads 16 KB at most.
+  async tailMeta(f, sc) {
+    let tx = null, src = 'sidecar'; if (sc) { try { tx = await sc.text(); } catch (x) {} }
+    if (!tx || !/NonRealTimeMeta/i.test(tx)) { try { const tl = await f.slice(Math.max(0, f.size - 16384)).text(), at = tl.lastIndexOf('<NonRealTimeMeta'); if (at >= 0) { tx = tl.slice(at); src = 'file'; } } catch (x) {} }
+    return this.sonyMeta(tx, src);
+  }
+  // fn over every item, n at a time, answers in the order given.
+  async inBatches(items, n, fn) { const out = new Array(items.length); let k = 0; const work = async () => { while (k < items.length) { const i = k++; out[i] = await fn(items[i], i); } }; await Promise.all(Array.from({length:Math.max(1, Math.min(n, items.length))}, work)); return out; }
   regap(d) {
     d = d || this.d; const C = d.clips; d.gaps = []; this.whyBy = {};
     for (let i = 0; i < C.length - 1; i++) {
@@ -1377,16 +1391,57 @@ class Component extends DCLogic {
   bump() { if (this.bumpT) return; this.bumpT = setTimeout(() => { this.bumpT = 0; this.setState(s => ({tick:(s.tick || 0) + 1})); }, 120); }
   // The clip nearest the one you are on (by order on the card), taken out of the set.
   pickNear(left) { let best = null, bd = Infinity; const cur = this.byId && this.byId[this.state.cur], at = cur ? cur._i : 0; for (const c of left) { const dd = Math.abs((c._i || 0) - at); if (dd < bd) { bd = dd; best = c; if (!dd) break; } } if (best) left.delete(best); return best; }
+  // First look follows the screen, not the card: what is on screen now, then a cover for every scene, then the
+  // covers of the scenes the slider would make next, then the rest.
+  // Asked again for every clip, so moving the scenes, scrolling or going to another clip changes what comes next.
+  // (A layout that knows what it shows can say so in this._seen = {clips:[ids], groups:[scene numbers]}.)
+  seenNow() {
+    if (this._seen) return this._seen; const st = this.state, sc = this.sc, out = {clips:[], groups:[]};
+    try { if (sc && sc.isConnected && st.lv < 2) { const at = st.lv === 0 ? 'data-gi' : 'data-clip', r = sc.getBoundingClientRect(), on = [], off = [];
+      sc.querySelectorAll('[' + at + ']').forEach(el => { const q = el.getBoundingClientRect(), id = el.getAttribute(at); if (q.bottom > r.top && q.top < r.bottom) on.push(st.lv === 0 ? +id : id); else off.push([q.top < r.top ? r.top - q.bottom : q.top - r.bottom, id]); });
+      if (st.lv === 0) out.groups = on; else out.clips = on.concat(off.sort((a, b) => a[0] - b[0]).map(x => x[1])); } } catch (x) {}
+    if (st.lv === 1 && !out.clips.length && this._visIds) out.clips = this._visIds.slice();
+    return out;
+  }
+  // o.order: every id in the order to fall back on; o.todo: the ids still to read; o.have: ids that have a frame or
+  // are being read; o.groups: the scenes as they are now (ids); o.seen / o.seenG: clips / scenes on screen;
+  // o.cur + o.near: the clip you are on and how many each side of it come first (the Viewer); o.next: the clips
+  // that become covers when the scenes are split further, largest gap first, so the slider finds them read.
+  firstOrder(o) {
+    const todo = o.todo, have = o.have || new Set(), G = o.groups || [], out = [], put = new Set(), add = id => { if (todo.has(id) && !put.has(id)) { put.add(id); out.push(id); } };
+    if (o.near && o.cur != null) { const flat = [].concat(...G), i = flat.indexOf(o.cur); if (i >= 0) { add(o.cur); for (let k = 1; k <= o.near; k++) { add(flat[i + k]); add(flat[i - k]); } } }
+    (o.seen || []).forEach(add);
+    const sg = new Set(o.seenG || []), gis = (o.seenG || []).filter(i => G[i]).concat(G.map((g, i) => i).filter(i => !sg.has(i)));
+    const cover = i => { const g = G[i]; if (g.some(id => have.has(id) || put.has(id))) return; const id = g.find(x => todo.has(x)); if (id != null) add(id); };
+    gis.forEach(cover);
+    (o.next || []).forEach(add);
+    for (let r = 1, any = true; any; r++) { any = false; gis.forEach(i => { if (r < G[i].length) { add(G[i][r]); any = true; } }); }
+    (o.order || []).forEach(add); return out;
+  }
+  pickFirst(left, list) {
+    const st = this.state, now = performance.now(), key = [st.lv, st.nCut, st.cur, st.gi, st.cuts ? st.cuts.length : '', (this.G || []).length].join('|'); let o = this._fo;
+    if (!o || o.left !== left || o.key !== key || now - o.at > 250) {
+      const seen = this.seenNow(), by = this.byId || {}, todo = new Set(); left.forEach(c => todo.add(c.id));
+      // the scenes as last drawn, unless they are another shoot's (the first clips are asked for before the first draw)
+      const G0 = this.G || [], G = G0.length && G0[0].clips[0] && by[G0[0].clips[0].id] === G0[0].clips[0] ? G0 : [];
+      const have = new Set(this.reading); (this.d ? this.d.clips : []).forEach(c => { if (c.frames && c.frames.some(Boolean)) have.add(c.id); });
+      const ids = this.firstOrder({order:list.map(c => c.id), todo, have, groups:G.map(g => g.clips.map(c => c.id)), seen:seen.clips, seenG:G.length ? seen.groups : [], cur:st.cur, near:st.lv >= 2 ? 3 : 0,
+        next:(this.gapsSorted || []).map(g => { const a = by[g.after], b = a && this.d && this.d.clips[a._i + 1]; return b ? b.id : null; })});
+      o = this._fo = {left, key, at:now, i:0, cs:ids.map(id => by[id]).filter(Boolean)};
+    }
+    while (o.i < o.cs.length) { const c = o.cs[o.i++]; if (left.has(c)) { left.delete(c); return c; } }
+    for (const c of left) { left.delete(c); return c; } return null;
+  }
   async runPass(list, tok, idxOf, pass) {
-    let k = 0; const left = pass === 2 ? new Set(list) : null; this.passT0 = Date.now(); this.spd = []; this.spdBase = 0;
+    let k = 0; const left = pass === 2 || pass === 1 ? new Set(list) : null; this.passT0 = Date.now(); this.spd = []; this.spdBase = 0;
     this.setState({imp:{n:list.length, done:0, pass}});
     const work = async () => {
-      while (pass === 2 ? left.size : k < list.length) {
+      while (left ? left.size : k < list.length) {
         if (tok !== this.qTok) return; await this.paceWait(tok); if (tok !== this.qTok) return;
         while (this.prio && this.prio.length) { const x = this.prio.shift(); if (x.thin) await this.readClip(x, tok); if (tok !== this.qTok) return; }
-        const c = pass === 2 ? this.pickNear(left) : list[k++]; if (!c) return; const idx = idxOf(c);
+        const c = pass === 2 ? this.pickNear(left) : pass === 1 ? this.pickFirst(left, list) : list[k++]; if (!c) return; const idx = idxOf(c);
         if (idx.length) { const a = performance.now(); await this.readClip(c, tok, idx);
-          if (c.why === 'hidden') { c.why = null; if (c.facts && c.facts.state === 'unreliable') c.facts = {state:'pending'}; if (pass === 2) left.add(c); else list.push(c); continue; } if (this.clock) (this.clock['ms' + pass] || (this.clock['ms' + pass] = [])).push(Math.round(performance.now() - a));
+          if (c.why === 'hidden') { c.why = null; if (c.facts && c.facts.state === 'unreliable') c.facts = {state:'pending'}; if (left) left.add(c); else list.push(c); continue; } if (this.clock) (this.clock['ms' + pass] || (this.clock['ms' + pass] = [])).push(Math.round(performance.now() - a));
           if (c.why === 'unsupported') { this.unsup = (this.unsup || 0) + 1; } else if (c.why) { c.tries = (c.tries || 0) + 1; this.failRun = (this.failRun || 0) + 1; if (this.failRun >= 3 && !this.halt) { this.halt = true; if (this.clock) this.clock.halts = (this.clock.halts || 0) + 1; this.setState(s => ({tick:(s.tick || 0) + 1})); } } else this.failRun = 0; }
         while (this.halt && tok === this.qTok) await new Promise(r => setTimeout(r, 400));
         if (tok !== this.qTok) return;
@@ -1426,8 +1481,12 @@ class Component extends DCLogic {
     k.p50first = q(k.ms1, 0.5); k.p90first = q(k.ms1, 0.9); k.p50rest = q(k.ms2, 0.5); k.p90rest = q(k.ms2, 0.9); k.retried = (k['ms1.5'] || []).length;
     const h = this.health; if (h && !h.web) { k.heat = h.thermal; k.lumenaMB = Math.round(h.footprintMB || 0); k.memGB = Math.round(h.memGB || 0); }
     const out = {...k}; delete out.ms1; delete out.ms2; delete out['ms1.5']; delete out.t0;
+    this.clockSave(out); this.lastClock = out; this.setState(s => ({tick:(s.tick || 0) + 1}));
+  }
+  // The last ten loads. A load is written once when it is listed (partial) and again, in its place, when it is done.
+  clockSave(out) {
     let all = []; try { all = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]'); } catch (x) {} if (!Array.isArray(all)) all = [];
-    all.unshift(out); this.persist('lumina-skim:clock', JSON.stringify(all.slice(0, 10))); this.lastClock = out; this.setState(s => ({tick:(s.tick || 0) + 1}));
+    all = all.filter(e => !(e && e.partial && e.at === out.at && e.name === out.name)); all.unshift(out); this.persist('lumina-skim:clock', JSON.stringify(all.slice(0, 10)));
   }
   fmtSec(ms) { const s = Math.round(ms / 1000); return s < 60 ? s + ' s' : Math.floor(s / 60) + ' min ' + (s % 60) + ' s'; }
   fmtLeft(sec) { return sec < 50 ? 'under a minute left' : sec < 90 ? 'about a minute left' : 'about ' + Math.round(sec / 60) + ' min left'; }
