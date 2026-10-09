@@ -1163,11 +1163,15 @@ class Component extends DCLogic {
     const clips = [];
     for (const f of vids) {
       const base = f.name.replace(/\.\w+$/, ''), sc = xml[base.toUpperCase()];
-      let prof = {gamma:null, primaries:null, source:'none'}, t = null, fps = 0, xdur = 0, cam = '';
-      if (sc) { try { const tx = await sc.text(); const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1];
-        prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:'sidecar'}; if (cd) t = cd.slice(0, 19); if (fr) fps = Math.round(+fr); const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) xdur = +du / +fr; cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {} }
+      let prof = {gamma:null, primaries:null, source:'none'}, t = null, fps = 0, xdur = 0, cam = '', ltc = '';
+      // Sony writes the same NonRealTimeMeta XML into the end of every XAVC file (the last ~2 KB), so a clip
+      // copied without its M01.XML sidecar still says its camera, profile, length and timecode. Read 16 KB at most.
+      let tx = null; if (sc) { try { tx = await sc.text(); } catch (x) {} }
+      let src = 'sidecar'; if (!tx || !/NonRealTimeMeta/i.test(tx)) { try { const tl = await f.slice(Math.max(0, f.size - 16384)).text(), at = tl.lastIndexOf('<NonRealTimeMeta'); if (at >= 0) { tx = tl.slice(at); src = 'file'; } } catch (x) {} }
+      if (tx) { try { const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1];
+        prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:src}; ltc = (tx.match(/<LtcChange[^>]*value="([0-9A-Fa-f]{8})"/) || [])[1] || ''; if (cd) t = cd.slice(0, 19); if (fr) fps = Math.round(+fr); const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) xdur = +du / +fr; cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {} }
       if (!t) t = this.iso(f.lastModified);
-      clips.push({id:'F' + String(clips.length + 1).padStart(4, '0'), name:f.name, xdur, cam, path:rel(f), t, dur:0, fps, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f});
+      clips.push({id:'F' + String(clips.length + 1).padStart(4, '0'), name:f.name, xdur, cam, ltc, path:rel(f), t, dur:0, fps, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f});
     }
     clips.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
     const rates = {}; clips.forEach(c => { if (c.fps) rates[c.fps] = (rates[c.fps] || 0) + 1; });
