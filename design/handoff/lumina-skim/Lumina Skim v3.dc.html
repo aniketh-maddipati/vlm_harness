@@ -217,8 +217,9 @@ input[type=range]{accent-color:#B8B3AB}
           <sc-for list="{{ chs }}" as="g" hint-placeholder-count="5">
             <div data-gi="{{ g.i }}" onMouseEnter="{{ gEnter }}" onClick="{{ gClick }}" onDoubleClick="{{ gDbl }}" style="content-visibility:auto;contain-intrinsic-size:auto 280px;position:relative;display:flex;flex-direction:column;gap:7px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;opacity:{{ g.op }}">
               <sc-if value="{{ g.join }}" hint-placeholder-val="{{ false }}"><div data-lumina="scene-join" title="{{ g.joinT }}" style="position:absolute;left:-14px;top:{{ g.jy }}px;width:22px;height:2px;margin-top:-1px;border-radius:1px;background:rgba(239,236,230,0.45);pointer-events:none"></div></sc-if>
-              <div style="position:relative;aspect-ratio:16/9;border-radius:3px;overflow:hidden">
+              <div style="position:relative;aspect-ratio:16/9;border-radius:3px;overflow:hidden;background:#2A2826">
                 <div style="position:absolute;inset:0;background:{{ g.thumb }};filter:{{ g.flt }};animation:{{ g.anim }}"></div>
+                <sc-if value="{{ g.phOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-wait" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 10px;text-align:center;white-space:nowrap;overflow:hidden;pointer-events:none"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ g.phName }}</span><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ g.phSub }}</span></div></sc-if>
                 <div style="position:absolute;inset:0;border-radius:3px;box-shadow:{{ g.edge }};pointer-events:none"></div>
                 <sc-if value="{{ g.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ g.ghostC }};font-weight:700;opacity:0.7">{{ g.ghostT }}</div></sc-if>
               </div>
@@ -246,6 +247,7 @@ input[type=range]{accent-color:#B8B3AB}
                 <div data-clip="{{ p.id }}" onMouseEnter="{{ tEnter }}" onClick="{{ tClick }}" onDoubleClick="{{ tDbl }}" style="position:relative;display:flex;flex-direction:column;gap:7px;padding:7px;margin:-7px;border-radius:9px;background:{{ p.bg }};outline:{{ p.out }};outline-offset:1px">
                   <div style="position:relative;border-radius:4px;overflow:hidden">
                     <sc-if value="{{ grid42 }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px"><sc-for list="{{ p.fr }}" as="f" hint-placeholder-count="8"><div style="aspect-ratio:16/9;background:{{ f.bg }};filter:{{ f.flt }};animation:{{ f.anim }}"></div></sc-for></div></sc-if>
+                    <sc-if value="{{ p.phOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-wait" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 10px;text-align:center;white-space:nowrap;overflow:hidden;pointer-events:none"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ p.name }}</span><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ p.phSub }}</span></div></sc-if>
                     <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ p.edge }};pointer-events:none"></div>
                     <sc-if value="{{ p.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:#161514;color:{{ p.markC }};font-weight:700">{{ p.mark }}</div></sc-if>
                     <sc-if value="{{ p.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ p.ghostC }};font-weight:700;opacity:0.7">{{ p.ghostT }}</div></sc-if>
@@ -307,6 +309,12 @@ input[type=range]{accent-color:#B8B3AB}
         </div>
         <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
           <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:22px">{{ cv.name }}</span><span style="color:#9A958D">{{ cv.when }}</span></div>
+          <div data-lumina="viewer-mark" style="display:flex;flex-direction:column;gap:7px">
+            <div style="display:flex;gap:5px">
+              <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><div data-well="{{ pk.m }}" role="button" tabIndex="0" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · moves on to the next undecided clip" onClick="{{ wClick }}" style="flex:1 1 0;min-width:0;height:30px;box-sizing:border-box;padding:0 7px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="background:rgba(239,236,230,0.1)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:18px;height:18px;box-sizing:border-box;padding:0 4px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">{{ pk.k }}</span><span style="color:{{ pk.fg }}">{{ pk.l }}</span></div></sc-for>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:10px;white-space:nowrap"><span data-lumina="viewer-mark-now" style="color:{{ cv.markNowC }};font-weight:600">{{ cv.markNow }}</span><span data-lumina="viewer-cut" style="color:#B8B3AB">{{ cutSoFar }}</span></div>
+          </div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;min-height:20px">
             <sc-for list="{{ cv.chips }}" as="c" hint-placeholder-count="3"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for>
           </div>
@@ -571,12 +579,30 @@ class Component extends DCLogic {
   }
   pendV() { return {key:'-', cid:'', t:'—', bg:'transparent', sh:'inset 0 0 0 1px rgba(239,236,230,0.2)', fg:'#6E6A64', cur:'default', tip:'measuring'}; }
   frameEv(c) { const f = c.facts || {}; return f.ev != null ? f.ev : 0; }
-  tone(c, i, big) {
+  // What a tile shows while it waits or changes (canvas A). No frame yet: a still, neutral tone (the tile writes the
+  // clip's name and time over it). A new picture is laid over the one this slot showed before, which stays underneath
+  // until the new one has been decoded, so a tile never passes through empty. A slot is a scene tile or a clip's frame.
+  static PH = '#2A2826';
+  waiting(c) { return !!c && !!(c._file || c._mock) && !(c.frames && c.frames.some(Boolean)); }
+  phSub(c) { return [c.t ? this.hm(c.t) : '', c.dur ? this.fmtDur(c.dur) : ''].filter(Boolean).join(' · '); }
+  pic(s, c, j) {
+    const url = c.frames[j];
+    if (s.url !== url) { const old = s.url && s.c && s.c.frames && s.c.frames[s.j] === s.url ? s : null; s.pu = old ? old.url : null; s.pc = old ? old.c : null; s.pj = old ? old.j : 0; s.url = url; s.c = c; s.j = j; if (s.pu) this.picWait(s, url); }
+    else if (s.pu && !(s.pc && s.pc.frames && s.pc.frames[s.pj] === s.pu)) s.pu = null;
+    return 'url(' + url + ') center/cover' + (s.pu ? ', url(' + s.pu + ') center/cover' : '') + ', ' + Component.PH;
+  }
+  picWait(s, url) {
+    const done = () => { if (s.url === url) { s.pu = null; s.pc = null; } };
+    if (typeof Image === 'undefined') return done();
+    const im = new Image(); im.src = url; (im.decode ? im.decode() : Promise.reject()).then(done, () => setTimeout(done, 400));
+  }
+  tone(c, i, big, slot) {
     const f = c.facts && c.facts.state === 'ready' ? c.facts : {};
     const h = c.look ? c.look.hue : 40, ev = this.frameEv(c), pv = this.pvOn(c);
+    const sl = slot || ((c._sl || (c._sl = {}))[i] || (c._sl[i] = {}));
     if (c.frames && !c.frames[i]) { let j = -1; for (let k = 1; k < 8 && j < 0; k++) { if (c.frames[i - k]) j = i - k; else if (c.frames[i + k]) j = i + k; } if (j >= 0) i = j; }
-    if (c.frames && c.frames[i]) return {bg:'url(' + c.frames[i] + ') center/cover', flt:pv ? this.pvFlt(c) : 'none', anim:'fade 220ms ease-out'};
-    if (c._file || c._mock) return c.facts && c.facts.state === 'unreliable' ? {bg:'#262523', flt:'none', anim:'none'} : {bg:'#2E2C29', flt:'none', anim:'breathe 1.8s ease-in-out ' + (i * 0.11).toFixed(2) + 's infinite'};
+    if (c.frames && c.frames[i]) return {bg:this.pic(sl, c, i), flt:pv ? this.pvFlt(c) : 'none', anim:'none'};
+    if (c._file || c._mock) { sl.url = null; sl.pu = null; return {bg:Component.PH, flt:'none', anim:'none'}; }
     let L = 0.5 + ev * 0.085 + Math.sin((i + 1) * 1.7 + c._i) * 0.035 + (f.clip || 0) / 40;
     if (f.bump === i) L += 0.28;
     L = Math.max(0.1, Math.min(0.96, L));
@@ -610,6 +636,23 @@ class Component extends DCLogic {
   // marks + undo
   verb(m) { return m ? Component.VERB[m] || m : 'put back'; }
   sentence(ids, m) { return this.verb(m) + ' ' + this.plural(ids.length, 'clip') + ' · ' + this.fmtB(this.bytesOf(ids)); }
+  // Marking as plain functions (Tests/web/skim-marking.test.mjs reads them out of the page).
+  // nextUp: where a mark moves on to. The next undecided clip after cur in reading order; when none is left
+  // after it, the first undecided one before it; when every clip is decided, simply the next clip (cur on the last).
+  static nextUp(flat, marks, cur) {
+    const i = flat.indexOf(cur), n = flat.length; if (i < 0) return cur;
+    for (let k = 1; k < n; k++) { const id = flat[(i + k) % n]; if (!marks[id]) return id; }
+    return flat[Math.min(n - 1, i + 1)];
+  }
+  // markStep: the marks after a step is redone (back false) or undone (back true: every clip gets its earlier mark back).
+  static markStep(marks, step, back) { const out = {...marks}; step.ids.forEach(id => { const v = back ? step.prev[id] : step.next; if (v) out[id] = v; else delete out[id]; }); return out; }
+  // stepCur: the clip an undo (back) or redo lands on; null when the step did not move on (an area mark, a well in Scenes).
+  static stepCur(step, back) { return step.at ? (back ? step.at.from : step.at.to) : null; }
+  goClip(n) {
+    const st = this.state; if (!n || n === st.cur || !this.byId[n]) return;
+    if (st.lv === 1) { this.wantScroll = ['[data-clip="' + n + '"]']; this.anchor = null; this.setState({cur:n}); }
+    else if (st.lv >= 2) this.setState({cur:n, fx:0, hv:null});
+  }
   doMark(ids, m) {
     if (!ids.length) return;
     const st = this.state, prev = {}, marks = {...st.marks};
@@ -628,9 +671,8 @@ class Component extends DCLogic {
   apply(step, back) {
     const st = this.state;
     if (step.k === 'mark') {
-      const marks = {...st.marks};
-      step.ids.forEach(id => { const v = back ? step.prev[id] : step.next; if (v) marks[id] = v; else delete marks[id]; });
-      this.setState({marks});
+      const marks = Component.markStep(st.marks, step, back);
+      this.setState({marks}); this.goClip(Component.stepCur(step, back));
       if (back) { const by = {}; step.ids.forEach(id => { const v = step.prev[id] || ''; (by[v] = by[v] || []).push(id); }); Object.keys(by).forEach(v => this.api('mark', by[v], v || null)); }
       else this.api('mark', step.ids, step.next);
       return (back ? 'undid · ' : 'redid · ') + this.verb(step.next) + ' ' + this.plural(step.ids.length, 'clip');
@@ -641,12 +683,58 @@ class Component extends DCLogic {
   flash(t) { clearTimeout(this.flT); this.setState({flash:t}); this.flT = setTimeout(() => this.setState({flash:null}), 2200); }
   // navigation
   // Clips grid geometry, worked out rather than measured, so only the rows near the screen are built.
-  tileGeo() {
-    const st = this.state, sc = this.sc, z = st.z1 || 1, gy = Math.round(20 * Math.min(1, z + 0.2)), gx = Math.round(18 * Math.min(1, z + 0.2));
-    const pad = Math.min(40, Math.max(16, st.vw * 0.022)), W = Math.max(200, (sc && sc.clientWidth ? sc.clientWidth : st.vw) - 2 * pad), tmin = Math.min(W, Math.round(272 * z));
+  tileGeo() { const st = this.state, sc = this.sc; return Component.layGeo({vw:st.vw, cw:sc && sc.clientWidth, z:st.z1}); }
+  // Layout as maths (canvas plan 1.2). Nothing below touches the DOM or this: sizes in, rectangles out, so the same
+  // numbers place the tiles today and will place them on the canvas. Lengths are CSS px from the scroller's content
+  // corner (its padding included). vw is the window's width, cw the scroller's (without its scrollbar) when known.
+  // Clips geometry: z is the tile zoom. th is a whole tile (8 frames in 2 rows, the name line, the flags), ph its pictures.
+  static layGeo(o) {
+    const z = o.z || 1, gy = Math.round(20 * Math.min(1, z + 0.2)), gx = Math.round(18 * Math.min(1, z + 0.2));
+    const pad = Math.min(40, Math.max(16, o.vw * 0.022)), W = Math.max(200, (o.cw ? o.cw : o.vw) - 2 * pad), tmin = Math.min(W, Math.round(272 * z));
     const cols = Math.max(1, Math.floor((W + gx) / (tmin + gx))), tw = (W - (cols - 1) * gx) / cols, fh = (tw - 6) / 4 * 9 / 16;
-    const th = 2 * fh + 2 + 7 + 18 + 7 + 20; return {cols, tw, th, gy, gx, pitch:th + gy};
+    const ph = 2 * fh + 2, th = ph + 7 + 18 + 7 + 20; return {cols, tw, th, gy, gx, pitch:th + gy, pad, W, ph, fw:(tw - 6) / 4, fh};
   }
+  // Scenes geometry: as many 250 px columns as fit, 22 px apart; a tile is its 16:9 cover and 74 px of lines, rows 26 px apart.
+  static laySceneGeo(o) {
+    const pad = Math.min(40, Math.max(16, o.vw * 0.022)), W = Math.max(250, (o.cw ? o.cw : o.vw) - 2 * pad), cols = Math.max(1, Math.floor((W + 22) / 272)), tw = (W - (cols - 1) * 22) / cols;
+    const ph = tw * 9 / 16, th = ph + 74; return {cols, tw, th, gx:22, gy:26, pitch:th + 26, pad, W, ph};
+  }
+  // Clips: groups is [{i, n}] (n = clips shown in scene i; empty scenes take no room). top and h are the scroller's
+  // scrollTop and height; over is how many screens are laid out above and below it (1 by default). cur {gi, k} keeps
+  // the rows around clip k of scene gi laid out wherever the window is. Each section: where its header and grid start,
+  // its rows, the rows laid out [r0, r1) and the space standing in for the rest. rects (unless rects:false) are the
+  // laid-out tiles in order: g scene, k clip within it, x y w h the tile, ph the height of its pictures.
+  static layClips(o) {
+    const geo = o.geo || Component.layGeo(o), top = o.top || 0, h = o.h || 0, over = o.over == null ? 1 : o.over, vTop = top - over * h, vBot = top + h + over * h;
+    const cur = o.cur || null, want = o.rects !== false, secs = [], rects = []; let y = 10;
+    for (const g of o.groups) {
+      if (!g.n) continue;
+      const bnd = g.i > 0, rows = Math.ceil(g.n / geo.cols), sTop = y, gTop = y + (bnd ? 44 : 0) + 6 + 26 + 12; y = gTop + rows * geo.pitch - geo.gy + 10;
+      let r0 = Math.max(0, Math.floor((vTop - gTop) / geo.pitch)), r1 = Math.min(rows, Math.ceil((vBot - gTop) / geo.pitch));
+      if (cur && cur.gi === g.i && cur.k >= 0) { const cr = Math.floor(cur.k / geo.cols); r0 = r1 > r0 ? Math.min(r0, Math.max(0, cr - 2)) : Math.max(0, cr - 2); r1 = Math.max(r1, Math.min(rows, cr + 3)); }
+      if (r1 <= r0) { r0 = rows; r1 = rows; }
+      const padT = r1 > r0 ? r0 * geo.pitch : Math.max(0, rows * geo.pitch - geo.gy), padB = r1 > r0 ? (rows - r1) * geo.pitch : 0;
+      secs.push({gi:g.i, bnd, y:sTop, headY:sTop + (bnd ? 44 : 0) + 6, top:gTop, rows, r0, r1, padT:Math.round(padT), padB:Math.round(padB)});
+      if (want) for (let k = r0 * geo.cols, e = Math.min(g.n, r1 * geo.cols); k < e; k++) rects.push({g:g.i, k, x:geo.pad + (k % geo.cols) * (geo.tw + geo.gx), y:gTop + Math.floor(k / geo.cols) * geo.pitch, w:geo.tw, h:geo.th, ph:geo.ph});
+    }
+    return {geo, secs, rects, height:y + 40};
+  }
+  // Scenes: n tiles in rows; head is the height of what stands above the grid (the scene slider). Rows in the window
+  // (with over screens around it) come back as rects: g the scene, x y w h the tile, ph the height of its cover.
+  static layScenes(o) {
+    const geo = o.geo || Component.laySceneGeo(o), n = o.n || 0, y0 = 18 + (o.head || 0), rows = Math.ceil(n / geo.cols), top = o.top || 0, h = o.h || 0, over = o.over == null ? 1 : o.over;
+    const all = !h, r0 = all ? 0 : Math.min(rows, Math.max(0, Math.floor((top - over * h - y0) / geo.pitch))), r1 = all ? rows : Math.max(r0, Math.min(rows, Math.ceil((top + h + over * h - y0) / geo.pitch))), rects = [];
+    if (o.rects !== false) for (let g = r0 * geo.cols, e = Math.min(n, r1 * geo.cols); g < e; g++) rects.push({g, x:geo.pad + (g % geo.cols) * (geo.tw + geo.gx), y:y0 + Math.floor(g / geo.cols) * geo.pitch, w:geo.tw, h:geo.th, ph:geo.ph});
+    return {geo, rows, r0, r1, rects, height:y0 + Math.max(0, rows * geo.pitch - geo.gy) + 40};
+  }
+  // One way in: lv 0 Scenes, 1 Clips; z the Clips tile zoom; win {vw, cw, top, h}; groups [{i, n}] (the grouping level
+  // decides how many there are); cur {gi, k}. Returns {geo, rects, height} and the level's own rows or sections.
+  static layout(o) {
+    const w = o.win || {}, a = {vw:w.vw, cw:w.cw, top:w.top, h:w.h, over:o.over, rects:o.rects};
+    return o.lv === 0 ? Component.layScenes({...a, n:o.groups.length, head:o.head}) : Component.layClips({...a, z:o.z, groups:o.groups, cur:o.cur});
+  }
+  // Which tile is under a point of the scroller's content (null between tiles).
+  static layHit(rects, x, y) { for (let i = 0; i < rects.length; i++) { const r = rects[i]; if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r; } return null; }
   scScroll = () => { if (this.scRaf) return; this.scRaf = requestAnimationFrame(() => { this.scRaf = 0; const sc = this.sc; if (!sc) return; const st = this.state, g = this.tileGeo(); if (Math.abs(sc.scrollTop - (st.scTop || 0)) > g.pitch * 0.5 || sc.clientHeight !== st.scH) this.setState({scTop:sc.scrollTop, scH:sc.clientHeight}); }); };
   scrollTo(sel, top) {
     const sc = this.sc; if (!sc || !sc.isConnected) return; const el = sc.querySelector(sel); if (!el) return;
@@ -708,7 +796,8 @@ class Component extends DCLogic {
     if (st.sel.length) return this.areaMark(st.sel, m);
     if (st.lv === 0 || !st.cur) return;
     this.doMark([st.cur], m);
-    if (st.lv === 1) this.move(1); else this.takeStep(1);
+    const n = Component.nextUp(this.flat, {...st.marks, [st.cur]:m}, st.cur);
+    this.lastMark.step.at = {from:st.cur, to:n}; this.goClip(n);
   }
   esc() {
     const st = this.state;
@@ -718,7 +807,7 @@ class Component extends DCLogic {
     if (st.prop) { clearTimeout(this.propT); this.propFn = null; return this.setState({prop:null}); }
     if (st.sel.length || st.box) { this.anchor = null; return this.setState({sel:[], box:null}); }
     const lm = this.lastMark, top = st.undo[st.undo.length - 1];
-    if (lm && top === lm.step && Date.now() - lm.at < 8000 && (lm.step.ids.includes(st.cur) || st.lv === 0)) { this.lastMark = null; return this.undo(); }
+    if (lm && top === lm.step && Date.now() - lm.at < 8000 && (lm.step.ids.includes(st.cur) || st.lv === 0 || (lm.step.at && lm.step.at.to === st.cur))) { this.lastMark = null; return this.undo(); }
     if (st.lv > 0) this.setLv(0);
   }
 
@@ -880,7 +969,7 @@ class Component extends DCLogic {
   gDbl = e => { if (!this.state.held) this.unfurl(+e.currentTarget.getAttribute('data-gi')); };
   sClick = e => { this.setState({cur:e.currentTarget.getAttribute('data-strip'), fx:0}); };
   wM(e) { return e.currentTarget.getAttribute('data-well'); }
-  wClick = e => { const m = this.wM(e), st = this.state; if (st.sel.length || st.lv === 0) return this.areaMark(this.targets(), m); if (st.cur) this.doMark([st.cur], m); };
+  wClick = e => { const m = this.wM(e), st = this.state; if (st.sel.length || st.lv === 0) return this.areaMark(this.targets(), m); this.quick(m); };
   scrubMove = e => { const r = e.currentTarget.getBoundingClientRect(); this.setState({fx:Math.max(0, Math.min(7, (e.clientX - r.left) / r.width * 7))}); };
   picF(e) { const r = e.currentTarget.firstElementChild.getBoundingClientRect(); return Math.max(0, Math.min(0.999, (e.clientX - r.left) / Math.max(1, r.width))); }
   picMove = e => { const id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e), h = this.state.hv;
@@ -942,7 +1031,7 @@ class Component extends DCLogic {
   };
   gapChange = e => { this.userCut = true; const v = +e.target.value; clearTimeout(this.gapT); this.setState({nCutUi:v}); this.gapT = setTimeout(() => this.gapsSet(v), 140); };
   // As many scenes as fit the window without scrolling: every gap cut when all the clips fit.
-  sceneGrid() { const st = this.state, pad = Math.min(40, Math.max(16, st.vw * 0.022)), W = Math.max(250, st.vw - 2 * pad), cols = Math.max(1, Math.floor((W + 22) / 272)), tw = (W - (cols - 1) * 22) / cols; return {cols, tw}; }
+  sceneGrid() { return Component.laySceneGeo({vw:this.state.vw}); }
   fitCut(n) {
     const gs = this.gapsSorted || [], {cols, tw} = this.sceneGrid(), th = tw * 9 / 16 + 74 + 26, avail = this.state.vh - 52 - 44 - 30 - 48 - 120;
     const fit = cols * Math.max(1, Math.floor(avail / th));
@@ -1023,14 +1112,14 @@ class Component extends DCLogic {
       vals.sliderOn = C.length > 1; vals.gapMax = gs.length; vals.nCut = st.nCutUi != null ? st.nCutUi : st.nCut; vals.gapChange = this.gapChange;
       vals.gapLine = st.nCutUi != null ? this.plural(Math.min(C.length, st.nCutUi + 1), 'scene') : this.plural(G.length, 'scene') + (st.cuts ? ' · moved by you' : '');
       vals.chs = G.map(g => {
-        const cvc = g.clips.find(c => c.frames && c.frames.some(Boolean)) || g.clips[0], t0 = this.tone(cvc, this.firstIdx()), dn = {keep:0, maybe:0, cut:0};
+        const cvc = g.clips.find(c => c.frames && c.frames.some(Boolean)) || g.clips[0], t0 = this.tone(cvc, this.firstIdx(), false, (this.gSlot || (this.gSlot = []))[g.i] || (this.gSlot[g.i] = {})), dn = {keep:0, maybe:0, cut:0};
         g.clips.forEach(c => { const m = st.marks[c.id]; if (m) dn[m]++; });
         const anySel = g.vis.some(c => selSet.has(c.id)), isCur = st.gi === g.i;
         const gm = st.held ? (st.sel.length ? (anySel ? st.held : null) : (isCur ? st.held : null)) : null;
         const n = g.clips.length, few = n <= 48;
         const sg = this.sceneGrid(), join = g.i > 0 && g.gapS != null && g.gapS <= 60 && g.i % sg.cols !== 0;
         return {join, joinT:'continuous · ' + this.fmtGap(g.gapS || 0) + ' apart', jy:Math.round(8 + sg.tw * 9 / 32), i:g.i, title:g.title, size:this.fmtB(g.bytes), count:g.vis.length === n ? this.plural(n, 'clip') : g.vis.length + ' of ' + this.plural(n, 'clip') + ' shown', why:g.why,
-          thumb:t0.bg, flt:t0.flt, anim:t0.anim, edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
+          thumb:t0.bg, flt:t0.flt, anim:t0.anim, phOn:this.waiting(cvc), phName:cvc.name.replace(/\.\w+$/, ''), phSub:this.phSub(cvc), edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
           bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.6)' : 'none', op:g.vis.length ? 1 : 0.4,
           dotsOn:few, dots:few ? g.clips.map(c => ({c:st.marks[c.id] ? MK[st.marks[c.id]] : 'rgba(239,236,230,0.2)'})) : [],
           barOn:!few, segs:few ? [] : ['keep', 'maybe', 'cut'].map(m => ({w:(dn[m] / n * 100).toFixed(1) + '%', c:MK[m]}))};
@@ -1038,17 +1127,14 @@ class Component extends DCLogic {
     }
     // takes level
     if (vals.lv1) {
-      const geo = this.tileGeo(), vTop = (st.scTop || 0) - (st.scH || st.vh), vBot = (st.scTop || 0) + 2 * (st.scH || st.vh); let y = 10;
+      const geo = this.tileGeo(), curG = st.cur != null ? G.find(g => g.vis.some(c => c.id === st.cur)) : null, SL = {};
+      Component.layClips({geo, top:st.scTop || 0, h:st.scH || st.vh, groups:G.map(g => ({i:g.i, n:g.vis.length})), cur:curG ? {gi:curG.i, k:curG.vis.findIndex(c => c.id === st.cur)} : null, rects:false}).secs.forEach(s => { SL[s.gi] = s; });
       const curIdx = id => id;
       vals.tileCols = geo.cols; vals.tileGap = geo.gy + 'px ' + geo.gx + 'px';
       vals.secs = G.filter(g => g.vis.length).map(g => {
         const dn = g.clips.filter(c => st.marks[c.id]).length, bndOk = g.i > 0;
         // this section's rows on screen (or around the clip you're on), the rest as spacers of the same height
-        const rows = Math.ceil(g.vis.length / geo.cols), gTop = y + (bndOk ? 44 : 0) + 6 + 26 + 12; y = gTop + rows * geo.pitch - geo.gy + 10;
-        let r0 = Math.max(0, Math.floor((vTop - gTop) / geo.pitch)), r1 = Math.min(rows, Math.ceil((vBot - gTop) / geo.pitch));
-        const ci = g.vis.findIndex(c => c.id === st.cur); if (ci >= 0) { const cr = Math.floor(ci / geo.cols); r0 = r1 > r0 ? Math.min(r0, Math.max(0, cr - 2)) : Math.max(0, cr - 2); r1 = Math.max(r1, Math.min(rows, cr + 3)); }
-        if (r1 <= r0) { r0 = rows; r1 = rows; }
-        const vis = g.vis.slice(r0 * geo.cols, r1 * geo.cols), padT = r1 > r0 ? r0 * geo.pitch : Math.max(0, rows * geo.pitch - geo.gy), padB = r1 > r0 ? (rows - r1) * geo.pitch : 0;
+        const L = SL[g.i], vis = g.vis.slice(L.r0 * geo.cols, L.r1 * geo.cols), padT = L.padT, padB = L.padB;
         return {gi:g.i, title:g.title, count:g.vis.length === g.clips.length ? this.plural(g.clips.length, 'clip') : g.vis.length + ' of ' + this.plural(g.clips.length, 'clip'), size:this.fmtB(g.bytes), why:g.why,
           hWhy:bndOk ? '' : g.why, bnd:bndOk, bFg:'#9A958D', bLine:'rgba(239,236,230,0.12)',
           prog:dn + ' of ' + g.clips.length + ' decided',
@@ -1057,7 +1143,7 @@ class Component extends DCLogic {
             const m = st.marks[c.id] || null, isSel = selSet.has(c.id), isCur = st.cur === c.id;
             const gm = ghostFor(isSel, isCur);
             const gc = gm ? (MK[gm] || '#B8B3AB') : null, ch = this.chips(c);
-            return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:c.dur ? this.fmtDur(c.dur) : '—', size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c),
+            return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:c.dur ? this.fmtDur(c.dur) : '—', size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c), phOn:this.waiting(c), phSub:this.phSub(c),
               edge:gm ? 'inset 0 0 0 2px ' + gc + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gc || '',
               chips:ch.pending ? [this.pendV(), this.pendV()] : ch.list.slice(0, 3).map(x => this.chipV(c, x)),
               bg:isSel ? 'rgba(255,210,122,0.08)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.7)' : 'none'};
@@ -1091,6 +1177,8 @@ class Component extends DCLogic {
       facts.push({k:'mark', v:m ? this.W(m) : 'undecided', c:m ? MK[m] : '#9A958D'});
       facts.forEach(x => { if (!x.c) x.c = '#EFECE6'; });
       vals.cv = {name:c.name.replace(/\.\w+$/, ''), when:this.hm(c.t) + ' · ' + this.fmtDur(c.dur), bg:t.bg, flt:t.flt, edge:gm ? 'inset 0 0 0 3px ' + MK[gm] + '99' : m ? 'inset 0 0 0 3px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '',
+        picks:[['keep', 'K'], ['maybe', 'M'], ['cut', 'C']].map(([pm, pk]) => ({m:pm, k:pk, l:this.W(pm), on:m === pm, fg:m === pm ? MK[pm] : '#EFECE6', bg:m === pm ? 'rgba(239,236,230,0.1)' : 'rgba(239,236,230,0.05)', ring:m === pm ? '2px ' + MK[pm] : '1px rgba(239,236,230,0.1)'})),
+        markNow:m ? this.W(m) : 'undecided', markNowC:m ? MK[m] : '#9A958D',
         ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
         chips:ch.pending ? [this.pendV(), this.pendV(), this.pendV()] : ch.list.map(x => this.chipV(c, x))};
       vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
@@ -1230,19 +1318,15 @@ class Component extends DCLogic {
     const photos = files.filter(f => /\.(arw|dng|cr3|cr2|nef|raf|orf|rw2|jpe?g|heic)$/i.test(f.name)).length;
     if (!vids.length) { this.setState({impMsg:photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
     const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
-    const clips = [];
-    for (const f of vids) {
-      const base = f.name.replace(/\.\w+$/, ''), sc = xml[base.toUpperCase()];
-      let prof = {gamma:null, primaries:null, source:'none'}, t = null, fps = 0, xdur = 0, cam = '', ltc = '';
-      // Sony writes the same NonRealTimeMeta XML into the end of every XAVC file (the last ~2 KB), so a clip
-      // copied without its M01.XML sidecar still says its camera, profile, length and timecode. Read 16 KB at most.
-      let tx = null; if (sc) { try { tx = await sc.text(); } catch (x) {} }
-      let src = 'sidecar'; if (!tx || !/NonRealTimeMeta/i.test(tx)) { try { const tl = await f.slice(Math.max(0, f.size - 16384)).text(), at = tl.lastIndexOf('<NonRealTimeMeta'); if (at >= 0) { tx = tl.slice(at); src = 'file'; } } catch (x) {} }
-      if (tx) { try { const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1];
-        prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:src}; ltc = (tx.match(/<LtcChange[^>]*value="([0-9A-Fa-f]{8})"/) || [])[1] || ''; if (cd) t = cd.slice(0, 19); if (fr) fps = Math.round(+fr); const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) xdur = +du / +fr; cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {} }
-      if (!t) t = this.iso(f.lastModified);
-      clips.push({id:'F' + String(clips.length + 1).padStart(4, '0'), name:f.name, xdur, cam, ltc, path:rel(f), t, dur:0, fps, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f});
-    }
+    // Listing: every clip's name, size, date and (Sony) length, capture time, camera, profile and timecode, from small
+    // reads only, 16 files at a time, before any picture is decoded. The scenes can be moved as soon as this is done.
+    const tL = performance.now(), lt = this.listTok = {};
+    this.setState({impMsg:'Listing ' + this.plural(vids.length, 'clip') + '…'});
+    const metas = await this.inBatches(vids, 16, f => this.tailMeta(f, xml[f.name.replace(/\.\w+$/, '').toUpperCase()]));
+    if (lt !== this.listTok) return;
+    const tM = performance.now(), from = {file:0, sidecar:0, none:0};
+    const clips = vids.map((f, i) => { const m = metas[i]; from[m.prof.source] = (from[m.prof.source] || 0) + 1;
+      return {id:'F' + String(i + 1).padStart(4, '0'), name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, path:rel(f), t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; });
     clips.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
     const rates = {}; clips.forEach(c => { if (c.fps) rates[c.fps] = (rates[c.fps] || 0) + 1; });
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
@@ -1250,9 +1334,27 @@ class Component extends DCLogic {
     const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true}, clips, gaps:[]};
     if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0;
     this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.want = null; this.setState({}, () => this.save());
-    this.setState({impMsg:null, imp:{n:clips.length, done:0}}); this.clockStart(d, true);
+    this.clockStart(d, true); const k = this.clock; k.meta = Math.round(tM - tL); k.metaFrom = from;
+    // 'listed' is from the folder being handed over to the clips being drawn with their info; the reading starts after.
+    this.setState({impMsg:null, imp:{n:clips.length, done:0}}, () => { if (this.clock !== k || k.listed != null) return; k.listed = Math.round(performance.now() - tL); this.clockSave({name:k.name, n:k.n, bytes:k.bytes, real:true, at:k.at, meta:k.meta, metaFrom:k.metaFrom, listed:k.listed, partial:true}); });
     this.runQueue(clips.slice(), this.qTok);
   }
+  // What a Sony clip says about itself (NonRealTimeMeta, from the sidecar or the end of the file): no decode.
+  sonyMeta(tx, src) {
+    const o = {prof:{gamma:null, primaries:null, source:'none'}, t:null, fps:0, xdur:0, cam:'', ltc:''}; if (!tx) return o;
+    try { const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1];
+      o.prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:src}; o.ltc = (tx.match(/<LtcChange[^>]*value="([0-9A-Fa-f]{8})"/) || [])[1] || ''; if (cd) o.t = cd.slice(0, 19); if (fr) o.fps = Math.round(+fr); const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) o.xdur = +du / +fr; o.cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {}
+    return o;
+  }
+  // Sony writes the same NonRealTimeMeta XML into the end of every XAVC file (the last ~2 KB), so a clip
+  // copied without its M01.XML sidecar still says its camera, profile, length and timecode. Reads 16 KB at most.
+  async tailMeta(f, sc) {
+    let tx = null, src = 'sidecar'; if (sc) { try { tx = await sc.text(); } catch (x) {} }
+    if (!tx || !/NonRealTimeMeta/i.test(tx)) { try { const tl = await f.slice(Math.max(0, f.size - 16384)).text(), at = tl.lastIndexOf('<NonRealTimeMeta'); if (at >= 0) { tx = tl.slice(at); src = 'file'; } } catch (x) {} }
+    return this.sonyMeta(tx, src);
+  }
+  // fn over every item, n at a time, answers in the order given.
+  async inBatches(items, n, fn) { const out = new Array(items.length); let k = 0; const work = async () => { while (k < items.length) { const i = k++; out[i] = await fn(items[i], i); } }; await Promise.all(Array.from({length:Math.max(1, Math.min(n, items.length))}, work)); return out; }
   regap(d) {
     d = d || this.d; const C = d.clips; d.gaps = []; this.whyBy = {};
     for (let i = 0; i < C.length - 1; i++) {
@@ -1342,16 +1444,57 @@ class Component extends DCLogic {
   bump() { if (this.bumpT) return; this.bumpT = setTimeout(() => { this.bumpT = 0; this.setState(s => ({tick:(s.tick || 0) + 1})); }, 120); }
   // The clip nearest the one you are on (by order on the card), taken out of the set.
   pickNear(left) { let best = null, bd = Infinity; const cur = this.byId && this.byId[this.state.cur], at = cur ? cur._i : 0; for (const c of left) { const dd = Math.abs((c._i || 0) - at); if (dd < bd) { bd = dd; best = c; if (!dd) break; } } if (best) left.delete(best); return best; }
+  // First look follows the screen, not the card: what is on screen now, then a cover for every scene, then the
+  // covers of the scenes the slider would make next, then the rest.
+  // Asked again for every clip, so moving the scenes, scrolling or going to another clip changes what comes next.
+  // (A layout that knows what it shows can say so in this._seen = {clips:[ids], groups:[scene numbers]}.)
+  seenNow() {
+    if (this._seen) return this._seen; const st = this.state, sc = this.sc, out = {clips:[], groups:[]};
+    try { if (sc && sc.isConnected && st.lv < 2) { const at = st.lv === 0 ? 'data-gi' : 'data-clip', r = sc.getBoundingClientRect(), on = [], off = [];
+      sc.querySelectorAll('[' + at + ']').forEach(el => { const q = el.getBoundingClientRect(), id = el.getAttribute(at); if (q.bottom > r.top && q.top < r.bottom) on.push(st.lv === 0 ? +id : id); else off.push([q.top < r.top ? r.top - q.bottom : q.top - r.bottom, id]); });
+      if (st.lv === 0) out.groups = on; else out.clips = on.concat(off.sort((a, b) => a[0] - b[0]).map(x => x[1])); } } catch (x) {}
+    if (st.lv === 1 && !out.clips.length && this._visIds) out.clips = this._visIds.slice();
+    return out;
+  }
+  // o.order: every id in the order to fall back on; o.todo: the ids still to read; o.have: ids that have a frame or
+  // are being read; o.groups: the scenes as they are now (ids); o.seen / o.seenG: clips / scenes on screen;
+  // o.cur + o.near: the clip you are on and how many each side of it come first (the Viewer); o.next: the clips
+  // that become covers when the scenes are split further, largest gap first, so the slider finds them read.
+  firstOrder(o) {
+    const todo = o.todo, have = o.have || new Set(), G = o.groups || [], out = [], put = new Set(), add = id => { if (todo.has(id) && !put.has(id)) { put.add(id); out.push(id); } };
+    if (o.near && o.cur != null) { const flat = [].concat(...G), i = flat.indexOf(o.cur); if (i >= 0) { add(o.cur); for (let k = 1; k <= o.near; k++) { add(flat[i + k]); add(flat[i - k]); } } }
+    (o.seen || []).forEach(add);
+    const sg = new Set(o.seenG || []), gis = (o.seenG || []).filter(i => G[i]).concat(G.map((g, i) => i).filter(i => !sg.has(i)));
+    const cover = i => { const g = G[i]; if (g.some(id => have.has(id) || put.has(id))) return; const id = g.find(x => todo.has(x)); if (id != null) add(id); };
+    gis.forEach(cover);
+    (o.next || []).forEach(add);
+    for (let r = 1, any = true; any; r++) { any = false; gis.forEach(i => { if (r < G[i].length) { add(G[i][r]); any = true; } }); }
+    (o.order || []).forEach(add); return out;
+  }
+  pickFirst(left, list) {
+    const st = this.state, now = performance.now(), key = [st.lv, st.nCut, st.cur, st.gi, st.cuts ? st.cuts.length : '', (this.G || []).length].join('|'); let o = this._fo;
+    if (!o || o.left !== left || o.key !== key || now - o.at > 250) {
+      const seen = this.seenNow(), by = this.byId || {}, todo = new Set(); left.forEach(c => todo.add(c.id));
+      // the scenes as last drawn, unless they are another shoot's (the first clips are asked for before the first draw)
+      const G0 = this.G || [], G = G0.length && G0[0].clips[0] && by[G0[0].clips[0].id] === G0[0].clips[0] ? G0 : [];
+      const have = new Set(this.reading); (this.d ? this.d.clips : []).forEach(c => { if (c.frames && c.frames.some(Boolean)) have.add(c.id); });
+      const ids = this.firstOrder({order:list.map(c => c.id), todo, have, groups:G.map(g => g.clips.map(c => c.id)), seen:seen.clips, seenG:G.length ? seen.groups : [], cur:st.cur, near:st.lv >= 2 ? 3 : 0,
+        next:(this.gapsSorted || []).map(g => { const a = by[g.after], b = a && this.d && this.d.clips[a._i + 1]; return b ? b.id : null; })});
+      o = this._fo = {left, key, at:now, i:0, cs:ids.map(id => by[id]).filter(Boolean)};
+    }
+    while (o.i < o.cs.length) { const c = o.cs[o.i++]; if (left.has(c)) { left.delete(c); return c; } }
+    for (const c of left) { left.delete(c); return c; } return null;
+  }
   async runPass(list, tok, idxOf, pass) {
-    let k = 0; const left = pass === 2 ? new Set(list) : null; this.passT0 = Date.now(); this.spd = []; this.spdBase = 0;
+    let k = 0; const left = pass === 2 || pass === 1 ? new Set(list) : null; this.passT0 = Date.now(); this.spd = []; this.spdBase = 0;
     this.setState({imp:{n:list.length, done:0, pass}});
     const work = async () => {
-      while (pass === 2 ? left.size : k < list.length) {
+      while (left ? left.size : k < list.length) {
         if (tok !== this.qTok) return; await this.paceWait(tok); if (tok !== this.qTok) return;
         while (this.prio && this.prio.length) { const x = this.prio.shift(); if (x.thin) await this.readClip(x, tok); if (tok !== this.qTok) return; }
-        const c = pass === 2 ? this.pickNear(left) : list[k++]; if (!c) return; const idx = idxOf(c);
+        const c = pass === 2 ? this.pickNear(left) : pass === 1 ? this.pickFirst(left, list) : list[k++]; if (!c) return; const idx = idxOf(c);
         if (idx.length) { const a = performance.now(); await this.readClip(c, tok, idx);
-          if (c.why === 'hidden') { c.why = null; if (c.facts && c.facts.state === 'unreliable') c.facts = {state:'pending'}; if (pass === 2) left.add(c); else list.push(c); continue; } if (this.clock) (this.clock['ms' + pass] || (this.clock['ms' + pass] = [])).push(Math.round(performance.now() - a));
+          if (c.why === 'hidden') { c.why = null; if (c.facts && c.facts.state === 'unreliable') c.facts = {state:'pending'}; if (left) left.add(c); else list.push(c); continue; } if (this.clock) (this.clock['ms' + pass] || (this.clock['ms' + pass] = [])).push(Math.round(performance.now() - a));
           if (c.why === 'unsupported') { this.unsup = (this.unsup || 0) + 1; } else if (c.why) { c.tries = (c.tries || 0) + 1; this.failRun = (this.failRun || 0) + 1; if (this.failRun >= 3 && !this.halt) { this.halt = true; if (this.clock) this.clock.halts = (this.clock.halts || 0) + 1; this.setState(s => ({tick:(s.tick || 0) + 1})); } } else this.failRun = 0; }
         while (this.halt && tok === this.qTok) await new Promise(r => setTimeout(r, 400));
         if (tok !== this.qTok) return;
@@ -1391,8 +1534,12 @@ class Component extends DCLogic {
     k.p50first = q(k.ms1, 0.5); k.p90first = q(k.ms1, 0.9); k.p50rest = q(k.ms2, 0.5); k.p90rest = q(k.ms2, 0.9); k.retried = (k['ms1.5'] || []).length;
     const h = this.health; if (h && !h.web) { k.heat = h.thermal; k.lumenaMB = Math.round(h.footprintMB || 0); k.memGB = Math.round(h.memGB || 0); }
     const out = {...k}; delete out.ms1; delete out.ms2; delete out['ms1.5']; delete out.t0;
+    this.clockSave(out); this.lastClock = out; this.setState(s => ({tick:(s.tick || 0) + 1}));
+  }
+  // The last ten loads. A load is written once when it is listed (partial) and again, in its place, when it is done.
+  clockSave(out) {
     let all = []; try { all = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]'); } catch (x) {} if (!Array.isArray(all)) all = [];
-    all.unshift(out); this.persist('lumina-skim:clock', JSON.stringify(all.slice(0, 10))); this.lastClock = out; this.setState(s => ({tick:(s.tick || 0) + 1}));
+    all = all.filter(e => !(e && e.partial && e.at === out.at && e.name === out.name)); all.unshift(out); this.persist('lumina-skim:clock', JSON.stringify(all.slice(0, 10)));
   }
   fmtSec(ms) { const s = Math.round(ms / 1000); return s < 60 ? s + ' s' : Math.floor(s / 60) + ' min ' + (s % 60) + ' s'; }
   fmtLeft(sec) { return sec < 50 ? 'under a minute left' : sec < 90 ? 'about a minute left' : 'about ' + Math.round(sec / 60) + ' min left'; }
@@ -1652,7 +1799,7 @@ class Component extends DCLogic {
     }
     const fi = Math.round(st.fx);
     if (st.lv === 2) {
-      add('↑', 'Clips · ' + (cg ? cg.title : '')); add('← →', 'scrub'); add('⇧→', next && nm(next)); add('K M C', 'mark ' + nm(st.cur)); if (!this.pvDisabled()) add('V', 'preview ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('2×click', 'done here');
+      add('↑', 'Clips · ' + (cg ? cg.title : '')); add('← →', 'scrub'); add('⇧→', next && nm(next)); add('K M C', 'mark ' + nm(st.cur) + ', move on'); if (!this.pvDisabled()) add('V', 'preview ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('2×click', 'done here');
       return {lead:'Viewer · ' + nm(st.cur), list:out};
     }
     add('↑', 'Viewer · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M C', 'mark ' + nm(st.cur));

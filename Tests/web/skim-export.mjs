@@ -15,11 +15,12 @@ export const FIXTURE = new URL('./fixtures/skim-export-six.json', import.meta.ur
 
 /** Pull a class method's source out of the page by brace-matching.
  *  Skips strings, template literals, comments and regex literals: the page contains /"/g, which
- *  a naive scanner reads as the start of a string and then loses the brace count. */
-export function extractMethod(src, name){
-  const at = src.indexOf('\n  '+name+'() {');
+ *  a naive scanner reads as the start of a string and then loses the brace count.
+ *  head is how the method starts in the page when it takes arguments or is static ("static layGeo(o) {"). */
+export function extractMethod(src, name, head = name+'() {'){
+  const at = src.indexOf('\n  '+head);
   if (at < 0) throw new Error('method not found: '+name);
-  const from = src.indexOf(name+'() {', at);   // skip the newline and the indent
+  const from = src.indexOf(head, at);   // skip the newline and the indent
   let i = src.indexOf('{', at), depth = 0, prev = '';
   const regexOk = c => c === '' || '([{,;:=!&|?+-*%~^<>'.includes(c);
   for (; i < src.length; i++){
