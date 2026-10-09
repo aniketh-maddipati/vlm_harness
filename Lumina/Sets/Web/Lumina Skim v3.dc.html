@@ -163,6 +163,7 @@ input[type=range]{accent-color:#B8B3AB}
               <div style="display:flex;gap:10px;flex-wrap:wrap">
                 <div role="button" tabIndex="0" onClick="{{ backSkim }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">esc</span>Back to Skim</div>
                 <div data-lumina="download" role="button" tabIndex="0" aria-disabled="{{ exBtnOff }}" onClick="{{ download }}" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:{{ exBtnCur }};display:flex;align-items:center;gap:6px;opacity:{{ exBtnOp }}" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘⏎</span>{{ exBtn }}</div>
+                <sc-if value="{{ exWhyOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="export-why" role="status" style="align-self:center;color:{{ exWhyC }}">{{ exWhy }}</span></sc-if>
               </div>
               <span data-lumina="export-sub" style="color:#B8B3AB">{{ exSub }}</span>
               <sc-if value="{{ exDoneOn }}" hint-placeholder-val="{{ false }}"><span role="status" style="color:#A9D18E">{{ exDone }}</span></sc-if>
@@ -180,7 +181,7 @@ input[type=range]{accent-color:#B8B3AB}
               </sc-if>
               <sc-if value="{{ cutSayOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="cut-say" role="status" style="color:{{ cutSayC }}">{{ cutSay }}</span></sc-if>
             </div>
-            <div style="display:flex;flex-direction:column;gap:3px;color:#9A958D"><span>Clip files are never changed.</span><span>{{ exPathLine }}</span></div>
+            <div style="display:flex;flex-direction:column;gap:3px;color:#9A958D"><span>Clip files are never changed.</span><span>{{ exPathLine }}</span><sc-if value="{{ exOkOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="export-checked">{{ exOkLine }}</span></sc-if></div>
           </div>
           <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
             <div data-lumina="details" role="button" tabIndex="0" aria-expanded="{{ exMore }}" onClick="{{ exMoreGo }}" style="align-self:flex-start;display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:8px;color:#9A958D;cursor:pointer" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:inline-block;width:12px;text-align:center;transform:rotate({{ exMoreRot }});transition:transform 120ms ease-out">›</span>Details</div>
@@ -206,6 +207,14 @@ input[type=range]{accent-color:#B8B3AB}
                   <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
                     <sc-for list="{{ exGroups }}" as="eg" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 70px;gap:10px;padding:8px 12px;background:#262523"><span style="color:#EFECE6">{{ eg.title }}</span><span style="color:#A9D18E;text-align:right">{{ eg.k }}</span><span style="color:#FFD27A;text-align:right">{{ eg.m }}</span></div></sc-for>
                   </div>
+                  <sc-if value="{{ exBadOn }}" hint-placeholder-val="{{ false }}">
+                    <div data-lumina="export-problems" style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+                      <span style="font-size:13px;font-weight:600;color:#EFECE6">The file did not pass its check</span>
+                      <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
+                        <sc-for list="{{ exBad }}" as="eb" hint-placeholder-count="2"><div style="padding:8px 12px;background:#262523;color:#FFD27A">{{ eb.t }}</div></sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
                   <span style="font-size:13px;font-weight:600;color:#EFECE6;margin-top:6px">The .fcpxml</span>
                   <pre style="margin:0;max-height:440px;overflow:auto;padding:14px;border-radius:10px;background:#161514;color:#B8B3AB;font:11px/1.5 ui-monospace,'SF Mono',Menlo,monospace;white-space:pre;user-select:text;-webkit-user-select:text">{{ exPreview }}</pre>
                 </div>
@@ -1861,8 +1870,70 @@ class Component extends DCLogic {
     const what = ex.all ? n + ' clip' + s(n) : k ? k + ' selected' : m + ' maybe' + s(m) + ' only';
     return {n, label:n ? 'Download for Final Cut · ' + what : 'Nothing selected yet'};
   }
+  // A check of the .fcpxml's structure before it is handed over: well-formed, the parts buildX writes and nothing else, every
+  // clip pointing at media that is in the file, lengths in whole frames, n clips. A browser has no DTD, so this is not Final
+  // Cut's own validation, and it says nothing about whether Final Cut takes the file. P: a DOMParser (the browser's by default).
+  static checkX(text, n, P) {
+    const bad = [], say = s => { if (bad.indexOf(s) < 0) bad.push(s); }, done = () => ({ok:!bad.length, problems:bad});
+    let doc = null; try { doc = new (P || DOMParser)().parseFromString(text, 'application/xml'); } catch (e) {}
+    const tag = e => e.localName || e.tagName, kids = (e, t) => Array.from(e.children).filter(c => !t || tag(c) === t);
+    const all = (e, t, out = []) => { kids(e).forEach(c => { if (tag(c) === t) out.push(c); all(c, t, out); }); return out; };
+    const root = doc && doc.documentElement;
+    if (!root || tag(root) === 'parsererror' || all(root, 'parsererror').length) { say('The file is not well-formed XML.'); return done(); }
+    if (tag(root) !== 'fcpxml' || root.getAttribute('version') !== '1.10') say('The file does not open as fcpxml version 1.10.');
+    // a time is whole seconds or a fraction of them: "0s", "288288/24000s"
+    const time = v => { const m = /^(\d+)(?:\/(\d+))?s$/.exec(v || ''); return m && +(m[2] || 1) > 0 ? [+m[1], +(m[2] || 1)] : null; };
+    const res = kids(root, 'resources')[0], ev = all(root, 'event')[0], ids = {}, fmts = {}, assets = {};
+    if (!res) say('The file has no resources section.');
+    if (!ev) say('The file has no event.');
+    const rk = res ? kids(res) : [];
+    rk.forEach(r => { const id = r.getAttribute('id'); if (!id) say('An entry in the resources has no id.'); else if (ids[id]) say('Two entries share the id “' + id + '”.'); else ids[id] = 1; });
+    rk.filter(r => tag(r) === 'format').forEach(r => { const fd = time(r.getAttribute('frameDuration')); if (!fd || !fd[0]) say('Format “' + (r.getAttribute('id') || '') + '” has no frame length.'); else if (r.getAttribute('id')) fmts[r.getAttribute('id')] = fd; });
+    rk.filter(r => tag(r) === 'asset').forEach(a => {
+      const nm = a.getAttribute('name'), who = 'The media entry for “' + (nm || a.getAttribute('id') || '') + '”', du = time(a.getAttribute('duration'));
+      if (!nm) say('A media entry has no name.');
+      if (!du || !du[0]) say(who + ' has no length.');
+      if (!fmts[a.getAttribute('format')]) say(who + ' uses a format that is not in the file.');
+      const src = (kids(a, 'media-rep')[0] || a).getAttribute('src') || '';
+      if (!src) say(who + ' has no file location.'); else if (!/^file:\/\/[^\/]*\/./.test(src)) say(who + ' does not point at a file:// location.');
+      if (a.getAttribute('id')) assets[a.getAttribute('id')] = {du, f:a.getAttribute('format')};
+    });
+    rk.forEach(r => { if (tag(r) !== 'format' && tag(r) !== 'asset') say('The resources hold something this page does not write.'); });
+    const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip');
+    if (cl.length !== ek.length) say('The event holds something this page does not write.');
+    cl.forEach(c => {
+      const who = 'Clip “' + (c.getAttribute('name') || c.getAttribute('ref') || '') + '”', a = assets[c.getAttribute('ref')], du = time(c.getAttribute('duration'));
+      const fid = c.getAttribute('format'), f = fmts[fid != null ? fid : a && a.f];
+      if (!a) say(who + ' refers to media that is not in the file.');
+      if (!f) say(who + ' uses a format that is not in the file.');
+      if (!du || !du[0]) say(who + ' has no length.');
+      else if (f && (du[0] * f[1]) % (du[1] * f[0])) say(who + ' has a length that is not a whole number of frames.');
+      else if (a && a.du && du[0] * a.du[1] > a.du[0] * du[1]) say(who + ' is longer than its media.');
+      ['offset', 'start'].forEach(k => { const t = c.getAttribute(k); if (t != null && !time(t)) say(who + ' has a position that cannot be read.'); });
+      let nr = 0, nk = 0;
+      kids(c).forEach(k => {
+        const t = tag(k), val = k.getAttribute('value'), whole = k.getAttribute('start') === '0s' && k.getAttribute('duration') === c.getAttribute('duration') && !kids(k).length;
+        if (t === 'rating') { nr++; if (!whole || (val !== 'favorite' && val !== 'reject')) say(who + ' carries a rating this page does not write.'); }
+        else if (t === 'keyword') { nk++; if (!whole || val !== 'maybe') say(who + ' carries a keyword this page does not write.'); }
+        else say(who + ' carries something this page does not write.');
+      });
+      if (nr > 1 || nk > 1) say(who + ' is rated or tagged more than once.');
+    });
+    if (n != null && cl.length !== n) say('The file holds ' + cl.length + ' clip' + (cl.length === 1 ? '' : 's') + ' but the button says ' + n + '.');
+    return done();
+  }
+  // Runs the check shortly after the file last changed, away from the click. The verdict is kept with the text it was given for.
+  checkSoon(text, n) {
+    if (this.chkFor === text && this.chkN === n) return;
+    this.chkFor = text; this.chkN = n; clearTimeout(this.chkT);
+    this.chkT = setTimeout(() => {
+      let r; try { r = Component.checkX(text, n); } catch (e) { r = {ok:false, problems:['The file could not be checked in this browser.']}; }
+      this.chkFor = null; this.setState({exChk:{text, n, ok:r.ok, problems:r.problems}});
+    }, 60);
+  }
   download = () => {
     const x = this.buildX(); if (!x.n) return;
+    const chk = this.state.exChk; if (!chk || !chk.ok || chk.text !== x.text) return;   // only a file that has passed its check
     const st = this.state, blob = new Blob([x.text], {type:'application/xml'}), a = document.createElement('a'), u = URL.createObjectURL(blob);
     a.href = u; a.download = (st.ex.event || this.d.shoot.name || 'Lumina').replace(/[\/:]/g, '-') + '.fcpxml'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
     const by = {keep:[], maybe:[], cut:[]}; Object.keys(st.marks).forEach(id => by[st.marks[id]] && by[st.marks[id]].push(id));
@@ -1990,7 +2061,12 @@ class Component extends DCLogic {
       v.exEventIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, event:val}})); };
       v.exKwIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, kw:val}})); };
       const gate = Component.exGate(markN, d.clips.length, ex);
-      v.exBtnOp = x.n ? 1 : 0.45; v.exBtnOff = !x.n; v.exBtnCur = x.n ? 'pointer' : 'default'; v.exBtn = x.n ? gate.label : 'Nothing selected yet';
+      const chk = x.n && st.exChk && st.exChk.text === x.text && st.exChk.n === gate.n ? st.exChk : null, pass = !!(chk && chk.ok);
+      if (x.n && !chk) this.checkSoon(x.text, gate.n);
+      v.exBtnOp = pass ? 1 : 0.45; v.exBtnOff = !pass; v.exBtnCur = pass ? 'pointer' : 'default'; v.exBtn = x.n ? gate.label : 'Nothing selected yet';
+      v.exWhyOn = !!x.n && !pass; v.exWhy = chk ? 'The file did not pass its check: ' + chk.problems[0] : 'Checking the file…'; v.exWhyC = chk ? '#FFD27A' : '#9A958D';
+      v.exOkOn = pass; v.exOkLine = 'File checked: ' + this.plural(x.n, 'clip') + ', well formed';
+      v.exBadOn = !!(chk && !chk.ok); v.exBad = v.exBadOn ? chk.problems.map(t => ({t})) : [];
       const nope = ' Nothing is copied or changed.';
       v.exSub = !x.n ? 'Select clips in Skim with K.' + nope : ex.all ? 'Every clip comes along: maybes tagged “maybe”, cut ones marked as not wanted.' + nope : !ex.maybes ? 'Maybes are left out.' + nope : !markN.keep ? 'Nothing is selected: the file holds the ' + (markN.maybe === 1 ? 'maybe' : 'maybes') + ', tagged “maybe”.' + nope : (markN.maybe ? this.plural(markN.maybe, 'maybe') + (markN.maybe === 1 ? ' comes' : ' come') : 'Maybes come') + ' along tagged “maybe”.' + nope;
       v.exUndOn = und > 0; v.exUnd = und + ' still undecided';
