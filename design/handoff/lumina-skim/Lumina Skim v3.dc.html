@@ -1263,15 +1263,17 @@ class Component extends DCLogic {
   factsAll(c) { const P = c._px || {}, all = Object.keys(P).map(Number).sort((a, b) => a - b).map(k => P[k]); if (!all.length) throw 'no frames'; c.first = all.length < this.frameIdx().length; return this.factsOf(all); }
   firstIdx() { const f = this.frameIdx(); return f[Math.floor((f.length - 1) / 2)]; }
   // Two decoders on a Mac with 16 GB or more (VideoPolicy budgets), one otherwise and in a browser.
-  workerN() { const h = this.health; return h && !h.web && h.memGB >= 15 ? 2 : 1; }
+  workerN() { const h = this.health; if (h && !h.web) return h.memGB >= 15 ? 3 : 2; return this.notSafari() ? 2 : 3; }
+  // The clip nearest the one you are on (by order on the card), taken out of the set.
+  pickNear(left) { let best = null, bd = Infinity; const cur = this.byId && this.byId[this.state.cur], at = cur ? cur._i : 0; for (const c of left) { const dd = Math.abs((c._i || 0) - at); if (dd < bd) { bd = dd; best = c; if (!dd) break; } } if (best) left.delete(best); return best; }
   async runPass(list, tok, idxOf, pass) {
-    let k = 0; this.passT0 = Date.now(); this.spd = []; this.spdBase = 0;
+    let k = 0; const left = pass === 2 ? new Set(list) : null; this.passT0 = Date.now(); this.spd = []; this.spdBase = 0;
     this.setState({imp:{n:list.length, done:0, pass}});
     const work = async () => {
-      while (k < list.length) {
+      while (pass === 2 ? left.size : k < list.length) {
         if (tok !== this.qTok) return; await this.paceWait(tok); if (tok !== this.qTok) return;
         while (this.prio && this.prio.length) { const x = this.prio.shift(); if (x.thin) await this.readClip(x, tok); if (tok !== this.qTok) return; }
-        const c = list[k++]; if (!c) return; const idx = idxOf(c);
+        const c = pass === 2 ? this.pickNear(left) : list[k++]; if (!c) return; const idx = idxOf(c);
         if (idx.length) { const a = performance.now(); await this.readClip(c, tok, idx); if (this.clock) (this.clock['ms' + pass] || (this.clock['ms' + pass] = [])).push(Math.round(performance.now() - a));
           if (c.why === 'unsupported') { this.unsup = (this.unsup || 0) + 1; } else if (c.why) { c.tries = (c.tries || 0) + 1; this.failRun = (this.failRun || 0) + 1; if (this.failRun >= 3 && !this.halt) { this.halt = true; if (this.clock) this.clock.halts = (this.clock.halts || 0) + 1; this.setState(s => ({tick:(s.tick || 0) + 1})); } } else this.failRun = 0; }
         while (this.halt && tok === this.qTok) await new Promise(r => setTimeout(r, 400));
@@ -1304,7 +1306,7 @@ class Component extends DCLogic {
   }
   resumeRead = () => { this.halt = false; this.failRun = 0; this.setState(s => ({tick:(s.tick || 0) + 1})); };
   // The clock: what a load took, kept with the shoots (the last ten), for comparing builds and Macs.
-  clockStart(d, real) { this.clock = {name:d.shoot.name, n:d.clips.length, bytes:d.shoot.bytes, real, workers:this.workerN(), per:this.mp.per, size:this.mp.size, at:new Date().toISOString(), t0:performance.now(), paced:0}; }
+  clockStart(d, real) { this.exactSeek = /[?&]exact=1/.test(location.search); this.clock = {snap:!this.exactSeek && !!(window.HTMLMediaElement && HTMLMediaElement.prototype.fastSeek), workersUsed:this.workerN(), name:d.shoot.name, n:d.clips.length, bytes:d.shoot.bytes, real, workers:this.workerN(), per:this.mp.per, size:this.mp.size, at:new Date().toISOString(), t0:performance.now(), paced:0}; }
   clockDone() {
     const k = this.clock; if (!k || k.done) return; const C = this.d ? this.d.clips : [];
     const q = (a, p) => { if (!a || !a.length) return null; const b = a.slice().sort((x, y) => x - y); return b[Math.min(b.length - 1, Math.floor(p * b.length))]; };
@@ -1333,7 +1335,7 @@ class Component extends DCLogic {
         const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180; const ctx = cv.getContext('2d', {willReadFrequently:true}), px = [];
         for (const i of (idx || this.frameIdx().filter(j => !c.frames[j]))) {
           if (tok !== this.qTok) throw 'stopped';
-          v.currentTime = Math.min(c.dur - 0.05, (i + 0.5) / 8 * c.dur); try { await wait('seeked', 8000 * (this.tmul || 1)); } catch (e) { if (e === 'timeout') { c.miss = (c.miss || 0) + 1; continue; } throw e; } await this.painted(v);
+          { const tt = Math.min(c.dur - 0.05, (i + 0.5) / 8 * c.dur); if (v.fastSeek && !this.exactSeek) v.fastSeek(tt); else v.currentTime = tt; } try { await wait('seeked', 8000 * (this.tmul || 1)); } catch (e) { if (e === 'timeout') { c.miss = (c.miss || 0) + 1; continue; } throw e; } await this.painted(v);
           // WebKit can answer 'seeked' before the frame is decoded: a black frame. Look again, then leave it out of the measures.
           let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!this.blank(im)) break; im = null; await new Promise(r => setTimeout(r, 120 + k * 160)); }
           if (!im) continue;
