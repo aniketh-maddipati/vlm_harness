@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { PAGE } from './skim-export.mjs';
+import { PAGE, extractMethod } from './skim-export.mjs';
 
 const src = fs.readFileSync(PAGE, 'utf8');
 
@@ -96,4 +96,84 @@ test('the Viewer\'s canvas and video take the clip\'s filter, and are wired up',
 
 test('the filter the canvas points at exists once in the page', () => {
   assert.equal(src.split('<filter id="lumina-slog3"').length - 1, 1);
+});
+
+// ---- the developer colour check (frames for a comparison with Final Cut) ----
+
+const checkTimes = new Function('return function ' + extractMethod(src, 'checkTimes', 'static checkTimes(fps, dur) {').replace(/^static /, ''))();
+
+test('colour check: 2, 5 and 8 s are frame numbers at the clip\'s rate, asked for inside that frame', () => {
+  for (const [fps, real, per] of [[23.98, 24000 / 1001, 24], [24, 24, 24], [25, 25, 25], [29.97, 30000 / 1001, 30], [59.94, 60000 / 1001, 60], [0, 24, 24], [undefined, 24, 24]]) {
+    const k = checkTimes(fps, 0);
+    assert.deepEqual(k.map(x => x.sec), [2, 5, 8]);
+    assert.deepEqual(k.map(x => x.n), [2 * per, 5 * per, 8 * per]);
+    for (const x of k) assert.equal(Math.floor(x.t * real + 1e-9), x.n, fps + ' fps, ' + x.sec + ' s');
+  }
+});
+
+test('colour check: a time past the end of the clip is left out', () => {
+  assert.deepEqual(checkTimes(23.98, 6).map(x => x.sec), [2, 5]);
+  assert.deepEqual(checkTimes(23.98, 1.5).map(x => x.sec), []);
+  assert.deepEqual(checkTimes(23.98, 11.5).map(x => x.sec), [2, 5, 8]);
+});
+
+const pngNote = new Function('return function ' + extractMethod(src, 'pngNote', 'static pngNote(u8, key, text) {').replace(/^static /, ''))();
+const crc32 = u8 => { let c = ~0; for (const b of u8) { c ^= b; for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xEDB88320 : c >>> 1; } return ~c >>> 0; };
+const chunk = (type, data) => { const body = new Uint8Array([...type].map(ch => ch.charCodeAt(0)).concat([...data])), out = new Uint8Array(12 + data.length), dv = new DataView(out.buffer); dv.setUint32(0, data.length); out.set(body, 4); dv.setUint32(8 + data.length, crc32(body)); return out; };
+const fakePng = () => new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, ...chunk('IHDR', new Uint8Array(13)), ...chunk('IDAT', new Uint8Array([1, 2, 3])), ...chunk('IEND', [])]);
+const chunks = u8 => { const out = [], dv = new DataView(u8.buffer, u8.byteOffset); for (let i = 8; i < u8.length;) { const n = dv.getUint32(i), type = String.fromCharCode(...u8.subarray(i + 4, i + 8)); out.push({type, data:u8.subarray(i + 8, i + 8 + n), ok:dv.getUint32(i + 8 + n) === crc32(u8.subarray(i + 4, i + 8 + n))}); i += 12 + n; } return out; };
+const noteOf = u8 => { const c = chunks(u8).find(k => k.type === 'tEXt'), s = String.fromCharCode(...c.data); return [s.slice(0, s.indexOf('\0')), s.slice(s.indexOf('\0') + 1)]; };
+
+test('colour check: the note goes into the picture as a valid chunk in front of the end, the rest untouched', () => {
+  const png = fakePng(), out = pngNote(png, 'skim', JSON.stringify({clip:'Cé4815 — a.MP4', n:[1, 2]}));
+  const cs = chunks(out);
+  assert.deepEqual(cs.map(c => c.type), ['IHDR', 'IDAT', 'tEXt', 'IEND']);
+  assert.ok(cs.every(c => c.ok), 'every chunk keeps a right checksum');
+  const [key, text] = noteOf(out);
+  assert.equal(key, 'skim'); assert.ok(/^[\x20-\x7e]*$/.test(text), 'plain ASCII');
+  assert.deepEqual(JSON.parse(text), {clip:'Cé4815 — a.MP4', n:[1, 2]});
+  assert.deepEqual([...out.subarray(0, png.length - 12)], [...png.subarray(0, png.length - 12)]);
+});
+
+test('colour check: S-Log3 clips only, through the page\'s own conversion; the first click reads, the second saves one picture', async () => {
+  const pieces = [extractMethod(src, 'checkTimes', 'static checkTimes(fps, dur) {'), extractMethod(src, 'lookAgain', 'static lookAgain(blank, k) {'), extractMethod(src, 'pngNote', 'static pngNote(u8, key, text) {'),
+    'static SL3T = ' + src.match(/static SL3T = (\[[^\]]+\]);/)[1] + ';', 'static SL3M = ' + src.match(/static SL3M = (\[[^\]]+\]);/)[1] + ';',
+    extractMethod(src, 'prof', 'prof(c) {'), extractMethod(src, 'toDisplay', 'toDisplay(img, c) {'), extractMethod(src, 'sl3Table'), extractMethod(src, 'blank', 'blank(img) {'),
+    extractMethod(src, 'colourCheck', 'colourCheck = async () => {') + ';'];
+  const W = 960, H = 540, saved = [], asked = [];
+  class ImageData { constructor(data, w, h) { this.data = data; this.width = w; this.height = h; } }
+  const video = () => { const on = {}; const v = { duration:11.5, readyState:4, addEventListener:(e, f) => { on[e] = f; }, removeAttribute() {}, load() {},
+    set src(u) { queueMicrotask(() => on.loadedmetadata && on.loadedmetadata()); }, set currentTime(t) { asked.push(t); v._t = t; queueMicrotask(() => on.seeked && on.seeked()); }, get currentTime() { return v._t; } }; return v; };
+  const canvas = () => { const cv = { width:0, height:0, getContext:() => ({ drawImage() {}, getImageData:(x, y, w, h) => new ImageData(new Uint8ClampedArray(w * h * 4).fill(128), w, h), putImageData() {} }),
+    toBlob:cb => cb({ arrayBuffer:async () => fakePng().buffer }) }; return cv; };
+  const g = { document:{ createElement:t => t === 'video' ? video() : t === 'canvas' ? canvas() : { click() { saved.push([this.download, g.last]); }, remove() {} }, body:{ appendChild() {} }, documentElement:{ dataset:{} } },
+    URL:{ createObjectURL:b => { g.last = b; return 'blob:x'; }, revokeObjectURL() {} }, window:{ luminaBuild:'test' }, navigator:{ userAgent:'node' }, ImageData, Blob:class { constructor(parts, o) { this.parts = parts; this.type = o && o.type; } }, setTimeout:() => 0 };
+  const Component = new Function(...Object.keys(g), 'return class Component {\n' + pieces.join('\n') + '\n}')(...Object.values(g));
+  const sl3 = name => ({ name, fps:23.98, _file:{}, profile:{gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'file'} });
+  const p = Object.assign(new Component(), { d:{clips:[sl3('C1.MP4'), { name:'R.MP4', fps:23.98, _file:{}, profile:{gamma:'none'} }, sl3('C2.MP4')]}, painted:async () => {}, plural:(n, w) => n + ' ' + w + (n === 1 ? '' : 's'), setState() {} });
+  await p.colourCheck();
+  assert.equal(saved.length, 0, 'nothing is saved before the second click');
+  assert.equal(asked.length, 6, 'three frames for each of the two S-Log3 clips, none for the Rec.709 clip');
+  assert.match(p.ccSay, /6 frames of 2 clips ready · click again to save/); assert.equal(p.ccBusy, false);
+  await p.colourCheck();
+  assert.deepEqual(saved.map(x => x[0]), ['skim colour check.png']); assert.equal(saved[0][1].type, 'image/png');
+  assert.equal(asked.length, 6, 'the second click reads nothing again');
+  const [key, text] = noteOf(saved[0][1].parts[0]), meta = JSON.parse(text);
+  assert.equal(key, 'skim');
+  assert.deepEqual(meta.rows.map(r => r.clip + ' ' + r.frame), ['C1.MP4 48', 'C1.MP4 120', 'C1.MP4 192', 'C2.MP4 48', 'C2.MP4 120', 'C2.MP4 192']);
+  assert.equal(meta.table.length, 256); assert.deepEqual(meta.cell, [W, H]); assert.deepEqual(meta.matrix, Component.SL3M);
+  assert.match(p.ccSay, /saved 6 frames of 2 clips to Downloads/); assert.equal(p.ccFile, null);
+});
+
+test('colour check: reached from the developer panel and from luminaSkimDebug(\'colour\')', () => {
+  assert.match(src, /\{t:this\.ccFile \? 'Save the colour check' : 'Colour check frames', sub:this\.ccSay \|\| [^}]*go:this\.colourCheck,/);
+  assert.match(src, /what === 'colour'\) this\.colourCheck\(\)/);
+});
+
+test('exposure is noted from a full stop either way, not from 0.7', () => {
+  const C = new Function('return class {\n' + extractMethod(src, 'chips', 'chips(c) {') + '\n' + extractMethod(src, 'prof', 'prof(c) {') + '\n}')();
+  const p = Object.assign(new C(), { d:{shoot:{rate:24}}, state:{dis:{}}, pct:v => v + '%' });
+  const keys = ev => p.chips({ id:'a', fps:24, profile:{gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'sidecar'}, facts:{state:'ready', ev, clip:0, crush:0, sharp:1, motion:null, bump:null} }).list.map(k => k.key);
+  for (const ev of [0, 0.5, 0.7, 0.8, 0.9, -0.7, -0.9]) assert.ok(!keys(ev).includes('ev'), ev + ' stops is not noted');
+  for (const ev of [1, 1.4, 2.3, -1, -2.3, -3.7]) assert.ok(keys(ev).includes('ev'), ev + ' stops is noted');
 });
