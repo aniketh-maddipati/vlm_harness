@@ -35,9 +35,9 @@ function shoot(n, seed = 5){
 function breaks(clips){ const d = {clips}, self = {d}; regap.call(self, d); return {sorted:self.gapsSorted.map(g => g.after), gaps:d.gaps, why:self.whyBy}; }
 const tilesAt = (ids, sorted, n) => C.foldTiles(ids, C.foldCut(sorted, n)).map(([a, b]) => ids.slice(a, b));
 
-test('the switch: ?canvas=1 or #canvas, and nothing else', () => {
-  for (const [q, h] of [['?canvas=1', ''], ['?debug=1&canvas=1', ''], ['?canvas=1&x=2', ''], ['', '#canvas'], ['', '#debug&canvas'], ['', '#canvas&debug']]) assert.equal(C.isCanvas(q, h), true, q + h);
-  for (const [q, h] of [['', ''], ['?canvas=0', ''], ['?canvas=10', ''], ['?mycanvas=1', ''], ['', '#canvassing'], ['', '#debug'], [undefined, undefined]]) assert.equal(C.isCanvas(q, h), false, String(q) + h);
+test('the switch: the one grid unless the address asks for the levels (?canvas=0 or #levels)', () => {
+  for (const [q, h] of [['', ''], ['?canvas=1', ''], ['?debug=1', ''], ['?canvas=10', ''], ['', '#canvas'], ['', '#debug'], ['', '#levelsx'], [undefined, undefined]]) assert.equal(C.isCanvas(q, h), true, String(q) + h);
+  for (const [q, h] of [['?canvas=0', ''], ['?debug=1&canvas=0', ''], ['?canvas=0&x=2', ''], ['', '#levels'], ['', '#debug&levels'], ['', '#levels&debug']]) assert.equal(C.isCanvas(q, h), false, q + h);
 });
 
 test('every fold value: each clip in exactly one tile, capture order kept', () => {
@@ -180,7 +180,7 @@ test('layout: a window lays out the rows near it and the current tile; spacers s
   assert.equal(C.layFuse({vw:1440, tiles:[]}).rects.length, 0);
 });
 
-test('the one grid is opt-in: off unless the address asks, and Scenes / Clips are what shows when it is off', () => {
+test('the one grid is the default; Scenes / Clips are what shows with the levels asked for', () => {
   assert.match(src, /cv:typeof window !== 'undefined' && Component\.isCanvas\(location\.search, location\.hash\)/, 'the switch starts from the address only');
   assert.match(src, /lv0:sk && !empty && !st\.cv && st\.lv === 0, lv1:sk && !empty && !st\.cv && st\.lv === 1/, 'Scenes and Clips show when it is off');
   assert.match(src, /lvF:sk && !empty && !!st\.cv && st\.lv === 0/, 'the one grid shows only when it is on');
@@ -191,7 +191,7 @@ test('the one grid is opt-in: off unless the address asks, and Scenes / Clips ar
 test('the one grid: its strip, its tiles and its words', () => {
   const a = src.indexOf('<sc-if value="{{ lvF }}"'), b = src.indexOf('<sc-if value="{{ lv0 }}"'); assert.ok(a > 0 && b > a);
   const tpl = src.slice(a, b);
-  for (const part of ['fold-strip', 'fold-less', 'fold-more', 'fold slider', 'fold-count', 'fold-where', 'fold-next', 'data-gi', 'data-fold', 'tile-marks', 'tile-notes', 'tile-why', 'tile-wait', 'fold-badge']) assert.ok(tpl.includes(part), part);
+  for (const part of ['fold-strip', 'zoom-less', 'zoom-more', 'zoom-levels', 'scenes-less', 'scenes-more', 'aria-label="scenes"', 'fold-count', 'fold-where', 'data-gi', 'data-fold', 'data-scene', 'scene-marks', 'skim-bar', 'tile-marks', 'tile-notes', 'tile-why', 'tile-wait', 'fold-badge']) assert.ok(tpl.includes(part), part);
   // in the script, 'keep' on its own is the stored key and is never shown
   const js = src.slice(src.indexOf('  cvGrid() {'), src.indexOf('  index() {'));
   for (const text of [tpl.replace(/<[^>]*>/g, ' ').replace(/\{\{[^}]*\}\}/g, ' '), (js.match(/'[^']*'/g) || []).filter(q => q !== "'keep'").join(' ')]) assert.doesNotMatch(text, /\b(keep|kept|keepers?|reject\w*|flag\w*)\b/i, 'neutral words only');
