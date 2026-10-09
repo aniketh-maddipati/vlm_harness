@@ -47,6 +47,16 @@ V flips the large view, pinch then scrub, K / M / C toggle and stay, the cut lis
 only, exports to Downloads; fusing Clips and Scenes is a conversation, nothing built (proposal: capture time as
 the one axis, pinch = deeper or shallower). Still open before sending the link: one page-clock run on the
 401-clip card in Safari, one real Final Cut import, Final Cut stills for the colour check.
+Round 5 (2026-10-08, late): b921acd Enter / Shift-Enter move between clips in the Viewer (105-107) · 08bb1cb
+measuring is no longer waited for: flags with the cover, other frames read where he looks, an all-dark clip is a
+clip, "N clips ready" (110-113) · 86654bf the .fcpxml is checked in the page before the download is allowed
+(120-122) · 69c5007 one grid for scenes and clips, opt-in at ?canvas=1 (130-138): capture time is the axis, one
+fold value driven by the slider, pinch and - / =, folded tiles show counts, marks and what is noted inside; the
+normal address is unchanged until the user says switch. The user's stopwatch on the 401-clip card in Safari,
+before 08bb1cb: about 1:26 to every cover, over 5:40 more for the old measuring pass (not page-clock numbers).
+Known and not fixed: for a folder that is not a mounted volume the .fcpxml points at /Volumes/<folder name>/...,
+so Final Cut will not find the media without relinking (asking once for the folder's location is proposed,
+waiting on the user). Final Cut import, stills and timing moved to a separate thread.
 Measured, not in a browser: the page's S-Log3 conversion against Sony's published maths on the five
 friend_test_log clips, 15 frames: mean dE2000 1.14, p95 2.38 with the page's tone curve (15 of 15 inside
 2 / 5); 4.54 / 11.43 against a plain conversion with no tone curve (3 of 15). The clips are full range
