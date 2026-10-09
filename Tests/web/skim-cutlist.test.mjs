@@ -97,7 +97,7 @@ test('no cut clips: nothing to list', () => {
 });
 
 test('Export starts on selected plus maybes, and that option is unchanged in what it produces', () => {
-  const m = /ex:\{event:'',kw:'maybe',maybes:(true|false),all:(true|false)\}/.exec(src);
+  const m = /ex:\{event:'',kw:'maybe',maybes:(true|false),all:(true|false),root:''\}/.exec(src);
   assert.ok(m, 'the export defaults are in the page state');
   assert.deepEqual([m[1], m[2]], ['true', 'false']);
   const fx = fixture(), { fn } = loadBuildX();

@@ -86,8 +86,7 @@ test('every clip is referenced by an original-media rep at its real path', () =>
 test('camera timecode as the asset start', { skip: 'not built: asset start is still 0s' }, () => {});
 test('one keyword per scene', { skip: 'not built: only the maybe keyword is written' }, () => {});
 test('real audio channel count and rate', { skip: 'not built: hasAudio=1 for every clip' }, () => {});
-test('S-Log3 asks Final Cut for its Sony Log conversion', { skip: 'not built; no S-Log3 material reachable yet' }, () => {});
-test('the app passes real clip URLs, the browser says Relink', { skip: 'not built: paths are guessed as /Volumes/<name>' }, () => {});
+// S-Log3's Sony conversion, the clips' real location and the true frame rate: built, in Tests/web/skim-handoff.test.mjs.
 test('the export is DTD-valid against the version it declares', t => {
   const { text } = buildFixture();
   const v = /<fcpxml version="([^"]+)"/.exec(text)[1];

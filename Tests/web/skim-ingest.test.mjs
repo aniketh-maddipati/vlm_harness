@@ -35,7 +35,7 @@ test('sonyMeta: camera, profile, length, capture time and timecode from the XML 
   assert.ok(Math.abs(m.xdur - 312 / 23.98) < 1e-9);
 });
 test('sonyMeta: nothing to read gives an empty answer, never a throw', () => {
-  assert.deepEqual(page.sonyMeta(null, 'file'), { prof: { gamma: null, primaries: null, source: 'none' }, t: null, fps: 0, xdur: 0, cam: '', ltc: '' });
+  assert.deepEqual(page.sonyMeta(null, 'file'), { prof: { gamma: null, primaries: null, source: 'none' }, t: null, fps: 0, fd: null, nf: 0, xdur: 0, cam: '', ltc: '' });
 });
 test('tailMeta: reads the end of the clip when there is no sidecar, and only the last 16 KB', async () => {
   const f = file('C0001.MP4', NRT), asked = []; const sl = f.slice; f.slice = function(a){ asked.push(a); return sl.call(this, a); };

@@ -196,6 +196,8 @@ input[type=range]{accent-color:#B8B3AB}
                 </div>
                 <div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px 12px;align-items:center">
                   <span style="color:#9A958D">Event</span><input type="text" aria-label="Event name" value="{{ exEvent }}" onChange="{{ exEventIn }}" style="height:30px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:none;background:#161514;color:#EFECE6;font:inherit;font-size:13px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);user-select:text;-webkit-user-select:text;outline:none;min-width:0" style-focus="box-shadow:inset 0 0 0 1.5px #FFD27A"></input>
+                  <span style="color:#9A958D">Folder</span><input type="text" aria-label="Where the clips are" placeholder="/Volumes/…/the folder you opened" value="{{ exRoot }}" onChange="{{ exRootIn }}" style="height:30px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:none;background:#161514;color:#EFECE6;font:inherit;font-size:13px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);user-select:text;-webkit-user-select:text;outline:none;min-width:0" style-focus="box-shadow:inset 0 0 0 1.5px #FFD27A"></input>
+                  <span></span><span data-lumina="export-root" style="color:{{ exRootC }};font-size:12px;line-height:1.45">{{ exRootSay }}</span>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:10px">
                   <sc-for list="{{ exOpts }}" as="eo" hint-placeholder-count="4">
@@ -488,7 +490,7 @@ class Component extends DCLogic {
   static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
   W(m) { return m ? Component.WORD[m] || m : ''; }
   static LV = ['Scenes','Clips','Viewer'];
-  state = {progOn:false,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
+  state = {progOn:false,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:''},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
   reading = new Set();
@@ -1606,7 +1608,7 @@ class Component extends DCLogic {
         go:() => { if (on) return this.setStep('skim'); this.want = r.key; this.setState({impMsg:'Choose the clips from “' + r.name + '”, all or some. Their marks come back.'}); this.pickFolder(); }};
     });
   }
-  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const ex = this.state.ex; this.setState({step:s, memOn:false, exDone:null, cutSay:null, ex:ex.event ? ex : {...ex, event:this.d ? this.d.shoot.name : ''}}); }
+  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const ex = this.state.ex, nm = this.d ? this.d.shoot.name : ''; this.setState({step:s, memOn:false, exDone:null, cutSay:null, ex:{...ex, event:ex.event || nm, ...(ex.rootFor === nm ? {} : {root:this.rootSaved(nm), rootFor:nm})}}); }
   // The template's multiple="" doesn't survive the render: several clips picked at once must all come through.
   fileRef = el => { this.fileEl = el; if (el) el.multiple = true; };
   pickFolder = () => { if (this.fileEl) this.fileEl.click(); };
@@ -1641,7 +1643,7 @@ class Component extends DCLogic {
     if (lt !== this.listTok) return;
     const tM = performance.now(), from = {file:0, sidecar:0, none:0};
     const clips = vids.map((f, i) => { const m = metas[i]; from[m.prof.source] = (from[m.prof.source] || 0) + 1;
-      return {id:'F' + String(i + 1).padStart(4, '0'), name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, path:rel(f), t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; });
+      return {id:'F' + String(i + 1).padStart(4, '0'), name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, path:rel(f), t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, fd:m.fd || null, nf:m.nf || 0, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; });
     clips.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
     const rates = {}; clips.forEach(c => { if (c.fps) rates[c.fps] = (rates[c.fps] || 0) + 1; });
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
@@ -1655,10 +1657,11 @@ class Component extends DCLogic {
     this.runQueue(clips.slice(), this.qTok);
   }
   // What a Sony clip says about itself (NonRealTimeMeta, from the sidecar or the end of the file): no decode.
+  // fd is the length of one frame as [n, d] for n/d seconds: 23.98 is 1001/24000, 24 is 100/2400. nf is the camera's frame count.
   sonyMeta(tx, src) {
-    const o = {prof:{gamma:null, primaries:null, source:'none'}, t:null, fps:0, xdur:0, cam:'', ltc:''}; if (!tx) return o;
-    try { const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1];
-      o.prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:src}; o.ltc = (tx.match(/<LtcChange[^>]*value="([0-9A-Fa-f]{8})"/) || [])[1] || ''; if (cd) o.t = cd.slice(0, 19); if (fr) o.fps = Math.round(+fr); const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) o.xdur = +du / +fr; o.cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {}
+    const o = {prof:{gamma:null, primaries:null, source:'none'}, t:null, fps:0, fd:null, nf:0, xdur:0, cam:'', ltc:''}; if (!tx) return o;
+    try { const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1], ff = (tx.match(/formatFps="([\d.]+)/i) || [])[1] || fr;
+      o.prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:src}; o.ltc = (tx.match(/<LtcChange[^>]*value="([0-9A-Fa-f]{8})"/) || [])[1] || ''; if (cd) o.t = cd.slice(0, 19); if (fr) o.fps = Math.round(+fr); if (ff) { const r = Math.round(+ff); if (r > 0) o.fd = Math.abs(+ff - r) > 0.005 ? [1001, r * 1000] : [100, r * 100]; } const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) o.xdur = +du / +fr; if (du) o.nf = +du; o.cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {}
     return o;
   }
   // Sony writes the same NonRealTimeMeta XML into the end of every XAVC file (the last ~2 KB), so a clip
@@ -1666,7 +1669,41 @@ class Component extends DCLogic {
   async tailMeta(f, sc) {
     let tx = null, src = 'sidecar'; if (sc) { try { tx = await sc.text(); } catch (x) {} }
     if (!tx || !/NonRealTimeMeta/i.test(tx)) { try { const tl = await f.slice(Math.max(0, f.size - 16384)).text(), at = tl.lastIndexOf('<NonRealTimeMeta'); if (at >= 0) { tx = tl.slice(at); src = 'file'; } } catch (x) {} }
-    return this.sonyMeta(tx, src);
+    const o = this.sonyMeta(tx, src);
+    if (!o.fd) { try { const r = await this.fileRate(f); if (r) { o.fd = r; if (!o.fps) o.fps = Math.round(r[1] / r[0]); } } catch (x) {} }
+    return o;
+  }
+  // A clip with no camera metadata says its rate in its own header. 24 is not 23.98: a 24.000 clip described as 23.98
+  // comes out longer than its file, and Final Cut will not relink it.
+  // The frame length a QuickTime or MP4 file states for its video track: the sample length that most frames have (stts)
+  // over the track's time scale (mdhd). u8 is the moov box. Null when it cannot be read.
+  static moovRate(u8) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), ty = o => String.fromCharCode(u8[o + 4], u8[o + 5], u8[o + 6], u8[o + 7]);
+    const kids = (a, b) => { const out = []; for (let o = a; o + 8 <= b;) { let n = dv.getUint32(o), h = 8; if (n === 1) { if (o + 16 > b) break; n = dv.getUint32(o + 8) * 4294967296 + dv.getUint32(o + 12); h = 16; } else if (n === 0) n = b - o; if (n < h || o + n > b) break; out.push({t:ty(o), a:o + h, b:o + n}); o += n; } return out; };
+    const one = (list, t) => list.filter(k => k.t === t)[0], gcd = (x, y) => y ? gcd(y, x % y) : x;
+    try {
+      const top = kids(0, u8.length), moov = one(top, 'moov') || {a:0, b:u8.length};
+      for (const tr of kids(moov.a, moov.b).filter(k => k.t === 'trak')) {
+        const mdia = one(kids(tr.a, tr.b), 'mdia'); if (!mdia) continue; const mk = kids(mdia.a, mdia.b), hd = one(mk, 'hdlr'), mh = one(mk, 'mdhd'), minf = one(mk, 'minf');
+        if (!hd || !mh || !minf || ty(hd.a + 4) !== 'vide') continue;
+        const scale = dv.getUint32(mh.a + (u8[mh.a] === 1 ? 20 : 12)), stbl = one(kids(minf.a, minf.b), 'stbl'), stts = stbl && one(kids(stbl.a, stbl.b), 'stts'); if (!stts || !scale) continue;
+        let best = 0, delta = 0; const n = dv.getUint32(stts.a + 4); for (let i = 0; i < n && stts.a + 16 + i * 8 <= stts.b; i++) { const c = dv.getUint32(stts.a + 8 + i * 8), d = dv.getUint32(stts.a + 12 + i * 8); if (c > best) { best = c; delta = d; } }
+        if (!delta) continue; const g = gcd(delta, scale); return [delta / g, scale / g];
+      }
+    } catch (x) {}
+    return null;
+  }
+  // Finds the moov box by its headers (16 bytes read per box, the picture data is skipped) and reads it, 8 MB at most.
+  async fileRate(f) {
+    for (let o = 0, k = 0; o + 8 <= f.size && k < 64; k++) {
+      const h = new DataView(await f.slice(o, o + 16).arrayBuffer()); if (h.byteLength < 8) return null;
+      let n = h.getUint32(0); const t = String.fromCharCode(h.getUint8(4), h.getUint8(5), h.getUint8(6), h.getUint8(7));
+      if (n === 1) { if (h.byteLength < 16) return null; n = h.getUint32(8) * 4294967296 + h.getUint32(12); } else if (n === 0) n = f.size - o;
+      if (n < 8) return null;
+      if (t === 'moov') return n > 8388608 ? null : Component.moovRate(new Uint8Array(await f.slice(o, o + n).arrayBuffer()));
+      o += n;
+    }
+    return null;
   }
   // fn over every item, n at a time, answers in the order given.
   async inBatches(items, n, fn) { const out = new Array(items.length); let k = 0; const work = async () => { while (k < items.length) { const i = k++; out[i] = await fn(items[i], i); } }; await Promise.all(Array.from({length:Math.max(1, Math.min(n, items.length))}, work)); return out; }
@@ -2196,13 +2233,22 @@ class Component extends DCLogic {
     const inc = c => { const m = st.marks[c.id]; return ex.all || m === 'keep' || (ex.maybes && m === 'maybe'); };
     const clips = d.clips.filter(inc), FD = {24:[1001, 24000], 25:[100, 2500], 30:[1001, 30000], 50:[100, 5000], 60:[1001, 60000], 100:[100, 10000], 120:[1001, 120000]};
     const fmts = {}, fl = []; let fi = 1;
-    const fmt = c => { const r = c.fps || d.shoot.rate || 24, w = c.w || 3840, h = c.h || 2160, k = r + '-' + w + 'x' + h; if (!fmts[k]) { const fd = FD[r] || [1001, 24000]; fmts[k] = {id:'r' + (fi++), n:fd[0], dd:fd[1]}; fl.push('    <format id="' + fmts[k].id + '" frameDuration="' + fd[0] + '/' + fd[1] + 's" width="' + w + '" height="' + h + '"/>'); } return fmts[k]; };
-    const rt = (sec, f) => Math.max(1, Math.round(sec * f.dd / f.n)) * f.n + '/' + f.dd + 's';
-    const src = c => { let p = c.path || c.name; if (p[0] !== '/') p = '/Volumes/' + p; return 'file://' + encodeURI(p); };
+    const fmt = c => { const r = c.fps || d.shoot.rate || 24, w = c.w || 3840, h = c.h || 2160, fd = c.fd || FD[r] || [1001, 24000], k = fd[0] + '/' + fd[1] + '-' + w + 'x' + h; if (!fmts[k]) { fmts[k] = {id:'r' + (fi++), n:fd[0], dd:fd[1]}; fl.push('    <format id="' + fmts[k].id + '" frameDuration="' + fd[0] + '/' + fd[1] + 's" width="' + w + '" height="' + h + '"/>'); } return fmts[k]; };
+    // whole frames, never more than the file holds: the camera's own frame count when it gave one, else the length rounded down
+    const rt = (c, f) => (c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01))) * f.n + '/' + f.dd + 's';
+    // where the clips are: the real location when the page was given one (the app), else the folder the user named in Export
+    // (ex.root) with the clip's place inside it, else the old guess of a volume called after the folder
+    let root = String(ex.root || '').trim(); if (/^file:\/\//.test(root)) { try { root = decodeURI(root.replace(/^file:\/\/[^\/]*/, '')); } catch (e) {} } root = root[0] === '/' ? root.replace(/\/+$/, '') : '';
+    // one folder opened: the root is that folder. Several opened together: the root is the folder that holds them.
+    const tops = new Set(d.clips.map(c => { const p = c.path || c.name, i = p.indexOf('/'); return p[0] !== '/' && i > 0 ? p.slice(0, i) : ''; }).filter(Boolean));
+    const src = c => { let p = c.path || c.name; if (p[0] !== '/') { const i = p.indexOf('/'); p = root ? root + '/' + (tops.size <= 1 && i >= 0 ? p.slice(i + 1) : p) : '/Volumes/' + p; } return 'file://' + p.split('/').map(encodeURIComponent).join('/'); };
+    // Final Cut's own name for its built-in Sony conversion, as it writes it on a clip whose Camera LUT is set to
+    // Sony S-Log3/S-Gamut3.Cine (read from an export of Final Cut Pro 12.4). Only that pair is known; other log clips get none.
+    const lut = c => c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine' ? ' customLUTOverride="35 (Sony_SLog3_SGamut3Cine_v2)"' : '';
     const al = [], cl = [];
     clips.forEach((c, i) => {
-      const f = fmt(c), du = rt(c.dur || 1, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
-      al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="0s" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '">', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
+      const f = fmt(c), du = rt(c, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
+      al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="0s" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '"' + lut(c) + '>', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
       const kws = []; if (m === 'maybe') kws.push('maybe');
       // Final Cut's own ratings: selected clips are favorites, cut ones rejected (hidden by Final Cut's Hide Rejected), the rest unrated
       const rate = m === 'keep' ? 'favorite' : m === 'cut' ? 'reject' : null;
@@ -2214,6 +2260,17 @@ class Component extends DCLogic {
     const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
     return {n:clips.length, text};
   }
+  // The line under the Folder field in Export: what Final Cut will do with what is typed there.
+  static rootSay(root, tops) {
+    const r = String(root || '').trim(), T = tops || [], many = T.length > 1, q = n => '“' + n + '”';
+    const which = many ? 'the folder that holds ' + T.slice(0, 3).map(q).join(', ') + (T.length > 3 ? ' and the others' : '') : T.length ? 'the folder ' + q(T[0]) : 'the folder you opened';
+    if (!r) return {t:'Where these clips are on this Mac, so Final Cut finds them. In Finder: select ' + which + ', press ⌥⌘C, paste here. Left empty, the clips arrive as missing until you point Final Cut at them (File ▸ Relink Files).'};
+    if (r[0] !== '/' && !/^file:\/\//.test(r)) return {t:'A folder location starts with / (in Finder: select ' + which + ', press ⌥⌘C, paste here).', bad:true};
+    return {t:'Final Cut will look for the clips in this folder' + (many ? ', which should hold ' + T.slice(0, 3).map(q).join(', ') + (T.length > 3 ? ' and the others' : '') : '') + '.'};
+  }
+  // The folder is remembered for the shoot (one small entry for all shoots, outside the marks).
+  rootSaved(name) { try { const m = JSON.parse(localStorage.getItem('lumina-skimroots') || '{}'); return (m && typeof m[name] === 'string' && m[name]) || ''; } catch (x) { return ''; } }
+  rootSave(val) { const name = this.d && this.d.shoot.name; if (!name) return; let m = {}; try { m = JSON.parse(localStorage.getItem('lumina-skimroots') || '{}') || {}; } catch (x) {} if (val && val.trim()) m[name] = val.trim(); else delete m[name]; this.persist('lumina-skimroots', Object.keys(m).length ? JSON.stringify(m) : null); }
   // What the Final Cut download would hold under the options, and what its button says. n is the number of clips in the
   // .fcpxml (the same clips buildX takes); 0 means there is nothing to write, so the button is off and no file is made.
   static exGate(markN, total, ex) {
@@ -2411,6 +2468,8 @@ class Component extends DCLogic {
       v.exOpts = [sw('Everything', ex.all ? 'every clip; selected ones as favorites, cut ones marked as not wanted' : 'only selected clips', ex.all, 'all'), sw('Include maybes', 'tagged “maybe” in Final Cut', ex.all || ex.maybes, 'maybes', ex.all)];
       v.exEvent = ex.event;
       v.exEventIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, event:val}})); };
+      v.exRoot = ex.root || ''; v.exRootIn = e => { const val = e.target.value; this.rootSave(val); this.setState(s => ({exDone:null, ex:{...s.ex, root:val, rootFor:this.d ? this.d.shoot.name : ''}})); };
+      { const r = Component.rootSay(ex.root, this.d ? Array.from(new Set(this.d.clips.map(c => { const p = c.path || c.name || '', i = p.indexOf('/'); return p[0] !== '/' && i > 0 ? p.slice(0, i) : ''; }).filter(Boolean))) : []); v.exRootSay = r.t; v.exRootC = r.bad ? '#FFD27A' : '#9A958D'; }
       v.exKwIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, kw:val}})); };
       const gate = Component.exGate(markN, d.clips.length, ex);
       const chk = x.n && st.exChk && st.exChk.text === x.text && st.exChk.n === gate.n ? st.exChk : null, pass = !!(chk && chk.ok);
@@ -2426,7 +2485,8 @@ class Component extends DCLogic {
       v.cutCopy = this.cutCopy; v.cutSave = this.cutSave; v.cutSayOn = !!st.cutSay; v.cutSay = st.cutSay ? st.cutSay.t : ''; v.cutSayC = st.cutSay && st.cutSay.bad ? '#FFD27A' : '#A9D18E';
       v.exMore = !!st.exMore; v.exMoreRot = st.exMore ? '90deg' : '0deg'; v.exMoreGo = () => this.setState(s => ({exMore:!s.exMore}));
       const lines = x.text.split('\n'); v.exPreview = x.n ? lines.slice(0, 44).join('\n') + (lines.length > 44 ? '\n…' : '') : 'Select clips in Skim with K, or turn on Everything.';
-      v.exPathLine = d.shoot.real ? 'Paths assume the card is mounted at /Volumes/' + (d.shoot.base || d.shoot.name) + '.' : 'Paths point at the card as the camera wrote it.';
+      { const rt = String(ex.root || '').trim(), ok = rt[0] === '/' || /^file:\/\//.test(rt);
+        v.exPathLine = !d.shoot.real ? 'Paths point at the card as the camera wrote it.' : ok ? 'Final Cut will look for the clips in ' + rt.replace(/\/+$/, '') + '.' : 'Paths assume the card is mounted at /Volumes/' + (d.shoot.base || d.shoot.name) + '. Opened a folder instead? Say where it is under Details.'; }
       v.exDone = st.exDone || ''; v.exDoneOn = !!st.exDone;
       v.exGroups = G.map(g => { const k = g.clips.filter(c => st.marks[c.id] === 'keep').length, m = g.clips.filter(c => st.marks[c.id] === 'maybe').length; return {title:g.title, k:k + ' selected', m:ex.maybes ? m + ' maybe' : '', on:ex.all || k + (ex.maybes ? m : 0) > 0}; }).filter(g => g.on);
       v.backSkim = () => this.setStep('skim');
