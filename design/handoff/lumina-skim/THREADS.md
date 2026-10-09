@@ -24,8 +24,32 @@ Cut only what he uses. Out of scope now: colour matching, masking, grading.
   Chromium only HEVC 10-bit and 8-bit H.264.
 - Change log: LOCAL-CHANGES.md (items 1–45).
 
+## Scope set by the user on 2026-10-08 (evening): web only, one ask
+His first ask is to stop sifting twice: one pass on the desktop dump, log clips shown in Rec.709, marked
+selected / maybe / cut, cut ones gone early, only what he uses handed to Final Cut. Judge by an impatient creator.
+In for the first send (web page only): 1. drop the folder, every clip listed at once, no empty tiles;
+2. Rec.709 looks right, large view included; 3. every clip plays and scrubs; 4. mark selected / maybe / cut
+(coloured on/off toggles, no auto-advance) and see the GB cut would free; 5. selected clips into Final Cut,
+proven by a real import. Parked until the user says otherwise: all Mac-app work (skim-native, skim-freespace,
+skim-beta), grouping beyond scenes, canvas zoom and dock, the perf gate except the Final Cut comparison.
+Web first: every fix is merged, deployed and checked on the live page before anything else.
+
+Deploys this evening (https://lumina-skim.pages.dev, each after page copies byte-equal and tests passing):
+121ff31 as it stood · 28d2639 no empty tiles (LOCAL-CHANGES 50, 51) · 155b891 clips listed from metadata,
+first look follows the screen (46) · 995ee82 one-touch marking (65-68) · ce0fa2e the large view follows the
+Rec.709 switch (60, 61, 69) · 66ed33f scrubbing survives a slight pinch, seek watchdog (55-58).
+Measured, not in a browser: the page's S-Log3 conversion against Sony's published maths on the five
+friend_test_log clips, 15 frames: mean dE2000 1.14, p95 2.38 with the page's tone curve (15 of 15 inside
+2 / 5); 4.54 / 11.43 against a plain conversion with no tone curve (3 of 15). The clips are full range
+(REC709.md step 1 says 64-940; the files and the page's table say full). Nothing is claimed about Final Cut:
+that needs stills from Final Cut. Not yet measured: any speed on /Volumes/Untitled from the page's clock.
+Open, found on the way: C0248 on the card (all black, 0.5 s) is reported as unreadable though it plays;
+pass-2 frames skipped on a seek timeout are not queued again; in a browser, pacing by heat does nothing.
+Assessed, not changed (waiting on the user): hide the developer memory controls; add a list of cut clips to
+copy or download; reword the figure as GB he can free.
+
 ## Threads (worktrees under ~/vlm_harness/worktrees)
-State after orchestration round 2 (2026-10-08 21:15 PT). No chat was attached to any worktree in this round; each
+State after orchestration round 3 (2026-10-08 21:50 PT); branches other than skim-native and the three parked Mac-app threads are level with mvp unless a row says otherwise. No chat was attached to any worktree in this round; each
 row's next step is waiting for a chat to pick it up.
 | Worktree | Branch | Handoff | State after round 1 |
 |---|---|---|---|
