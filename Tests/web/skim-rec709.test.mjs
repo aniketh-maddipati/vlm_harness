@@ -169,3 +169,11 @@ test('colour check: reached from the developer panel and from luminaSkimDebug(\'
   assert.match(src, /\{t:this\.ccFile \? 'Save the colour check' : 'Colour check frames', sub:this\.ccSay \|\| [^}]*go:this\.colourCheck,/);
   assert.match(src, /what === 'colour'\) this\.colourCheck\(\)/);
 });
+
+test('exposure is noted from a full stop either way, not from 0.7', () => {
+  const C = new Function('return class {\n' + extractMethod(src, 'chips', 'chips(c) {') + '\n' + extractMethod(src, 'prof', 'prof(c) {') + '\n}')();
+  const p = Object.assign(new C(), { d:{shoot:{rate:24}}, state:{dis:{}}, pct:v => v + '%' });
+  const keys = ev => p.chips({ id:'a', fps:24, profile:{gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'sidecar'}, facts:{state:'ready', ev, clip:0, crush:0, sharp:1, motion:null, bump:null} }).list.map(k => k.key);
+  for (const ev of [0, 0.5, 0.7, 0.8, 0.9, -0.7, -0.9]) assert.ok(!keys(ev).includes('ev'), ev + ' stops is not noted');
+  for (const ev of [1, 1.4, 2.3, -1, -2.3, -3.7]) assert.ok(keys(ev).includes('ev'), ev + ' stops is noted');
+});

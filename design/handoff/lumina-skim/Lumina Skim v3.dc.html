@@ -662,7 +662,7 @@ class Component extends DCLogic {
     let pv = f.prov ? f.n || 1 : 0;
     if (f.state !== 'unreliable') {
       add('clip', this.pct(f.clip) + ' clipped', 90 + f.clip, f.clip >= 1);
-      add('ev', (f.ev > 0 ? '+' : '−') + Math.abs(f.ev).toFixed(1) + ' stops', 70 + Math.abs(f.ev) * 5, Math.abs(f.ev) >= 0.7);
+      add('ev', (f.ev > 0 ? '+' : '−') + Math.abs(f.ev).toFixed(1) + ' stops', 70 + Math.abs(f.ev) * 5, Math.abs(f.ev) >= 1);   // a stop or more from the middle: ordinary daylight sits at +0.5 to +0.8 in Final Cut's own Rec.709
       add('soft', 'soft', 76, f.sharp < 0.35);
       add('motion', f.motion, 66, !!f.motion);
       add('bump', 'bump', 60, f.bump != null);
