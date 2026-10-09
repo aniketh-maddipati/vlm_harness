@@ -493,7 +493,7 @@ class Component extends DCLogic {
     this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => { this.panS = null; this.setState({held:null}); };
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
     window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu);
-    this._md = e => { const st = this.state; if (!st.sel.length && !st.box) return; const t = e.target; if (this.sc && this.sc.contains(t)) return; if (t.closest && t.closest('[data-well],[data-lumina="memory"],[data-lumina="progress"]')) return; this.setState({sel:[], box:null}); }; window.addEventListener('mousedown', this._md);
+    this._md = e => { this.tabFocus = false; const st = this.state; if (!st.sel.length && !st.box) return; const t = e.target; if (this.sc && this.sc.contains(t)) return; if (t.closest && t.closest('[data-well],[data-lumina="memory"],[data-lumina="progress"]')) return; this.setState({sel:[], box:null}); }; window.addEventListener('mousedown', this._md);
     this._vis = () => { if (!document.hidden) { const v = this.vidEl; if (v && this.vidWant != null && v.readyState >= 1) { try { v.currentTime = this.vidWant; } catch (x) {} this.vidAsk = 0; this.vidArm(); } this.bump(); } }; document.addEventListener('visibilitychange', this._vis);
     window.addEventListener('wheel', this._wh, {passive:false}); window.addEventListener('blur', this._bl);
     // WebKit (the app, Safari) sends a trackpad pinch as gesture events, Chromium as ⌃-wheel.
@@ -807,7 +807,10 @@ class Component extends DCLogic {
     else if (st.lv === 1) { const i = this.flat.indexOf(st.cur), n = this.flat[Math.max(0, Math.min(this.flat.length - 1, (i < 0 ? 0 : i + d)))]; if (n) { this.wantScroll = ['[data-clip="' + n + '"]']; this.setState({cur:n}); this.anchor = null; } }
     else this.setState(s => ({hv:null, fx:Math.max(0, Math.min(7, Math.round(s.fx) + d))}));
   }
-  takeStep(d) { const i = this.flat.indexOf(this.state.cur), n = this.flat[i + d]; if (n) this.setState({cur:n, fx:0, hv:null}); }
+  // clipAt: the clip d places from cur in reading order (capture order, straight across scene boundaries);
+  // null past the first or the last clip (no wrap) and for a clip that is not listed.
+  static clipAt(flat, cur, d) { const i = flat.indexOf(cur); return i < 0 ? null : flat[i + d] || null; }
+  takeStep(d) { const n = Component.clipAt(this.flat, this.state.cur, d); if (n) this.setState({cur:n, fx:0, hv:null}); }
   chapJump(d) {
     const st = this.state;
     if (st.lv === 0) return this.move(d);
@@ -853,6 +856,7 @@ class Component extends DCLogic {
     const st = this.state; if (!st.ready) return;
     const k = e.key, kl = k.length === 1 ? k.toLowerCase() : k, meta = e.metaKey || e.ctrlKey, t = e.target;
     if (k === 'Shift' || k === 'Meta' || k === 'Alt' || k === 'Control') return;
+    if (k === 'Tab') this.tabFocus = true;
     if (meta && /^[123]$/.test(k)) { e.preventDefault(); return this.setStep(['import', 'skim', 'export'][+k - 1]); }
     if (meta && kl === 'o') { e.preventDefault(); this.setStep('import'); return setTimeout(() => this.pickFolder(), 60); }
     if (st.memOn && k === 'Escape') return this.setState({memOn:false});
@@ -870,7 +874,11 @@ class Component extends DCLogic {
     if (this.mk[kl] && !e.altKey) { e.preventDefault(); if (e.repeat) return; this.heldAt = e.timeStamp; this.heldTapped = false; return this.setState({held:this.mk[kl]}); }
     if (k === 'Enter' || k === ' ') {
       if (st.held) { e.preventDefault(); return this.decide(); }
-      if (this.isCtl(t)) { e.preventDefault(); return t.click(); }
+      // Viewer: ⏎ is the next clip, ⇧⏎ the one before. A control a click left focused (a mark button, the preview
+      // switch) does not take the ⏎; one reached with Tab does.
+      const nav = k === 'Enter' && st.lv >= 2 && !st.prop;
+      if (this.isCtl(t) && !(nav && !this.tabFocus)) { e.preventDefault(); return t.click(); }
+      if (nav) { e.preventDefault(); return this.takeStep(e.shiftKey ? -1 : 1); }
       if (k === 'Enter' && st.lv < 3) { e.preventDefault(); this.unfurl(); }
       return;
     }
@@ -1911,7 +1919,7 @@ class Component extends DCLogic {
     }
     const fi = Math.round(st.fx);
     if (st.lv === 2) {
-      add('↑', 'Clips · ' + (cg ? cg.title : '')); add('← →', 'scrub'); add('⇧→', next && nm(next)); add('K M C', 'mark ' + nm(st.cur) + ' on / off'); if (!this.pvDisabled()) add('V', 'preview ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('2×click', 'done here');
+      add('⏎', next && 'next'); add('⇧⏎', prev && 'back'); add('K M C', 'mark on / off'); add('← →', 'scrub'); if (!this.pvDisabled()) add('V', 'preview ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('↑', 'Clips');
       return {lead:'Viewer · ' + nm(st.cur), list:out};
     }
     add('↑', 'Viewer · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M C', 'mark ' + nm(st.cur));

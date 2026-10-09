@@ -10,7 +10,7 @@ import { PAGE, extractMethod } from './skim-export.mjs';
 
 const src = fs.readFileSync(PAGE, 'utf8');
 const C = {};
-for (const [name, args] of [['markToggle', 'has, m'], ['markStep', 'marks, step, back'], ['stepCur', 'step']]){
+for (const [name, args] of [['markToggle', 'has, m'], ['markStep', 'marks, step, back'], ['stepCur', 'step'], ['clipAt', 'flat, cur, d']]){
   const body = extractMethod(src, name, 'static ' + name + '(' + args + ') {').replace(/^static /, 'function ');
   C[name] = new Function('Component', 'return ' + body)(C);
 }
@@ -100,4 +100,39 @@ test('the page toggles in quick, never moves on a mark, and undoes through markS
   assert.doesNotMatch(src, /nextUp/);
   assert.match(apply, /Component\.markStep\(st\.marks, step, back\)/);
   assert.match(apply, /this\.goClip\(Component\.stepCur\(step\)\)/);
+});
+
+// ⏎ and ⇧⏎ in the Viewer: one clip on or back in capture order, straight across scenes, stopping at the ends.
+const scenes = [['a', 'b'], ['c'], ['d', 'e']], order = scenes.flat();   // the page's flat: each scene's clips, scene after scene
+
+test('next and back move one clip each', () => {
+  assert.equal(C.clipAt(order, 'a', 1), 'b');
+  assert.equal(C.clipAt(order, 'e', -1), 'd');
+});
+
+test('they cross scene boundaries in capture order', () => {
+  assert.equal(C.clipAt(order, 'b', 1), 'c'); assert.equal(C.clipAt(order, 'c', 1), 'd');
+  assert.equal(C.clipAt(order, 'd', -1), 'c'); assert.equal(C.clipAt(order, 'c', -1), 'b');
+  let cur = 'a'; const seen = [cur];
+  for (let n; (n = C.clipAt(order, cur, 1)); cur = n) seen.push(n);
+  assert.deepEqual(seen, order);
+});
+
+test('they stop at the first and the last clip, no wrap', () => {
+  assert.equal(C.clipAt(order, 'e', 1), null);
+  assert.equal(C.clipAt(order, 'a', -1), null);
+  assert.equal(C.clipAt(['a'], 'a', 1), null); assert.equal(C.clipAt(['a'], 'a', -1), null);
+});
+
+test('a clip that is not listed goes nowhere', () => {
+  assert.equal(C.clipAt(order, 'zz', 1), null); assert.equal(C.clipAt(order, null, -1), null); assert.equal(C.clipAt([], 'a', 1), null);
+});
+
+test('the page moves on Enter through takeStep, after the held-mark Enter, and never marks', () => {
+  const kd = extractMethod(src, 'kd', 'kd(e) {'), takeStep = extractMethod(src, 'takeStep', 'takeStep(d) {');
+  assert.match(takeStep, /Component\.clipAt\(this\.flat, this\.state\.cur, d\)/);
+  assert.doesNotMatch(takeStep, /marks|\bpv\b|doMark/);
+  const held = kd.indexOf('if (st.held) { e.preventDefault(); return this.decide(); }'), nav = kd.indexOf('return this.takeStep(e.shiftKey ? -1 : 1)');
+  assert.ok(held > 0 && nav > held);
+  assert.match(kd, /const nav = k === 'Enter' && st\.lv >= 2 && !st\.prop;/);
 });
