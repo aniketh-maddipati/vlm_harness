@@ -273,7 +273,8 @@ input[type=range]{accent-color:#B8B3AB}
               <div data-pic="1" data-clip="{{ it.id }}" onMouseMove="{{ picMove }}" onMouseLeave="{{ picLeave }}" onClick="{{ picClick }}" onDoubleClick="{{ viewDbl }}" style="flex:none;width:{{ it.w }}px;display:flex;flex-direction:column;gap:6px;opacity:{{ it.op }};transition:opacity 120ms">
                 <div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;cursor:ew-resize;background:#161514">
                   <div style="position:absolute;inset:0;background:{{ it.bg }};filter:{{ it.flt }};animation:{{ it.anim }};transform:{{ it.zt }};transform-origin:{{ it.zo }}"></div>
-                  <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><video ref="{{ vidRef }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.flt }};opacity:0;transition:opacity 120ms;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></video></sc-if>
+                  <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><video ref="{{ vidRef }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transition:opacity 120ms;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></video></sc-if>
+                  <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ pvCvRef }}" data-lumina="viewer-preview" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></canvas></sc-if>
                   <sc-if value="{{ it.zOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="zoom" style="position:absolute;left:8px;bottom:8px;padding:2px 8px;border-radius:5px;background:rgba(22,21,20,0.82);color:#EFECE6;pointer-events:none">{{ it.zT }}</div></sc-if>
                   <sc-if value="{{ it.hvOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:0;bottom:0;left:{{ it.hx }};width:1px;background:rgba(239,236,230,0.6);pointer-events:none"></div></sc-if>
                   <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ it.edge }};pointer-events:none"></div>
@@ -481,7 +482,7 @@ class Component extends DCLogic {
     if (zk.cur !== s0.cur && this.d) this.refill();
     if (s0.lv === 1 && this.sc && (zk.lv !== 1 || this.sc.clientHeight !== s0.scH)) this.scScroll();
     if (zk.cur !== s0.cur || zk.lv !== s0.lv || zk.step !== s0.step) { const ps = zk, r = {}; if (s0.zc !== 1 && (ps.cur !== s0.cur || s0.lv < 2 || s0.step !== 'skim')) r.zc = 1; if (s0.noKeep && (s0.lv < 2 || s0.step !== 'skim')) r.noKeep = false; if (Object.keys(r).length) this.setState(r); }
-    this.syncVid();
+    this.syncVid(); this.paintVid();
   }
   load() {
     const S = window.LuminaVideoSamples, host = window.LuminaVideo && !window.LuminaVideo.__sample ? window.LuminaVideo : null;
@@ -527,7 +528,34 @@ class Component extends DCLogic {
     return null;
   }
   pvFlt(c) { const p = this.prof(c); return p && p.g === 'S-Log3' ? 'url(#lumina-slog3)' : 'contrast(1.35) saturate(1.45) brightness(0.96)'; }
-  pvOn(c) { const p = this.prof(c); return this.state.pv && !!p && p.g !== 'none'; }
+  // Only the profiles the preview converts (S-Log3, S-Log2, HLG) change with the switch; a clip that is already
+  // Rec.709, or whose profile is some other name or not known, is shown as it is, switch on or off.
+  pvOn(c) { return !!this.state.pv && this.needsPv(c); }
+  // WebKit (Safari and the app) does not apply an SVG filter, url(#…), to a <video>: the clip is shown on a
+  // layer of its own, so with the S-Log3 preview on the Viewer's picture stayed as shot while the stills
+  // beside it changed. When the preview is such a filter, the frame the video is on is drawn into a canvas
+  // over it, and the canvas takes the same filter as the stills. Filters written as functions reach the video.
+  pvVia(flt) { return typeof flt === 'string' && flt.indexOf('url(') === 0 ? 'canvas' : 'video'; }
+  pvCvRef = el => { this.pvCv = el || null; this.pvCvKey = null; this.pvCvFor = null; if (el) this.paintVid(); };
+  paintVid(again) {
+    const cv = this.pvCv, v = this.vidEl, st = this.state; if (!cv) return;
+    const c = st.step === 'skim' && st.lv >= 2 ? this.byId[st.cur] : null;
+    if (v && this.pvCvVid !== v) { this.pvCvVid = v; v.addEventListener('seeked', () => this.paintVid()); v.addEventListener('error', () => this.paintVid()); }
+    const on = !!c && !!v && this.vidFor === c.id && v.style.opacity === '1' && this.pvOn(c) && this.pvVia(this.pvFlt(c)) === 'canvas';
+    if (!on) { cv.style.opacity = '0'; return; }
+    if (v.readyState >= 2 && v.videoWidth > 0 && (!v.seeking || this.pvCvFor !== c.id)) {   // mid-seek only when nothing of this clip is drawn yet
+      const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+      const w = Math.max(2, Math.min(v.videoWidth, Math.round((cv.clientWidth || 320) * dpr * Math.max(1, st.zc || 1)))), h = Math.max(2, Math.round(w * v.videoHeight / v.videoWidth));
+      const key = c.id + '|' + v.currentTime + '|' + w;
+      if (again || key !== this.pvCvKey) {
+        if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+        try { cv.getContext('2d').drawImage(v, 0, 0, w, h); this.pvCvKey = v.seeking ? null : key; this.pvCvFor = c.id; } catch (x) {}
+        // the frame WebKit hands a canvas right after a seek can be the one before; draw once more when it is shown
+        if (!again) { if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => this.paintVid(true)); else setTimeout(() => this.paintVid(true), 120); }
+      }
+    }
+    cv.style.opacity = this.pvCvFor === c.id ? '1' : '0';
+  }
   chips(c) {
     const f = c.facts || {}, sh = this.d.shoot, dis = this.state.dis[c.id] || [], out = [];
     if (f.state === 'pending') return {pending:true, list:[]};
@@ -1056,7 +1084,7 @@ class Component extends DCLogic {
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick,
       wClick:this.wClick, 
-      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, picMove:this.picMove, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef,
+      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, picMove:this.picMove, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef,
       grid42:true,
       boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
       undoN:st.undo.length, redoN:st.redo.length, undoC:st.undo.length ? '#EFECE6' : '#6E6A64', redoC:st.redo.length ? '#EFECE6' : '#6E6A64',
@@ -1164,7 +1192,7 @@ class Component extends DCLogic {
         const isC = cc.id === c.id, w = isC ? fit.wc : fit.wo, ff = this.skimF(cc), ti = this.tone(cc, Math.min(7, Math.floor(ff * 8)), isC), mm = st.marks[cc.id] || null, g2 = isC ? gm : null, hvOn = !!(st.hv && st.hv.id === cc.id);
         centers.push(x + w / 2); x += w + fit.gap;
         const zz = isC && st.zc > 1.01;
-        return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, anim:ti.anim, vid:isC && !!cc._file, hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:zz, zT:zz ? st.zc.toFixed(1) + '× · pinch back or Z to fit' : '',
+        return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, vflt:this.pvOn(cc) ? this.pvFlt(cc) : 'none', anim:ti.anim, vid:isC && !!cc._file, hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:zz, zT:zz ? st.zc.toFixed(1) + '× · pinch back or Z to fit' : '',
           edge:g2 ? 'inset 0 0 0 3px ' + MK[g2] + '99' : mm ? 'inset 0 0 0 ' + (isC ? 3 : 2) + 'px ' + MK[mm] : 'none', markOn:!!mm && !g2, mark:this.W(mm), markC:mm ? MK[mm] : '', ghost:!!g2, ghostT:this.W(g2), ghostC:g2 ? MK[g2] : '',
           name:cc.name.replace(/\.\w+$/, ''), nameC:isC ? '#EFECE6' : '#B8B3AB', barVis:isC ? 'visible' : 'hidden', ph:(ff * 100).toFixed(2) + '%',
           sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—'), subC:isC ? '#B8B3AB' : '#9A958D'};
