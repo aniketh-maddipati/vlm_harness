@@ -454,10 +454,10 @@ class Component extends DCLogic {
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
     window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu);
     this._md = e => { const st = this.state; if (!st.sel.length && !st.box) return; const t = e.target; if (this.sc && this.sc.contains(t)) return; if (t.closest && t.closest('[data-well],[data-lumina="memory"],[data-lumina="progress"]')) return; this.setState({sel:[], box:null}); }; window.addEventListener('mousedown', this._md);
-    this._vis = () => { if (!document.hidden) this.bump(); }; document.addEventListener('visibilitychange', this._vis);
+    this._vis = () => { if (!document.hidden) { const v = this.vidEl; if (v && this.vidWant != null && v.readyState >= 1) { try { v.currentTime = this.vidWant; } catch (x) {} this.vidAsk = 0; this.vidArm(); } this.bump(); } }; document.addEventListener('visibilitychange', this._vis);
     window.addEventListener('wheel', this._wh, {passive:false}); window.addEventListener('blur', this._bl);
     // WebKit (the app, Safari) sends a trackpad pinch as gesture events, Chromium as ⌃-wheel.
-    this._gs = e => { e.preventDefault(); this.gsc = 1; }; this._gc = e => { e.preventDefault(); const r = e.scale / (this.gsc || 1); this.gsc = e.scale; this.zoomBy(Math.log(r) * 1.6, e); }; this._ge = e => { e.preventDefault(); this.gsc = 1; };
+    this._gs = e => { e.preventDefault(); this.gsc = 1; }; this._gc = e => { e.preventDefault(); const r = e.scale / (this.gsc || 1); this.gsc = e.scale; this.zoomBy(Math.log(r) * 1.6, e); }; this._ge = e => { e.preventDefault(); this.gsc = 1; const zc = this.state.zc; if (Component.zoomSettle(zc) !== zc) this.setState({zc:1}); };
     window.addEventListener('gesturestart', this._gs, {passive:false}); window.addEventListener('gesturechange', this._gc, {passive:false}); window.addEventListener('gestureend', this._ge, {passive:false});
     this.healthTick();
     window.luminaSkimDebug = () => ({thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0});
@@ -939,7 +939,10 @@ class Component extends DCLogic {
     let zo = st.zo;
     if (z0 <= 1.01 && e && e.clientX != null) { const pic = this.curPic(); if (pic) { const r = pic.getBoundingClientRect(); zo = {x:Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y:Math.max(0, Math.min(1, (e.clientY - r.top) / r.height))}; } }
     this.setState({zc:z <= 1.01 ? 1 : z, zo, hv:null});
+    // a pinch that stops short of a real zoom goes back to fit: at 1.05× nothing looks zoomed, yet a swipe pans instead of scrubbing
+    clearTimeout(this.zSetT); this.zSetT = setTimeout(() => { const zc = this.state.zc; if (Component.zoomSettle(zc) !== zc) this.setState({zc:1}); }, 260);
   }
+  static zoomSettle(z) { return z < 1.25 ? 1 : z; }
   curPic() { const p = document.querySelector('[data-pic][data-clip="' + this.state.cur + '"]'); return p && p.firstElementChild; }
   panBy(dx, dy, pic) {
     const st = this.state, r = (pic.firstElementChild || pic).getBoundingClientRect(), k = 1 / Math.max(1, st.zc - 1);
@@ -973,7 +976,7 @@ class Component extends DCLogic {
   scrubMove = e => { const r = e.currentTarget.getBoundingClientRect(); this.setState({fx:Math.max(0, Math.min(7, (e.clientX - r.left) / r.width * 7))}); };
   picF(e) { const r = e.currentTarget.firstElementChild.getBoundingClientRect(); return Math.max(0, Math.min(0.999, (e.clientX - r.left) / Math.max(1, r.width))); }
   picMove = e => { const id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e), h = this.state.hv;
-    if (this.state.zc > 1.01 && id === this.state.cur) return; if (!h || h.id !== id || Math.abs(h.f - f) > 0.002) this.setState({hv:{id, f}}); };
+    if (!h || h.id !== id || Math.abs(h.f - f) > 0.002) this.setState({hv:{id, f}}); };
   picLeave = () => { if (this.state.hv) this.setState({hv:null}); };
   picClick = e => {
     const st = this.state, id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e);
@@ -985,20 +988,47 @@ class Component extends DCLogic {
     if (!el) { this.dropVid(); this.vidEl = null; return; }
     if (el === this.vidEl) return;
     this.dropVid(); this.vidEl = el; el.muted = true; el.playsInline = true; el.preload = 'auto';
-    el.addEventListener('seeked', () => { if (el !== this.vidEl) return; el.style.opacity = '1'; if (this.vidWant != null && Math.abs(el.currentTime - this.vidWant) > 0.02) el.currentTime = this.vidWant; });
+    el.addEventListener('seeked', () => { if (el !== this.vidEl) return; el.style.opacity = '1'; this.vidAsk = 0; if (this.vidWant != null && Math.abs(el.currentTime - this.vidWant) > 0.02) { el.currentTime = this.vidWant; this.vidArm(); } else this.vidTry = 0; });
     el.addEventListener('loadeddata', () => { if (el === this.vidEl && this.vidWant != null && !el.seeking) el.currentTime = this.vidWant; });
-    el.addEventListener('error', () => { if (el === this.vidEl) el.style.opacity = '0'; });
+    el.addEventListener('error', () => { if (el === this.vidEl) { el.style.opacity = '0'; this.vidCheck(true); } });
   };
-  dropVid() { const v = this.vidEl; if (this.vidUrl) URL.revokeObjectURL(this.vidUrl); if (this.vidFor) this.vOpen = Math.max(0, (this.vOpen || 0) - 1); this.vidUrl = null; this.vidFor = null; this.vidWant = null; if (v) { v.style.opacity = '0'; v.removeAttribute('src'); try { v.load(); } catch (x) {} } }
+  // No seek in the Viewer waits forever. What to do about the video, from what it says of itself:
+  // 'ok' it is where it was asked to be · 'wait' still inside its time · 'again' open the file afresh · 'off' leave it, the sampled frames show.
+  static seekVerdict(o) {
+    const stuck = !!o.err || o.rs < 1 || o.seeking || Math.abs(o.ct - o.want) > 0.05;
+    if (!stuck) return 'ok'; if (!o.err && o.ms < (o.rs < 1 ? 10000 : 4000)) return 'wait';   // opening a file on a card can take seconds; a seek should not
+    return (o.tries || 0) < 2 ? 'again' : 'off';
+  }
+  // What the line under a picture says when the pointer has little or nothing to move through.
+  static skimSay(have, cur, vidOff) {
+    if (cur && !vidOff) return '';
+    if (cur) return have >= 2 ? 'the clip isn\u2019t answering · showing its ' + have + ' sampled frames' : 'the clip isn\u2019t answering · nothing to scrub';
+    return have === 1 ? 'one frame read · click to scrub' : '';
+  }
+  // vidAsk is when the oldest unanswered ask was made: a pointer that keeps moving does not push the check back, a seek that lands clears it.
+  vidArm() { if (!this.vidAsk) this.vidAsk = performance.now(); if (!this.vidT) this.vidT = setTimeout(() => this.vidCheck(), 2600); }
+  vidCheck(err) {
+    const v = this.vidEl, c = this.vidFor && this.byId ? this.byId[this.vidFor] : null; clearTimeout(this.vidT); this.vidT = 0; if (!v || !c || this.vidWant == null || this.vidOff === c.id) return;
+    if (document.hidden && !err) return;   // a hidden tab pauses its video; the return to it asks again
+    const r = Component.seekVerdict({err:!!err || !!v.error, rs:v.readyState, seeking:v.seeking, ct:v.currentTime, want:this.vidWant, ms:performance.now() - (this.vidAsk || 0), tries:this.vidTry || 0});
+    if (r === 'ok') { this.vidTry = 0; this.vidAsk = 0; return; } if (r === 'wait') { this.vidT = setTimeout(() => this.vidCheck(), 700); return; }
+    // the sampled frames underneath follow the pointer while the file is opened again, or for good
+    const tries = (this.vidTry || 0) + 1; this.dropVid(); this.vidTry = tries;
+    if (r === 'off') this.vidOff = c.id;
+    this.paintVid(); this.setState(s => ({tick:(s.tick || 0) + 1}));
+  }
+  dropVid() { const v = this.vidEl; if (this.vidUrl) URL.revokeObjectURL(this.vidUrl); if (this.vidFor) this.vOpen = Math.max(0, (this.vOpen || 0) - 1); this.vidUrl = null; this.vidFor = null; this.vidWant = null; clearTimeout(this.vidT); this.vidT = 0; this.vidAsk = 0; if (v) { v.style.opacity = '0'; v.removeAttribute('src'); try { v.load(); } catch (x) {} } }
   skimF(c) { const st = this.state; return st.hv && st.hv.id === c.id ? st.hv.f : c.id === st.cur ? (st.fx + 0.5) / 8 : 0.5; }
   syncVid() {
     const v = this.vidEl, st = this.state; if (!v) return;
     const c = st.step === 'skim' && st.lv >= 2 ? this.byId[st.cur] : null;
     if (!c || !c._file || !c.dur) { if (this.vidFor) this.dropVid(); return; }
-    if (this.vidFor !== c.id) { this.dropVid(); this.vidUrl = URL.createObjectURL(c._file); this.vidFor = c.id; this.vOpen = (this.vOpen || 0) + 1; v.src = this.vidUrl; }
+    if (this.vidOff && this.vidOff !== c.id) { this.vidOff = null; this.vidTry = 0; }
+    if (this.vidOff === c.id) return;
+    if (this.vidFor !== c.id) { const again = this.vidWas === c.id; this.dropVid(); if (!again) this.vidTry = 0; this.vidWas = c.id; this.vidUrl = URL.createObjectURL(c._file); this.vidFor = c.id; this.vOpen = (this.vOpen || 0) + 1; v.src = this.vidUrl; }
     const t = Math.max(0, Math.min(c.dur - 0.04, this.skimF(c) * c.dur));
     if (this.vidWant != null && Math.abs(this.vidWant - t) < 0.01) return;
-    this.vidWant = t; if (v.readyState >= 1 && !v.seeking) v.currentTime = t;
+    this.vidWant = t; if (v.readyState >= 1 && !v.seeking) v.currentTime = t; this.vidArm();
   }
   // How many of the chapter's clips share the canvas: as many as fit with each neighbour at least
   // 220 px wide and 0.62 of the current one, while the current one keeps 60% of its size alone.
@@ -1191,11 +1221,11 @@ class Component extends DCLogic {
       const items = shown.map(cc => {
         const isC = cc.id === c.id, w = isC ? fit.wc : fit.wo, ff = this.skimF(cc), ti = this.tone(cc, Math.min(7, Math.floor(ff * 8)), isC), mm = st.marks[cc.id] || null, g2 = isC ? gm : null, hvOn = !!(st.hv && st.hv.id === cc.id);
         centers.push(x + w / 2); x += w + fit.gap;
-        const zz = isC && st.zc > 1.01;
+        const zz = isC && st.zc > 1.01, say = Component.skimSay((cc.frames || []).filter(Boolean).length, isC, this.vidOff === cc.id);
         return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, vflt:this.pvOn(cc) ? this.pvFlt(cc) : 'none', anim:ti.anim, vid:isC && !!cc._file, hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:zz, zT:zz ? st.zc.toFixed(1) + '× · pinch back or Z to fit' : '',
           edge:g2 ? 'inset 0 0 0 3px ' + MK[g2] + '99' : mm ? 'inset 0 0 0 ' + (isC ? 3 : 2) + 'px ' + MK[mm] : 'none', markOn:!!mm && !g2, mark:this.W(mm), markC:mm ? MK[mm] : '', ghost:!!g2, ghostT:this.W(g2), ghostC:g2 ? MK[g2] : '',
           name:cc.name.replace(/\.\w+$/, ''), nameC:isC ? '#EFECE6' : '#B8B3AB', barVis:isC ? 'visible' : 'hidden', ph:(ff * 100).toFixed(2) + '%',
-          sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—'), subC:isC ? '#B8B3AB' : '#9A958D'};
+          sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' + (say ? ' · ' + say : '') : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—') + (say ? ' · ' + say : ''), subC:isC ? '#B8B3AB' : '#9A958D'};
       });
       const cw = Math.max(0, x - fit.gap), more = list.length - k, before = s0, after = list.length - s0 - k;
       const span = gq ? gq.title : '', extra = (before ? '‹ ' + before + ' more · ' : '') + (after ? after + ' more ›' : '');
