@@ -311,7 +311,7 @@ input[type=range]{accent-color:#B8B3AB}
           <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:22px">{{ cv.name }}</span><span style="color:#9A958D">{{ cv.when }}</span></div>
           <div data-lumina="viewer-mark" style="display:flex;flex-direction:column;gap:7px">
             <div style="display:flex;gap:5px">
-              <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><div data-well="{{ pk.m }}" role="button" tabIndex="0" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · moves on to the next undecided clip" onClick="{{ wClick }}" style="flex:1 1 0;min-width:0;height:30px;box-sizing:border-box;padding:0 7px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="background:rgba(239,236,230,0.1)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:18px;height:18px;box-sizing:border-box;padding:0 4px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">{{ pk.k }}</span><span style="color:{{ pk.fg }}">{{ pk.l }}</span></div></sc-for>
+              <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><div data-well="{{ pk.m }}" role="button" tabIndex="0" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · on / off" onClick="{{ wClick }}" style="flex:1 1 0;min-width:0;height:30px;box-sizing:border-box;padding:0 7px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="filter:brightness(1.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:18px;height:18px;box-sizing:border-box;padding:0 4px;border-radius:5px;background:{{ pk.capBg }};display:grid;place-items:center;font-weight:700;color:{{ pk.capFg }}">{{ pk.k }}</span><span style="color:{{ pk.fg }};font-weight:{{ pk.fw }}">{{ pk.l }}</span></div></sc-for>
             </div>
             <div style="display:flex;justify-content:space-between;gap:10px;white-space:nowrap"><span data-lumina="viewer-mark-now" style="color:{{ cv.markNowC }};font-weight:600">{{ cv.markNow }}</span><span data-lumina="viewer-cut" style="color:#B8B3AB">{{ cutSoFar }}</span></div>
           </div>
@@ -637,17 +637,13 @@ class Component extends DCLogic {
   verb(m) { return m ? Component.VERB[m] || m : 'put back'; }
   sentence(ids, m) { return this.verb(m) + ' ' + this.plural(ids.length, 'clip') + ' · ' + this.fmtB(this.bytesOf(ids)); }
   // Marking as plain functions (Tests/web/skim-marking.test.mjs reads them out of the page).
-  // nextUp: where a mark moves on to. The next undecided clip after cur in reading order; when none is left
-  // after it, the first undecided one before it; when every clip is decided, simply the next clip (cur on the last).
-  static nextUp(flat, marks, cur) {
-    const i = flat.indexOf(cur), n = flat.length; if (i < 0) return cur;
-    for (let k = 1; k < n; k++) { const id = flat[(i + k) % n]; if (!marks[id]) return id; }
-    return flat[Math.min(n - 1, i + 1)];
-  }
+  // markToggle: what a press of mark m does to a clip that has the mark `has`. The mark it already has turns off
+  // (null, undecided); any other mark, or none, becomes m.
+  static markToggle(has, m) { return has === m ? null : m; }
   // markStep: the marks after a step is redone (back false) or undone (back true: every clip gets its earlier mark back).
   static markStep(marks, step, back) { const out = {...marks}; step.ids.forEach(id => { const v = back ? step.prev[id] : step.next; if (v) out[id] = v; else delete out[id]; }); return out; }
-  // stepCur: the clip an undo (back) or redo lands on; null when the step did not move on (an area mark, a well in Scenes).
-  static stepCur(step, back) { return step.at ? (back ? step.at.from : step.at.to) : null; }
+  // stepCur: the clip an undo or redo lands on: the one clip the step marked; null for a step over several clips.
+  static stepCur(step) { return step.ids.length === 1 ? step.ids[0] : null; }
   goClip(n) {
     const st = this.state; if (!n || n === st.cur || !this.byId[n]) return;
     if (st.lv === 1) { this.wantScroll = ['[data-clip="' + n + '"]']; this.anchor = null; this.setState({cur:n}); }
@@ -672,7 +668,7 @@ class Component extends DCLogic {
     const st = this.state;
     if (step.k === 'mark') {
       const marks = Component.markStep(st.marks, step, back);
-      this.setState({marks}); this.goClip(Component.stepCur(step, back));
+      this.setState({marks}); this.goClip(Component.stepCur(step));
       if (back) { const by = {}; step.ids.forEach(id => { const v = step.prev[id] || ''; (by[v] = by[v] || []).push(id); }); Object.keys(by).forEach(v => this.api('mark', by[v], v || null)); }
       else this.api('mark', step.ids, step.next);
       return (back ? 'undid · ' : 'redid · ') + this.verb(step.next) + ' ' + this.plural(step.ids.length, 'clip');
@@ -789,15 +785,13 @@ class Component extends DCLogic {
   targets() { const st = this.state; if (st.sel.length) return st.sel; if (st.lv === 0) return this.G[st.gi] ? this.G[st.gi].vis.map(c => c.id) : []; return st.cur ? [st.cur] : []; }
   decide() {
     const st = this.state, m = st.held; if (!m) return; this.heldTapped = true;
-    if (st.sel.length || st.lv === 0) this.areaMark(this.targets(), m); else if (st.cur) this.doMark([st.cur], m);
+    if (st.sel.length || st.lv === 0) this.areaMark(this.targets(), m); else if (st.cur) this.doMark([st.cur], Component.markToggle(st.marks[st.cur] || null, m));
   }
   quick(m) {
     const st = this.state;
     if (st.sel.length) return this.areaMark(st.sel, m);
     if (st.lv === 0 || !st.cur) return;
-    this.doMark([st.cur], m);
-    const n = Component.nextUp(this.flat, {...st.marks, [st.cur]:m}, st.cur);
-    this.lastMark.step.at = {from:st.cur, to:n}; this.goClip(n);
+    this.doMark([st.cur], Component.markToggle(st.marks[st.cur] || null, m));
   }
   esc() {
     const st = this.state;
@@ -807,7 +801,7 @@ class Component extends DCLogic {
     if (st.prop) { clearTimeout(this.propT); this.propFn = null; return this.setState({prop:null}); }
     if (st.sel.length || st.box) { this.anchor = null; return this.setState({sel:[], box:null}); }
     const lm = this.lastMark, top = st.undo[st.undo.length - 1];
-    if (lm && top === lm.step && Date.now() - lm.at < 8000 && (lm.step.ids.includes(st.cur) || st.lv === 0 || (lm.step.at && lm.step.at.to === st.cur))) { this.lastMark = null; return this.undo(); }
+    if (lm && top === lm.step && Date.now() - lm.at < 8000 && (lm.step.ids.includes(st.cur) || st.lv === 0)) { this.lastMark = null; return this.undo(); }
     if (st.lv > 0) this.setLv(0);
   }
 
@@ -1207,7 +1201,7 @@ class Component extends DCLogic {
       facts.push({k:'mark', v:m ? this.W(m) : 'undecided', c:m ? MK[m] : '#9A958D'});
       facts.forEach(x => { if (!x.c) x.c = '#EFECE6'; });
       vals.cv = {name:c.name.replace(/\.\w+$/, ''), when:this.hm(c.t) + ' · ' + this.fmtDur(c.dur), bg:t.bg, flt:t.flt, edge:gm ? 'inset 0 0 0 3px ' + MK[gm] + '99' : m ? 'inset 0 0 0 3px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '',
-        picks:[['keep', 'K'], ['maybe', 'M'], ['cut', 'C']].map(([pm, pk]) => ({m:pm, k:pk, l:this.W(pm), on:m === pm, fg:m === pm ? MK[pm] : '#EFECE6', bg:m === pm ? 'rgba(239,236,230,0.1)' : 'rgba(239,236,230,0.05)', ring:m === pm ? '2px ' + MK[pm] : '1px rgba(239,236,230,0.1)'})),
+        picks:[['keep', 'K'], ['maybe', 'M'], ['cut', 'C']].map(([pm, pk]) => ({m:pm, k:pk, l:this.W(pm), on:m === pm, fg:m === pm ? '#1E1D1B' : MK[pm], fw:m === pm ? 800 : 400, bg:m === pm ? MK[pm] : 'transparent', ring:'1px ' + MK[pm] + (m === pm ? '' : '80'), capBg:m === pm ? 'rgba(30,29,27,0.14)' : 'rgba(239,236,230,0.12)', capFg:m === pm ? '#1E1D1B' : '#EFECE6'})),
         markNow:m ? this.W(m) : 'undecided', markNowC:m ? MK[m] : '#9A958D',
         ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
         chips:ch.pending ? [this.pendV(), this.pendV(), this.pendV()] : ch.list.map(x => this.chipV(c, x))};
@@ -1824,12 +1818,12 @@ class Component extends DCLogic {
     const ng = cg ? G.slice(cg.i + 1).find(x => x.vis.length) : null;
     if (st.lv === 1) {
       add('↑', 'Scenes · ' + (cg ? cg.title : '')); add('↓', 'open ' + nm(st.cur)); add('←', prev && nm(prev)); add('→', next && nm(next));
-      add('⇧↓', ng && 'next scene · ' + ng.title); add('K M C', 'mark ' + nm(st.cur) + ', move on'); add('esc', 'put back');
+      add('⇧↓', ng && 'next scene · ' + ng.title); add('K M C', 'mark ' + nm(st.cur) + ' on / off'); add('esc', 'put back');
       return {lead:'Clips · ' + nm(st.cur), list:out};
     }
     const fi = Math.round(st.fx);
     if (st.lv === 2) {
-      add('↑', 'Clips · ' + (cg ? cg.title : '')); add('← →', 'scrub'); add('⇧→', next && nm(next)); add('K M C', 'mark ' + nm(st.cur) + ', move on'); if (!this.pvDisabled()) add('V', 'preview ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('2×click', 'done here');
+      add('↑', 'Clips · ' + (cg ? cg.title : '')); add('← →', 'scrub'); add('⇧→', next && nm(next)); add('K M C', 'mark ' + nm(st.cur) + ' on / off'); if (!this.pvDisabled()) add('V', 'preview ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('2×click', 'done here');
       return {lead:'Viewer · ' + nm(st.cur), list:out};
     }
     add('↑', 'Viewer · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M C', 'mark ' + nm(st.cur));
