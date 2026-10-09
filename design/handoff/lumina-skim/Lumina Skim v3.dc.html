@@ -674,13 +674,66 @@ class Component extends DCLogic {
     const st = this.state, d = this.d, C = d.clips, out = [];
     const cut = this.cutSet(); let g0 = null, why = '';
     let gapS = null;
-    C.forEach((c, i) => { if (!g0) { g0 = {key:'t' + i, clips:[], why, gapS}; out.push(g0); } g0.clips.push(c); if (cut.has(c.id) && i < C.length - 1) { g0 = null; gapS = this.gapBy[c.id] || 0; why = (this.whyBy && this.whyBy[c.id]) || 'gap of ' + this.fmtGap(gapS); } });
+    Component.foldTiles(C.map(c => c.id), cut).forEach(([a, b]) => { const p = a > 0 ? C[a - 1] : null; if (p) { gapS = this.gapBy[p.id] || 0; why = (this.whyBy && this.whyBy[p.id]) || 'gap of ' + this.fmtGap(gapS); } out.push({key:'t' + a, clips:C.slice(a, b), why, gapS}); });
     out.forEach(g => { const a = g.clips[0], e = this.endIso(g.clips[g.clips.length - 1]); g.title = this.hm(a.t) + ' – ' + this.hm(e) + (e.slice(0, 10) !== a.t.slice(0, 10) ? ' next day' : ''); });
     out.forEach((g, i) => {
       g.i = i; g.bytes = g.clips.reduce((s, c) => s + c.bytes, 0);
       g.vis = g.clips;
     });
     return out;
+  }
+  // One grid, folded and unfolded (the fused Scenes + Clips grid). Plain functions, no DOM and no state; the page's own
+  // grouping runs on foldTiles, and Tests/web/skim-fold.test.mjs reads them all out of the page.
+  // The axis is capture time: ids are the clips in shooting order and never change places. A break is named by the clip
+  // it comes after; sorted is every break, strongest first (regap's score). Folding to n keeps the n strongest.
+  // isCanvas: the address asks for the one grid (?canvas=1 or #canvas, also after another hash word: #debug&canvas).
+  static isCanvas(search, hash) { return /[?&]canvas=1(&|$)/.test(search || '') || /(^#|[&\/])canvas($|[&=\/])/.test(hash || ''); }
+  // foldTiles: the tiles as [from, to) runs of ids, split after every id in cut (a Set).
+  static foldTiles(ids, cut) { const out = []; let a = 0; for (let i = 0; i < ids.length; i++) if (i === ids.length - 1 || cut.has(ids[i])) { out.push([a, i + 1]); a = i + 1; } return out; }
+  static foldCut(sorted, n) { return new Set(sorted.slice(0, Math.max(0, n))); }
+  // foldSum: what a tile holds. clips: [{id, dur, bytes, notes:[words], pending}] → how many, how many of each mark and
+  // undecided, total length and size, how many clips carry a note and how many of each, how many are not measured yet.
+  static foldSum(clips, marks) {
+    const o = {n:clips.length, keep:0, maybe:0, cut:0, und:0, dur:0, bytes:0, noted:0, notes:{}, pending:0};
+    for (const c of clips) { const m = marks[c.id]; if (m === 'keep' || m === 'maybe' || m === 'cut') o[m]++; else o.und++; o.dur += c.dur || 0; o.bytes += c.bytes || 0; if (c.pending) o.pending++; const ns = c.notes || []; if (ns.length) o.noted++; for (const k of ns) o.notes[k] = (o.notes[k] || 0) + 1; }
+    return o;
+  }
+  // foldMark: what a press of mark m does to a folded tile: the mark every clip in it already has turns off (null);
+  // otherwise every clip gets m. The same toggle as one clip (markToggle), over the tile.
+  static foldMark(ids, marks, m) { return ids.length > 0 && ids.every(id => marks[id] === m) ? null : m; }
+  // foldSplit: the smallest fold value over n at which the tile holding ids comes apart (null: it is one clip, or
+  // no break is left inside it). foldStep: the break the next step makes (d > 0) or takes away (d < 0), by the clip
+  // it comes after; null at either end.
+  static foldSplit(ids, sorted, n) { const inside = new Set(ids.slice(0, -1)); for (let k = Math.max(0, n); k < sorted.length; k++) if (inside.has(sorted[k])) return k + 1; return null; }
+  static foldStep(sorted, n, d) { const id = d > 0 ? sorted[n] : sorted[n - 1]; return id == null ? null : id; }
+  // foldPinch: a pinch multiplies the number of tiles (n + 1) by e^acc; a small one still moves one step once it adds
+  // up to 0.3. Returns the new fold value and what is left of the pinch.
+  static foldPinch(n, max, acc) {
+    let to = Math.max(0, Math.min(max, Math.round((n + 1) * Math.exp(acc)) - 1));
+    if (to === n && Math.abs(acc) >= 0.3) to = Math.max(0, Math.min(max, n + (acc > 0 ? 1 : -1)));
+    return to === n ? {n, acc} : {n:to, acc:0};
+  }
+  // foldWord: the strip's count. tiles: how many clips each tile holds.
+  static foldWord(tiles) {
+    const P = (n, w) => n + ' ' + w + (n === 1 ? '' : 's'), clips = tiles.reduce((a, b) => a + b, 0), one = tiles.filter(n => n === 1).length, sc = tiles.length - one;
+    if (!sc) return P(clips, 'clip') + ' · each its own tile';
+    return P(sc, 'scene') + (one ? ' + ' + P(one, 'single clip') : '') + ' · ' + P(clips, 'clip');
+  }
+  // Geometry of the one grid: columns at least 280 px wide, 22 px apart; every tile, folded or not, is a 16:9 picture
+  // and 110 px of lines, rows 26 px apart. layFuse: tiles is how many clips each tile holds, in order; top and h the
+  // scroller's scrollTop and height, over the screens laid out around it, cur a tile kept laid out wherever the window
+  // is. Rows [r0, r1) are laid out, padT and padB stand in for the rest; rects are those tiles (g the tile, n its clips).
+  static layFuseGeo(o) {
+    const pad = Math.min(40, Math.max(16, o.vw * 0.022)), W = Math.max(280, (o.cw ? o.cw : o.vw) - 2 * pad), cols = Math.max(1, Math.floor((W + 22) / 302)), tw = (W - (cols - 1) * 22) / cols;
+    const ph = Math.round(tw * 9 / 16), th = ph + 110; return {cols, tw, th, gx:22, gy:26, pitch:th + 26, pad, W, ph};
+  }
+  static layFuse(o) {
+    const geo = o.geo || Component.layFuseGeo(o), T = o.tiles || [], n = T.length, y0 = 14, rows = Math.ceil(n / geo.cols), top = o.top || 0, h = o.h || 0, over = o.over == null ? 1 : o.over, all = !h;
+    let r0 = all ? 0 : Math.min(rows, Math.max(0, Math.floor((top - over * h - y0) / geo.pitch))), r1 = all ? rows : Math.max(r0, Math.min(rows, Math.ceil((top + h + over * h - y0) / geo.pitch)));
+    if (o.cur != null && o.cur >= 0 && o.cur < n) { const cr = Math.floor(o.cur / geo.cols); if (r1 <= r0) { r0 = Math.max(0, cr - 1); r1 = Math.min(rows, cr + 2); } else { r0 = Math.min(r0, Math.max(0, cr - 1)); r1 = Math.max(r1, Math.min(rows, cr + 2)); } }
+    const rects = [];
+    if (o.rects !== false) for (let g = r0 * geo.cols, e = Math.min(n, r1 * geo.cols); g < e; g++) rects.push({g, n:T[g], fold:T[g] > 1, x:geo.pad + (g % geo.cols) * (geo.tw + geo.gx), y:y0 + Math.floor(g / geo.cols) * geo.pitch, w:geo.tw, h:geo.th, ph:geo.ph});
+    return {geo, rows, r0, r1, padT:r0 * geo.pitch, padB:Math.max(0, (rows - r1) * geo.pitch), rects, height:y0 + Math.max(0, rows * geo.pitch - geo.gy) + 40};
   }
   index() {
     this.G = this.buildGroups(); this.flat = []; this.gOf = {};
