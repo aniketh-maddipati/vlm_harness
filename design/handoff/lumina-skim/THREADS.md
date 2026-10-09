@@ -38,6 +38,15 @@ Deploys this evening (https://lumina-skim.pages.dev, each after page copies byte
 121ff31 as it stood · 28d2639 no empty tiles (LOCAL-CHANGES 50, 51) · 155b891 clips listed from metadata,
 first look follows the screen (46) · 995ee82 one-touch marking (65-68) · ce0fa2e the large view follows the
 Rec.709 switch (60, 61, 69) · 66ed33f scrubbing survives a slight pinch, seek watchdog (55-58).
+Later the same evening: e4d7a49 marks are coloured on/off toggles that stay on the clip (71-74) · 72267f2 the
+build shown in the page's corner · 36ecbc6 Export cut down to the Final Cut download and the cut list (80-85)
+· 960d081 developer memory controls behind ?debug=1, Pause, Close and Forget marks in the top bar (90-96);
+the Final Cut button says what the file holds, file name first in the cut list (97-99) · then zoomed in holds
+the frame and the pointer looks around (100-104). Confirmed by the user in Safari: slider responds at once,
+V flips the large view, pinch then scrub, K / M / C toggle and stay, the cut list downloads. Decided: Safari
+only, exports to Downloads; fusing Clips and Scenes is a conversation, nothing built (proposal: capture time as
+the one axis, pinch = deeper or shallower). Still open before sending the link: one page-clock run on the
+401-clip card in Safari, one real Final Cut import, Final Cut stills for the colour check.
 Measured, not in a browser: the page's S-Log3 conversion against Sony's published maths on the five
 friend_test_log clips, 15 frames: mean dE2000 1.14, p95 2.38 with the page's tone curve (15 of 15 inside
 2 / 5); 4.54 / 11.43 against a plain conversion with no tone curve (3 of 15). The clips are full range
