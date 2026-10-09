@@ -410,6 +410,7 @@ class Component extends DCLogic {
     this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => this.setState({held:null});
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
     window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu);
+    this._md = e => { const st = this.state; if (!st.sel.length && !st.box) return; const t = e.target; if (this.sc && this.sc.contains(t)) return; if (t.closest && t.closest('[data-well],[data-lumina="memory"],[data-lumina="progress"]')) return; this.setState({sel:[], box:null}); }; window.addEventListener('mousedown', this._md);
     window.addEventListener('wheel', this._wh, {passive:false}); window.addEventListener('blur', this._bl);
     // WebKit (the app, Safari) sends a trackpad pinch as gesture events, Chromium as ⌃-wheel.
     this._gs = e => { e.preventDefault(); this.gsc = 1; }; this._gc = e => { e.preventDefault(); const r = e.scale / (this.gsc || 1); this.gsc = e.scale; this.zoomBy(Math.log(r) * 1.6, e); }; this._ge = e => { e.preventDefault(); this.gsc = 1; };
@@ -423,7 +424,7 @@ class Component extends DCLogic {
   }
   componentWillUnmount() {
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
-    window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu);
+    window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md);
     window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); this.dropVid();
     clearTimeout(this.propT); clearTimeout(this.flT);
   }
@@ -709,15 +710,15 @@ class Component extends DCLogic {
     if (this.mk[k] && st.held === this.mk[k]) { const quick = !this.heldTapped && !this.boxS && e.timeStamp - this.heldAt < 230; const m = st.held; this.setState({held:null}); if (quick) this.quick(m); }
   }
   pt(e) { const r = this.sc.getBoundingClientRect(); return {x:e.clientX - r.left + this.sc.scrollLeft, y:e.clientY - r.top + this.sc.scrollTop}; }
+  // Tile positions, measured once when a drag starts (content coordinates), not on every mouse move.
+  tileRects() {
+    const sc = this.sc, r = sc.getBoundingClientRect(), out = [];
+    sc.querySelectorAll('[data-clip],[data-gi]').forEach(el => { const q = el.getBoundingClientRect(); out.push({x:q.left - r.left + sc.scrollLeft, y:q.top - r.top + sc.scrollTop, w:q.width, h:q.height, id:el.getAttribute('data-clip'), gi:el.getAttribute('data-gi')}); });
+    return out;
+  }
   hits(b) {
-    const sc = this.sc, r = sc.getBoundingClientRect(), ids = new Set();
-    sc.querySelectorAll('[data-clip],[data-gi]').forEach(el => {
-      const q = el.getBoundingClientRect(), x = q.left - r.left + sc.scrollLeft, y = q.top - r.top + sc.scrollTop;
-      if (x < b.x + b.w && x + q.width > b.x && y < b.y + b.h && y + q.height > b.y) {
-        const id = el.getAttribute('data-clip');
-        if (id) ids.add(id); else { const g = this.G[+el.getAttribute('data-gi')]; if (g) g.vis.forEach(c => ids.add(c.id)); }
-      }
-    });
+    const ids = new Set(), R = (this.boxS && this.boxS.rects) || this.tileRects();
+    for (const q of R) if (q.x < b.x + b.w && q.x + q.w > b.x && q.y < b.y + b.h && q.y + q.h > b.y) { if (q.id) ids.add(q.id); else { const g = this.G[+q.gi]; if (g) g.vis.forEach(c => ids.add(c.id)); } }
     return [...ids];
   }
   gridDown = e => {
@@ -727,22 +728,27 @@ class Component extends DCLogic {
     if (tile && !e.metaKey) return;
     if (tile && this.state.held && !e.metaKey) return;
     e.preventDefault(); const p = this.pt(e);
-    this.boxS = {x:p.x, y:p.y, meta:e.metaKey, moved:false}; this.anchor = null;
+    this.boxS = {x:p.x, y:p.y, meta:e.metaKey, moved:false, rects:this.tileRects()}; this.anchor = null;
     this.setState({box:{x:p.x, y:p.y, w:0, h:0}, sel:[]});
   };
   mm(e) {
     if (!this.boxS || !this.sc) return;
-    const s = this.boxS, p = this.pt(e), b = {x:Math.min(s.x, p.x), y:Math.min(s.y, p.y), w:Math.abs(p.x - s.x), h:Math.abs(p.y - s.y)};
-    if (b.w + b.h > 6) s.moved = true;
-    this.setState({box:b, sel:s.moved ? this.hits(b) : []});
+    // one update per frame, whatever the mouse rate
+    this.mmE = {clientX:e.clientX, clientY:e.clientY}; if (this.mmRaf) return;
+    this.mmRaf = requestAnimationFrame(() => { this.mmRaf = 0; const s = this.boxS; if (!s || !this.sc) return;
+      const p = this.pt(this.mmE), b = {x:Math.min(s.x, p.x), y:Math.min(s.y, p.y), w:Math.abs(p.x - s.x), h:Math.abs(p.y - s.y)};
+      if (b.w + b.h > 6) s.moved = true;
+      const sel = s.moved ? this.hits(b) : [], prev = this.state.sel; const same = sel.length === prev.length && sel.every((x, i) => x === prev[i]);
+      this.setState(same ? {box:b} : {box:b, sel}); });
   }
   mu() {
     const st = this.state;
     if (this.boxS) {
       const s = this.boxS; this.boxS = null;
       if (!s.moved) return this.setState({box:null, sel:[]});
+      if (this.mmRaf) { cancelAnimationFrame(this.mmRaf); this.mmRaf = 0; }
       if (s.meta && st.held && st.sel.length) { this.heldTapped = true; const ids = st.sel; this.setState({box:null}); return this.areaMark(ids, st.held); }
-      if (!st.sel.length) this.setState({box:null});
+      this.setState({box:null});
       return;
     }
   }
