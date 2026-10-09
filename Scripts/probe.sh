@@ -41,6 +41,7 @@
 #                                                of each new set of stages ≤ 8 ms on the main thread. LUMINA_CANVAS_WARM=0 = no
 #                                                warm-up (the "before" measure; the gate fails)
 #   bash Scripts/probe.sh raw9                   RAW 9 (§8): decoder map, time to first tile / full region, export time + memory
+#   bash Scripts/probe.sh video                  video budget metrics on LUMINA_VIDEO_DIR: first rows, flags for 50 clips, peak memory, proxy disk, decoders (M1 gates; FAILS until lumina.video exists)
 #                                                per decoder version, the forced per-file fallback, tiles vs export ΔE per version
 #   bash Scripts/probe.sh consistency            canvas vs export: ΔE between what the Edit canvas shows and what Export writes (full size,
 #                                                pinned decoder), per stage of the look, on 12 distinct real ARWs of LUMINA_EDIT_DIR
@@ -402,6 +403,8 @@ case "$suite" in
              LUMINA_CANVAS=image run_out "$OUT/image-path" "$S/edit-canvas.json" ;;
   edit-cold) editdir; LUMINA_KERNEL_SALT="${LUMINA_KERNEL_SALT:-p$(date +%s)}" run "$S/edit-cold.json" ;;
   raw9)      editdir; run "$S/raw9.json" ;;
+  video)     [[ -n ${LUMINA_VIDEO_DIR:-} ]] || { echo "video: set LUMINA_VIDEO_DIR (a card's PRIVATE/M4ROOT/CLIP, or MP4s with their M01.XML sidecars); scenario SKIPs without it"; }
+             run "$S/video-budget.json" ;;
   consistency) editdir; run "$S/edit-consistency.json" ;;
   readspeed) [[ -n ${LUMINA_READ_DIR:-} ]] || { scrolldir; export LUMINA_READ_DIR="${LUMINA_SCROLL_DIR:-}"; }
              run "$S/read-speed.json" ;;

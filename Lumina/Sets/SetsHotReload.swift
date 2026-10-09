@@ -1,4 +1,5 @@
 #if DEBUG
+import CryptoKit
 import Foundation
 import WebKit
 
@@ -9,6 +10,10 @@ import WebKit
 /// bundle. This sees them change, swaps the plumbing user script, reloads the page, and opens the
 /// most recent shoot again when the page says it is ready (on launch too, so a relaunch after a
 /// Swift change lands in the same shoot). A build that changed Swift relaunches the app: dev.sh.
+///
+/// The files are compared by content, not by date: Scripts/dev-skim.sh copies a page edit straight
+/// into the running app (a reload in under a second), and the build that follows copies the same
+/// bytes again, which must not reload a second time. Skim has no plumbing (`plumbing` nil).
 @MainActor
 final class SetsHotReload {
     static var isOn: Bool { ProcessInfo.processInfo.environment["LUMINA_HOT"] == "1" }
@@ -18,13 +23,13 @@ final class SetsHotReload {
     private let root: URL
     private weak var webView: WKWebView?
     private weak var bridge: SetsBridge?
-    private var plumbing: String
+    private var plumbing: String?
     /// The files as last looked at, and as the page on screen was loaded from.
     private var seen: String
     private var applied: String
     private var timer: Timer?
 
-    init(root: URL, webView: WKWebView, bridge: SetsBridge, plumbing: String, resume: @escaping @MainActor () -> Void) {
+    init(root: URL, webView: WKWebView, bridge: SetsBridge, plumbing: String?, resume: @escaping @MainActor () -> Void) {
         self.root = root
         self.webView = webView
         self.bridge = bridge
@@ -42,11 +47,12 @@ final class SetsHotReload {
         timer = t
     }
 
-    /// Modification time and size of every file the page is made of.
+    /// What every file the page is made of holds (a missing file reads as "-"). About 1 MB four
+    /// times a second, Debug only.
     static func stamp(_ root: URL) -> String {
         files.map { name in
-            let a = try? FileManager.default.attributesOfItem(atPath: root.appendingPathComponent(name).path)
-            return "\((a?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0) \((a?[.size] as? NSNumber)?.intValue ?? -1)"
+            guard let d = try? Data(contentsOf: root.appendingPathComponent(name)) else { return "-" }
+            return SHA256.hash(data: d).description
         }.joined(separator: "|")
     }
 
@@ -56,8 +62,7 @@ final class SetsHotReload {
         guard now == seen else { seen = now; return }
         guard now != applied, let webView else { return }
         applied = now
-        let fresh = (try? String(contentsOf: root.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? plumbing
-        if fresh != plumbing {
+        if let plumbing, let fresh = try? String(contentsOf: root.appendingPathComponent("plumbing.js"), encoding: .utf8), fresh != plumbing {
             // User scripts can't be replaced one at a time: the same list again, in order, with the new plumbing.
             let ucc = webView.configuration.userContentController
             // A copy of our own: WebKit hands out its live list, which removeAllUserScripts empties.
@@ -66,7 +71,7 @@ final class SetsHotReload {
             for s in scripts {
                 ucc.addUserScript(s.source == plumbing ? WKUserScript(source: fresh, injectionTime: s.injectionTime, forMainFrameOnly: s.isForMainFrameOnly) : s)
             }
-            plumbing = fresh
+            self.plumbing = fresh
         }
         LuminaLog.app.notice("hot reload: the page files changed")
         bridge?.canvas?.leave()

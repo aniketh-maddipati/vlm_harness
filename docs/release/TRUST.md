@@ -117,6 +117,9 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `writeSidecars` | — | `.xmp` beside its RAW in the opened folder, `.lumina-bak` first |
 | `reveal` | — | — (shows a file in Finder, only inside the opened folders or the last export) |
 | `setPrefs` | — | the page's preferences in the app's defaults |
+| `skimStore` | Skim's saved shoots, `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimSave` | — | one Skim shoot's marks, name and counts in `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimHealth` | the Mac's thermal state, Low Power Mode, memory pressure and Lumina's own memory footprint (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `openSettings` | — | — (opens System Settings ▸ Privacy & Security ▸ Files and Folders) |
 | `checkAccess` | whether a refused folder is readable now | — |
 | `reopenDenied` | the refused folder, again | — |
@@ -181,6 +184,7 @@ Not checked by the script; keep it current by hand.
 |---|---|---|
 | Container `shoots/index.json` | recent shoots: name, path, volume UUID, counts, first capture time, last photo's name, bookmark | Remove Working Files (per shoot) |
 | Container `shoots/<id>/session.json`, `Lumina.json` | decisions and looks; decoder facts | Remove Working Files |
+| Container `skim/store.json` (Debug builds' Skim only) | Skim's marks per shoot, with the folder's name, clip count, size and days | Forget marks in Skim's Working memory |
 | Container `exports/` | one journal per export | after recovery |
 | Container preferences | the page's preferences | deleting the app's container |
 | Opened folder | `.xmp` sidecars, `.lumina-bak` | the user |

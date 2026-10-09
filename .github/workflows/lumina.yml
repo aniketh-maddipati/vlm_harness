@@ -128,6 +128,8 @@ jobs:
         run: NODE_PATH="$(npm root -g)" node Tests/web/plumbing-harness.mjs
       - name: contract, selftest, app flow, screens (prototype vs app)
         run: NODE_PATH="$(npm root -g)" xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3 Tests/web/webkit.py
+      - name: "Skim: the Final Cut export (buildX) and its DTD check"
+        run: node --test Tests/web/skim-export.test.mjs
 
 
   app:

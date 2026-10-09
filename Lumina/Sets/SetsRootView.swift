@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 import SwiftUI
 import WebKit
 import os
@@ -60,7 +61,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         // with no export cut short it is one directory listing.
         let exports = Self.supportDir.appendingPathComponent("exports", isDirectory: true)
         let res = Bundle.main.resourceURL!
-        let plumbing = (try? String(contentsOf: res.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? ""
+        // Skim (a Debug build with LUMINA_PAGE=skim) has no plumbing yet: the page runs on its own.
+        let page = SetsPage.current
+        let plumbing = page == .pick ? ((try? String(contentsOf: res.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? "") : ""
         Task { @MainActor in
             let cut = await Task.detached(priority: .userInitiated) { () -> [(folder: String, done: Int, planned: Int, cleaned: Bool)] in
                 SetsExportJournal.recover(in: exports).map { e in
@@ -74,7 +77,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             }.value.map { ["folder": $0.folder, "done": $0.done, "planned": $0.planned, "cleaned": $0.cleaned] as [String: Any] }
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
-                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut], frame: host.bounds)
+                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut],
+                                                         extraScripts: page == .skim ? [SetsPage.skimHostScript] : [], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
@@ -83,14 +87,16 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 host.stretchWebView()
                 webView = wv
                 // The Edit canvas: the one native view over the page (AGENTS.md), above the web view.
-                bridge.attachCanvas(host: host)
+                if page == .pick { bridge.attachCanvas(host: host) }
                 wv.load(URLRequest(url: SetsSchemeHandler.pageURL))
                 host.window?.makeFirstResponder(wv)
-                bridge.cards.start()
-                offerEarlierSessions()
+                if page == .pick {
+                    bridge.cards.start()
+                    offerEarlierSessions()
+                }
                 #if DEBUG
                 if SetsHotReload.isOn {
-                    hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: plumbing) { [weak self] in
+                    hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: page == .pick ? plumbing : nil) { [weak self] in
                         guard let self, let last = self.bridge.shoots.index().first else { return }
                         self.reopen(last.id)
                     }
@@ -107,6 +113,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     /// A menu item: the page presses the key it already handles.
     func command(_ name: String) {
         guard name.allSatisfy({ $0.isLetter }) else { return }
+        if SetsPage.current == .skim {
+            if let js = SetsPage.skimKeyScript(for: name) { webView?.evaluateJavaScript(js, completionHandler: nil) }
+            return
+        }
         webView?.evaluateJavaScript("window.__lumina && __lumina.command('\(name)')", completionHandler: nil)
     }
 
@@ -127,6 +137,11 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     /// The page saves and forgets the shoot; then its folder's access is stopped (SetsAccess).
     func closeShoot() {
+        // Skim: ⌘W is the page's own Close (it asks first, then goes back to Open).
+        if SetsPage.current == .skim {
+            if let js = SetsPage.skimKeyScript(for: "closeShoot") { webView?.evaluateJavaScript(js, completionHandler: nil) }
+            return
+        }
         guard let webView else { bridge.closeShoot(); return }
         webView.evaluateJavaScript("window.__lumina && __lumina.closeShoot()") { [weak self] _, _ in self?.bridge.closeShoot() }
     }
@@ -178,6 +193,23 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         return await run(panel)
     }
 
+    /// Skim's panel: a card, folders, or clips picked one by one. Sony's sidecars come with a folder or a card.
+    func chooseClips() async -> [URL]? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = true
+        // Clips and their sidecars (Sony writes C0001M01.XML beside C0001.MP4): ⌘A in a clip folder takes both;
+        // the page keeps the clips and reads the sidecars, and ignores anything else.
+        panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie, .xml] + [UTType(filenameExtension: "mxf"), UTType(filenameExtension: "m4v")].compactMap { $0 }
+        panel.prompt = "Open"
+        panel.message = "Choose a card, a folder or clips: MP4, MOV, MXF, M4V. Read only."
+        guard let window = webView?.window else { return panel.runModal() == .OK ? panel.urls : nil }
+        return await withCheckedContinuation { c in
+            panel.beginSheetModal(for: window) { c.resume(returning: $0 == .OK ? panel.urls : nil) }
+        }
+    }
+
     func chooseDestination(label: String, suggested: URL?, refusal: String?) async -> URL? {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -213,6 +245,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        // Skim reads clips through the page's own file input: a card, folders or clips, nothing else of Pick's.
+        if SetsPage.current == .skim { Task { @MainActor in completionHandler(await chooseClips()) }; return }
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
     }
 
