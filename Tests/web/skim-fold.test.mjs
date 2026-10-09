@@ -179,3 +179,21 @@ test('layout: a window lays out the rows near it and the current tile; spacers s
   assert.deepEqual(C.layFuse({vw:1440, tiles, top:900, h:700, cur:5}), C.layFuse({vw:1440, tiles:tiles.slice(), top:900, h:700, cur:5}), 'same in, same out');
   assert.equal(C.layFuse({vw:1440, tiles:[]}).rects.length, 0);
 });
+
+test('the one grid is opt-in: off unless the address asks, and Scenes / Clips are what shows when it is off', () => {
+  assert.match(src, /cv:typeof window !== 'undefined' && Component\.isCanvas\(location\.search, location\.hash\)/, 'the switch starts from the address only');
+  assert.match(src, /lv0:sk && !empty && !st\.cv && st\.lv === 0, lv1:sk && !empty && !st\.cv && st\.lv === 1/, 'Scenes and Clips show when it is off');
+  assert.match(src, /lvF:sk && !empty && !!st\.cv && st\.lv === 0/, 'the one grid shows only when it is on');
+  const dbg = src.indexOf('<sc-if value="{{ dbgOn }}"'), tog = src.indexOf('data-lumina="canvas-toggle"'), end = src.indexOf('</sc-if>', dbg);
+  assert.ok(dbg > 0 && tog > dbg && tog < end, 'the toggle is inside the debug switch');
+});
+
+test('the one grid: its strip, its tiles and its words', () => {
+  const a = src.indexOf('<sc-if value="{{ lvF }}"'), b = src.indexOf('<sc-if value="{{ lv0 }}"'); assert.ok(a > 0 && b > a);
+  const tpl = src.slice(a, b);
+  for (const part of ['fold-strip', 'fold-less', 'fold-more', 'fold slider', 'fold-count', 'fold-where', 'fold-next', 'data-gi', 'data-fold', 'tile-marks', 'tile-notes', 'tile-why', 'tile-wait', 'fold-badge']) assert.ok(tpl.includes(part), part);
+  // in the script, 'keep' on its own is the stored key and is never shown
+  const js = src.slice(src.indexOf('  cvGrid() {'), src.indexOf('  index() {'));
+  for (const text of [tpl.replace(/<[^>]*>/g, ' ').replace(/\{\{[^}]*\}\}/g, ' '), (js.match(/'[^']*'/g) || []).filter(q => q !== "'keep'").join(' ')]) assert.doesNotMatch(text, /\b(keep|kept|keepers?|reject\w*|flag\w*)\b/i, 'neutral words only');
+  assert.match(js, /'undecided'/); assert.match(js, /this\.W\('keep'\)/, 'marks are named through WORD (selected / maybe / cut)');
+});
