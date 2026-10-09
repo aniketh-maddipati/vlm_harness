@@ -62,12 +62,14 @@ input[type=range]{accent-color:#B8B3AB}
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
   <div data-lumina="skim-bar" style="flex:none;height:44px;padding:0 20px;display:flex;align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
     <div style="flex:1;min-width:0;display:flex">
+      <sc-if value="{{ lvTabsOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="levels" role="tablist" aria-label="levels" style="position:relative;display:grid;grid-template-columns:repeat({{ lvN }},68px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)">
         <div style="position:absolute;left:2px;top:2px;bottom:2px;width:68px;border-radius:5px;background:#5B5854;box-shadow:0 0.5px 1px rgba(0,0,0,0.4);transform:translateX({{ lvX }}px);transition:transform 180ms ease-out"></div>
         <sc-for list="{{ lvTabs }}" as="lt" hint-placeholder-count="4">
           <div role="tab" tabIndex="0" aria-selected="{{ lt.on }}" onClick="{{ lt.go }}" style="position:relative;height:24px;display:grid;place-items:center;font-size:12px;color:{{ lt.fg }};cursor:pointer;border-radius:5px" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ lt.t }}</div>
         </sc-for>
       </div>
+      </sc-if>
       <sc-if value="{{ unsupOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="unsupported" role="status" style="margin-left:16px;flex:none;color:#FFD27A;white-space:nowrap">{{ unsupLine }}</div></sc-if>
       <sc-if value="{{ recNoteOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="marks-back" role="status" style="margin-left:16px;flex:none;color:#A9D18E;white-space:nowrap;animation:fade 160ms ease-out">{{ recNote }}</div></sc-if>
       <sc-if value="{{ loadOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="load-status" role="status" aria-live="polite" onClick="{{ progToggle }}" title="P" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;cursor:pointer;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:{{ loadDot }};animation:{{ loadAnim }}"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ loadLine }}</span><span data-lumina="fill-note" style="flex:none;color:#9A958D">{{ fillNote }}</span></div></sc-if>
@@ -155,8 +157,8 @@ input[type=range]{accent-color:#B8B3AB}
       </div>
     </sc-if>
     <sc-if value="{{ isExport }}" hint-placeholder-val="{{ false }}">
-      <div data-screen-label="Export" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
-        <div style="max-width:min(1200px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,4vh,48px) clamp(16px,3vw,48px) 40px;display:flex;flex-direction:column;gap:28px">
+      <div data-screen-label="Export" data-nobox="1" onClick="{{ exOut }}" style="position:{{ exPos }};inset:0;z-index:40;flex:1;min-height:0;overflow-y:auto;background:{{ exScrim }};animation:{{ exAnim }}">
+        <div data-lumina="export-sheet" style="max-width:{{ exMaxW }};min-height:{{ exMinH }};box-sizing:border-box;margin:0 {{ exMr }} 0 auto;background:{{ exPanel }};box-shadow:{{ exShadow }};padding:clamp(24px,4vh,48px) clamp(16px,3vw,48px) 40px;display:flex;flex-direction:column;gap:28px">
           <div style="display:flex;flex-direction:column;gap:18px;min-width:0;max-width:640px">
             <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Export</span>
             <sc-if value="{{ exUndOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="undecided" role="status" style="display:flex;align-items:center;gap:8px;color:#B8B3AB"><span style="width:8px;height:8px;border-radius:50%;background:#FFD27A"></span>{{ exUnd }}</span></sc-if>
@@ -207,6 +209,7 @@ input[type=range]{accent-color:#B8B3AB}
               </sc-if>
               <sc-if value="{{ cutSayOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="cut-say" role="status" style="color:{{ cutSayC }}">{{ cutSay }}</span></sc-if>
             </div>
+            <span style="color:#9A958D">Clip files are never changed.</span>
 
           </div>
           <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
@@ -214,11 +217,13 @@ input[type=range]{accent-color:#B8B3AB}
             <sc-if value="{{ exMore }}" hint-placeholder-val="{{ false }}">
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:32px;align-items:start">
                 <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+                <sc-if value="{{ exDbg }}" hint-placeholder-val="{{ false }}">
                 <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
                   <sc-for list="{{ exRows }}" as="hr" hint-placeholder-count="4">
                     <div style="display:grid;grid-template-columns:12px 72px 70px 76px minmax(0,1fr);align-items:center;gap:10px;padding:10px 12px;background:#2A2927;font-size:13px"><span style="width:8px;height:8px;border-radius:50%;background:{{ hr.c }}"></span><span style="color:#EFECE6">{{ hr.k }}</span><span style="color:#EFECE6;text-align:right">{{ hr.n }}</span><span style="color:#9A958D;text-align:right">{{ hr.size }}</span><span style="color:#B8B3AB">{{ hr.to }}</span></div>
                   </sc-for>
                 </div>
+                </sc-if>
                 <div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px 12px;align-items:center">
                   <span style="color:#9A958D">Event</span><input type="text" aria-label="Event name" value="{{ exEvent }}" onChange="{{ exEventIn }}" style="height:30px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:none;background:#161514;color:#EFECE6;font:inherit;font-size:13px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);user-select:text;-webkit-user-select:text;outline:none;min-width:0" style-focus="box-shadow:inset 0 0 0 1.5px #FFD27A"></input>
                   <span style="color:#9A958D">Folder</span><input type="text" aria-label="Where the clips are" placeholder="/Volumes/…/the folder you opened" value="{{ exRoot }}" onChange="{{ exRootIn }}" style="height:30px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:none;background:#161514;color:#EFECE6;font:inherit;font-size:13px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);user-select:text;-webkit-user-select:text;outline:none;min-width:0" style-focus="box-shadow:inset 0 0 0 1.5px #FFD27A"></input>
@@ -231,10 +236,12 @@ input[type=range]{accent-color:#B8B3AB}
                 </div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+                  <sc-if value="{{ exDbg }}" hint-placeholder-val="{{ false }}">
                   <span style="font-size:13px;font-weight:600;color:#EFECE6">By scene</span>
                   <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
                     <sc-for list="{{ exGroups }}" as="eg" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 70px;gap:10px;padding:8px 12px;background:#262523"><span style="color:#EFECE6">{{ eg.title }}</span><span style="color:#A9D18E;text-align:right">{{ eg.k }}</span><span style="color:#FFD27A;text-align:right">{{ eg.m }}</span></div></sc-for>
                   </div>
+                  </sc-if>
                   <sc-if value="{{ exBadOn }}" hint-placeholder-val="{{ false }}">
                     <div data-lumina="export-problems" style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
                       <span style="font-size:13px;font-weight:600;color:#EFECE6">The file did not pass its check</span>
@@ -243,8 +250,10 @@ input[type=range]{accent-color:#B8B3AB}
                       </div>
                     </div>
                   </sc-if>
+                  <sc-if value="{{ exDbg }}" hint-placeholder-val="{{ false }}">
                   <span style="font-size:13px;font-weight:600;color:#EFECE6;margin-top:6px">The .fcpxml</span>
                   <pre style="margin:0;max-height:440px;overflow:auto;padding:14px;border-radius:10px;background:#161514;color:#B8B3AB;font:11px/1.5 ui-monospace,'SF Mono',Menlo,monospace;white-space:pre;user-select:text;-webkit-user-select:text">{{ exPreview }}</pre>
+                  </sc-if>
                 </div>
               </div>
             </sc-if>
@@ -276,12 +285,14 @@ input[type=range]{accent-color:#B8B3AB}
         <span data-lumina="zoom-less" role="button" tabIndex="0" aria-label="smaller tiles" onClick="{{ zLess }}" title="Smaller tiles (−, or pinch in)" style="flex:none;cursor:pointer;opacity:{{ zLessOp }};min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">−</span>
         <span data-lumina="zoom-levels" style="flex:none;display:flex;gap:2px"><sc-for list="{{ zLevels }}" as="z" hint-placeholder-count="6"><span role="button" tabIndex="0" aria-pressed="{{ z.on }}" onClick="{{ z.go }}" style="flex:none;cursor:pointer;height:20px;line-height:20px;padding:0 7px;border-radius:5px;background:{{ z.bg }};color:{{ z.fg }}" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ z.t }}</span></sc-for></span>
         <span data-lumina="zoom-more" role="button" tabIndex="0" aria-label="larger tiles" onClick="{{ zMore }}" title="{{ zMoreT }}" style="flex:none;cursor:pointer;min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">=</span>
+        <sc-if value="{{ scOn }}" hint-placeholder-val="{{ false }}">
         <span style="flex:none;width:1px;height:18px;margin:0 8px;background:rgba(239,236,230,0.12)"></span>
         <span data-lumina="scenes-less" role="button" tabIndex="0" aria-label="fewer scenes" onClick="{{ scLess }}" title="Fewer scenes ([)" style="flex:none;cursor:pointer;min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">[</span>
         <span style="flex:none">fewer scenes</span>
         <input type="range" aria-label="scenes" min="0" max="{{ gapMax }}" step="1" value="{{ nCut }}" onChange="{{ gapChange }}" title="fewer scenes ← where the shoot is split → more scenes" style="flex:0 1 220px;min-width:90px"></input>
         <span style="flex:none">more</span>
         <span data-lumina="scenes-more" role="button" tabIndex="0" aria-label="more scenes" onClick="{{ scMore }}" title="More scenes (])" style="flex:none;cursor:pointer;min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">]</span>
+        </sc-if>
         <span data-lumina="fold-count" style="flex:none;margin-left:10px;color:#EFECE6">{{ foldLine }}</span>
         <span data-lumina="fold-where" style="flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ foldAt }}</span>
       </div>
@@ -818,7 +829,7 @@ class Component extends DCLogic {
     if (o.rects !== false) for (let g = r0 * geo.cols, e = Math.min(n, r1 * geo.cols); g < e; g++) rects.push({g, n:T[g], fold:T[g] > 1, x:geo.pad + (g % geo.cols) * (geo.tw + geo.gx), y:y0 + Math.floor(g / geo.cols) * geo.pitch, w:geo.tw, h:geo.th, ph:geo.ph});
     return {geo, rows, r0, r1, padT:r0 * geo.pitch, padB:Math.max(0, (rows - r1) * geo.pitch), rects, height:y0 + Math.max(0, rows * geo.pitch - geo.gy) + 40};
   }
-  // The one grid, clips first. Every clip is a tile; scenes are the headers over runs of clips (the scene slider's fold
+  // The one grid, clips first. Every clip is a tile; scenes are the headers over runs of clips (the scene slider’s fold
   // value, nCut). A zoom level says how big the tiles are: 0 shows each scene as one tile, 1 to 5 show every clip, from
   // small to large. The pinch, − / = and the size buttons move along these levels; past 5 a pinch opens the Viewer.
   static ZL = [280, 150, 200, 280, 380, 520];
@@ -833,8 +844,8 @@ class Component extends DCLogic {
   }
   // laySecs: tiles in sections (secs: [{n, head}], n tiles each, in order). A section starts a new row, under a header
   // hh px tall when head is set. Laid out: the rows that reach into [top − over·h, top + h + over·h] and the row holding
-  // tile cur (all rows when h is 0). Items are headers {kind:'h', s, y} and tiles {kind:'t', g, s, k, x, y, w, h}: g
-  // counts tiles over all sections, k inside the section, x and y from the content's top left.
+  // tile cur (all rows when h is 0). Items are headers (kind h, with s and y) and tiles (kind t, with g, s, k, x, y, w, h): g
+  // counts tiles over all sections, k inside the section, x and y from the content’s top left.
   static laySecs(o) {
     const geo = o.geo, S = o.secs || [], top = o.top || 0, h = o.h || 0, over = o.over == null ? 1 : o.over, all = !h, lo = top - over * h, hi = top + h + over * h, items = [];
     let y = 0, g = 0;
@@ -876,12 +887,12 @@ class Component extends DCLogic {
   // A stretch past either end of the levels gives a third as much, so the grid still follows the fingers a little.
   static rubber(pz, zl, top) { return (zl <= 0 && pz < 0) || (zl >= top && pz > 0) ? pz * 0.3 : pz; }
   // The one grid on the page (state.cv; lv 0 is the grid, lv 2 the Viewer, lv 1 is not used). At zoom levels 1 to 5
-  // (state.zl) every clip is its own tile under its scene's header; at 0 each scene is one tile. The current tile is the
+  // (state.zl) every clip is its own tile under its scene’s header; at 0 each scene is one tile. The current tile is the
   // one holding the current clip.
   cvGrid() { const st = this.state; return !!st.cv && st.lv === 0; }
   // Clip tiles: the grid on Skim at a clip level. Then G holds one tile per clip and SC the scenes for the headers;
-  // everywhere else (the Viewer's strips, Export) G is the scenes as before.
-  cvClips() { const st = this.state; return !!st.cv && st.step === 'skim' && st.lv === 0 && st.zl > 0; }
+  // everywhere else (the Viewer’s strips, Export) G is the scenes as before.
+  cvClips() { const st = this.state; return !!st.cv && (st.step === 'skim' || st.step === 'export') && st.lv === 0 && st.zl > 0; }
   cvGeo(zl) { const st = this.state, sc = this.sc; return Component.zlGeo({vw:st.vw, cw:sc && sc.clientWidth, zl:zl == null ? st.zl : zl}); }
   cvG(gi) { const G = this.G || []; return G[gi != null ? gi : (this.gOfAll ? this.gOfAll[this.state.cur] : 0) ?? 0] || null; }
   cvSecs() { return this.cvClips() && this.SC ? this.SC.map(s => ({n:s.clips.length, head:true})) : [{n:(this.G || []).length, head:false}]; }
@@ -913,7 +924,7 @@ class Component extends DCLogic {
     const sc = this.sc, inner = this.fIn, geo = this.fGeo, secs = this.fSecs; if (!sc || !inner || !sc.isConnected || !geo || !secs || !this.gOfAll) return;
     const p = Component.laySecAt(geo, secs, this.gOfAll[id]); if (!p) return;
     const r = sc.getBoundingClientRect(), base = r.top + inner.offsetTop, pinch = !!(at && at.py != null && this.pzOn), s1 = pinch ? Math.exp(Component.rubber(this.pz, this.state.zl, 5)) : 1;
-    // the anchor's top stays at the same height on the screen; during a pinch the scale is about the fingers
+    // the anchor’s top stays at the same height on the screen; during a pinch the scale is about the fingers
     if (before) {
       let T = pinch ? p.y + base - at.py - (before.top + 8 - at.py) / s1 : p.y + base - (before.top + 8);
       // a scene opened from its tile (or a size picked) shows its header too when the anchor is in its first row
@@ -968,7 +979,7 @@ class Component extends DCLogic {
   cvMoveRow(d) { const g = this.cvG(); if (!g) return; const k = Component.laySecNav(this.fGeo || this.cvGeo(), this.fSecs || this.cvSecs(), g.i, d); if (k !== g.i) this.cvMove(k - g.i); }
   fGi(e) { return +e.currentTarget.getAttribute('data-gi'); }
   fEnter = e => { const g = this.cvG(this.fGi(e)); if (!g) return; this.hoverGi = g.i; this.hoverCl = g.clips[0].id; this.hoverId = g.clips.length === 1 ? g.clips[0].id : null; if (this.boxS || this.pzOn || Date.now() - (this.kbAt || 0) < 400) return; if (this.gOfAll[this.state.cur] !== g.i) this.setState({cur:g.clips[0].id}); };
-  // Skimming: the pointer across a clip's picture shows its eight frames in turn, across a scene's picture its clips.
+  // Skimming: the pointer across a clip’s picture shows its eight frames in turn, across a scene’s picture its clips.
   fMove = e => {
     if (this.boxS || this.pzOn) return; const gi = this.fGi(e), g = this.cvG(gi), pic = e.currentTarget.firstElementChild; if (!g || !pic) return;
     const r = pic.getBoundingClientRect(); if (e.clientY > r.bottom) return;
@@ -989,7 +1000,7 @@ class Component extends DCLogic {
     if (this.gOfAll[st.cur] !== g.i) this.setState({cur:g.clips[0].id});
   };
   fDbl = e => { const g = this.cvG(this.fGi(e)); if (g && !this.state.held) this.cvOpen(this.gOfAll[this.state.cur] === g.i ? this.state.cur : g.clips[0].id); };
-  // A click on a scene's header selects its clips (K M C then mark them, asking first); with a mark key held it marks them.
+  // A click on a scene’s header selects its clips (K M C then mark them, asking first); with a mark key held it marks them.
   hClick = e => {
     const s = +e.currentTarget.getAttribute('data-scene'), sc = this.SC && this.SC[s]; if (!sc) return; const ids = sc.clips.map(c => c.id), st = this.state;
     if (st.held) { this.heldTapped = true; return this.areaMark(ids, st.held); }
@@ -1011,6 +1022,7 @@ class Component extends DCLogic {
     vals.gapMax = gs.length; vals.nCut = ncut; vals.gapChange = this.gapChange; vals.fTh = geo.th; vals.fPh = geo.ph; vals.fH = L.height; vals.fHh = geo.hh; vals.fInRef = this.fInRef;
     vals.zLess = () => this.cvZoom(-1); vals.zMore = () => this.cvZoom(1); vals.zLessOp = zl > 0 ? 1 : 0.35; vals.zMoreT = zl >= 5 ? 'Open the current clip in the Viewer (=, or pinch out)' : 'Larger tiles (=, or pinch out)';
     vals.zLevels = Component.ZL_WORD.map((t, i) => ({t, on:i === zl, fg:i === zl ? '#1E1D1B' : '#9A958D', bg:i === zl ? '#B8B3AB' : 'transparent', go:() => this.cvZoomTo(i, null)}));
+    vals.scOn = !!st.dbg;
     vals.scLess = () => this.cvFold(-1); vals.scMore = () => this.cvFold(1);
     const nSc = st.nCutUi != null ? Math.min(C.length, st.nCutUi + 1) : SC.length;
     vals.foldLine = this.plural(nSc, 'scene') + ' · ' + this.plural(C.length, 'clip');
@@ -1029,18 +1041,18 @@ class Component extends DCLogic {
         const m = st.marks[c0.id] || null, ch = this.chips(c0), t = this.tone(c0, skI != null ? skI : fi);
         return {...base, thumb:t.bg, flt:t.flt, cell:c0.dur ? this.fmtDur(c0.dur) : '—', durOn:!compact || zl === 2, phOn:this.waiting(c0), phSub:this.phSub(c0), title:nm(c0), tFont:'inherit', tSize:compact ? '12px' : '13px', tH:compact ? '18px' : '24px',
           right:zl === 1 ? (m ? this.W(m) : '') : this.hm(c0.t), rightC:zl === 1 && m ? MK[m] : '#9A958D', l2:zl !== 1, l3:!compact,
-          line:compact ? (m ? this.W(m) : 'undecided') + ' · ' + this.fmtB(c0.bytes) : (c0.dur ? this.fmtDur(c0.dur) : '—') + ' · ' + this.fmtB(c0.bytes),
+          line:compact ? (m ? this.W(m) + ' · ' : '') + this.fmtB(c0.bytes) : (c0.dur ? this.fmtDur(c0.dur) : '—') + ' · ' + this.fmtB(c0.bytes),
           edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm && !compact, mark:this.W(m), markC:m ? MK[m] : '',
           skOn:skI != null, sk:skI != null ? [0, 1, 2, 3, 4, 5, 6, 7].map(k => ({c:k === skI ? '#FFD27A' : 'rgba(22,21,20,0.55)'})) : [],
-          chips:compact ? [] : ch.pending ? [this.pendV(), this.pendV()] : ch.list.slice(0, 3).map(x => this.chipV(c0, x)), chipNone:compact ? '' : !ch.pending && !ch.list.length ? 'nothing to note' : ch.list.length > 3 ? '+' + (ch.list.length - 3) : '',
-          state:m ? this.W(m) : 'undecided', stateC:m ? MK[m] : '#9A958D'};
+          chips:compact ? [] : ch.pending ? [this.pendV(), this.pendV()] : ch.list.slice(0, 3).map(x => this.chipV(c0, x)), chipNone:compact ? '' : ch.list.length > 3 ? '+' + (ch.list.length - 3) : '',
+          state:m ? this.W(m) : '', stateC:m ? MK[m] : '#9A958D'};
       }
       // a scene tile: skimming shows its clips one by one; else the first clip that has a frame
       const sc0 = skI != null ? g.clips[Math.min(n - 1, skI)] : null, cvc = sc0 || g.clips.find(c => c.frames && c.frames.some(Boolean)) || c0, t0 = this.tone(cvc, fi, false, sc0 ? undefined : this.gSlot[g.i] || (this.gSlot[g.i] = {}));
       const S = Component.foldSum(g.clips.map(c => { const x = this.cvNotes(c); return {id:c.id, dur:c.dur, bytes:c.bytes, notes:x.notes, pending:x.pending}; }), st.marks);
       const allM = ['keep', 'maybe', 'cut'].find(m => S[m] === n) || null, few = n <= dotMax, cnt = cnt4(S);
       const words = Component.NOTE.filter(w => S.notes[w]).concat(Object.keys(S.notes).filter(w => !Component.NOTE.includes(w))).map(w => S.notes[w] + ' ' + w);
-      const note = (S.noted ? words.join(' · ') + ' · in ' + this.plural(S.noted, 'clip') : S.pending === n ? '' : 'nothing to note') + (S.pending ? (S.noted || S.pending < n ? ' · ' : '') + S.pending + ' not measured yet' : '');
+      const note = (S.noted ? words.join(' · ') + ' · in ' + this.plural(S.noted, 'clip') : '') + (S.pending ? (S.noted || S.pending < n ? ' · ' : '') + S.pending + ' not measured yet' : '');
       return {...base, thumb:t0.bg, flt:t0.flt, phOn:this.waiting(cvc), phName:nm(cvc), phSub:this.phSub(cvc), title:g.title, tFont:"'Iowan Old Style','Palatino',Georgia,serif", tSize:'19px', right:this.fmtB(g.bytes),
         line:this.plural(n, 'clip') + ' · ' + this.fmtDur(S.dur), edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : allM ? 'inset 0 0 0 2px ' + MK[allM] : 'none', badgeOn:true, badge:sc0 ? nm(sc0) + ' · ' + (skI + 1) + ' of ' + n : n + ' clips',
         markOn:!!allM && !gm, mark:allM ? 'all ' + this.W(allM) : '', markC:allM ? MK[allM] : '',
@@ -1540,10 +1552,11 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
-    const sk = st.step === 'skim';
+    // in the one grid Export is a sheet over the grid, so the grid stays where it was
+    const sheet = !!st.cv && st.step === 'export' && this.hasShoot(), sk = st.step === 'skim' || sheet;
     const d = this.d, C = d.clips, G = this.G, empty = !C.length, selSet = new Set(st.sel);
     const fr = (c, big) => { const a = []; for (let i = 0; i < 8; i++) a.push(this.tone(c, i, big)); return a; };
     const markN = {keep:0, maybe:0, cut:0}, markB = {keep:0, maybe:0, cut:0};
@@ -1575,7 +1588,7 @@ class Component extends DCLogic {
     const vals = {
       ...base,
       shootName:d.shoot.name, shootLine:empty ? 'no clips' : this.plural(C.length, 'clip') + (d.shoot.photos ? ' · ' + d.shoot.photos + ' photos' : '') + ' · ' + this.plural(d.shoot.days, 'day') + ' · ' + this.fmtB(d.shoot.bytes),
-      lvX:(st.cv ? (st.lv >= 2 ? 1 : 0) : st.lv) * 68, lvN:st.cv ? 2 : 3, lvTabs, lvF:sk && !empty && !!st.cv && st.lv === 0, fEnter:this.fEnter, fClick:this.fClick, fDbl:this.fDbl, fMove:this.fMove, fLeave:this.fLeave, hClick:this.hClick,
+      lvX:(st.cv ? (st.lv >= 2 ? 1 : 0) : st.lv) * 68, lvN:st.cv ? 2 : 3, lvTabs, lvTabsOn:!st.cv, lvF:sk && !empty && !!st.cv && st.lv === 0, fEnter:this.fEnter, fClick:this.fClick, fDbl:this.fDbl, fMove:this.fMove, fLeave:this.fLeave, hClick:this.hClick,
       pvA:pvOnUi, pvDis:noPv, pvOp:noPv ? 0.45 : 1, pvTrack:pvOnUi ? '#B8B3AB' : 'rgba(239,236,230,0.18)', pvKnob:pvOnUi ? '14px' : '2px', pvLine, askOpts, pvToggle:this.pvToggle,
       isEmpty:sk && empty,
       stripOn:sk && !empty && st.lv >= 1, takeStripOn:sk && !empty && st.lv >= 2,
@@ -2631,7 +2644,8 @@ class Component extends DCLogic {
   extraVals(markN, markB, und) {
     const st = this.state, d = this.d, MK = Component.MK, has = this.hasShoot(), steps = [['import', 'Open'], ['skim', 'Skim'], ['export', 'Export']];
     const si = steps.findIndex(s => s[0] === st.step), ms = this.memStats();
-    const v = {isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
+    const sheet = !!st.cv && st.step === 'export' && has;
+    const v = {isSkim:st.step === 'skim' || sheet, isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
       stepTabs:steps.map((s, i) => ({t:s[1], on:i === si, fg:i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), go:() => this.setStep(s[0])})),
       dbgOn:!!st.dbg, cvA:!!st.cv, cvT:'one grid · ' + (st.cv ? 'on' : 'off'), cvFg:st.cv ? '#1E1D1B' : '#B8B3AB', cvBg:st.cv ? '#B8B3AB' : 'rgba(239,236,230,0.06)', cvToggle:this.cvToggle, dropNote:(window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves this Mac.') + ' Marks stay in this tab and are gone when it closes.',
       closeGo:this.closeShoot, closeT:st.closeConfirm ? 'Close? Click again' : 'Close', closeFg:st.closeConfirm ? '#FFD27A' : '#9A958D', closeBg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.06)',
@@ -2680,7 +2694,7 @@ class Component extends DCLogic {
       download:this.download, hintLead:''
     };
     Object.assign(v, this.progVals());
-    if (v.isSkim && has && !st.held) { const nh = this.cvGrid() ? this.cvHints() : this.navHints(); v.hints = nh.list; v.hintLead = nh.lead; }
+    if (v.isSkim && !sheet && has && !st.held) { const nh = this.cvGrid() ? this.cvHints() : this.navHints(); v.hints = nh.list; v.hintLead = nh.lead; }
     if (v.isExport) {
       const x = this.buildX(), ex = st.ex, G = this.G || [];
       v.exRows = [
@@ -2723,8 +2737,11 @@ class Component extends DCLogic {
         const pv = inc.slice().sort((a, b) => (order[st.marks[a.id]] ?? 3) - (order[st.marks[b.id]] ?? 3) || a._i - b._i), fi = this.firstIdx();
         v.sumPv = pv.slice(0, 12).map(c => { const t = this.tone(c, fi), m = st.marks[c.id]; return {bg:t.bg, flt:t.flt, name:c.name.replace(/\.\w+$/, ''), c:m ? MK[m] : 'rgba(239,236,230,0.18)', tip:c.name + ' · ' + (m ? this.W(m) : 'undecided') + ' · ' + this.fmtB(c.bytes)}; });
         v.sumPvOn = v.sumPv.length > 0; v.sumMoreOn = pv.length > 12; v.sumMore = '+' + (pv.length - 12) + ' more'; }
-      v.exGroups = G.map(g => { const k = g.clips.filter(c => st.marks[c.id] === 'keep').length, m = g.clips.filter(c => st.marks[c.id] === 'maybe').length; return {title:g.title, k:k + ' selected', m:ex.maybes ? m + ' maybe' : '', on:ex.all || k + (ex.maybes ? m : 0) > 0}; }).filter(g => g.on);
+      v.exGroups = (this.SC || G).map(g => { const k = g.clips.filter(c => st.marks[c.id] === 'keep').length, m = g.clips.filter(c => st.marks[c.id] === 'maybe').length; return {title:g.title, k:k + ' selected', m:ex.maybes ? m + ' maybe' : '', on:ex.all || k + (ex.maybes ? m : 0) > 0}; }).filter(g => g.on);
       v.backSkim = () => this.setStep('skim');
+      v.exDbg = !!st.dbg;
+      Object.assign(v, sheet ? {exPos:'absolute', exScrim:'rgba(22,21,20,0.62)', exAnim:'fade 140ms ease-out', exMaxW:'min(760px,100%)', exMinH:'100%', exMr:'0', exPanel:'#1E1D1B', exShadow:'-12px 0 32px rgba(0,0,0,0.45)', exOut:e => { if (e.target === e.currentTarget) this.setStep('skim'); }}
+        : {exPos:'relative', exScrim:'transparent', exAnim:'rise 160ms ease-out', exMaxW:'min(1200px,100%)', exMinH:'0', exMr:'auto', exPanel:'transparent', exShadow:'none', exOut:() => {}});
     }
     return v;
   }

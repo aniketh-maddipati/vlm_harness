@@ -142,3 +142,19 @@ test('marks are never stored: nothing read back, nothing written, old entries dr
   assert.match(src, /window\.addEventListener\('beforeunload', this\._bu\)/, 'leaving with marks not downloaded asks first');
   assert.match(src, /forgetOn:Component\.KEEP_MARKS && /, 'no Forget marks button');
 });
+
+test('the one grid shows less: no level tabs, the scene slider and the raw file only in debug mode, Export as a sheet over the grid', () => {
+  const tpl = src.slice(0, src.indexOf('class Component'));
+  const tabs = tpl.indexOf('data-lumina="levels"'), tabsIf = tpl.lastIndexOf('<sc-if value="{{ lvTabsOn }}"', tabs);
+  assert.ok(tabsIf > 0 && !tpl.slice(tabsIf, tabs).includes('</sc-if>'), 'the level tabs sit inside lvTabsOn');
+  assert.match(src, /lvTabsOn:!st\.cv/);
+  const sl = tpl.indexOf('aria-label="scenes"'), slIf = tpl.lastIndexOf('<sc-if value="{{ scOn }}"', sl);
+  assert.ok(slIf > 0 && !tpl.slice(slIf, sl).includes('</sc-if>'), 'the scene slider sits inside scOn');
+  assert.match(src, /vals\.scOn = !!st\.dbg;/);
+  for (const k of ['By scene</span>', 'The .fcpxml</span>', '{{ exRows }}']) { const at = tpl.indexOf(k), on = tpl.lastIndexOf('<sc-if value="{{ exDbg }}"', at); assert.ok(on > 0 && !tpl.slice(on, at).includes('</sc-if>'), k); }
+  assert.ok(!/data-lumina="export-problems"[\s\S]{0,40}exDbg/.test(tpl) && tpl.indexOf('export-problems') > 0, 'a failed check still shows');
+  assert.match(src, /const sheet = !!st\.cv && st\.step === 'export' && this\.hasShoot\(\), sk = st\.step === 'skim' \|\| sheet;/);
+  assert.match(src, /isSkim:st\.step === 'skim' \|\| sheet/);
+  assert.match(src, /exOut:e => \{ if \(e\.target === e\.currentTarget\) this\.setStep\('skim'\); \}/, 'a click beside the sheet goes back');
+  assert.doesNotMatch(src, /'nothing to note'/);
+});
