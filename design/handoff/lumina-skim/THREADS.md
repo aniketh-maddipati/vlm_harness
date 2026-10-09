@@ -62,6 +62,18 @@ friend_test_log clips, 15 frames: mean dE2000 1.14, p95 2.38 with the page's ton
 2 / 5); 4.54 / 11.43 against a plain conversion with no tone curve (3 of 15). The clips are full range
 (REC709.md step 1 says 64-940; the files and the page's table say full). Nothing is claimed about Final Cut:
 that needs stills from Final Cut. Not yet measured: any speed on /Volumes/Untitled from the page's clock.
+2026-10-09, Final Cut is the reference now (superseding the 1.14 above, which was the old curve against Sony's
+maths): a real import of a Skim .fcpxml into a new Final Cut Pro 12.4 library, and 15 Save Current Frame stills of
+the five friend_test_log clips with the built-in camera LUT Sony S-Log3/S-Gamut3.Cine. The old curve was about a
+stop darker than Final Cut (mean dE2000 8.49, p95 10.97). The curve is refitted (LOCAL-CHANGES 139): 1.44 / 2.97
+replayed in Python, 2.28 / 4.80 measured from Safari 27's own pixels with the developer colour check (140), 1.70 /
+2.50 over small areas; by eye in Safari, similar to the stills. Exposure is noted from a full stop (141).
+Deployed 95f75d35 (2026-10-09 17:23 UTC), checked on the live page: build stamp, the new table and the colour check.
+Found by the import, not fixed (skim-export): every clip arrives as Missing File (guessed /Volumes path); Camera
+LUT arrives as None; the six 24.000 fps .MOV clips cannot be relinked (the file declares 23.976 and a length
+longer than the clip); selected arrives as Favorite. Open in colour: a matrix refit would take Safari to about
+1.61 / 3.63 (not applied); clipping is read a little low; the bright end of the curve has few samples.
+Evidence: ~/LuminaEvidence/skim-rec709/ (2026-10-08-fcp-stills, 2026-10-09-fcp-stills-5clips, -safari-check, -flags).
 Open, found on the way: C0248 on the card (all black, 0.5 s) is reported as unreadable though it plays;
 pass-2 frames skipped on a seek timeout are not queued again; in a browser, pacing by heat does nothing.
 Assessed, not changed (waiting on the user): hide the developer memory controls; add a list of cut clips to
@@ -77,7 +89,7 @@ row's next step is waiting for a chat to pick it up.
 | skim-export | video/skim-export | FRIEND-DEMO.md | Level with mvp, nothing of its own. Next: real paths, camera timecode (asset and asset-clip start; c.ltc from the file), scene keywords, audio, a real Final Cut import. |
 | skim-canvas | video/skim-canvas | CANVAS.md | 1.1 merged into mvp; level with mvp. Next 1.2 layout maths → 1.6, then the dock. |
 | skim-grouping | video/skim-grouping | GROUPING.md | lumina-skim-grouping.js + tests committed as work in progress (b40da31; 15 tests pass), mvp merged in (9730f61). Not yet merged into mvp: not wired to the page, not checked on real clips. |
-| skim-rec709 | video/skim-rec709 | REC709.md | Handoff merged; level with mvp. Not started. Needs Final Cut stills of C4815 (computer use on Final Cut). |
+| skim-rec709 | video/skim-rec709 | REC709.md | Merged into mvp 2026-10-09 (95f75d35) and deployed: curve refitted to Final Cut stills, developer colour check, exposure noted from a full stop. Next, if wanted: matrix refit, the bright end of the curve, baking the conversion into stored frames. |
 | skim-ingest | video/skim-ingest | INGEST.md | Handoff merged; level with mvp. Not started. One-shot read + measure; CANVAS-GRAMMAR.md. |
 | skim-faults | video/skim-faults | FAULTS.md | Handoff merged; level with mvp. Not started. Fault fixtures, tests, fixes. |
 | skim-perfgate | video/skim-perfgate | PERFGATE.md | Handoff merged; level with mvp. Not started. Benchmarks + budgets + baseline + CI. |
