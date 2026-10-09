@@ -28,9 +28,12 @@ input[type=range]{accent-color:#B8B3AB}
       <sc-for list="{{ stepTabs }}" as="sp" hint-placeholder-count="3"><div role="tab" tabIndex="0" aria-selected="{{ sp.on }}" onClick="{{ sp.go }}" style="position:relative;height:24px;display:grid;place-items:center;font-size:12px;color:{{ sp.fg }};cursor:pointer;border-radius:5px" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sp.t }}</div></sc-for>
     </div>
     <div style="flex:1 1 0;min-width:110px;display:flex;align-items:center;gap:10px;overflow:hidden;white-space:nowrap">
-      <span style="flex:0 0 auto;max-width:100%;font-size:13px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis">{{ shootName }}</span>
-      <span style="flex:0 1 auto;min-width:0;color:#9A958D;overflow:hidden;text-overflow:ellipsis">{{ shootLine }}</span>
+      <span style="flex:0 1 auto;min-width:0;font-size:13px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis">{{ shootName }}</span>
+      <span style="flex:0 1000 auto;min-width:0;color:#9A958D;overflow:hidden;text-overflow:ellipsis">{{ shootLine }}</span>
+      <sc-if value="{{ hasShoot }}" hint-placeholder-val="{{ false }}"><span data-lumina="shoot-close" role="button" tabIndex="0" onClick="{{ closeGo }}" title="{{ closeTip }}" style="flex:none;padding:1px 7px;border-radius:5px;background:{{ closeBg }};color:{{ closeFg }};cursor:pointer" style-hover="filter:brightness(1.3)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ closeT }}</span></sc-if>
+      <sc-if value="{{ forgetOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="shoot-forget" role="button" tabIndex="0" onClick="{{ forgetGo }}" title="Deletes this shoot’s marks for good. Clips are not touched." style="flex:none;padding:1px 7px;border-radius:5px;background:{{ forgetBg }};color:{{ forgetFg }};cursor:pointer" style-hover="filter:brightness(1.3)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ forgetT }}</span></sc-if>
     </div>
+    <sc-if value="{{ dbgOn }}" hint-placeholder-val="{{ false }}">
     <div style="position:relative;flex:none">
       <div data-lumina="memory-pill" role="button" tabIndex="0" aria-label="Working memory" aria-expanded="{{ memOn }}" onClick="{{ memToggle }}" style="height:26px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:7px;color:#B8B3AB;cursor:pointer;background:{{ memBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:grid;grid-template-columns:repeat(2,4px);gap:2px"><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:rgba(239,236,230,0.3)"></span></span>{{ memPill }}</div>
       <sc-if value="{{ memOn }}" hint-placeholder-val="{{ false }}">
@@ -53,6 +56,7 @@ input[type=range]{accent-color:#B8B3AB}
         </div>
       </sc-if>
     </div>
+    </sc-if>
   </div>
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
   <div data-lumina="skim-bar" style="flex:none;height:44px;padding:0 20px;display:flex;align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
@@ -66,6 +70,7 @@ input[type=range]{accent-color:#B8B3AB}
       <sc-if value="{{ unsupOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="unsupported" role="status" style="margin-left:16px;flex:none;color:#FFD27A;white-space:nowrap">{{ unsupLine }}</div></sc-if>
       <sc-if value="{{ recNoteOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="marks-back" role="status" style="margin-left:16px;flex:none;color:#A9D18E;white-space:nowrap;animation:fade 160ms ease-out">{{ recNote }}</div></sc-if>
       <sc-if value="{{ loadOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="load-status" role="status" aria-live="polite" onClick="{{ progToggle }}" title="P" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;cursor:pointer;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ loadLine }}</span></div></sc-if>
+      <sc-if value="{{ pauseOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="read-pause" role="button" tabIndex="0" aria-pressed="{{ pauseA }}" onClick="{{ pauseGo }}" style="margin-left:10px;flex:none;height:24px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:{{ pauseBg }};color:{{ pauseFg }};font-weight:{{ pauseFw }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pauseT }}</div></sc-if>
       <sc-if value="{{ haltOn }}" hint-placeholder-val="{{ false }}"><div role="button" tabIndex="0" onClick="{{ resumeRead }}" style="margin-left:10px;flex:none;height:24px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Go on</div></sc-if>
     </div>
     <div style="flex:0 1 auto;min-width:120px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;max-width:380px">
@@ -117,7 +122,7 @@ input[type=range]{accent-color:#B8B3AB}
           <div data-lumina="drop" role="button" tabIndex="0" onClick="{{ pickFolder }}" style="min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
             <span style="font-size:16px;color:#EFECE6">Drop a card, a folder or clips</span>
             <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>Choose…</span>
-            <span style="color:#9A958D">Read only.</span>
+            <span data-lumina="drop-note" style="color:#9A958D">{{ dropNote }}</span>
           </div>
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#FFD27A">{{ impMsg }}</div></sc-if>
@@ -157,7 +162,7 @@ input[type=range]{accent-color:#B8B3AB}
             <div style="display:flex;flex-direction:column;gap:10px">
               <div style="display:flex;gap:10px;flex-wrap:wrap">
                 <div role="button" tabIndex="0" onClick="{{ backSkim }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">esc</span>Back to Skim</div>
-                <div data-lumina="download" role="button" tabIndex="0" onClick="{{ download }}" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;opacity:{{ exBtnOp }}" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘⏎</span>{{ exBtn }}</div>
+                <div data-lumina="download" role="button" tabIndex="0" aria-disabled="{{ exBtnOff }}" onClick="{{ download }}" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:{{ exBtnCur }};display:flex;align-items:center;gap:6px;opacity:{{ exBtnOp }}" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘⏎</span>{{ exBtn }}</div>
               </div>
               <span data-lumina="export-sub" style="color:#B8B3AB">{{ exSub }}</span>
               <sc-if value="{{ exDoneOn }}" hint-placeholder-val="{{ false }}"><span role="status" style="color:#A9D18E">{{ exDone }}</span></sc-if>
@@ -339,7 +344,7 @@ input[type=range]{accent-color:#B8B3AB}
             <div style="display:flex;gap:5px">
               <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><div data-well="{{ pk.m }}" role="button" tabIndex="0" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · on / off" onClick="{{ wClick }}" style="flex:1 1 0;min-width:0;height:30px;box-sizing:border-box;padding:0 7px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="filter:brightness(1.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:18px;height:18px;box-sizing:border-box;padding:0 4px;border-radius:5px;background:{{ pk.capBg }};display:grid;place-items:center;font-weight:700;color:{{ pk.capFg }}">{{ pk.k }}</span><span style="color:{{ pk.fg }};font-weight:{{ pk.fw }}">{{ pk.l }}</span></div></sc-for>
             </div>
-            <div style="display:flex;justify-content:space-between;gap:10px;white-space:nowrap"><span data-lumina="viewer-mark-now" style="color:{{ cv.markNowC }};font-weight:600">{{ cv.markNow }}</span><span data-lumina="viewer-cut" style="color:#B8B3AB">{{ cutSoFar }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:10px;white-space:nowrap"><span data-lumina="viewer-mark-now" style="color:{{ cv.markNowC }};font-weight:600">{{ cv.markNow }}</span><span data-lumina="viewer-cut" style="color:{{ cutC }}">{{ cutSoFar }}</span></div>
           </div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;min-height:20px">
             <sc-for list="{{ cv.chips }}" as="c" hint-placeholder-count="3"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for>
@@ -379,7 +384,7 @@ input[type=range]{accent-color:#B8B3AB}
         <div data-well="{{ w.m }}" role="button" tabIndex="0" aria-label="{{ w.l }} {{ w.n }}" onClick="{{ wClick }}" style="height:30px;min-width:92px;box-sizing:border-box;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;background:{{ w.bg }};box-shadow:inset 0 0 0 1px {{ w.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="background:rgba(239,236,230,0.1)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:8px;height:8px;border-radius:50%;background:{{ w.c }}"></span><span style="color:#EFECE6">{{ w.l }}</span><span style="flex:1"></span><span style="color:#B8B3AB">{{ w.n }}</span></div>
       </sc-for>
     </div>
-    <div style="min-width:0;display:flex;justify-content:flex-end;gap:14px;color:#B8B3AB;overflow:hidden"><span>{{ cutSoFar }}</span><span style="color:#9A958D">{{ freeTxt }}</span></div>
+    <div style="min-width:0;display:flex;justify-content:flex-end;gap:14px;color:#B8B3AB;overflow:hidden"><span data-lumina="footer-cut" style="color:{{ cutC }}">{{ cutSoFar }}</span><span style="color:#9A958D">{{ freeTxt }}</span></div>
   </div>
   </sc-if>
 
@@ -427,12 +432,21 @@ class Component extends DCLogic {
   static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
   W(m) { return m ? Component.WORD[m] || m : ''; }
   static LV = ['Scenes','Clips','Viewer'];
-  state = {progOn:false,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
+  state = {progOn:false,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
   reading = new Set();
   // Memory controls, per viewer: how many MB of frames stay in memory, frames per clip, their size, and the reading pace.
   static MEMDEF = {budget:256, per:8, size:320, pace:'auto'};
+  // Developer mode: the Working memory pill and panel, test loads and per-load timings. Off unless the address
+  // carries ?debug=1 or #debug, or luminaSkimDebug('panel') is called in the console. The budget and the pacing work the same either way.
+  static isDebug(search, hash) { const q = /[?&]debug=1(&|$)/, h = /^#debug($|[&=\/])/; return q.test(search || '') || h.test(hash || ''); }
+  // The footer's cut line, as the space he gets back.
+  static cutLine(n, bytes, fmtB) { return n ? 'cut: ' + n + ' clip' + (n === 1 ? '' : 's') + ' · ' + fmtB(bytes) + ' you can free' : 'cut: none yet'; }
+  // Pause / Go on beside the reading line: pause sets the pace to paused, Go on returns it to auto.
+  static nextPace(pace) { return pace === 'paused' ? 'auto' : 'paused'; }
+  // Go on is saved with the other controls; a pause is for this tab only, so a later visit never starts paused.
+  pauseToggle = () => { const to = Component.nextPace(this.mp.pace); if (to === 'auto') return this.setMp('pace', to); this.mp = {...this.mp, pace:to}; this.setState(s => ({tick:(s.tick || 0) + 1})); };
   mp = (() => { try { return {...Component.MEMDEF, ...JSON.parse(localStorage.getItem('lumina-skimprefs:mem') || '{}')}; } catch (x) { return {...Component.MEMDEF}; } })();
   setMp(k, v) { this.mp = {...this.mp, [k]:v}; try { localStorage.setItem('lumina-skimprefs:mem', JSON.stringify(this.mp)); } catch (x) {} if (k === 'budget') this.enforce(); this.setState(s => ({tick:(s.tick || 0) + 1})); }
   frameIdx() { const n = this.mp.per || 8; return n >= 8 ? [0, 1, 2, 3, 4, 5, 6, 7] : Array.from({length:n}, (_, k) => Math.floor((k + 0.5) * 8 / n)); }
@@ -486,7 +500,8 @@ class Component extends DCLogic {
     this._gs = e => { e.preventDefault(); this.gsc = 1; }; this._gc = e => { e.preventDefault(); const r = e.scale / (this.gsc || 1); this.gsc = e.scale; this.zoomBy(Math.log(r) * 1.6, e); }; this._ge = e => { e.preventDefault(); this.gsc = 1; const zc = this.state.zc; if (Component.zoomSettle(zc) !== zc) this.setState({zc:1}); };
     window.addEventListener('gesturestart', this._gs, {passive:false}); window.addEventListener('gesturechange', this._gc, {passive:false}); window.addEventListener('gestureend', this._ge, {passive:false});
     this.healthTick();
-    window.luminaSkimDebug = () => ({thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0});
+    // luminaSkimDebug() reports; luminaSkimDebug('panel') also opens the Working memory panel, luminaSkimDebug('off') hides it again.
+    window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
     this._rs = () => { clearTimeout(this.rsT); this.rsT = setTimeout(() => this.setState({vw:window.innerWidth, vh:window.innerHeight}), 80); }; window.addEventListener('resize', this._rs);
     // S-Log3 / S-Gamut3.Cine → Rec.709: the curve per channel, then the gamut, fitted to the full transform in display space.
     this.dedupeNames(); this.syncStore(); this.calibrate();
@@ -1108,7 +1123,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
     const sk = st.step === 'skim';
@@ -1165,7 +1180,7 @@ class Component extends DCLogic {
     vals.handOffer = !st.prop && !empty && und === 0;
     vals.handOpen = () => this.setStep('export');
     vals.wells = ['keep', 'maybe', 'cut'].map(m => ({m, l:this.W(m), n:markN[m], c:MK[m], bg:'rgba(239,236,230,0.05)', ring:'rgba(239,236,230,0.1)'}));
-    vals.cutSoFar = 'cut so far: ' + this.fmtB(markB.cut);
+    vals.cutSoFar = Component.cutLine(markN.cut, markB.cut, b => this.fmtB(b)); vals.cutC = markN.cut ? '#B8B3AB' : '#9A958D';
     vals.freeTxt = (d.shoot.free == null ? '' : 'card: ' + this.fmtB(d.shoot.free) + ' free');
     // hints
     vals.hints = empty ? [{k:'⌘O', t:'open'}] : st.held ? [{k:'tap', t:Component.VERB[st.held]}, {k:'⏎', t:Component.VERB[st.held]}, {k:'let go', t:'nothing happens'}] : [];
@@ -1495,7 +1510,8 @@ class Component extends DCLogic {
     }
     return {progOn:st.progOn && n > 0, progToggle:() => this.setState(s => ({progOn:!s.progOn})),
       progGo:e => { const id = e.currentTarget.getAttribute('data-prog'); if (!this.byId || !this.byId[id]) return; this.wantScroll = ['[data-clip="' + id + '"]']; this.setState({step:'skim', lv:Math.max(1, Math.min(st.lv, 2)), cur:id, gi:this.gOfAll ? (this.gOfAll[id] ?? st.gi) : st.gi, sel:[], box:null}); },
-      progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:() => this.setState(s => ({pfOn:!s.pfOn})), recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running ? ' · first look ' + this.fmtSec(this.lastClock.allIn) + ', all ' + this.fmtSec(this.lastClock.done) : ''), unsupOn:(this.unsup || 0) > 0, unsupLine:(this.unsup || 0) > 0 ? this.plural(this.unsup, 'clip') + ' in a format this browser can\u2019t play' + (this.notSafari() ? ' · open in Safari' : '') : '', haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
+      progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:() => this.setState(s => ({pfOn:!s.pfOn})), recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running && st.dbg ? ' · first look ' + this.fmtSec(this.lastClock.allIn) + ', all ' + this.fmtSec(this.lastClock.done) : ''), unsupOn:(this.unsup || 0) > 0, unsupLine:(this.unsup || 0) > 0 ? this.plural(this.unsup, 'clip') + ' in a format this browser can\u2019t play' + (this.notSafari() ? ' · open in Safari' : '') : '', haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
+      pauseOn:running && n > 0 && !this.halt, pauseGo:this.pauseToggle, pauseA:this.mp.pace === 'paused', pauseT:this.mp.pace === 'paused' ? 'Go on' : 'Pause', pauseBg:this.mp.pace === 'paused' ? '#FFD27A' : 'rgba(239,236,230,0.08)', pauseFg:this.mp.pace === 'paused' ? '#1E1D1B' : '#EFECE6', pauseFw:this.mp.pace === 'paused' ? 800 : 400,
       paceOn, paceLine:paceOn ? 'Reading ' + this.paceWord(h) : '',
       progPill:running ? (st.imp.pass === 2 ? 'measuring ' : 'reading ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + (bad ? ' · ' + bad + ' can\u2019t read' : ''), loadOn:running && n > 0, loadLine,
       progPillC:running ? '#EFECE6' : '#B8B3AB', progPillBg:st.progOn ? 'rgba(239,236,230,0.1)' : 'transparent',
@@ -1796,7 +1812,7 @@ class Component extends DCLogic {
   };
   closeShoot = () => {
     if (!this.hasShoot()) return;
-    if (!this.state.closeConfirm) { clearTimeout(this.ccT); this.setState({memOn:true, closeConfirm:true, memConfirm:false}); this.ccT = setTimeout(() => this.setState({closeConfirm:false}), 4000); return; }
+    if (!this.state.closeConfirm) { clearTimeout(this.ccT); this.setState({closeConfirm:true, memConfirm:false}); this.ccT = setTimeout(() => this.setState({closeConfirm:false}), 4000); return; }
     clearTimeout(this.ccT); this.save(); this.clearMemory();
   };
   clearMemory = () => {
@@ -1830,6 +1846,13 @@ class Component extends DCLogic {
     const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
     return {n:clips.length, text};
   }
+  // What the Final Cut download would hold under the options, and what its button says. n is the number of clips in the
+  // .fcpxml (the same clips buildX takes); 0 means there is nothing to write, so the button is off and no file is made.
+  static exGate(markN, total, ex) {
+    const k = markN.keep || 0, m = markN.maybe || 0, n = ex.all ? total : k + (ex.maybes ? m : 0), s = c => c === 1 ? '' : 's';
+    const what = ex.all ? n + ' clip' + s(n) : k ? k + ' selected' : m + ' maybe' + s(m) + ' only';
+    return {n, label:n ? 'Download for Final Cut · ' + what : 'Nothing selected yet'};
+  }
   download = () => {
     const x = this.buildX(); if (!x.n) return;
     const st = this.state, blob = new Blob([x.text], {type:'application/xml'}), a = document.createElement('a'), u = URL.createObjectURL(blob);
@@ -1838,13 +1861,15 @@ class Component extends DCLogic {
     this.api('handoff', {keep:by.keep, maybe:st.ex.maybes ? by.maybe : [], keyword:'maybe', cut:by.cut, trash:false, event:st.ex.event});
     this.setState({exDone:'Saved ' + a.download + ' · ' + this.plural(x.n, 'clip')});
   };
-  // The cut clips as plain text, for deleting by hand in Finder: one line with the count and total size, then one clip
-  // per line in capture order. The path where the page has a real one (a folder that was opened, or an absolute path), otherwise the name.
+  // The cut clips as plain text, for deleting by hand in Finder: one line with the count and total size, a blank line, then one
+  // clip per line in capture order. The file name comes first, padded with spaces to a common width, then the folder it is in
+  // where the page has a real one (a folder that was opened, or an absolute path); otherwise the name alone.
   static cutList(clips, marks, fmtB, real) {
     const cut = clips.filter(c => marks[c.id] === 'cut').sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
     const n = cut.length, bytes = cut.reduce((s, c) => s + (c.bytes || 0), 0);
-    const line = c => c.path && (real || c.path[0] === '/') ? c.path : c.name;
-    return {n, bytes, text:n ? [n + ' cut clip' + (n === 1 ? '' : 's') + ' · ' + fmtB(bytes), ...cut.map(line)].join('\n') + '\n' : ''};
+    const dir = c => { const p = c.path && (real || c.path[0] === '/') ? c.path : '', i = p.lastIndexOf('/'); return i < 0 ? '' : p.slice(0, i + 1); };
+    const wide = cut.reduce((w, c) => Math.max(w, c.name.length), 0), line = c => { const f = dir(c); return f ? c.name.padEnd(wide + 5) + f : c.name; };
+    return {n, bytes, text:n ? [n + ' cut clip' + (n === 1 ? '' : 's') + ' · ' + fmtB(bytes), '', ...cut.map(line)].join('\n') + '\n' : ''};
   }
   cutText() { const d = this.d; return Component.cutList(d ? d.clips : [], this.state.marks, b => this.fmtB(b), !!(d && d.shoot.real)); }
   cutCopy = () => {
@@ -1897,7 +1922,11 @@ class Component extends DCLogic {
     const si = steps.findIndex(s => s[0] === st.step), ms = this.memStats();
     const v = {isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
       stepTabs:steps.map((s, i) => ({t:s[1], on:i === si, fg:i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), go:() => this.setStep(s[0])})),
-      memOn:st.memOn, memToggle:() => this.setState({memOn:!st.memOn, memConfirm:false, closeConfirm:false}), memBg:st.memOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)', memPill:this.fmtB(ms.tabB),
+      dbgOn:!!st.dbg, dropNote:window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves this Mac.',
+      closeGo:this.closeShoot, closeT:st.closeConfirm ? 'Close? Click again' : 'Close', closeFg:st.closeConfirm ? '#FFD27A' : '#9A958D', closeBg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.06)',
+      closeTip:'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open. Its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' stay saved for the next time you open these clips. ⌘W',
+      forgetOn:has && (Object.keys(st.marks).length > 0 || !!st.memConfirm), forgetGo:this.forgetMarks, forgetT:'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + (st.memConfirm ? '? Click again' : ''), forgetFg:st.memConfirm ? '#FF8A7A' : '#9A958D', forgetBg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.06)',
+      memOn:st.memOn && !!st.dbg, memToggle:() => this.setState({memOn:!st.memOn, memConfirm:false, closeConfirm:false}), memBg:st.memOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)', memPill:this.fmtB(ms.tabB),
       memTab:(() => { const h = this.health ? this.effHealth() : null, rows = [], B = this.mp.budget, imp = st.imp, run = !!(imp && imp.done < imp.n);
         rows.push({k:'clips', v:ms.n ? ms.n + (d && d.shoot.bytes ? ' · ' + this.fmtB(d.shoot.bytes) + ' on disk' : '') : 'none'});
         if (ms.n) rows.push({k:'read', v:run ? (imp.pass === 2 ? 'all in · measuring ' : 'reading ') + imp.done + ' of ' + imp.n : ms.meas + ' of ' + ms.n});
@@ -1947,14 +1976,15 @@ class Component extends DCLogic {
         {k:'maybe', c:MK.maybe, n:this.plural(markN.maybe, 'clip'), size:this.fmtB(markB.maybe), to:ex.all || ex.maybes ? 'tagged “maybe”' : 'left out'},
         {k:'cut', c:MK.cut, n:this.plural(markN.cut, 'clip'), size:this.fmtB(markB.cut), to:ex.all ? 'marked as not wanted in Final Cut' : 'stay on the card'},
         {k:'undecided', c:'rgba(239,236,230,0.3)', n:this.plural(und, 'clip'), size:this.fmtB(Math.max(0, d.shoot.bytes - markB.keep - markB.maybe - markB.cut)), to:ex.all ? 'unrated' : 'stay on the card'}];
-      const sw = (t, sub, on, key, dis) => ({t, sub, on, op:dis ? 0.45 : 1, track:on ? '#B8B3AB' : 'rgba(239,236,230,0.18)', knob:on ? '14px' : '2px', go:() => { if (!dis) this.setState(s => ({ex:{...s.ex, [key]:!s.ex[key]}})); }});
+      const sw = (t, sub, on, key, dis) => ({t, sub, on, op:dis ? 0.45 : 1, track:on ? '#B8B3AB' : 'rgba(239,236,230,0.18)', knob:on ? '14px' : '2px', go:() => { if (!dis) this.setState(s => ({exDone:null, ex:{...s.ex, [key]:!s.ex[key]}})); }});
       v.exOpts = [sw('Everything', ex.all ? 'every clip; selected ones as favorites, cut ones marked as not wanted' : 'only selected clips', ex.all, 'all'), sw('Include maybes', 'tagged “maybe” in Final Cut', ex.all || ex.maybes, 'maybes', ex.all)];
       v.exEvent = ex.event;
       v.exEventIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, event:val}})); };
       v.exKwIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, kw:val}})); };
-      v.exBtnOp = x.n ? 1 : 0.45; v.exBtn = !x.n ? 'Nothing selected yet' : 'Download for Final Cut · ' + (ex.all ? this.plural(x.n, 'clip') : markN.keep + ' selected');
+      const gate = Component.exGate(markN, d.clips.length, ex);
+      v.exBtnOp = x.n ? 1 : 0.45; v.exBtnOff = !x.n; v.exBtnCur = x.n ? 'pointer' : 'default'; v.exBtn = x.n ? gate.label : 'Nothing selected yet';
       const nope = ' Nothing is copied or changed.';
-      v.exSub = !x.n ? 'Select clips in Skim with K.' + nope : ex.all ? 'Every clip comes along: maybes tagged “maybe”, cut ones marked as not wanted.' + nope : !ex.maybes ? 'Maybes are left out.' + nope : (markN.maybe ? this.plural(markN.maybe, 'maybe') + (markN.maybe === 1 ? ' comes' : ' come') : 'Maybes come') + ' along tagged “maybe”.' + nope;
+      v.exSub = !x.n ? 'Select clips in Skim with K.' + nope : ex.all ? 'Every clip comes along: maybes tagged “maybe”, cut ones marked as not wanted.' + nope : !ex.maybes ? 'Maybes are left out.' + nope : !markN.keep ? 'Nothing is selected: the file holds the ' + (markN.maybe === 1 ? 'maybe' : 'maybes') + ', tagged “maybe”.' + nope : (markN.maybe ? this.plural(markN.maybe, 'maybe') + (markN.maybe === 1 ? ' comes' : ' come') : 'Maybes come') + ' along tagged “maybe”.' + nope;
       v.exUndOn = und > 0; v.exUnd = und + ' still undecided';
       v.cutOn = markN.cut > 0; v.cutLine = v.cutOn ? this.plural(markN.cut, 'cut clip') + ' · ' + this.fmtB(markB.cut) + ' you can free' : 'no cut clips yet'; v.cutFg = v.cutOn ? '#EFECE6' : '#5B5854'; v.cutDot = v.cutOn ? MK.cut : 'rgba(239,236,230,0.18)';
       v.cutCopy = this.cutCopy; v.cutSave = this.cutSave; v.cutSayOn = !!st.cutSay; v.cutSay = st.cutSay ? st.cutSay.t : ''; v.cutSayC = st.cutSay && st.cutSay.bad ? '#FFD27A' : '#A9D18E';
