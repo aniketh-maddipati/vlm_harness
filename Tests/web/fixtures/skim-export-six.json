@@ -1,0 +1,234 @@
+{
+ "shoot": {
+  "name": "Untitled card",
+  "days": 1,
+  "rate": 24,
+  "bytes": 734039363,
+  "source": "/Volumes/Untitled"
+ },
+ "scenes": [
+  {
+   "n": 1,
+   "label": "Scene 1 \u00b7 19:50\u201319:51"
+  },
+  {
+   "n": 2,
+   "label": "Scene 2 \u00b7 20:34\u201320:35"
+  },
+  {
+   "n": 3,
+   "label": "Scene 3 \u00b7 21:03\u201321:04"
+  }
+ ],
+ "clips": [
+  {
+   "id": "c1",
+   "name": "C0002.MP4",
+   "path": "/Volumes/Untitled/PRIVATE/M4ROOT/CLIP/C0002.MP4",
+   "t": "2026-09-08T19:50:27-05:00",
+   "durF": 288,
+   "fpsNum": 24000,
+   "fpsDen": 1001,
+   "fps": 24,
+   "w": 3840,
+   "h": 2160,
+   "bytes": 159390409,
+   "codec": "h264",
+   "bitDepth": 8,
+   "chroma": "yuv420p",
+   "tc": "20:44:36:04",
+   "tcRaw": "04364420",
+   "tcFps": 24,
+   "dropFrame": false,
+   "profile": {
+    "gamma": "none",
+    "primaries": "rec709",
+    "source": "sidecar",
+    "rawGamma": "rec709-xvycc"
+   },
+   "audio": {
+    "codec": "pcm_s16be",
+    "rate": 48000,
+    "channels": 2,
+    "bits": 16
+   },
+   "scene": 1,
+   "mark": "keep"
+  },
+  {
+   "id": "c2",
+   "name": "C0003.MP4",
+   "path": "/Volumes/Untitled/PRIVATE/M4ROOT/CLIP/C0003.MP4",
+   "t": "2026-09-08T19:51:32-05:00",
+   "durF": 96,
+   "fpsNum": 24000,
+   "fpsDen": 1001,
+   "fps": 24,
+   "w": 3840,
+   "h": 2160,
+   "bytes": 50336224,
+   "codec": "h264",
+   "bitDepth": 8,
+   "chroma": "yuv420p",
+   "tc": "20:44:48:04",
+   "tcRaw": "04484420",
+   "tcFps": 24,
+   "dropFrame": false,
+   "profile": {
+    "gamma": "none",
+    "primaries": "rec709",
+    "source": "sidecar",
+    "rawGamma": "rec709-xvycc"
+   },
+   "audio": {
+    "codec": "pcm_s16be",
+    "rate": 48000,
+    "channels": 2,
+    "bits": 16
+   },
+   "scene": 1,
+   "mark": "keep"
+  },
+  {
+   "id": "c3",
+   "name": "C0019.MP4",
+   "path": "/Volumes/Untitled/PRIVATE/M4ROOT/CLIP/C0019.MP4",
+   "t": "2026-09-08T20:34:31-05:00",
+   "durF": 276,
+   "fpsNum": 24000,
+   "fpsDen": 1001,
+   "fps": 24,
+   "w": 3840,
+   "h": 2160,
+   "bytes": 151001677,
+   "codec": "h264",
+   "bitDepth": 8,
+   "chroma": "yuv420p",
+   "tc": "20:47:24:16",
+   "tcRaw": "16244720",
+   "tcFps": 24,
+   "dropFrame": false,
+   "profile": {
+    "gamma": "none",
+    "primaries": "rec709",
+    "source": "sidecar",
+    "rawGamma": "rec709-xvycc"
+   },
+   "audio": {
+    "codec": "pcm_s16be",
+    "rate": 48000,
+    "channels": 2,
+    "bits": 16
+   },
+   "scene": 2,
+   "mark": "maybe"
+  },
+  {
+   "id": "c4",
+   "name": "C0020.MP4",
+   "path": "/Volumes/Untitled/PRIVATE/M4ROOT/CLIP/C0020.MP4",
+   "t": "2026-09-08T20:35:05-05:00",
+   "durF": 96,
+   "fpsNum": 24000,
+   "fpsDen": 1001,
+   "fps": 24,
+   "w": 3840,
+   "h": 2160,
+   "bytes": 54530563,
+   "codec": "h264",
+   "bitDepth": 8,
+   "chroma": "yuv420p",
+   "tc": "20:47:36:04",
+   "tcRaw": "04364720",
+   "tcFps": 24,
+   "dropFrame": false,
+   "profile": {
+    "gamma": "none",
+    "primaries": "rec709",
+    "source": "sidecar",
+    "rawGamma": "rec709-xvycc"
+   },
+   "audio": {
+    "codec": "pcm_s16be",
+    "rate": 48000,
+    "channels": 2,
+    "bits": 16
+   },
+   "scene": 2,
+   "mark": "cut"
+  },
+  {
+   "id": "c5",
+   "name": "C0030.MP4",
+   "path": "/Volumes/Untitled/PRIVATE/M4ROOT/CLIP/C0030.MP4",
+   "t": "2026-09-08T21:03:39-05:00",
+   "durF": 300,
+   "fpsNum": 24000,
+   "fpsDen": 1001,
+   "fps": 24,
+   "w": 3840,
+   "h": 2160,
+   "bytes": 159390309,
+   "codec": "h264",
+   "bitDepth": 8,
+   "chroma": "yuv420p",
+   "tc": "20:50:16:04",
+   "tcRaw": "04165020",
+   "tcFps": 24,
+   "dropFrame": false,
+   "profile": {
+    "gamma": "none",
+    "primaries": "rec709",
+    "source": "sidecar",
+    "rawGamma": "rec709-xvycc"
+   },
+   "audio": {
+    "codec": "pcm_s16be",
+    "rate": 48000,
+    "channels": 2,
+    "bits": 16
+   },
+   "scene": 3,
+   "mark": null
+  },
+  {
+   "id": "c6",
+   "name": "C0031.MP4",
+   "path": "/Volumes/Untitled/PRIVATE/M4ROOT/CLIP/C0031.MP4",
+   "t": "2026-09-08T21:04:20-05:00",
+   "durF": 288,
+   "fpsNum": 24000,
+   "fpsDen": 1001,
+   "fps": 24,
+   "w": 3840,
+   "h": 2160,
+   "bytes": 159390181,
+   "codec": "h264",
+   "bitDepth": 8,
+   "chroma": "yuv420p",
+   "tc": "20:50:28:16",
+   "tcRaw": "16285020",
+   "tcFps": 24,
+   "dropFrame": false,
+   "profile": {
+    "gamma": "none",
+    "primaries": "rec709",
+    "source": "sidecar",
+    "rawGamma": "rec709-xvycc"
+   },
+   "audio": {
+    "codec": "pcm_s16be",
+    "rate": 48000,
+    "channels": 2,
+    "bits": 16
+   },
+   "scene": 3,
+   "mark": null
+  }
+ ],
+ "export": {
+  "event": "Untitled card",
+  "all": true,
+  "maybes": true
+ }
+}
