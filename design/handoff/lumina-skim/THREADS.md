@@ -25,7 +25,7 @@ Cut only what he uses. Out of scope now: colour matching, masking, grading.
 - Change log: LOCAL-CHANGES.md (items 1–45).
 
 ## Threads (worktrees under ~/vlm_harness/worktrees)
-State after orchestration round 1 (2026-10-08 21:15 PT). No chat was attached to any worktree in this round; each
+State after orchestration round 2 (2026-10-08 21:15 PT). No chat was attached to any worktree in this round; each
 row's next step is waiting for a chat to pick it up.
 | Worktree | Branch | Handoff | State after round 1 |
 |---|---|---|---|
@@ -38,6 +38,33 @@ row's next step is waiting for a chat to pick it up.
 | skim-ingest | video/skim-ingest | INGEST.md | Handoff merged; level with mvp. Not started. One-shot read + measure; CANVAS-GRAMMAR.md. |
 | skim-faults | video/skim-faults | FAULTS.md | Handoff merged; level with mvp. Not started. Fault fixtures, tests, fixes. |
 | skim-perfgate | video/skim-perfgate | PERFGATE.md | Handoff merged; level with mvp. Not started. Benchmarks + budgets + baseline + CI. |
+| skim-freespace | video/skim-freespace | FREESPACE.md | Created in round 2 with a draft handoff. Not started. Move cut clips to the Trash, Mac app only, never a card. |
+| skim-beta | video/skim-beta | BETA.md | Created in round 2 with a draft handoff. Not started. Release build, Developer ID + notarization (ask before any Apple credentials), Sparkle, signed live page, Send report. |
+
+## Planned merge of mvp into skim-native (not done; wait for a chat working there)
+A dry merge (git merge-tree) conflicts in three files only. Page, one place, `dropFrames`: keep native's
+`natClose()` and `c._nx = null` and mvp's `this.thumbs.forget(c.id)` in the one line; edit the design copy, then
+copy to Lumina/Sets/Web. LOCAL-CHANGES.md: keep mvp's 36–45, renumber native's entry to 46. The other mvp page
+hunks merge as text; check behaviour where native's runQueue hand-off meets mvp's nearest-full-frame snapping,
+in-file Sony metadata and coalesced repaints. Then: Tests/web/skim-native-page.cjs, skim-export tests,
+trust_check.py, the Swift tests, a build, and the measures in NATIVE-DECODE.md.
+
+## Deploy checkpoints (web page → https://lumina-skim.pages.dev, Cloudflare Pages project lumina-skim)
+Deployed from video/skim-mvp only, by `bash Scripts/deploy-skim-preview.sh`, only after a round's checks pass
+(page copies byte-equal, tests pass). The web client ships first; native, beta and free space are Mac-app work
+and do not hold it up. Record each deploy here with its commit.
+1. mvp as it stands (canvas 1.1, neutral words, in-file Sony metadata).
+2. Canvas 1.2–1.3 (layout maths, canvas drawing).
+3. Faults: marks survive a reload and a full quota.
+4. Ingest: instant listing, flags with the covers.
+5. Grouping wired in (takes, usable stretch).
+6. Export with camera timecode and scene keywords.
+7. Rec.709 refit, if the Final Cut comparison calls for one.
+
+## The goal is Final Cut (owner: skim-perfgate, see PERFGATE.md)
+The same card through Final Cut Pro and through Skim: time to every thumbnail, scrubbing, time to sort a card.
+Final Cut's measured numbers are the targets. Skim numbers only from the page's clock; Final Cut numbers only
+from an actual run on this Mac (needs computer use on Final Cut, or the user with a stopwatch).
 
 ## Rules for every thread
 Each owns the parts of the page its handoff names; merge video/skim-mvp before page edits; keep the two page copies

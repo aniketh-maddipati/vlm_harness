@@ -16,3 +16,12 @@ p95 ≤ 20 ms at 500; no long task > 100 ms while reading; heap ≤ 150 MB at 1,
 A runner that prints a table and writes results JSON; budgets in one file; a CI step (like Tests/web/skim-export);
 a README for the Mac/Safari run against /Volumes/Untitled (read only) and T7/friend_test_log; a baseline committed
 from today's video/skim-mvp so later work is compared against it.
+
+## Added 2026-10-08 by the user: Final Cut is the goal
+Benchmark Final Cut Pro on the same material and tasks as Skim and use its numbers as the targets, replacing the
+starting budgets above where they overlap: import → every thumbnail shown (cold and warm), scrubbing a clip
+(frames shown per second of pointer travel, stalls), and the time to sort a card (rate/reject every clip).
+Material: /Volumes/Untitled (401 clips, read only) and T7/friend_test_log (5 S-Log3 clips, read only); "Leave
+files in place", library on the internal disk, no copy, no transcode (method in NATIVE-DECODE.md, Build and
+measure, step 3). Final Cut numbers only from an actual run; Skim numbers only from the page's clock. Deliver
+one table, Final Cut | Skim web (Safari) | Skim native, with the date, versions and how each was measured.
