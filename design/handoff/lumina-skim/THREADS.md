@@ -69,9 +69,11 @@ stop darker than Final Cut (mean dE2000 8.49, p95 10.97). The curve is refitted 
 replayed in Python, 2.28 / 4.80 measured from Safari 27's own pixels with the developer colour check (140), 1.70 /
 2.50 over small areas; by eye in Safari, similar to the stills. Exposure is noted from a full stop (141).
 Deployed 95f75d35 (2026-10-09 17:23 UTC), checked on the live page: build stamp, the new table and the colour check.
-Found by the import, not fixed (skim-export): every clip arrives as Missing File (guessed /Volumes path); Camera
-LUT arrives as None; the six 24.000 fps .MOV clips cannot be relinked (the file declares 23.976 and a length
-longer than the clip); selected arrives as Favorite. Open in colour: a matrix refit would take Safari to about
+Found by that import and fixed the same day (LOCAL-CHANGES 142 to 145, merged a9404440, deployed 2026-10-09 17:40
+UTC and checked on the live page): clips arrive online from the folder named in Export ▸ Details, at the rate the
+file really has, and S-Log3 / S-Gamut3.Cine clips arrive with Final Cut's Sony Camera LUT; proven by an import into
+a new empty library (eleven clips online, five with the LUT, six at 24p). Selected arrives as Favorite. Not done:
+the Folder field tried by hand in Safari; a switch for the LUT; other log profiles; camera timecode; audio layout. Open in colour: a matrix refit would take Safari to about
 1.61 / 3.63 (not applied); clipping is read a little low; the bright end of the curve has few samples.
 Evidence: ~/LuminaEvidence/skim-rec709/ (2026-10-08-fcp-stills, 2026-10-09-fcp-stills-5clips, -safari-check, -flags).
 Open, found on the way: C0248 on the card (all black, 0.5 s) is reported as unreadable though it plays;
@@ -86,7 +88,7 @@ row's next step is waiting for a chat to pick it up.
 |---|---|---|---|
 | video-skim | video/skim-mvp | this file | Integration + demo. Round 1 merged the faults, grouping, ingest, perfgate and rec709 handoffs and canvas 1.1 (ec71ce7), one at a time; page copies byte-equal and skim-export tests 9 pass after each. |
 | skim-native | video/skim-native | NATIVE-DECODE.md | Step 1 committed as work in progress (77c5600, 19 files). A Debug build from 14:54 on 10-08 contains SkimDecoder (so it has compiled once); Swift tests not run, nothing measured. Merging mvp conflicts in the page (both copies) and LOCAL-CHANGES.md (its entry is numbered 36, mvp runs to 45); the merge was aborted and is this thread's next step. |
-| skim-export | video/skim-export | FRIEND-DEMO.md | Level with mvp, nothing of its own. Next: real paths, camera timecode (asset and asset-clip start; c.ltc from the file), scene keywords, audio, a real Final Cut import. |
+| skim-export | video/skim-export | FRIEND-DEMO.md | Merged into mvp 2026-10-09 (a9404440) and deployed: true frame rate, Sony Camera LUT for S-Log3 / S-Gamut3.Cine, the Folder field. Next: camera timecode as the asset start, scene keywords, real audio layout, a switch for the LUT. |
 | skim-canvas | video/skim-canvas | CANVAS.md | 1.1 merged into mvp; level with mvp. Next 1.2 layout maths → 1.6, then the dock. |
 | skim-grouping | video/skim-grouping | GROUPING.md | lumina-skim-grouping.js + tests committed as work in progress (b40da31; 15 tests pass), mvp merged in (9730f61). Not yet merged into mvp: not wired to the page, not checked on real clips. |
 | skim-rec709 | video/skim-rec709 | REC709.md | Merged into mvp 2026-10-09 (95f75d35) and deployed: curve refitted to Final Cut stills, developer colour check, exposure noted from a full stop. Next, if wanted: matrix refit, the bright end of the curve, baking the conversion into stored frames. |
