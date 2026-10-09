@@ -415,7 +415,7 @@ class Component extends DCLogic {
     this._gs = e => { e.preventDefault(); this.gsc = 1; }; this._gc = e => { e.preventDefault(); const r = e.scale / (this.gsc || 1); this.gsc = e.scale; this.zoomBy(Math.log(r) * 1.6, e); }; this._ge = e => { e.preventDefault(); this.gsc = 1; };
     window.addEventListener('gesturestart', this._gs, {passive:false}); window.addEventListener('gesturechange', this._gc, {passive:false}); window.addEventListener('gestureend', this._ge, {passive:false});
     this.healthTick();
-    this._rs = () => this.setState({vw:window.innerWidth, vh:window.innerHeight}, () => { if (this.hasShoot() && !this.userCut && !this.state.cuts) this.setState({nCut:this.fitCut(this.d.clips.length)}); }); window.addEventListener('resize', this._rs);
+    this._rs = () => { clearTimeout(this.rsT); this.rsT = setTimeout(() => this.setState({vw:window.innerWidth, vh:window.innerHeight}), 80); }; window.addEventListener('resize', this._rs);
     // S-Log3 / S-Gamut3.Cine → Rec.709: the curve per channel, then the gamut, fitted to the full transform in display space.
     this.dedupeNames(); this.syncStore(); this.calibrate();
     this._kw = e => { if ((e.metaKey || e.ctrlKey) && (e.key === 'w' || e.key === 'W')) { e.preventDefault(); this.closeShoot(); } }; window.addEventListener('keydown', this._kw);
@@ -953,7 +953,7 @@ class Component extends DCLogic {
       vals.sliderOn = C.length > 1; vals.gapMax = gs.length; vals.nCut = st.nCut; vals.gapChange = this.gapChange;
       vals.gapLine = this.plural(G.length, 'scene') + (st.cuts ? ' · moved by you' : '');
       vals.chs = G.map(g => {
-        const t0 = this.tone(g.clips[0], 0), dn = {keep:0, maybe:0, cut:0};
+        const cvc = g.clips.find(c => c.frames && c.frames.some(Boolean)) || g.clips[0], t0 = this.tone(cvc, this.firstIdx()), dn = {keep:0, maybe:0, cut:0};
         g.clips.forEach(c => { const m = st.marks[c.id]; if (m) dn[m]++; });
         const anySel = g.vis.some(c => selSet.has(c.id)), isCur = st.gi === g.i;
         const gm = st.held ? (st.sel.length ? (anySel ? st.held : null) : (isCur ? st.held : null)) : null;
