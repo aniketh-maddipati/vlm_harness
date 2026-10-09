@@ -1,6 +1,7 @@
 # Skim: threads, state and how to continue (read this first in any new chat)
 
 Written 2026-10-08 20:55 PT when the work moved from a cloud chat to the Claude desktop app on this Mac.
+Updated after each orchestration round; the latest round is in the Threads table.
 
 ## The product, in one paragraph
 Lumina Skim: one sorting pass for video before Final Cut. The user's friend shoots a7S III S-Log3 (XAVC HS, HEVC
@@ -24,17 +25,19 @@ Cut only what he uses. Out of scope now: colour matching, masking, grading.
 - Change log: LOCAL-CHANGES.md (items 1–45).
 
 ## Threads (worktrees under ~/vlm_harness/worktrees)
-| Worktree | Branch | Handoff | State at hand-over |
+State after orchestration round 1 (2026-10-08 21:15 PT). No chat was attached to any worktree in this round; each
+row's next step is waiting for a chat to pick it up.
+| Worktree | Branch | Handoff | State after round 1 |
 |---|---|---|---|
-| video-skim | video/skim-mvp | this file | Integration + demo. HEAD fb74475. Merge others in one at a time, push back out. |
-| skim-native | video/skim-native | NATIVE-DECODE.md | Step 1 written (SkimDecoder/Measure/Schedule…), 19 files UNCOMMITTED, never compiled; 26 commits behind mvp; page conflicts expected near the loading code and LOCAL-CHANGES 36. Commit, build, then merge mvp. |
-| skim-export | video/skim-export | FRIEND-DEMO.md | Headless export harness + DTD check merged (2b174c1). Next: real paths, camera timecode (asset and asset-clip start; c.ltc from the file), scene keywords, audio, a real Final Cut import. |
-| skim-canvas | video/skim-canvas | CANVAS.md | 1.1 done (ThumbCache, 4bae434). Next 1.2 layout maths → 1.6, then the dock. |
-| skim-grouping | video/skim-grouping | GROUPING.md | Started (3 uncommitted files). Moments/takes/shot type/accidental/usable stretch. |
-| skim-rec709 | video/skim-rec709 | REC709.md | Not started. Needs Final Cut stills of C4815 (or computer use on Final Cut). |
-| skim-ingest | video/skim-ingest | INGEST.md | Not started. One-shot read + measure; CANVAS-GRAMMAR.md. |
-| skim-faults | video/skim-faults | FAULTS.md | Not started. Fault fixtures, tests, fixes. |
-| skim-perfgate | video/skim-perfgate | PERFGATE.md | Not started. Benchmarks + budgets + baseline + CI. |
+| video-skim | video/skim-mvp | this file | Integration + demo. Round 1 merged the faults, grouping, ingest, perfgate and rec709 handoffs and canvas 1.1 (ec71ce7), one at a time; page copies byte-equal and skim-export tests 9 pass after each. |
+| skim-native | video/skim-native | NATIVE-DECODE.md | Step 1 committed as work in progress (77c5600, 19 files). A Debug build from 14:54 on 10-08 contains SkimDecoder (so it has compiled once); Swift tests not run, nothing measured. Merging mvp conflicts in the page (both copies) and LOCAL-CHANGES.md (its entry is numbered 36, mvp runs to 45); the merge was aborted and is this thread's next step. |
+| skim-export | video/skim-export | FRIEND-DEMO.md | Level with mvp, nothing of its own. Next: real paths, camera timecode (asset and asset-clip start; c.ltc from the file), scene keywords, audio, a real Final Cut import. |
+| skim-canvas | video/skim-canvas | CANVAS.md | 1.1 merged into mvp; level with mvp. Next 1.2 layout maths → 1.6, then the dock. |
+| skim-grouping | video/skim-grouping | GROUPING.md | lumina-skim-grouping.js + tests committed as work in progress (b40da31; 15 tests pass), mvp merged in (9730f61). Not yet merged into mvp: not wired to the page, not checked on real clips. |
+| skim-rec709 | video/skim-rec709 | REC709.md | Handoff merged; level with mvp. Not started. Needs Final Cut stills of C4815 (computer use on Final Cut). |
+| skim-ingest | video/skim-ingest | INGEST.md | Handoff merged; level with mvp. Not started. One-shot read + measure; CANVAS-GRAMMAR.md. |
+| skim-faults | video/skim-faults | FAULTS.md | Handoff merged; level with mvp. Not started. Fault fixtures, tests, fixes. |
+| skim-perfgate | video/skim-perfgate | PERFGATE.md | Handoff merged; level with mvp. Not started. Benchmarks + budgets + baseline + CI. |
 
 ## Rules for every thread
 Each owns the parts of the page its handoff names; merge video/skim-mvp before page edits; keep the two page copies
@@ -44,5 +47,11 @@ actual import; neutral words on screen (selected / maybe / cut). Commit author: 
 <anikethcov@gmail.com>; end messages with the Co-Authored-By / Claude-Session lines used so far.
 
 ## Open blockers
-1. skim-native has never been compiled. 2. Computer use was off for the cloud chat — in the desktop app it should
-work directly (Final Cut checks for rec709 and export). 3. The live site is 3 hours behind (deploy).
+1. skim-native: resolve the mvp merge (page + LOCAL-CHANGES numbering), run the Swift tests, measure on the card.
+2. Computer use on Final Cut for rec709 (stills) and export (import check): needs the user to allow it.
+3. The live site is still at 4b2ae62 (deploy needs the user's yes).
+4. No video/* branch has an upstream; the work exists only on this Mac until it is pushed.
+5. Test media: T7/friend_test_log is real S-Log3 (5 clips, HEVC Main 10 4:2:0 23.976, CaptureGammaEquation
+   s-log3-cine in each file's tail; checked with ffprobe, read only). FRIEND-DEMO.md's line that the T7 holds no
+   S-Log3 predates these clips and describes the seven format-test clips only.
+6. Targets to confirm with the user: ingest (listing < 1 s, covers < 60 s for 400 clips) and the perfgate budgets.
