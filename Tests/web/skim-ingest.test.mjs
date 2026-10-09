@@ -92,3 +92,79 @@ test('firstOrder: regrouping changes what comes next', () => {
   assert.equal(page.firstOrder({ order: ALL, todo, have, groups: [ALL] })[0], 'a2');                       // one scene, covered: card order
   assert.deepEqual(page.firstOrder({ order: ALL, todo, have, groups: G }).slice(0, 3), ['b1', 'c1', 'd1']);  // four scenes: their covers
 });
+
+// ---- measures from the first frame, and the other frames on demand (LOCAL-CHANGES 110–)
+/** A static method: `static name(args) {`. */
+function staticMethod(name){
+  const m = SRC.match(new RegExp('\\n  static ' + name + '\\(([^)]*)\\) \\{'));
+  assert.ok(m, 'static method not found: ' + name);
+  const body = extractMethod(SRC.replace(m[0], '\n  ' + name + '() {'), name);
+  return new Function('return function ' + body.replace(name + '()', name + '(' + m[1] + ')'))();
+}
+const Component = { askIdx: staticMethod('askIdx'), lookAgain: staticMethod('lookAgain') };
+const fn = (name, extra = {}) => new Function('Component', 'return ' + method(name).toString())(Component);
+const meas = { pix: method('pix'), factsOf: method('factsOf'), provMark: method('provMark'), factsAll: fn('factsAll'), blank: method('blank'),
+  fillOrder: method('fillOrder'), fromN: method('fromN'), mp: { per: 8 }, frameIdx(){ return [0, 1, 2, 3, 4, 5, 6, 7]; } };
+const img = (w, h, f) => { const data = new Uint8ClampedArray(w * h * 4); for (let i = 0, j = 0; i < data.length; i += 4, j++) { const v = f(j % w, Math.floor(j / w)); data[i] = data[i + 1] = data[i + 2] = v; data[i + 3] = 255; } return { data, width: w, height: h }; };
+const grey = v => meas.pix(img(32, 18, (x, y) => ((x + y) % 2 ? v + 20 : v - 20)));
+
+test('facts from one frame are ready and marked provisional; from all eight they are not', () => {
+  const c = { _px: { 3: grey(120) } };
+  const one = meas.factsAll(c);
+  assert.equal(one.state, 'ready'); assert.equal(one.n, 1); assert.equal(one.of, 8); assert.equal(one.prov, true); assert.equal(c.first, true);
+  assert.deepEqual(one.idx, [3]); assert.equal(one.sharpF.length, 1); assert.equal(one.bump, null);
+  for (let i = 0; i < 8; i++) c._px[i] = grey(120);
+  const all = meas.factsAll(c);
+  assert.equal(all.n, 8); assert.equal(all.prov, undefined); assert.equal(c.first, false); assert.equal(all.sharpF.length, 8);
+  assert.equal(all.ev, one.ev);                      // the same picture measures the same from one frame or eight
+});
+test('facts: seven frames of eight stay provisional and say seven', () => {
+  const c = { _px: {} }; for (let i = 0; i < 7; i++) c._px[i] = grey(120);
+  const f = meas.factsAll(c); assert.equal(f.n, 7); assert.equal(f.prov, true);
+  assert.equal(meas.fromN(1), 'from one frame'); assert.equal(meas.fromN(7), 'from 7 frames');
+});
+test('facts: with fewer frames per clip set, that many is all of them', () => {
+  const m = { ...meas, frameIdx(){ return [2, 6]; } }, c = { _px: { 2: grey(120), 6: grey(120) } };
+  const f = m.factsAll(c); assert.equal(f.of, 2); assert.equal(f.prov, undefined);
+});
+test('an all-dark frame is a frame: it is kept after the looks, and reads as dark', () => {
+  const black = img(32, 18, () => 0);
+  assert.equal(meas.blank(black), true);
+  assert.equal(Component.lookAgain(true, 0), true); assert.equal(Component.lookAgain(true, 1), true);
+  assert.equal(Component.lookAgain(true, 2), false);      // the third look is kept, dark or not
+  assert.equal(Component.lookAgain(false, 0), false);     // a picture is kept at once
+  assert.ok(!/blank\(im\)\) break; im = null/.test(SRC) && !/if \(!im\) continue;/.test(SRC), 'readClip must not drop a dark frame');
+  const f = meas.factsAll({ _px: { 3: meas.pix(black) } });
+  assert.equal(f.state, 'ready'); assert.equal(f.ev, -5); assert.equal(f.crush, 100); assert.equal(f.clip, 0);
+});
+test('askIdx: a frame that is there is not asked for; one that was missed is asked for once more, then left', () => {
+  const idx = [0, 1, 2, 3, 4, 5, 6, 7], fr = [null, 'u', null, 'u', null, null, null, null];
+  assert.deepEqual(Component.askIdx(fr, undefined, idx), [0, 2, 4, 5, 6, 7]);
+  assert.deepEqual(Component.askIdx(fr, { 0: 1, 2: 2, 4: 3 }, idx), [0, 5, 6, 7]);
+  assert.deepEqual(Component.askIdx(fr, { 0: 2, 2: 2, 4: 2, 5: 2, 6: 2, 7: 2 }, idx), []);
+  assert.deepEqual(Component.askIdx(fr, null, [1, 3]), []);
+});
+
+const FLAT = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'], every = () => new Set(FLAT);
+const fo = o => meas.fillOrder({ flat: FLAT, todo: every(), idle: every(), near: 3, ...o });
+test('fillOrder: in the Viewer the clip you are on and three each side come first, then the quiet fill', () => {
+  const o = fo({ lv: 2, cur: 'e' });
+  assert.deepEqual(o.slice(0, 7), [['e', 'viewer'], ['f', 'viewer'], ['d', 'viewer'], ['g', 'viewer'], ['c', 'viewer'], ['h', 'viewer'], ['b', 'viewer']]);
+  assert.deepEqual(o.slice(7), [['i', 'idle'], ['a', 'idle'], ['j', 'idle']]);
+});
+test('fillOrder: in Clips the tile under the pointer first, then the tiles on screen nearest the clip you are on, then the rest', () => {
+  const o = fo({ lv: 1, cur: 'c', hover: 'h', seen: ['a', 'b', 'c', 'd', 'h'] });
+  assert.deepEqual(o.slice(0, 5), [['h', 'hover'], ['c', 'seen'], ['b', 'seen'], ['d', 'seen'], ['a', 'seen']]);
+  assert.deepEqual(o.slice(5).map(x => x[1]), ['idle', 'idle', 'idle', 'idle', 'idle']);
+  assert.deepEqual(o.slice(5).map(x => x[0]), ['e', 'f', 'g', 'i', 'j']);       // nearest the clip you are on first
+});
+test('fillOrder: in Scenes nothing is asked for on demand; only what still needs frames is ever listed, once', () => {
+  assert.ok(fo({ lv: 0, cur: 'a', hover: 'b', seen: ['c'] }).every(x => x[1] === 'idle'));
+  const o = fo({ lv: 1, cur: 'c', hover: 'h', seen: ['b', 'c', 'h', 'zz'], todo: new Set(['b', 'h']), idle: new Set(['b', 'j']) });
+  assert.deepEqual(o, [['h', 'hover'], ['b', 'seen'], ['j', 'idle']]);
+});
+test('fillOrder: no quiet fill when it is over (or the limit is near), and on Export nothing but that', () => {
+  assert.deepEqual(fo({ lv: 2, cur: 'e', idle: null }).length, 7);
+  assert.deepEqual(fo({ lv: 1, cur: 'c', hover: 'h', seen: ['c'], idle: null }), [['h', 'hover'], ['c', 'seen']]);
+  assert.ok(fo({ lv: -1, cur: 'e', hover: 'h', seen: ['c'] }).every(x => x[1] === 'idle'));
+});
