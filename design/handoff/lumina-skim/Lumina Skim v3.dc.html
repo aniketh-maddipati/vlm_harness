@@ -157,7 +157,7 @@ input[type=range]{accent-color:#B8B3AB}
             <div style="display:flex;flex-direction:column;gap:10px">
               <div style="display:flex;gap:10px;flex-wrap:wrap">
                 <div role="button" tabIndex="0" onClick="{{ backSkim }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">esc</span>Back to Skim</div>
-                <div data-lumina="download" role="button" tabIndex="0" onClick="{{ download }}" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;opacity:{{ exBtnOp }}" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘⏎</span>{{ exBtn }}</div>
+                <div data-lumina="download" role="button" tabIndex="0" aria-disabled="{{ exBtnOff }}" onClick="{{ download }}" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:{{ exBtnCur }};display:flex;align-items:center;gap:6px;opacity:{{ exBtnOp }}" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘⏎</span>{{ exBtn }}</div>
               </div>
               <span data-lumina="export-sub" style="color:#B8B3AB">{{ exSub }}</span>
               <sc-if value="{{ exDoneOn }}" hint-placeholder-val="{{ false }}"><span role="status" style="color:#A9D18E">{{ exDone }}</span></sc-if>
@@ -1813,6 +1813,13 @@ class Component extends DCLogic {
     const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
     return {n:clips.length, text};
   }
+  // What the Final Cut download would hold under the options, and what its button says. n is the number of clips in the
+  // .fcpxml (the same clips buildX takes); 0 means there is nothing to write, so the button is off and no file is made.
+  static exGate(markN, total, ex) {
+    const k = markN.keep || 0, m = markN.maybe || 0, n = ex.all ? total : k + (ex.maybes ? m : 0), s = c => c === 1 ? '' : 's';
+    const what = ex.all ? n + ' clip' + s(n) : k ? k + ' selected' : m + ' maybe' + s(m) + ' only';
+    return {n, label:n ? 'Download for Final Cut · ' + what : 'Nothing selected yet'};
+  }
   download = () => {
     const x = this.buildX(); if (!x.n) return;
     const st = this.state, blob = new Blob([x.text], {type:'application/xml'}), a = document.createElement('a'), u = URL.createObjectURL(blob);
@@ -1821,13 +1828,15 @@ class Component extends DCLogic {
     this.api('handoff', {keep:by.keep, maybe:st.ex.maybes ? by.maybe : [], keyword:'maybe', cut:by.cut, trash:false, event:st.ex.event});
     this.setState({exDone:'Saved ' + a.download + ' · ' + this.plural(x.n, 'clip')});
   };
-  // The cut clips as plain text, for deleting by hand in Finder: one line with the count and total size, then one clip
-  // per line in capture order. The path where the page has a real one (a folder that was opened, or an absolute path), otherwise the name.
+  // The cut clips as plain text, for deleting by hand in Finder: one line with the count and total size, a blank line, then one
+  // clip per line in capture order. The file name comes first, padded with spaces to a common width, then the folder it is in
+  // where the page has a real one (a folder that was opened, or an absolute path); otherwise the name alone.
   static cutList(clips, marks, fmtB, real) {
     const cut = clips.filter(c => marks[c.id] === 'cut').sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
     const n = cut.length, bytes = cut.reduce((s, c) => s + (c.bytes || 0), 0);
-    const line = c => c.path && (real || c.path[0] === '/') ? c.path : c.name;
-    return {n, bytes, text:n ? [n + ' cut clip' + (n === 1 ? '' : 's') + ' · ' + fmtB(bytes), ...cut.map(line)].join('\n') + '\n' : ''};
+    const dir = c => { const p = c.path && (real || c.path[0] === '/') ? c.path : '', i = p.lastIndexOf('/'); return i < 0 ? '' : p.slice(0, i + 1); };
+    const wide = cut.reduce((w, c) => Math.max(w, c.name.length), 0), line = c => { const f = dir(c); return f ? c.name.padEnd(wide + 5) + f : c.name; };
+    return {n, bytes, text:n ? [n + ' cut clip' + (n === 1 ? '' : 's') + ' · ' + fmtB(bytes), '', ...cut.map(line)].join('\n') + '\n' : ''};
   }
   cutText() { const d = this.d; return Component.cutList(d ? d.clips : [], this.state.marks, b => this.fmtB(b), !!(d && d.shoot.real)); }
   cutCopy = () => {
@@ -1930,14 +1939,15 @@ class Component extends DCLogic {
         {k:'maybe', c:MK.maybe, n:this.plural(markN.maybe, 'clip'), size:this.fmtB(markB.maybe), to:ex.all || ex.maybes ? 'tagged “maybe”' : 'left out'},
         {k:'cut', c:MK.cut, n:this.plural(markN.cut, 'clip'), size:this.fmtB(markB.cut), to:ex.all ? 'marked as not wanted in Final Cut' : 'stay on the card'},
         {k:'undecided', c:'rgba(239,236,230,0.3)', n:this.plural(und, 'clip'), size:this.fmtB(Math.max(0, d.shoot.bytes - markB.keep - markB.maybe - markB.cut)), to:ex.all ? 'unrated' : 'stay on the card'}];
-      const sw = (t, sub, on, key, dis) => ({t, sub, on, op:dis ? 0.45 : 1, track:on ? '#B8B3AB' : 'rgba(239,236,230,0.18)', knob:on ? '14px' : '2px', go:() => { if (!dis) this.setState(s => ({ex:{...s.ex, [key]:!s.ex[key]}})); }});
+      const sw = (t, sub, on, key, dis) => ({t, sub, on, op:dis ? 0.45 : 1, track:on ? '#B8B3AB' : 'rgba(239,236,230,0.18)', knob:on ? '14px' : '2px', go:() => { if (!dis) this.setState(s => ({exDone:null, ex:{...s.ex, [key]:!s.ex[key]}})); }});
       v.exOpts = [sw('Everything', ex.all ? 'every clip; selected ones as favorites, cut ones marked as not wanted' : 'only selected clips', ex.all, 'all'), sw('Include maybes', 'tagged “maybe” in Final Cut', ex.all || ex.maybes, 'maybes', ex.all)];
       v.exEvent = ex.event;
       v.exEventIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, event:val}})); };
       v.exKwIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, kw:val}})); };
-      v.exBtnOp = x.n ? 1 : 0.45; v.exBtn = !x.n ? 'Nothing selected yet' : 'Download for Final Cut · ' + (ex.all ? this.plural(x.n, 'clip') : markN.keep + ' selected');
+      const gate = Component.exGate(markN, d.clips.length, ex);
+      v.exBtnOp = x.n ? 1 : 0.45; v.exBtnOff = !x.n; v.exBtnCur = x.n ? 'pointer' : 'default'; v.exBtn = x.n ? gate.label : 'Nothing selected yet';
       const nope = ' Nothing is copied or changed.';
-      v.exSub = !x.n ? 'Select clips in Skim with K.' + nope : ex.all ? 'Every clip comes along: maybes tagged “maybe”, cut ones marked as not wanted.' + nope : !ex.maybes ? 'Maybes are left out.' + nope : (markN.maybe ? this.plural(markN.maybe, 'maybe') + (markN.maybe === 1 ? ' comes' : ' come') : 'Maybes come') + ' along tagged “maybe”.' + nope;
+      v.exSub = !x.n ? 'Select clips in Skim with K.' + nope : ex.all ? 'Every clip comes along: maybes tagged “maybe”, cut ones marked as not wanted.' + nope : !ex.maybes ? 'Maybes are left out.' + nope : !markN.keep ? 'Nothing is selected: the file holds the ' + (markN.maybe === 1 ? 'maybe' : 'maybes') + ', tagged “maybe”.' + nope : (markN.maybe ? this.plural(markN.maybe, 'maybe') + (markN.maybe === 1 ? ' comes' : ' come') : 'Maybes come') + ' along tagged “maybe”.' + nope;
       v.exUndOn = und > 0; v.exUnd = und + ' still undecided';
       v.cutOn = markN.cut > 0; v.cutLine = v.cutOn ? this.plural(markN.cut, 'cut clip') + ' · ' + this.fmtB(markB.cut) + ' you can free' : 'no cut clips yet'; v.cutFg = v.cutOn ? '#EFECE6' : '#5B5854'; v.cutDot = v.cutOn ? MK.cut : 'rgba(239,236,230,0.18)';
       v.cutCopy = this.cutCopy; v.cutSave = this.cutSave; v.cutSayOn = !!st.cutSay; v.cutSay = st.cutSay ? st.cutSay.t : ''; v.cutSayC = st.cutSay && st.cutSay.bad ? '#FFD27A' : '#A9D18E';
