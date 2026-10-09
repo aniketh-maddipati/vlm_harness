@@ -69,8 +69,9 @@ test('the memory defaults are what they were', () => {
 });
 
 test('per-load timings are only shown in debug mode and are still recorded', () => {
-  assert.match(src, /!running && st\.dbg \? ' · first look '/);
-  assert.equal(src.split("' · first look '").length - 1, 1);
+  // the line reads "listed …, covers and flags …, detail …" since done came to mean covers and first measures (LOCAL-CHANGES 113)
+  assert.match(src, /!running && st\.dbg \? ' · listed '/);
+  assert.equal(src.split("', covers and flags '").length - 1, 1);
   assert.match(src, /lumina-skim:clock/);
 });
 

@@ -69,7 +69,7 @@ input[type=range]{accent-color:#B8B3AB}
       </div>
       <sc-if value="{{ unsupOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="unsupported" role="status" style="margin-left:16px;flex:none;color:#FFD27A;white-space:nowrap">{{ unsupLine }}</div></sc-if>
       <sc-if value="{{ recNoteOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="marks-back" role="status" style="margin-left:16px;flex:none;color:#A9D18E;white-space:nowrap;animation:fade 160ms ease-out">{{ recNote }}</div></sc-if>
-      <sc-if value="{{ loadOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="load-status" role="status" aria-live="polite" onClick="{{ progToggle }}" title="P" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;cursor:pointer;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ loadLine }}</span></div></sc-if>
+      <sc-if value="{{ loadOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="load-status" role="status" aria-live="polite" onClick="{{ progToggle }}" title="P" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;cursor:pointer;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:{{ loadDot }};animation:{{ loadAnim }}"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ loadLine }}</span><span data-lumina="fill-note" style="flex:none;color:#9A958D">{{ fillNote }}</span></div></sc-if>
       <sc-if value="{{ pauseOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="read-pause" role="button" tabIndex="0" aria-pressed="{{ pauseA }}" onClick="{{ pauseGo }}" style="margin-left:10px;flex:none;height:24px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:{{ pauseBg }};color:{{ pauseFg }};font-weight:{{ pauseFw }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pauseT }}</div></sc-if>
       <sc-if value="{{ haltOn }}" hint-placeholder-val="{{ false }}"><div role="button" tabIndex="0" onClick="{{ resumeRead }}" style="margin-left:10px;flex:none;height:24px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Go on</div></sc-if>
     </div>
@@ -601,7 +601,9 @@ class Component extends DCLogic {
   chips(c) {
     const f = c.facts || {}, sh = this.d.shoot, dis = this.state.dis[c.id] || [], out = [];
     if (f.state === 'pending') return {pending:true, list:[]};
-    const add = (key, t, sev, on) => { if (on) out.push({key, t, sev, dis:dis.includes(key)}); };
+    const add = (key, t, sev, on) => { if (on) out.push({key, t, sev, dis:dis.includes(key), prov:pv}); };
+    // measures from fewer frames than the clip will have are shown, quietly, and say how many frames they are from
+    let pv = f.prov ? f.n || 1 : 0;
     if (f.state !== 'unreliable') {
       add('clip', this.pct(f.clip) + ' clipped', 90 + f.clip, f.clip >= 1);
       add('ev', (f.ev > 0 ? '+' : '−') + Math.abs(f.ev).toFixed(1) + ' stops', 70 + Math.abs(f.ev) * 5, Math.abs(f.ev) >= 0.7);
@@ -610,6 +612,7 @@ class Component extends DCLogic {
       add('bump', 'bump', 60, f.bump != null);
       add('crush', this.pct(f.crush) + ' crushed', 55 + f.crush / 2, f.crush >= 5);
     }
+    pv = 0;
     add('rate', c.fps + 'p', 40, !!c.fps && c.fps !== sh.rate);
     add('sidecar', 'sidecar missing', 35, !c.profile || c.profile.source !== 'sidecar');
     add('profile', 'profile unknown', 30, !this.prof(c));
@@ -617,8 +620,9 @@ class Component extends DCLogic {
     return {pending:false, list:out};
   }
   chipV(c, x) {
-    return {key:x.key, cid:c.id, t:x.t, bg:x.dis ? 'transparent' : 'rgba(239,236,230,0.1)', sh:x.dis ? 'inset 0 0 0 1px rgba(239,236,230,0.28)' : 'none', fg:x.dis ? '#9A958D' : '#EFECE6', cur:x.key === 'profile' ? 'pointer' : 'default', tip:x.key === 'profile' ? 'What was this shot in?' : x.dis ? 'dismissed · ⌥click brings it back' : '⌥click dismisses'};
+    return {key:x.key, cid:c.id, t:x.t, bg:x.dis ? 'transparent' : x.prov ? 'rgba(239,236,230,0.06)' : 'rgba(239,236,230,0.1)', sh:x.dis ? 'inset 0 0 0 1px rgba(239,236,230,0.28)' : 'none', fg:x.dis ? '#9A958D' : x.prov ? '#B8B3AB' : '#EFECE6', cur:x.key === 'profile' ? 'pointer' : 'default', tip:(x.key === 'profile' ? 'What was this shot in?' : x.dis ? 'dismissed · ⌥click brings it back' : '⌥click dismisses') + (x.prov ? ' · ' + this.fromN(x.prov) : '')};
   }
+  fromN(n) { return n === 1 ? 'from one frame' : 'from ' + n + ' frames'; }
   pendV() { return {key:'-', cid:'', t:'—', bg:'transparent', sh:'inset 0 0 0 1px rgba(239,236,230,0.2)', fg:'#6E6A64', cur:'default', tip:'measuring'}; }
   frameEv(c) { const f = c.facts || {}; return f.ev != null ? f.ev : 0; }
   // What a tile shows while it waits or changes (canvas A). No frame yet: a still, neutral tone (the tile writes the
@@ -1131,7 +1135,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvTabs:[], pvA:true, pvDis:false, pvOp:1, pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
     const sk = st.step === 'skim';
@@ -1253,9 +1257,10 @@ class Component extends DCLogic {
         facts.push({k:'exposure', v:(f.ev > 0 ? '+' : f.ev < 0 ? '−' : '') + Math.abs(f.ev).toFixed(1) + ' stops' + dsx('ev')});
         facts.push({k:'clipped', v:this.pct(f.clip) + dsx('clip')});
         facts.push({k:'crushed', v:this.pct(f.crush) + dsx('crush')});
-        facts.push({k:'sharpness', v:(f.sharp < 0.35 ? 'soft' : 'sharp') + ' · ' + f.sharp.toFixed(2) + dsx('soft')});
-        facts.push({k:'motion', v:(f.motion || 'steady') + dsx('motion')});
-        facts.push({k:'bump', v:(f.bump != null ? 'frame ' + (f.bump + 1) : 'none') + dsx('bump')});
+        facts.push({k:'sharpness', v:(f.sharp < 0.35 ? 'soft' : 'sharp') + ' · ' + f.sharp.toFixed(2) + (f.n ? f.n === 1 ? ' · one frame' : ' · lowest of ' + f.n + ' frames' : '') + dsx('soft')});
+        facts.push({k:'motion', v:(f.motion || (f.n && f.n < 3 ? '—' : 'steady')) + dsx('motion')});
+        facts.push({k:'bump', v:(f.bump != null ? 'frame ' + ((f.idx ? f.idx[f.bump] : f.bump) + 1) : f.n && f.n < 3 ? '—' : 'none') + dsx('bump')});
+        if (f.prov) facts.unshift({k:'measured', v:this.fromN(f.n || 1) + ' of ' + f.of + ' · the rest as you look', c:'#9A958D'});
       }
       facts.push({k:'rate', v:(c.fps ? c.fps + 'p' : 'unknown') + dsx('rate')});
       facts.push({k:'duration', v:this.fmtDur(c.dur)});
@@ -1516,19 +1521,27 @@ class Component extends DCLogic {
         (h && h.level >= 3 ? ' · paused, ' + (h.reason || 'cooling') : h && h.level ? ' · slowed, ' + (h.reason || '') : '') + (stuck && R0 ? ' · on ' + R0.name.replace(/\.\w+$/, '') + ', ' + this.fmtB(R0.bytes) : '');
       if (this.halt) loadLine = 'Stopped · 3 clips in a row didn\u2019t read. Is the card still in?';
     }
+    // Reading is done when every clip has its cover and its first measures. The other frames fill in behind, quietly.
+    const F = this.fill && this.fill.tok === this.qTok ? this.fill : null, filling = !running && !!F && F.idle;
+    const readyOn = !running && n > 0 && (filling || (this.readyAt && Date.now() - this.readyAt < 6000 && !!F));
+    let fillNote = '';
+    if (readyOn) { loadLine = this.plural(C.filter(c => c.facts && c.facts.state === 'ready').length, 'clip') + ' ready' + (bad ? ' · ' + bad + ' can\u2019t read' : '');
+      if (filling) { let full = 0; F.set.forEach(c => { if (c.thin || F.idled.has(c) && !F.busy.has(c) || !this.fillNeed(c).length) full++; }); if (full < F.n) fillNote = 'filling in detail · ' + full + ' of ' + F.n; } }
     return {progOn:st.progOn && n > 0, progToggle:() => this.setState(s => ({progOn:!s.progOn})),
       progGo:e => { const id = e.currentTarget.getAttribute('data-prog'); if (!this.byId || !this.byId[id]) return; this.wantScroll = ['[data-clip="' + id + '"]']; this.setState({step:'skim', lv:Math.max(1, Math.min(st.lv, 2)), cur:id, gi:this.gOfAll ? (this.gOfAll[id] ?? st.gi) : st.gi, sel:[], box:null}); },
-      progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:() => this.setState(s => ({pfOn:!s.pfOn})), recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running && st.dbg ? ' · first look ' + this.fmtSec(this.lastClock.allIn) + ', all ' + this.fmtSec(this.lastClock.done) : ''), unsupOn:(this.unsup || 0) > 0, unsupLine:(this.unsup || 0) > 0 ? this.plural(this.unsup, 'clip') + ' in a format this browser can\u2019t play' + (this.notSafari() ? ' · open in Safari' : '') : '', haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
+      progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:() => this.setState(s => ({pfOn:!s.pfOn})), recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running && st.dbg ? ' · listed ' + (this.lastClock.listed != null ? this.lastClock.listed + ' ms' : '—') + ', covers and flags ' + this.fmtSec(this.lastClock.done) + (this.lastClock.filled != null ? ', detail ' + this.fmtSec(this.lastClock.filled) : this.lastClock.fillStop ? ', detail stopped at the frames limit' : '') : ''), unsupOn:(this.unsup || 0) > 0, unsupLine:(this.unsup || 0) > 0 ? this.plural(this.unsup, 'clip') + ' in a format this browser can\u2019t play' + (this.notSafari() ? ' · open in Safari' : '') : '', haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
       pauseOn:running && n > 0 && !this.halt, pauseGo:this.pauseToggle, pauseA:this.mp.pace === 'paused', pauseT:this.mp.pace === 'paused' ? 'Go on' : 'Pause', pauseBg:this.mp.pace === 'paused' ? '#FFD27A' : 'rgba(239,236,230,0.08)', pauseFg:this.mp.pace === 'paused' ? '#1E1D1B' : '#EFECE6', pauseFw:this.mp.pace === 'paused' ? 800 : 400,
       paceOn, paceLine:paceOn ? 'Reading ' + this.paceWord(h) : '',
-      progPill:running ? (st.imp.pass === 2 ? 'measuring ' : 'reading ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + (bad ? ' · ' + bad + ' can\u2019t read' : ''), loadOn:running && n > 0, loadLine,
+      progPill:running ? (st.imp.pass === 2 ? 'measuring ' : 'reading ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + (bad ? ' · ' + bad + ' can\u2019t read' : ''), loadOn:(running || readyOn) && n > 0, loadLine, fillNote, loadDot:running ? '#FFD27A' : '#A9D18E', loadAnim:running ? 'breathe 1.2s ease-in-out infinite' : 'none',
       progPillC:running ? '#EFECE6' : '#B8B3AB', progPillBg:st.progOn ? 'rgba(239,236,230,0.1)' : 'transparent',
       progDot:running ? (h && h.level >= 2 ? '#FFD27A' : '#B8B3AB') : bad ? '#FF8A7A' : '#A9D18E', progAnim:running ? 'breathe 1.4s ease-in-out infinite' : 'none',
       tileMin:Math.round(272 * st.z1), tileGap:Math.round(20 * Math.min(1, st.z1 + 0.2)) + 'px ' + Math.round(18 * Math.min(1, st.z1 + 0.2)) + 'px',
       noKeepOn:!!st.noKeep && st.lv >= 2, noKeepBack:this.noKeepBack, noKeepStay:this.noKeepStay};
   }
   // Measures from every frame made so far, in frame order.
-  factsAll(c) { const P = c._px || {}, all = Object.keys(P).map(Number).sort((a, b) => a - b).map(k => P[k]); if (!all.length) throw 'no frames'; c.first = all.length < this.frameIdx().length; return this.factsOf(all); }
+  factsAll(c) { const P = c._px || {}, all = Object.keys(P).map(Number).sort((a, b) => a - b).map(k => P[k]); if (!all.length) throw 'no frames'; const f = this.provMark(this.factsOf(all), all.length); f.idx = Object.keys(P).map(Number).sort((a, b) => a - b); c.first = !!f.prov; return f; }
+  // How many frames the measures are from (n) of how many the clip gets (of); fewer is provisional (prov).
+  provMark(f, n) { const of = this.frameIdx().length; f.n = n; f.of = of; if (n < of) f.prov = true; return f; }
   firstIdx() { const f = this.frameIdx(); return f[Math.floor((f.length - 1) / 2)]; }
   // Two decoders on a Mac with 16 GB or more (VideoPolicy budgets), one otherwise and in a browser.
   workerN() { const h = this.health; if (h && !h.web) return h.memGB >= 15 ? 3 : 2; return this.notSafari() ? 2 : 3; }
@@ -1543,7 +1556,7 @@ class Component extends DCLogic {
     if (this._seen) return this._seen; const st = this.state, sc = this.sc, out = {clips:[], groups:[]};
     try { if (sc && sc.isConnected && st.lv < 2) { const at = st.lv === 0 ? 'data-gi' : 'data-clip', r = sc.getBoundingClientRect(), on = [], off = [];
       sc.querySelectorAll('[' + at + ']').forEach(el => { const q = el.getBoundingClientRect(), id = el.getAttribute(at); if (q.bottom > r.top && q.top < r.bottom) on.push(st.lv === 0 ? +id : id); else off.push([q.top < r.top ? r.top - q.bottom : q.top - r.bottom, id]); });
-      if (st.lv === 0) out.groups = on; else out.clips = on.concat(off.sort((a, b) => a[0] - b[0]).map(x => x[1])); } } catch (x) {}
+      if (st.lv === 0) out.groups = on; else { out.clips = on.concat(off.sort((a, b) => a[0] - b[0]).map(x => x[1])); out.on = on.length; } } } catch (x) {}
     if (st.lv === 1 && !out.clips.length && this._visIds) out.clips = this._visIds.slice();
     return out;
   }
@@ -1595,8 +1608,8 @@ class Component extends DCLogic {
     };
     await Promise.all(Array.from({length:this.workerN()}, work));
   }
-  // First every clip once (one frame, its length, its place in the day), so the whole card is there quickly;
-  // then the rest of the frames and the measures.
+  // Every clip once (one frame, its length, its place in the day, its measures from that frame), and reading is done.
+  // The other frames are not a pass over the card: they are read for what is looked at (fillStart), the rest quietly.
   async runQueue(list, tok) {
     const f = this.firstIdx(); this.halt = false; this.failRun = 0;
     await this.runPass(this.coverOrder(list), tok, c => c.frames[f] ? [] : [f], 1); if (tok !== this.qTok) return;
@@ -1604,9 +1617,64 @@ class Component extends DCLogic {
     const again = list.filter(c => c.why && c.why !== 'no video' && c.why !== 'unsupported'); if (again.length) { this.tmul = 3; await this.runPass(again, tok, c => [f], 1.5); this.tmul = 1; if (tok !== this.qTok) return; }
     if (this.clock) this.clock.allIn = Math.round(performance.now() - this.clock.t0);
     if (!this.state.cuts && !this.userCut) this.setState({nCut:this.fitCut(this.d.clips.length)});
-    const two = list.filter(c => !c.facts || c.facts.state !== 'unreliable');
-    await this.runPass(two, tok, c => this.frameIdx().filter(i => !c.frames[i]), 2); if (tok !== this.qTok) return;
-    this.clockDone();
+    this.clockDone(); this.readyAt = Date.now(); setTimeout(() => this.bump(), 6200);
+    this.fillStart(list, tok);
+  }
+  // ---- The other frames, on demand. Asked for again every 250 ms and whenever the view changes:
+  // the tile the pointer is on (Clips), the clip in the Viewer and three each side, the tiles on screen nearest the
+  // clip you are on; and when none of those needs anything, the rest of the card, one decoder, nearest first, each
+  // clip once, resting between clips, until the frames kept reach 85% of the limit.
+  // o.flat: ids in card order; o.cur, o.lv, o.hover; o.seen: ids on screen (Clips); o.near: each side in the Viewer;
+  // o.todo: ids that may be asked for now; o.idle: ids the quiet fill may still take. Answers [id, why] in order.
+  fillOrder(o) {
+    const flat = o.flat || [], at = flat.indexOf(o.cur), out = [], put = new Set();
+    const add = (id, k) => { if (id != null && !put.has(id) && (k === 'idle' ? o.idle && o.idle.has(id) : o.todo.has(id))) { put.add(id); out.push([id, k]); } };
+    if (o.lv === 1) add(o.hover, 'hover');
+    if (o.lv >= 2 && at >= 0) { add(o.cur, 'viewer'); for (let k = 1; k <= (o.near || 0); k++) { add(flat[at + k], 'viewer'); add(flat[at - k], 'viewer'); } }
+    if (o.lv === 1) { const pos = {}; flat.forEach((id, i) => pos[id] = i); (o.seen || []).slice().sort((a, b) => Math.abs((pos[a] ?? 1e9) - at) - Math.abs((pos[b] ?? 1e9) - at)).forEach(id => add(id, 'seen')); }
+    if (o.idle && o.idle.size) { const a0 = Math.max(0, at); for (let k = 0; k < flat.length; k++) { add(flat[a0 + k], 'idle'); if (k) add(flat[a0 - k], 'idle'); } }
+    return out;
+  }
+  // The frames of a clip still worth asking for: not there, and not already missed twice (one more try, no more).
+  static askIdx(frames, miss, idx) { return idx.filter(i => !frames[i] && !(miss && miss[i] >= 2)); }
+  fillNeed(c) { return c.facts && c.facts.state === 'ready' && (c._file || c._mock) ? Component.askIdx(c.frames, c._miss, this.frameIdx()) : []; }
+  fillRoom() { const B = this.mp.budget; if (!B || B === 'all' || !this.d) return true; let tot = 0; this.d.clips.forEach(c => (c.frameSz || []).forEach((b, i) => { if (c.frames[i]) tot += b || 0; })); return tot < B * 1048576 * 0.85; }
+  pickFill(F, idleOk) {
+    const st = this.state, now = performance.now(), skim = st.step === 'skim', key = [skim, st.lv, st.cur, this.hoverId].join('|'); let o = F.o;
+    if (!o || o.key !== key || now - o.at > 250) {
+      const cur = this.byId[st.cur], at = cur ? cur._i : 0, todo = new Set(), idle = new Set();
+      // frames let go by the limit come back only near the clip you are on (the limit never takes those), so the two can't chase each other
+      F.set.forEach(c => { if (F.busy.has(c) || !this.fillNeed(c).length) return; if (!c.thin || Math.abs(c._i - at) <= 12) todo.add(c.id); if (!c.thin && !F.idled.has(c)) idle.add(c.id); });
+      const seen = skim && st.lv === 1 ? this.seenNow() : {clips:[]}, room = F.idle && this.fillRoom();
+      o = F.o = {key, at:now, i:0, idleN:idle.size, room, list:this.fillOrder({flat:this.d.clips.map(c => c.id), cur:st.cur, lv:skim ? st.lv : -1, hover:this.hoverId, seen:seen.clips.slice(0, seen.on == null ? seen.clips.length : seen.on), near:3, todo, idle:room ? idle : null})};
+    }
+    while (o.i < o.list.length) { const [id, kind] = o.list[o.i]; if (kind === 'idle' && !idleOk) return null; o.i++; const c = this.byId[id]; if (c && !F.busy.has(c) && this.fillNeed(c).length) return [c, kind]; }
+    return null;
+  }
+  fillStart(list, tok) {
+    const F = this.fill = {tok, set:new Set(list.filter(c => c.facts && c.facts.state === 'ready')), busy:new Set(), idled:new Set(), idle:true, o:null}; F.n = F.set.size;
+    const nap = ms => new Promise(r => setTimeout(r, ms));
+    const work = async w => {
+      while (tok === this.qTok) {
+        await this.paceWait(tok); if (tok !== this.qTok) return;
+        while (this.prio && this.prio.length) { const x = this.prio.shift(); if (x.thin) await this.readClip(x, tok); if (tok !== this.qTok) return; }
+        const p = this.pickFill(F, w === 0 && F.idle);
+        if (!p) {
+          // nothing left for the quiet fill (or the limit is near): it is over, and says so once
+          if (w === 0 && F.idle && F.o && (!F.o.idleN || !F.o.room) && ![...F.busy].some(c => F.idled.has(c))) { F.idle = false; this.clockFilled(F.o.idleN ? 'limit' : null); this.bump(); }
+          await nap(200); continue;
+        }
+        const [c, kind] = p, idx = this.fillNeed(c), a = performance.now(); F.busy.add(c); if (kind === 'idle') F.idled.add(c);
+        await this.readClip(c, tok, idx); F.busy.delete(c); if (tok !== this.qTok) return;
+        if (c.why === 'hidden') { c.why = null; F.idled.delete(c); continue; }
+        // a frame that did not come is asked for once more, then left: the clip keeps the measures it has
+        const m = c._miss || (c._miss = {}); idx.forEach(i => { if (!c.frames[i]) m[i] = (m[i] || 0) + 1; }); c.why = null;
+        if (this.clock) (this.clock.ms2 || (this.clock.ms2 = [])).push(Math.round(performance.now() - a));
+        F.o = null; this.bump();
+        if (kind === 'idle') await nap(Math.min(1500, Math.max(120, (this.readMs || 0) * 0.5)));
+      }
+    };
+    for (let w = 0; w < this.workerN(); w++) work(w);
   }
   // First look in scene order: the first clip of every scene, then the second of every scene, … so covers come first.
   coverOrder(list) {
@@ -1618,19 +1686,26 @@ class Component extends DCLogic {
   resumeRead = () => { this.halt = false; this.failRun = 0; this.setState(s => ({tick:(s.tick || 0) + 1})); };
   // The clock: what a load took, kept with the shoots (the last ten), for comparing builds and Macs.
   clockStart(d, real) { this.exactSeek = /[?&]exact=1/.test(location.search); this.clock = {snap:!this.exactSeek && !!(window.HTMLMediaElement && HTMLMediaElement.prototype.fastSeek), workersUsed:this.workerN(), name:d.shoot.name, n:d.clips.length, bytes:d.shoot.bytes, real, workers:this.workerN(), per:this.mp.per, size:this.mp.size, at:new Date().toISOString(), t0:performance.now(), paced:0}; }
+  // done: every clip has its cover and its measures from that frame (what is waited for). filled: the quiet fill of
+  // the other frames reached the end of the card (fillStop:'limit' when it stopped at the frames limit instead).
   clockDone() {
-    const k = this.clock; if (!k || k.done) return; const C = this.d ? this.d.clips : [];
+    const k = this.clock; if (!k || k.done) return;
+    k.done = Math.round(performance.now() - k.t0); this.clockWrite();
+  }
+  clockFilled(stop) { const k = this.clock; if (!k || !k.done || k.filled != null || k.fillStop) return; if (stop) k.fillStop = stop; else k.filled = Math.round(performance.now() - k.t0); this.clockWrite(); }
+  clockWrite() {
+    const k = this.clock, C = this.d ? this.d.clips : [];
     const q = (a, p) => { if (!a || !a.length) return null; const b = a.slice().sort((x, y) => x - y); return b[Math.min(b.length - 1, Math.floor(p * b.length))]; };
-    k.done = Math.round(performance.now() - k.t0); k.unreadable = C.filter(c => c.facts && c.facts.state === 'unreliable').length; k.short = C.filter(c => c.short).length;
-    k.p50first = q(k.ms1, 0.5); k.p90first = q(k.ms1, 0.9); k.p50rest = q(k.ms2, 0.5); k.p90rest = q(k.ms2, 0.9); k.retried = (k['ms1.5'] || []).length;
+    k.unreadable = C.filter(c => c.facts && c.facts.state === 'unreliable').length; k.short = C.filter(c => c.short).length;
+    k.p50first = q(k.ms1, 0.5); k.p90first = q(k.ms1, 0.9); k.p50rest = q(k.ms2, 0.5); k.p90rest = q(k.ms2, 0.9); k.retried = (k['ms1.5'] || []).length; k.restN = (k.ms2 || []).length;
     const h = this.health; if (h && !h.web) { k.heat = h.thermal; k.lumenaMB = Math.round(h.footprintMB || 0); k.memGB = Math.round(h.memGB || 0); }
     const out = {...k}; delete out.ms1; delete out.ms2; delete out['ms1.5']; delete out.t0;
     this.clockSave(out); this.lastClock = out; this.setState(s => ({tick:(s.tick || 0) + 1}));
   }
-  // The last ten loads. A load is written once when it is listed (partial) and again, in its place, when it is done.
+  // The last ten loads. A load is written when it is listed (partial), again in its place when it is done, and once more when it is filled.
   clockSave(out) {
     let all = []; try { all = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]'); } catch (x) {} if (!Array.isArray(all)) all = [];
-    all = all.filter(e => !(e && e.partial && e.at === out.at && e.name === out.name)); all.unshift(out); this.persist('lumina-skim:clock', JSON.stringify(all.slice(0, 10)));
+    all = all.filter(e => !(e && e.at === out.at && e.name === out.name)); all.unshift(out); this.persist('lumina-skim:clock', JSON.stringify(all.slice(0, 10)));
   }
   fmtSec(ms) { const s = Math.round(ms / 1000); return s < 60 ? s + ' s' : Math.floor(s / 60) + ' min ' + (s % 60) + ' s'; }
   fmtLeft(sec) { return sec < 50 ? 'under a minute left' : sec < 90 ? 'about a minute left' : 'about ' + Math.round(sec / 60) + ' min left'; }
@@ -1651,9 +1726,10 @@ class Component extends DCLogic {
         for (const i of (idx || this.frameIdx().filter(j => !c.frames[j]))) {
           if (tok !== this.qTok) throw 'stopped';
           { const tt = Math.min(c.dur - 0.05, (i + 0.5) / 8 * c.dur); if (v.fastSeek && !this.exactSeek) v.fastSeek(tt); else v.currentTime = tt; } try { await wait('seeked', 8000 * (this.tmul || 1)); } catch (e) { if (e === 'timeout') { c.miss = (c.miss || 0) + 1; continue; } throw e; } await this.painted(v);
-          // WebKit can answer 'seeked' before the frame is decoded: a black frame. Look again, then leave it out of the measures.
-          let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!this.blank(im)) break; im = null; await new Promise(r => setTimeout(r, 120 + k * 160)); }
-          if (!im) continue;
+          // WebKit can answer 'seeked' before the frame is decoded: a black frame. Look again, twice; a frame that is
+          // still dark then is what the clip holds (a black clip is a clip: it gets its cover and reads as dark).
+          let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!Component.lookAgain(this.blank(im), c._dark ? 2 : k)) break; await new Promise(r => setTimeout(r, 120 + k * 160)); }
+          if (this.blank(im)) c._dark = true;   // a clip known to hold dark frames is not looked at three times for each
           const fb = await this.frameBlob(cv); this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
           this.bump();
         }
@@ -1786,8 +1862,8 @@ class Component extends DCLogic {
   async remeasure(list) {
     const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180; const ctx = cv.getContext('2d', {willReadFrequently:true});
     for (const c of list) { if (!c.frames || !c.frames.some(Boolean)) continue; const px = [];
-      for (const u of c.frames) { if (!u) continue; try { const bm = await createImageBitmap(await (await fetch(u)).blob()); ctx.drawImage(bm, 0, 0, 320, 180); if (bm.close) bm.close(); px.push(this.pix(this.toDisplay(ctx.getImageData(0, 0, 320, 180), c))); } catch (x) {} }
-      if (px.length) { c.facts = this.factsOf(px); this.setState(s => ({tick:(s.tick || 0) + 1})); } }
+      for (let i = 0; i < c.frames.length; i++) { const u = c.frames[i]; if (!u) continue; try { const bm = await createImageBitmap(await (await fetch(u)).blob()); ctx.drawImage(bm, 0, 0, 320, 180); if (bm.close) bm.close(); const pp = this.pix(this.toDisplay(ctx.getImageData(0, 0, 320, 180), c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; } catch (x) {} }
+      if (px.length) { c.facts = this.provMark(this.factsOf(px), px.length); this.setState(s => ({tick:(s.tick || 0) + 1})); } }
   }
   factsOf(px) {
         const avg = k => px.reduce((s, p) => s + p[k], 0) / px.length, mean = avg('mean');
@@ -1796,6 +1872,8 @@ class Component extends DCLogic {
         return {state:'ready', ev:Math.round(Math.max(-5, Math.min(5, Math.log2(Math.max(0.01, mean) / 0.46) * 2.2)) * 10) / 10, clip:Math.round(avg('hi') * 1000) / 10, crush:Math.round(avg('lo') * 1000) / 10, sharp:Math.min(...sharpF), sharpF, motion:null, bump};
   }
   painted(v) { return new Promise(r => { const to = setTimeout(r, 250); if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => { clearTimeout(to); r(); }); }); }
+  // Look at a frame again only while it is blank and there are looks left (three in all); the last look is kept.
+  static lookAgain(blank, k) { return !!blank && k < 2; }
   blank(img) { const D = img.data; let mx = 0; for (let i = 0; i < D.length; i += 64) { const y = D[i] + D[i + 1] + D[i + 2]; if (y > mx) mx = y; } return mx < 12; }
   pix(img) {
     const D = img.data, W = img.width, H = img.height, Y = new Float32Array(W * H); let sum = 0, hi = 0, lo = 0, lap = 0, ln = 0;
