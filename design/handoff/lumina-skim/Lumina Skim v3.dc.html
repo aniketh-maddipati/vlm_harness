@@ -296,8 +296,8 @@ input[type=range]{accent-color:#B8B3AB}
         <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
           <div data-lumina="clip-row" style="display:flex;align-items:flex-end;gap:12px;min-width:0">
             <sc-for list="{{ row.items }}" as="it" hint-placeholder-count="2">
-              <div data-pic="1" data-clip="{{ it.id }}" onMouseMove="{{ picMove }}" onMouseLeave="{{ picLeave }}" onClick="{{ picClick }}" onDoubleClick="{{ viewDbl }}" style="flex:none;width:{{ it.w }}px;display:flex;flex-direction:column;gap:6px;opacity:{{ it.op }};transition:opacity 120ms">
-                <div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;cursor:ew-resize;background:#161514">
+              <div data-pic="1" data-clip="{{ it.id }}" onMouseDown="{{ picDown }}" onMouseMove="{{ picMove }}" onMouseLeave="{{ picLeave }}" onClick="{{ picClick }}" onDoubleClick="{{ viewDbl }}" style="flex:none;width:{{ it.w }}px;display:flex;flex-direction:column;gap:6px;opacity:{{ it.op }};transition:opacity 120ms">
+                <div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;cursor:{{ it.cur }};background:#161514">
                   <div style="position:absolute;inset:0;background:{{ it.bg }};filter:{{ it.flt }};animation:{{ it.anim }};transform:{{ it.zt }};transform-origin:{{ it.zo }}"></div>
                   <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><video ref="{{ vidRef }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transition:opacity 120ms;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></video></sc-if>
                   <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ pvCvRef }}" data-lumina="viewer-preview" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></canvas></sc-if>
@@ -476,7 +476,7 @@ class Component extends DCLogic {
 
   componentDidMount() {
     this.load();
-    this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => this.setState({held:null});
+    this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => { this.panS = null; this.setState({held:null}); };
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
     window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu);
     this._md = e => { const st = this.state; if (!st.sel.length && !st.box) return; const t = e.target; if (this.sc && this.sc.contains(t)) return; if (t.closest && t.closest('[data-well],[data-lumina="memory"],[data-lumina="progress"]')) return; this.setState({sel:[], box:null}); }; window.addEventListener('mousedown', this._md);
@@ -508,6 +508,7 @@ class Component extends DCLogic {
     if (zk.cur !== s0.cur && this.d) this.refill();
     if (s0.lv === 1 && this.sc && (zk.lv !== 1 || this.sc.clientHeight !== s0.scH)) this.scScroll();
     if (zk.cur !== s0.cur || zk.lv !== s0.lv || zk.step !== s0.step) { const ps = zk, r = {}; if (s0.zc !== 1 && (ps.cur !== s0.cur || s0.lv < 2 || s0.step !== 'skim')) r.zc = 1; if (s0.noKeep && (s0.lv < 2 || s0.step !== 'skim')) r.noKeep = false; if (Object.keys(r).length) this.setState(r); }
+    if (this.vidNew) { this.vidNew = false; this.setState(s => ({tick:(s.tick || 0) + 1})); }
     this.syncVid(); this.paintVid();
   }
   load() {
@@ -905,6 +906,7 @@ class Component extends DCLogic {
     this.setState({box:{x:p.x, y:p.y, w:0, h:0}, sel:[]});
   };
   mm(e) {
+    if (this.panS) { const s = this.panS; if (!Component.zoomHeld(this.state.zc)) { this.panS = null; return; } s.moved = true; return this.setState({zo:Component.panTo(s.zo, e.clientX - s.x, e.clientY - s.y, s.w, s.h, this.state.zc)}); }
     if (!this.boxS || !this.sc) return;
     // one update per frame, whatever the mouse rate
     this.mmE = {clientX:e.clientX, clientY:e.clientY}; if (this.mmRaf) return;
@@ -916,6 +918,7 @@ class Component extends DCLogic {
   }
   mu() {
     const st = this.state;
+    if (this.panS) { this.panS = null; return this.setState(s => ({tick:(s.tick || 0) + 1})); }
     if (this.boxS) {
       const s = this.boxS; this.boxS = null;
       if (!s.moved) return this.setState({box:null, sel:[]});
@@ -928,10 +931,10 @@ class Component extends DCLogic {
   wheel(e) {
     const st = this.state; if (!st.ready || st.step !== 'skim' || !this.d.clips.length) return;
     if (e.ctrlKey) { e.preventDefault(); return this.zoomBy(-e.deltaY * 0.01, e); }
-    if (st.lv >= 2 && st.zc > 1.01 && !e.ctrlKey) { const pic = e.target && e.target.closest && e.target.closest('[data-pic]'); if (pic && pic.getAttribute('data-clip') === st.cur && Math.abs(e.deltaY) >= Math.abs(e.deltaX)) { e.preventDefault(); return this.panBy(e.deltaX, e.deltaY, pic); } }
+    if (st.lv >= 2 && Component.zoomHeld(st.zc) && !e.ctrlKey) { const pic = e.target && e.target.closest && e.target.closest('[data-pic]'); if (pic && pic.getAttribute('data-clip') === st.cur && Math.abs(e.deltaY) >= Math.abs(e.deltaX)) { e.preventDefault(); return this.panBy(e.deltaX, e.deltaY, pic); } }
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5) {
       e.preventDefault();
-      if (st.lv >= 2) { const pic = e.target && e.target.closest && e.target.closest('[data-pic]'); if (!pic || pic.getAttribute('data-clip') !== st.cur) return; if (st.zc > 1.01) return this.panBy(e.deltaX, e.deltaY, pic); return this.setState(s => ({hv:null, fx:Math.max(0, Math.min(7, s.fx + e.deltaX / 90))})); }
+      if (st.lv >= 2) { const pic = e.target && e.target.closest && e.target.closest('[data-pic]'); if (!pic || pic.getAttribute('data-clip') !== st.cur) return; if (Component.zoomHeld(st.zc)) return this.panBy(e.deltaX, e.deltaY, pic); return this.setState(s => ({hv:null, fx:Math.max(0, Math.min(7, s.fx + e.deltaX / 90))})); }
       this.swipe = (this.swipe || 0) + e.deltaX;
       if (Math.abs(this.swipe) > 70 && Date.now() > (this.swLock || 0)) { this.move(this.swipe > 0 ? 1 : -1); this.swipe = 0; this.swLock = Date.now() + 180; }
     }
@@ -958,17 +961,26 @@ class Component extends DCLogic {
     this.pinch = 0;
     let zo = st.zo;
     if (z0 <= 1.01 && e && e.clientX != null) { const pic = this.curPic(); if (pic) { const r = pic.getBoundingClientRect(); zo = {x:Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y:Math.max(0, Math.min(1, (e.clientY - r.top) / r.height))}; } }
-    this.setState({zc:z <= 1.01 ? 1 : z, zo, hv:null});
+    // z is kept as it is, however small the step: a slow pinch adds up (snapped to 1 under 1.01 it never left fit); the settle below takes a slight one back
+    this.setState({zc:z, zo, hv:null, ...this.pinHv()});
     // a pinch that stops short of a real zoom goes back to fit: at 1.05× nothing looks zoomed, yet a swipe pans instead of scrubbing
     clearTimeout(this.zSetT); this.zSetT = setTimeout(() => { const zc = this.state.zc; if (Component.zoomSettle(zc) !== zc) this.setState({zc:1}); }, 260);
   }
   static zoomSettle(z) { return z < 1.25 ? 1 : z; }
+  // Zoomed in means hold the frame and look around; at fit means skim. Zoomed is a zoom that would not settle back to fit,
+  // so the moment of an accidental pinch (under 1.25×, gone 260 ms later) never holds the frame or shows the label.
+  static zoomHeld(z) { return Component.zoomSettle(z) > 1; }
+  static pointerScrubs(z, isCur) { return !(isCur && Component.zoomHeld(z)); }
+  // The zoom origin after the picture is dragged by (dx, dy) px: at zoom z, in a box w × h, the picture goes with the hand.
+  static panTo(zo, dx, dy, w, h, z) { const k = 1 / Math.max(0.05, z - 1), cl = v => Math.max(0, Math.min(1, v)); return {x:cl(zo.x - dx / Math.max(1, w) * k), y:cl(zo.y - dy / Math.max(1, h) * k)}; }
+  // The frame under the pointer becomes the frame held, so zooming in does not jump to another one.
+  pinHv() { const st = this.state; return st.hv && st.hv.id === st.cur ? {fx:Math.max(0, Math.min(7, st.hv.f * 8 - 0.5))} : {}; }
   curPic() { const p = document.querySelector('[data-pic][data-clip="' + this.state.cur + '"]'); return p && p.firstElementChild; }
   panBy(dx, dy, pic) {
     const st = this.state, r = (pic.firstElementChild || pic).getBoundingClientRect(), k = 1 / Math.max(1, st.zc - 1);
     this.setState({zo:{x:Math.max(0, Math.min(1, st.zo.x + dx / r.width * k)), y:Math.max(0, Math.min(1, st.zo.y + dy / r.height * k))}});
   }
-  zoomKey() { const st = this.state; if (st.lv < 2) return; this.setState(st.zc > 1.01 ? {zc:1} : {zc:2.5, zo:{x:0.5, y:0.5}, hv:null}); }
+  zoomKey() { const st = this.state; if (st.lv < 2) return; this.setState(st.zc > 1.01 ? {zc:1} : {zc:2.5, zo:{x:0.5, y:0.5}, hv:null, ...this.pinHv()}); }
   idOf(e) { return e.currentTarget.getAttribute('data-clip'); }
   tEnter = e => {
     const id = this.idOf(e), st = this.state; this.hoverId = id;
@@ -996,11 +1008,16 @@ class Component extends DCLogic {
   scrubMove = e => { const r = e.currentTarget.getBoundingClientRect(); this.setState({fx:Math.max(0, Math.min(7, (e.clientX - r.left) / r.width * 7))}); };
   picF(e) { const r = e.currentTarget.firstElementChild.getBoundingClientRect(); return Math.max(0, Math.min(0.999, (e.clientX - r.left) / Math.max(1, r.width))); }
   picMove = e => { const id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e), h = this.state.hv;
+    if (!Component.pointerScrubs(this.state.zc, id === this.state.cur)) { if (h && h.id === id) this.setState({hv:null, ...this.pinHv()}); return; }
     if (!h || h.id !== id || Math.abs(h.f - f) > 0.002) this.setState({hv:{id, f}}); };
+  // Zoomed: a drag on the picture moves it. The frame stays.
+  picDown = e => { const st = this.state, id = e.currentTarget.getAttribute('data-clip'); if (e.button || st.held || Component.pointerScrubs(st.zc, id === st.cur)) return;
+    const r = e.currentTarget.firstElementChild.getBoundingClientRect(); e.preventDefault(); this.panS = {x:e.clientX, y:e.clientY, zo:st.zo, w:r.width, h:r.height, moved:false}; };
   picLeave = () => { if (this.state.hv) this.setState({hv:null}); };
   picClick = e => {
     const st = this.state, id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e);
     if (st.held) { this.heldTapped = true; this.doMark([id], st.held); return; }
+    if (!Component.pointerScrubs(st.zc, id === st.cur)) return;   // zoomed: a click or the end of a drag leaves the frame where it is
     this.setState({cur:id, fx:Math.max(0, Math.min(7, f * 8 - 0.5)), hv:{id, f}});
   };
   // One <video> for the clip on the canvas: its own frames at full size, seeked to the skim, latest wins.
@@ -1016,7 +1033,7 @@ class Component extends DCLogic {
   // 'ok' it is where it was asked to be · 'wait' still inside its time · 'again' open the file afresh · 'off' leave it, the sampled frames show.
   static seekVerdict(o) {
     const stuck = !!o.err || o.rs < 1 || o.seeking || Math.abs(o.ct - o.want) > 0.05;
-    if (!stuck) return 'ok'; if (!o.err && o.ms < (o.rs < 1 ? 10000 : 4000)) return 'wait';   // opening a file on a card can take seconds; a seek should not
+    if (!stuck) return 'ok'; if (!o.err && o.ms < (o.rs < 1 ? 10000 : 2500)) return 'wait';   // opening a file on a card can take seconds; a seek should not
     return (o.tries || 0) < 2 ? 'again' : 'off';
   }
   // What the line under a picture says when the pointer has little or nothing to move through.
@@ -1026,15 +1043,15 @@ class Component extends DCLogic {
     return have === 1 ? 'one frame read · click to scrub' : '';
   }
   // vidAsk is when the oldest unanswered ask was made: a pointer that keeps moving does not push the check back, a seek that lands clears it.
-  vidArm() { if (!this.vidAsk) this.vidAsk = performance.now(); if (!this.vidT) this.vidT = setTimeout(() => this.vidCheck(), 2600); }
+  vidArm() { if (!this.vidAsk) this.vidAsk = performance.now(); if (!this.vidT) this.vidT = setTimeout(() => this.vidCheck(), 1500); }
   vidCheck(err) {
     const v = this.vidEl, c = this.vidFor && this.byId ? this.byId[this.vidFor] : null; clearTimeout(this.vidT); this.vidT = 0; if (!v || !c || this.vidWant == null || this.vidOff === c.id) return;
     if (document.hidden && !err) return;   // a hidden tab pauses its video; the return to it asks again
     const r = Component.seekVerdict({err:!!err || !!v.error, rs:v.readyState, seeking:v.seeking, ct:v.currentTime, want:this.vidWant, ms:performance.now() - (this.vidAsk || 0), tries:this.vidTry || 0});
-    if (r === 'ok') { this.vidTry = 0; this.vidAsk = 0; return; } if (r === 'wait') { this.vidT = setTimeout(() => this.vidCheck(), 700); return; }
+    if (r === 'ok') { this.vidTry = 0; this.vidAsk = 0; return; } if (r === 'wait') { this.vidT = setTimeout(() => this.vidCheck(), 500); return; }
     // the sampled frames underneath follow the pointer while the file is opened again, or for good
     const tries = (this.vidTry || 0) + 1; this.dropVid(); this.vidTry = tries;
-    if (r === 'off') this.vidOff = c.id;
+    if (r === 'off') this.vidOff = c.id; else this.vidNew = true;   // a fresh <video>: one that stopped answering may not answer a new file either
     this.paintVid(); this.setState(s => ({tick:(s.tick || 0) + 1}));
   }
   dropVid() { const v = this.vidEl; if (this.vidUrl) URL.revokeObjectURL(this.vidUrl); if (this.vidFor) this.vOpen = Math.max(0, (this.vOpen || 0) - 1); this.vidUrl = null; this.vidFor = null; this.vidWant = null; clearTimeout(this.vidT); this.vidT = 0; this.vidAsk = 0; if (v) { v.style.opacity = '0'; v.removeAttribute('src'); try { v.load(); } catch (x) {} } }
@@ -1134,7 +1151,7 @@ class Component extends DCLogic {
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick,
       wClick:this.wClick, 
-      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, picMove:this.picMove, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef,
+      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef,
       grid42:true,
       boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
       undoN:st.undo.length, redoN:st.redo.length, undoC:st.undo.length ? '#EFECE6' : '#6E6A64', redoC:st.redo.length ? '#EFECE6' : '#6E6A64',
@@ -1242,7 +1259,7 @@ class Component extends DCLogic {
         const isC = cc.id === c.id, w = isC ? fit.wc : fit.wo, ff = this.skimF(cc), ti = this.tone(cc, Math.min(7, Math.floor(ff * 8)), isC), mm = st.marks[cc.id] || null, g2 = isC ? gm : null, hvOn = !!(st.hv && st.hv.id === cc.id);
         centers.push(x + w / 2); x += w + fit.gap;
         const zz = isC && st.zc > 1.01, say = Component.skimSay((cc.frames || []).filter(Boolean).length, isC, this.vidOff === cc.id);
-        return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, vflt:this.pvOn(cc) ? this.pvFlt(cc) : 'none', anim:ti.anim, vid:isC && !!cc._file, hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:zz, zT:zz ? st.zc.toFixed(1) + '× · pinch back or Z to fit' : '',
+        return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, vflt:this.pvOn(cc) ? this.pvFlt(cc) : 'none', anim:ti.anim, vid:isC && !!cc._file && !this.vidNew, hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:isC && Component.zoomHeld(st.zc), zT:'zoomed · Z to fit', cur:isC && Component.zoomHeld(st.zc) ? (this.panS ? 'grabbing' : 'grab') : 'ew-resize',
           edge:g2 ? 'inset 0 0 0 3px ' + MK[g2] + '99' : mm ? 'inset 0 0 0 ' + (isC ? 3 : 2) + 'px ' + MK[mm] : 'none', markOn:!!mm && !g2, mark:this.W(mm), markC:mm ? MK[mm] : '', ghost:!!g2, ghostT:this.W(g2), ghostC:g2 ? MK[g2] : '',
           name:cc.name.replace(/\.\w+$/, ''), nameC:isC ? '#EFECE6' : '#B8B3AB', barVis:isC ? 'visible' : 'hidden', ph:(ff * 100).toFixed(2) + '%',
           sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' + (say ? ' · ' + say : '') : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—') + (say ? ' · ' + say : ''), subC:isC ? '#B8B3AB' : '#9A958D'};
