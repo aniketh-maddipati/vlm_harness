@@ -44,5 +44,5 @@ What 1.3 needs:
 - Text (names, times, flags, marks, the selection and current outlines) either drawn on the canvas or left as a
   thin DOM layer over it placed from the same rects. Hit-testing (1.5) starts from `layHit`.
 - The < 4 ms redraw budget has to be measured in Safari with the page's clock; nothing is measured yet.
-- `data-clip`, `data-gi`, `data-sec` are used by scrolling, drag-select and the tests; keep them on whatever
+- `data-clip`, `data-gi`, `data-sec` are used by scrolling and drag-select; keep them on whatever
   stays in the DOM, or move those to the rects.
