@@ -150,36 +150,62 @@ input[type=range]{accent-color:#B8B3AB}
     </sc-if>
     <sc-if value="{{ isExport }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Export" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
-        <div style="max-width:min(1200px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,4vh,48px) clamp(16px,3vw,48px) 40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:32px;align-items:start">
-          <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
-            <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Export to Final Cut Pro</span>
-            <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
-              <sc-for list="{{ exRows }}" as="hr" hint-placeholder-count="4">
-                <div style="display:grid;grid-template-columns:12px 72px 70px 76px minmax(0,1fr);align-items:center;gap:10px;padding:10px 12px;background:#2A2927;font-size:13px"><span style="width:8px;height:8px;border-radius:50%;background:{{ hr.c }}"></span><span style="color:#EFECE6">{{ hr.k }}</span><span style="color:#EFECE6;text-align:right">{{ hr.n }}</span><span style="color:#9A958D;text-align:right">{{ hr.size }}</span><span style="color:#B8B3AB">{{ hr.to }}</span></div>
-              </sc-for>
-            </div>
-            <div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px 12px;align-items:center">
-              <span style="color:#9A958D">Event</span><input type="text" aria-label="Event name" value="{{ exEvent }}" onChange="{{ exEventIn }}" style="height:30px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:none;background:#161514;color:#EFECE6;font:inherit;font-size:13px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);user-select:text;-webkit-user-select:text;outline:none;min-width:0" style-focus="box-shadow:inset 0 0 0 1.5px #FFD27A"></input>
-            </div>
+        <div style="max-width:min(1200px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,4vh,48px) clamp(16px,3vw,48px) 40px;display:flex;flex-direction:column;gap:28px">
+          <div style="display:flex;flex-direction:column;gap:18px;min-width:0;max-width:640px">
+            <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Export</span>
+            <sc-if value="{{ exUndOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="undecided" role="status" style="display:flex;align-items:center;gap:8px;color:#B8B3AB"><span style="width:8px;height:8px;border-radius:50%;background:#FFD27A"></span>{{ exUnd }}</span></sc-if>
             <div style="display:flex;flex-direction:column;gap:10px">
-              <sc-for list="{{ exOpts }}" as="eo" hint-placeholder-count="4">
-                <div role="switch" tabIndex="0" aria-checked="{{ eo.on }}" onClick="{{ eo.go }}" style="display:flex;align-items:center;gap:10px;cursor:pointer;opacity:{{ eo.op }}" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="flex:none;position:relative;width:28px;height:16px;border-radius:8px;background:{{ eo.track }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ eo.knob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span><span style="font-size:13px;color:#EFECE6">{{ eo.t }}</span><span style="color:#9A958D">{{ eo.sub }}</span></div>
-              </sc-for>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <div role="button" tabIndex="0" onClick="{{ backSkim }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">esc</span>Back to Skim</div>
+                <div data-lumina="download" role="button" tabIndex="0" onClick="{{ download }}" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;opacity:{{ exBtnOp }}" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘⏎</span>{{ exBtn }}</div>
+              </div>
+              <span data-lumina="export-sub" style="color:#B8B3AB">{{ exSub }}</span>
+              <sc-if value="{{ exDoneOn }}" hint-placeholder-val="{{ false }}"><span role="status" style="color:#A9D18E">{{ exDone }}</span></sc-if>
+            </div>
+            <div data-lumina="cut-list" style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:10px;background:#2A2927">
+              <span style="display:flex;align-items:center;gap:10px;font-size:13px;color:{{ cutFg }}"><span style="width:8px;height:8px;border-radius:50%;background:{{ cutDot }}"></span>{{ cutLine }}</span>
+              <sc-if value="{{ cutOn }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <div data-lumina="cut-copy" role="button" tabIndex="0" onClick="{{ cutCopy }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Copy list</div>
+                    <div data-lumina="cut-save" role="button" tabIndex="0" onClick="{{ cutSave }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Download list</div>
+                  </div>
+                  <span style="color:#9A958D">The page cannot delete files; delete these in Finder.</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ cutSayOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="cut-say" role="status" style="color:{{ cutSayC }}">{{ cutSay }}</span></sc-if>
             </div>
             <div style="display:flex;flex-direction:column;gap:3px;color:#9A958D"><span>Clip files are never changed.</span><span>{{ exPathLine }}</span></div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap">
-              <div role="button" tabIndex="0" onClick="{{ backSkim }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">esc</span>Back to Skim</div>
-              <div data-lumina="download" role="button" tabIndex="0" onClick="{{ download }}" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;opacity:{{ exBtnOp }}" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘⏎</span>{{ exBtn }}</div>
-            </div>
-            <sc-if value="{{ exDoneOn }}" hint-placeholder-val="{{ false }}"><span role="status" style="color:#A9D18E">{{ exDone }}</span></sc-if>
           </div>
-          <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
-            <span style="font-size:13px;font-weight:600;color:#EFECE6">By scene</span>
-            <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
-              <sc-for list="{{ exGroups }}" as="eg" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 70px;gap:10px;padding:8px 12px;background:#262523"><span style="color:#EFECE6">{{ eg.title }}</span><span style="color:#A9D18E;text-align:right">{{ eg.k }}</span><span style="color:#FFD27A;text-align:right">{{ eg.m }}</span></div></sc-for>
-            </div>
-            <span style="font-size:13px;font-weight:600;color:#EFECE6;margin-top:6px">The .fcpxml</span>
-            <pre style="margin:0;max-height:440px;overflow:auto;padding:14px;border-radius:10px;background:#161514;color:#B8B3AB;font:11px/1.5 ui-monospace,'SF Mono',Menlo,monospace;white-space:pre;user-select:text;-webkit-user-select:text">{{ exPreview }}</pre>
+          <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+            <div data-lumina="details" role="button" tabIndex="0" aria-expanded="{{ exMore }}" onClick="{{ exMoreGo }}" style="align-self:flex-start;display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:8px;color:#9A958D;cursor:pointer" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:inline-block;width:12px;text-align:center;transform:rotate({{ exMoreRot }});transition:transform 120ms ease-out">›</span>Details</div>
+            <sc-if value="{{ exMore }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:32px;align-items:start">
+                <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+                <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
+                  <sc-for list="{{ exRows }}" as="hr" hint-placeholder-count="4">
+                    <div style="display:grid;grid-template-columns:12px 72px 70px 76px minmax(0,1fr);align-items:center;gap:10px;padding:10px 12px;background:#2A2927;font-size:13px"><span style="width:8px;height:8px;border-radius:50%;background:{{ hr.c }}"></span><span style="color:#EFECE6">{{ hr.k }}</span><span style="color:#EFECE6;text-align:right">{{ hr.n }}</span><span style="color:#9A958D;text-align:right">{{ hr.size }}</span><span style="color:#B8B3AB">{{ hr.to }}</span></div>
+                  </sc-for>
+                </div>
+                <div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px 12px;align-items:center">
+                  <span style="color:#9A958D">Event</span><input type="text" aria-label="Event name" value="{{ exEvent }}" onChange="{{ exEventIn }}" style="height:30px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:none;background:#161514;color:#EFECE6;font:inherit;font-size:13px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);user-select:text;-webkit-user-select:text;outline:none;min-width:0" style-focus="box-shadow:inset 0 0 0 1.5px #FFD27A"></input>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <sc-for list="{{ exOpts }}" as="eo" hint-placeholder-count="4">
+                    <div role="switch" tabIndex="0" aria-checked="{{ eo.on }}" onClick="{{ eo.go }}" style="display:flex;align-items:center;gap:10px;cursor:pointer;opacity:{{ eo.op }}" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="flex:none;position:relative;width:28px;height:16px;border-radius:8px;background:{{ eo.track }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ eo.knob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span><span style="font-size:13px;color:#EFECE6">{{ eo.t }}</span><span style="color:#9A958D">{{ eo.sub }}</span></div>
+                  </sc-for>
+                </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+                  <span style="font-size:13px;font-weight:600;color:#EFECE6">By scene</span>
+                  <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
+                    <sc-for list="{{ exGroups }}" as="eg" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 70px;gap:10px;padding:8px 12px;background:#262523"><span style="color:#EFECE6">{{ eg.title }}</span><span style="color:#A9D18E;text-align:right">{{ eg.k }}</span><span style="color:#FFD27A;text-align:right">{{ eg.m }}</span></div></sc-for>
+                  </div>
+                  <span style="font-size:13px;font-weight:600;color:#EFECE6;margin-top:6px">The .fcpxml</span>
+                  <pre style="margin:0;max-height:440px;overflow:auto;padding:14px;border-radius:10px;background:#161514;color:#B8B3AB;font:11px/1.5 ui-monospace,'SF Mono',Menlo,monospace;white-space:pre;user-select:text;-webkit-user-select:text">{{ exPreview }}</pre>
+                </div>
+              </div>
+            </sc-if>
           </div>
         </div>
       </div>
@@ -401,7 +427,7 @@ class Component extends DCLogic {
   static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
   W(m) { return m ? Component.WORD[m] || m : ''; }
   static LV = ['Scenes','Clips','Viewer'];
-  state = {progOn:false,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
+  state = {progOn:false,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
   reading = new Set();
@@ -1315,7 +1341,7 @@ class Component extends DCLogic {
         go:() => { if (on) return this.setStep('skim'); this.want = r.key; this.setState({impMsg:'Choose the clips from “' + r.name + '”, all or some. Their marks come back.'}); this.pickFolder(); }};
     });
   }
-  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const ex = this.state.ex; this.setState({step:s, memOn:false, exDone:null, ex:ex.event ? ex : {...ex, event:this.d ? this.d.shoot.name : ''}}); }
+  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const ex = this.state.ex; this.setState({step:s, memOn:false, exDone:null, cutSay:null, ex:ex.event ? ex : {...ex, event:this.d ? this.d.shoot.name : ''}}); }
   // The template's multiple="" doesn't survive the render: several clips picked at once must all come through.
   fileRef = el => { this.fileEl = el; if (el) el.multiple = true; };
   pickFolder = () => { if (this.fileEl) this.fileEl.click(); };
@@ -1795,6 +1821,26 @@ class Component extends DCLogic {
     this.api('handoff', {keep:by.keep, maybe:st.ex.maybes ? by.maybe : [], keyword:'maybe', cut:by.cut, trash:false, event:st.ex.event});
     this.setState({exDone:'Saved ' + a.download + ' · ' + this.plural(x.n, 'clip')});
   };
+  // The cut clips as plain text, for deleting by hand in Finder: one line with the count and total size, then one clip
+  // per line in capture order. The path where the page has a real one (a folder that was opened, or an absolute path), otherwise the name.
+  static cutList(clips, marks, fmtB, real) {
+    const cut = clips.filter(c => marks[c.id] === 'cut').sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
+    const n = cut.length, bytes = cut.reduce((s, c) => s + (c.bytes || 0), 0);
+    const line = c => c.path && (real || c.path[0] === '/') ? c.path : c.name;
+    return {n, bytes, text:n ? [n + ' cut clip' + (n === 1 ? '' : 's') + ' · ' + fmtB(bytes), ...cut.map(line)].join('\n') + '\n' : ''};
+  }
+  cutText() { const d = this.d; return Component.cutList(d ? d.clips : [], this.state.marks, b => this.fmtB(b), !!(d && d.shoot.real)); }
+  cutCopy = () => {
+    const x = this.cutText(); if (!x.n) return;
+    const ok = () => this.setState({cutSay:{t:'Copied the list · ' + this.plural(x.n, 'cut clip')}}), no = () => this.setState({cutSay:{t:'Copying was refused here. Use Download list instead.', bad:true}});
+    try { const p = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(x.text) : null; if (p && p.then) p.then(ok, no); else no(); } catch (e) { no(); }
+  };
+  cutSave = () => {
+    const x = this.cutText(); if (!x.n) return;
+    const blob = new Blob([x.text], {type:'text/plain;charset=utf-8'}), a = document.createElement('a'), u = URL.createObjectURL(blob);
+    a.href = u; a.download = (this.state.ex.event || this.d.shoot.name || 'Lumina').replace(/[\/:]/g, '-') + ' cut clips.txt'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
+    this.setState({cutSay:{t:'Saved ' + a.download + ' · ' + this.plural(x.n, 'cut clip')}});
+  };
   static CARDS = [['fx5', 'FX5 Sample Pack', 'SONY FX5 · Visual Park, free']];
   // Chromium (Chrome, Comet, Arc, Brave, Edge) has no 10-bit H.264; Safari and the Lumina app (WebKit) play it.
   notSafari() { const u = navigator.userAgent; return /Chrome\/|Chromium\/|CriOS\/|Firefox\//.test(u); }
@@ -1882,14 +1928,20 @@ class Component extends DCLogic {
       v.exRows = [
         {k:'selected', c:MK.keep, n:this.plural(markN.keep, 'clip'), size:this.fmtB(markB.keep), to:ex.all ? 'favorites in Final Cut' : 'into the event'},
         {k:'maybe', c:MK.maybe, n:this.plural(markN.maybe, 'clip'), size:this.fmtB(markB.maybe), to:ex.all || ex.maybes ? 'tagged “maybe”' : 'left out'},
-        {k:'cut', c:MK.cut, n:this.plural(markN.cut, 'clip'), size:this.fmtB(markB.cut), to:ex.all ? 'rejected in Final Cut' : 'stay on the card'},
+        {k:'cut', c:MK.cut, n:this.plural(markN.cut, 'clip'), size:this.fmtB(markB.cut), to:ex.all ? 'marked as not wanted in Final Cut' : 'stay on the card'},
         {k:'undecided', c:'rgba(239,236,230,0.3)', n:this.plural(und, 'clip'), size:this.fmtB(Math.max(0, d.shoot.bytes - markB.keep - markB.maybe - markB.cut)), to:ex.all ? 'unrated' : 'stay on the card'}];
       const sw = (t, sub, on, key, dis) => ({t, sub, on, op:dis ? 0.45 : 1, track:on ? '#B8B3AB' : 'rgba(239,236,230,0.18)', knob:on ? '14px' : '2px', go:() => { if (!dis) this.setState(s => ({ex:{...s.ex, [key]:!s.ex[key]}})); }});
-      v.exOpts = [sw('Everything', ex.all ? 'every clip; selected ones as favorites, cut ones rejected' : 'only selected clips', ex.all, 'all'), sw('Include maybes', 'tagged “maybe” in Final Cut', ex.all || ex.maybes, 'maybes', ex.all)];
+      v.exOpts = [sw('Everything', ex.all ? 'every clip; selected ones as favorites, cut ones marked as not wanted' : 'only selected clips', ex.all, 'all'), sw('Include maybes', 'tagged “maybe” in Final Cut', ex.all || ex.maybes, 'maybes', ex.all)];
       v.exEvent = ex.event;
       v.exEventIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, event:val}})); };
       v.exKwIn = e => { const val = e.target.value; this.setState(s => ({ex:{...s.ex, kw:val}})); };
-      v.exBtnOp = x.n ? 1 : 0.45; v.exBtn = x.n ? 'Download .fcpxml · ' + this.plural(x.n, 'clip') : 'Nothing selected yet · turn on Everything';
+      v.exBtnOp = x.n ? 1 : 0.45; v.exBtn = !x.n ? 'Nothing selected yet' : 'Download for Final Cut · ' + (ex.all ? this.plural(x.n, 'clip') : markN.keep + ' selected');
+      const nope = ' Nothing is copied or changed.';
+      v.exSub = !x.n ? 'Select clips in Skim with K.' + nope : ex.all ? 'Every clip comes along: maybes tagged “maybe”, cut ones marked as not wanted.' + nope : !ex.maybes ? 'Maybes are left out.' + nope : (markN.maybe ? this.plural(markN.maybe, 'maybe') + (markN.maybe === 1 ? ' comes' : ' come') : 'Maybes come') + ' along tagged “maybe”.' + nope;
+      v.exUndOn = und > 0; v.exUnd = und + ' still undecided';
+      v.cutOn = markN.cut > 0; v.cutLine = v.cutOn ? this.plural(markN.cut, 'cut clip') + ' · ' + this.fmtB(markB.cut) + ' you can free' : 'no cut clips yet'; v.cutFg = v.cutOn ? '#EFECE6' : '#5B5854'; v.cutDot = v.cutOn ? MK.cut : 'rgba(239,236,230,0.18)';
+      v.cutCopy = this.cutCopy; v.cutSave = this.cutSave; v.cutSayOn = !!st.cutSay; v.cutSay = st.cutSay ? st.cutSay.t : ''; v.cutSayC = st.cutSay && st.cutSay.bad ? '#FFD27A' : '#A9D18E';
+      v.exMore = !!st.exMore; v.exMoreRot = st.exMore ? '90deg' : '0deg'; v.exMoreGo = () => this.setState(s => ({exMore:!s.exMore}));
       const lines = x.text.split('\n'); v.exPreview = x.n ? lines.slice(0, 44).join('\n') + (lines.length > 44 ? '\n…' : '') : 'Select clips in Skim with K, or turn on Everything.';
       v.exPathLine = d.shoot.real ? 'Paths assume the card is mounted at /Volumes/' + (d.shoot.base || d.shoot.name) + '.' : 'Paths point at the card as the camera wrote it.';
       v.exDone = st.exDone || ''; v.exDoneOn = !!st.exDone;
