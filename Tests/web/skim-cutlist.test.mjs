@@ -20,6 +20,9 @@ const card = [
   clip('d', 'C0004.MP4', '2026-09-08T19:53:00', 900_000_000, 'Untitled/PRIVATE/M4ROOT/CLIP/C0004.MP4'),
 ];
 
+// the clip lines: after the count line and the blank line, before the final newline
+const body = x => x.text.split('\n').slice(2, -1);
+
 test('cutList comes out of the page', () => {
   assert.equal(typeof cutList, 'function');
   assert.equal(typeof fmtB, 'function');
@@ -28,9 +31,9 @@ test('cutList comes out of the page', () => {
 test('only cut clips are listed, in capture order, whatever order they arrive in', () => {
   const x = cutList(card, { a: 'cut', b: 'cut', c: 'keep', d: 'maybe' }, fmtB, true);
   assert.equal(x.n, 2);
-  assert.deepEqual(x.text.split('\n').slice(1, -1), [
-    'Untitled/PRIVATE/M4ROOT/CLIP/C0001.MP4',
-    'Untitled/PRIVATE/M4ROOT/CLIP/C0003.MP4',
+  assert.deepEqual(body(x), [
+    'C0001.MP4     Untitled/PRIVATE/M4ROOT/CLIP/',
+    'C0003.MP4     Untitled/PRIVATE/M4ROOT/CLIP/',
   ]);
   assert.deepEqual(card.map(c => c.id), ['a', 'b', 'c', 'd'], 'the clips themselves are not reordered');
 });
@@ -42,27 +45,50 @@ test('the first line states the count and the total size', () => {
   assert.equal(cutList(card, { b: 'cut' }, fmtB, true).text.split('\n')[0], '1 cut clip · 700 MB');
 });
 
-test('one clip per line and the text ends with a newline', () => {
+test('a blank line after the count, one clip per line, a newline at the end', () => {
   const x = cutList(card, { a: 'cut', b: 'cut', c: 'cut', d: 'cut' }, fmtB, true);
-  assert.ok(x.text.endsWith('.MP4\n'));
-  assert.equal(x.text.split('\n').length, 1 + 4 + 1);
+  const lines = x.text.split('\n');
+  assert.equal(lines.length, 1 + 1 + 4 + 1);
+  assert.equal(lines[1], '');
+  assert.equal(lines.at(-1), '');
+  assert.ok(x.text.endsWith('CLIP/\n'));
+});
+
+test('the file name comes first, padded with spaces so the folders line up', () => {
+  const mixed = [
+    clip('a', 'C4925.MP4', '1', 200e6, 'friend_test_log/C4925.MP4'),
+    clip('b', 'C4958.MP4', '2', 136e6, 'friend_test_log/C4958.MP4'),
+    clip('c', 'A001_C012_LONG.MOV', '3', 10e6, 'friend_test_log/day two/A001_C012_LONG.MOV'),
+  ];
+  assert.equal(cutList(mixed, { a: 'cut', b: 'cut' }, fmtB, true).text,
+    '2 cut clips · 336 MB\n\nC4925.MP4     friend_test_log/\nC4958.MP4     friend_test_log/\n');
+  const x = cutList(mixed, { a: 'cut', b: 'cut', c: 'cut' }, fmtB, true);
+  assert.deepEqual(body(x), [
+    'C4925.MP4              friend_test_log/',
+    'C4958.MP4              friend_test_log/',
+    'A001_C012_LONG.MOV     friend_test_log/day two/',
+  ]);
+  assert.doesNotMatch(x.text, /\t/, 'spaces, not tabs');
+  assert.equal(new Set(body(x).map(l => l.indexOf('friend_test_log/'))).size, 1, 'every folder starts in the same column');
 });
 
 test('names only when the page has no real path', () => {
   // The sample and test loads carry made-up relative paths: real is false, so the name is what is listed.
   const sample = [clip('a', 'C0001.MP4', '1', 10e6, 'TEST/a'), clip('b', 'C0002.MP4', '2', 10e6, undefined)];
-  assert.deepEqual(cutList(sample, { a: 'cut', b: 'cut' }, fmtB, false).text.split('\n').slice(1, -1), ['C0001.MP4', 'C0002.MP4']);
-  // A clip with no path at all is listed by name even in a real folder.
-  assert.deepEqual(cutList(sample, { b: 'cut' }, fmtB, true).text.split('\n').slice(1, -1), ['C0002.MP4']);
+  assert.deepEqual(body(cutList(sample, { a: 'cut', b: 'cut' }, fmtB, false)), ['C0001.MP4', 'C0002.MP4']);
+  // A clip with no path at all, or dropped on its own with no folder, is listed by name with nothing after it.
+  assert.deepEqual(body(cutList(sample, { b: 'cut' }, fmtB, true)), ['C0002.MP4']);
+  assert.deepEqual(body(cutList([clip('a', 'C0001.MP4', '1', 10e6, 'C0001.MP4')], { a: 'cut' }, fmtB, true)), ['C0001.MP4']);
+  assert.deepEqual(body(cutList(sample, { a: 'cut', b: 'cut' }, fmtB, true)), ['C0001.MP4     TEST/', 'C0002.MP4'], 'no trailing gap on a line without a folder');
 });
 
 test('an absolute path is always used', () => {
   const fx = fixture();
   const marks = Object.fromEntries(fx.clips.filter(c => c.mark).map(c => [c.id, c.mark]));
   const x = cutList(fx.clips, marks, fmtB, false);
-  const want = fx.clips.filter(c => c.mark === 'cut').map(c => c.path);
-  assert.ok(want.length && want.every(p => p[0] === '/'));
-  assert.deepEqual(x.text.split('\n').slice(1, -1), want);
+  const cut = fx.clips.filter(c => c.mark === 'cut');
+  assert.ok(cut.length && cut.every(c => c.path[0] === '/'));
+  assert.deepEqual(body(x).map(l => l.split(/ {5,}/)), cut.map(c => [c.name, c.path.slice(0, c.path.lastIndexOf('/') + 1)]));
 });
 
 test('no cut clips: nothing to list', () => {
