@@ -556,13 +556,13 @@ class Component extends DCLogic {
     this._gs = e => { e.preventDefault(); this.gsc = 1; }; this._gc = e => { e.preventDefault(); const r = e.scale / (this.gsc || 1); this.gsc = e.scale; this.zoomBy(Math.log(r) * 1.6, e); }; this._ge = e => { e.preventDefault(); this.gsc = 1; const zc = this.state.zc; if (Component.zoomSettle(zc) !== zc) this.setState({zc:1}); };
     window.addEventListener('gesturestart', this._gs, {passive:false}); window.addEventListener('gesturechange', this._gc, {passive:false}); window.addEventListener('gestureend', this._ge, {passive:false});
     this.healthTick();
-    // luminaSkimDebug() reports; luminaSkimDebug('panel') also opens the Working memory panel, luminaSkimDebug('off') hides it again.
-    window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
+    // luminaSkimDebug() reports; luminaSkimDebug('panel') also opens the Working memory panel, luminaSkimDebug('off') hides it again, luminaSkimDebug('colour') saves the colour check frames.
+    window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); else if (what === 'colour') this.colourCheck(); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
     this._rs = () => { clearTimeout(this.rsT); this.rsT = setTimeout(() => this.setState({vw:window.innerWidth, vh:window.innerHeight}), 80); }; window.addEventListener('resize', this._rs);
     // S-Log3 / S-Gamut3.Cine → Rec.709: the curve per channel, then the gamut, fitted to the full transform in display space.
     this.dedupeNames(); this.syncStore(); this.calibrate();
     this._kw = e => { if ((e.metaKey || e.ctrlKey) && (e.key === 'w' || e.key === 'W')) { e.preventDefault(); this.closeShoot(); } }; window.addEventListener('keydown', this._kw);
-    if (!document.getElementById('lumina-pv-filters')) document.body.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" id="lumina-pv-filters" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><filter id="lumina-slog3" color-interpolation-filters="sRGB" x="0" y="0" width="1" height="1"><feComponentTransfer><feFuncR type="table" tableValues="0.0000 0.0000 0.0000 0.0007 0.0239 0.0469 0.0754 0.1118 0.1498 0.1903 0.2337 0.2803 0.3303 0.3835 0.4395 0.4976 0.5569 0.6161 0.6742 0.7298 0.7822 0.8309 0.8759 0.9178 0.9578 0.9972 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncG type="table" tableValues="0.0000 0.0000 0.0000 0.0007 0.0239 0.0469 0.0754 0.1118 0.1498 0.1903 0.2337 0.2803 0.3303 0.3835 0.4395 0.4976 0.5569 0.6161 0.6742 0.7298 0.7822 0.8309 0.8759 0.9178 0.9578 0.9972 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncB type="table" tableValues="0.0000 0.0000 0.0000 0.0007 0.0239 0.0469 0.0754 0.1118 0.1498 0.1903 0.2337 0.2803 0.3303 0.3835 0.4395 0.4976 0.5569 0.6161 0.6742 0.7298 0.7822 0.8309 0.8759 0.9178 0.9578 0.9972 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/></feComponentTransfer><feColorMatrix type="matrix" values="1.9014 -0.8790 -0.0434 0.0000 0.0067 -0.1553 1.3955 -0.2447 0.0000 0.0003 0.0021 -0.3185 1.3129 0.0000 -0.0011 0 0 0 1 0"/></filter></svg>');
+    if (!document.getElementById('lumina-pv-filters')) document.body.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" id="lumina-pv-filters" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><filter id="lumina-slog3" color-interpolation-filters="sRGB" x="0" y="0" width="1" height="1"><feComponentTransfer><feFuncR type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncG type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncB type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/></feComponentTransfer><feColorMatrix type="matrix" values="1.9014 -0.8790 -0.0434 0.0000 0.0067 -0.1553 1.3955 -0.2447 0.0000 0.0003 0.0021 -0.3185 1.3129 0.0000 -0.0011 0 0 0 1 0"/></filter></svg>');
   }
   componentWillUnmount() {
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
@@ -1964,7 +1964,7 @@ class Component extends DCLogic {
       this.bump(); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);
     });
   }
-  static SL3T = [0.0000, 0.0000, 0.0000, 0.0007, 0.0239, 0.0469, 0.0754, 0.1118, 0.1498, 0.1903, 0.2337, 0.2803, 0.3303, 0.3835, 0.4395, 0.4976, 0.5569, 0.6161, 0.6742, 0.7298, 0.7822, 0.8309, 0.8759, 0.9178, 0.9578, 0.9972, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000];
+  static SL3T = [0.0000, 0.0225, 0.0459, 0.0709, 0.0984, 0.1292, 0.1631, 0.1996, 0.2387, 0.2810, 0.3268, 0.3766, 0.4301, 0.4876, 0.5500, 0.6167, 0.6851, 0.7530, 0.8170, 0.8740, 0.9223, 0.9604, 0.9866, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000];
   static SL3M = [1.9014, -0.8790, -0.0434, 0.0067, -0.1553, 1.3955, -0.2447, 0.0003, 0.0021, -0.3185, 1.3129, -0.0011];
   toDisplay(img, c) {
     const p = this.prof(c); if (!p || p.g !== 'S-Log3') return img;
@@ -1974,7 +1974,7 @@ class Component extends DCLogic {
     return {data:out, width:img.width, height:img.height};
   }
   // The S-Log3 curve for each level the page sees: the camera's code value first (undoing this engine's own
-  // conversion of BT.709-tagged video, measured by calibrate()), then Sony's curve, fitted at 33 points.
+  // conversion of BT.709-tagged video, measured by calibrate()), then the S-Log3 curve at 33 points, fitted to Final Cut's Sony S-Log3/S-Gamut3.Cine camera LUT.
   sl3Table() {
     const T = Component.SL3T, n = T.length - 1, cal = this.cal, a = new Float32Array(256);
     for (let v = 0; v < 256; v++) { const code = cal ? cal[v] : v / 255, x = code * n, i = Math.min(n - 1, Math.floor(x)), f = x - i; a[v] = T[i] + (T[i + 1] - T[i]) * f; }
@@ -2096,6 +2096,63 @@ class Component extends DCLogic {
         let bump = null; px.forEach((p, i) => { const nb = [px[i - 1], px[i + 1]].filter(Boolean); if (bump == null && nb.length && nb.every(q => Math.abs(q.mean - p.mean) > 0.2)) bump = i; });
         return {state:'ready', ev:Math.round(Math.max(-5, Math.min(5, Math.log2(Math.max(0.01, mean) / 0.46) * 2.2)) * 10) / 10, clip:Math.round(avg('hi') * 1000) / 10, crush:Math.round(avg('lo') * 1000) / 10, sharp:Math.min(...sharpF), sharpF, motion:null, bump};
   }
+  // Developer: the frames a colour check against Final Cut needs. Timecodes 00:00:02:00, 05:00 and 08:00 as frame
+  // numbers at the clip's rate (23.98 counts 24 to the second and runs at 24000/1001), each asked for at the
+  // middle of its frame so a seek lands on it; a time past the end of the clip is left out.
+  static checkTimes(fps, dur) {
+    const r = Math.round(fps || 24) || 24, real = Math.abs((fps || r) - r) > 0.005 ? r * 1000 / 1001 : r;
+    return [2, 5, 8].map(sec => ({sec, n:sec * r, t:(sec * r + 0.5) / real})).filter(x => !dur || x.t < dur - 0.05);
+  }
+  // A note inside a PNG: a tEXt chunk (key, then the text, plain ASCII) put in front of the closing IEND chunk.
+  static pngNote(u8, key, text) {
+    const esc = text.replace(/[^\x20-\x7e]/g, ch => '\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0')), str = 'tEXt' + key + '\0' + esc, body = new Uint8Array(str.length);
+    for (let i = 0; i < str.length; i++) body[i] = str.charCodeAt(i);
+    let c = ~0; for (let i = 0; i < body.length; i++) { c ^= body[i]; for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xEDB88320 : c >>> 1; }
+    const at = u8.length - 12, out = new Uint8Array(u8.length + 8 + body.length), dv = new DataView(out.buffer);
+    out.set(u8.subarray(0, at)); dv.setUint32(at, body.length - 4); out.set(body, at + 4); dv.setUint32(at + 4 + body.length, ~c >>> 0); out.set(u8.subarray(at), at + 8 + body.length);
+    return out;
+  }
+  // One picture: a row per frame, on the left the frame as this browser hands it to the page, on the right the
+  // same frame through the page's own S-Log3 conversion (toDisplay: the table with this engine's calibration,
+  // then the matrix). The rows' names and the table that was used are a note inside the picture ('skim'). Up to
+  // ten clips. Two clicks: the first reads the frames, the second saves the file, so the download starts from a
+  // click (Safari asks about one that starts later, and keeps only the last of two started together).
+  colourCheck = async () => {
+    if (this.ccBusy) return;
+    const say = t => { this.ccSay = t; this.setState(s => ({tick:(s.tick || 0) + 1})); };
+    if (this.ccFile) {
+      const a = document.createElement('a'), u = URL.createObjectURL(this.ccFile); a.href = u; a.download = 'skim colour check.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
+      this.ccFile = null; say('Colour check · saved ' + this.ccWhat + ' to Downloads'); return;
+    }
+    const C = (this.d ? this.d.clips : []).filter(c => c._file && (this.prof(c) || {}).g === 'S-Log3').slice(0, 10); if (!C.length) return;
+    this.ccBusy = true; const W = 960, H = 540, rows = [];
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d', {willReadFrequently:true});
+    try {
+      for (const c of C) {
+        say('Colour check · reading ' + c.name);
+        const url = URL.createObjectURL(c._file), v = document.createElement('video'); v.muted = true; v.preload = 'auto'; v.playsInline = true;
+        const wait = (ev, ms) => new Promise((res, rej) => { const to = setTimeout(() => rej('timeout'), ms); v.addEventListener(ev, () => { clearTimeout(to); res(); }, {once:true}); v.addEventListener('error', () => { clearTimeout(to); rej('error'); }, {once:true}); });
+        try {
+          v.src = url; await wait('loadedmetadata', 10000); if (v.readyState < 2) { try { await wait('loadeddata', 5000); } catch (x) {} }
+          for (const k of Component.checkTimes(c.fps, isFinite(v.duration) ? v.duration : 0)) {
+            v.currentTime = k.t; await wait('seeked', 8000); await this.painted(v);
+            let im = null; for (let j = 0; j < 3; j++) { ctx.drawImage(v, 0, 0, W, H); im = ctx.getImageData(0, 0, W, H); if (!Component.lookAgain(this.blank(im), j)) break; await new Promise(r => setTimeout(r, 120 + j * 160)); }
+            rows.push({clip:c.name, sec:k.sec, frame:k.n, asked:k.t, at:v.currentTime, raw:im, shown:this.toDisplay(im, c)});
+          }
+        } catch (x) { rows.push({clip:c.name, failed:String(x)}); }
+        URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {}
+      }
+      const got = rows.filter(r => r.raw); if (!got.length) throw 'no frame could be read';
+      const sheet = document.createElement('canvas'); sheet.width = W * 2; sheet.height = H * got.length; const sx = sheet.getContext('2d');
+      got.forEach((r, i) => { sx.putImageData(r.raw, 0, i * H); sx.putImageData(new ImageData(new Uint8ClampedArray(r.shown.data), W, H), W, i * H); });
+      const meta = {build:window.luminaBuild || '', agent:navigator.userAgent, cell:[W, H], columns:['as read', 'as shown'], calibration:document.documentElement.dataset.luminaCal || null, calDev:this.calDev == null ? null : this.calDev,
+        table:Array.from(this.sl3Lut || this.sl3Table(), y => +y.toFixed(4)), matrix:Component.SL3M, rows:rows.map(r => ({clip:r.clip, sec:r.sec, frame:r.frame, asked:r.asked, at:r.at, failed:r.failed}))};
+      const png = new Uint8Array(await (await new Promise(r => sheet.toBlob(r, 'image/png'))).arrayBuffer());
+      this.ccFile = new Blob([Component.pngNote(png, 'skim', JSON.stringify(meta))], {type:'image/png'}); this.ccWhat = this.plural(got.length, 'frame') + ' of ' + this.plural(C.length, 'clip');
+      say('Colour check · ' + this.ccWhat + ' ready · click again to save');
+    } catch (x) { say('Colour check · stopped: ' + (typeof x === 'string' ? x : 'error')); }
+    this.ccBusy = false;
+  };
   painted(v) { return new Promise(r => { const to = setTimeout(r, 250); if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => { clearTimeout(to); r(); }); }); }
   // Look at a frame again only while it is blank and there are looks left (three in all); the last look is kept.
   static lookAgain(blank, k) { return !!blank && k < 2; }
@@ -2329,7 +2386,8 @@ class Component extends DCLogic {
       memBtns:[
         {t:'Make frames again', sub:this.realReading() ? 'After reading finishes. Now it would start the card over.' : 'Reads the card again' + (this.lastClock && this.lastClock.done ? ', about ' + this.fmtSec(this.lastClock.done) : '') + '. Marks stay.', subC:'#B8B3AB', go:this.clearFrames, op:this.realReading() || !ms.fr ? 0.45 : 1, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'},
         {t:st.memConfirm ? 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + '? Click again to forget' : 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark'), sub:'Deletes this shoot\u2019s marks for good. Clips are not touched.', subC:st.memConfirm ? '#FF8A7A' : '#B8B3AB', go:this.forgetMarks, op:has ? 1 : 0.45, bg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.08)', fg:st.memConfirm ? '#FF8A7A' : '#EFECE6'},
-        {t:st.closeConfirm ? 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + '? Click again to close' : 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open', sub:'Frees ' + this.fmtB(ms.frB) + ' of frames and measurements. Its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' stay saved for the next time you open these clips. ⌘W', subC:st.closeConfirm ? '#FFD27A' : '#B8B3AB', go:this.closeShoot, op:has ? 1 : 0.45, bg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.08)', fg:st.closeConfirm ? '#FFD27A' : '#EFECE6'}],
+        {t:st.closeConfirm ? 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + '? Click again to close' : 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open', sub:'Frees ' + this.fmtB(ms.frB) + ' of frames and measurements. Its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' stay saved for the next time you open these clips. ⌘W', subC:st.closeConfirm ? '#FFD27A' : '#B8B3AB', go:this.closeShoot, op:has ? 1 : 0.45, bg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.08)', fg:st.closeConfirm ? '#FFD27A' : '#EFECE6'},
+        {t:this.ccFile ? 'Save the colour check' : 'Colour check frames', sub:this.ccSay || 'One picture of the S-Log3 clips at 2, 5 and 8 s, as read and as shown, with the table used. For comparing with Final Cut.', subC:'#B8B3AB', go:this.colourCheck, op:d && d.clips.some(c => c._file && (this.prof(c) || {}).g === 'S-Log3') && !this.ccBusy ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'}],
       impOn:!!(st.imp && st.imp.done < st.imp.n), impW:st.imp ? Math.round(st.imp.done / Math.max(1, st.imp.n) * 100) + '%' : '0%',
       fileRef:this.fileRef, pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
       dropRing:st.dropHot ? '#FFD27A' : 'rgba(239,236,230,0.18)', dropBg:st.dropHot ? 'rgba(255,210,122,0.06)' : '#232220',
