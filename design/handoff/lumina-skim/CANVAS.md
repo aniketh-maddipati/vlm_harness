@@ -46,3 +46,19 @@ What 1.3 needs:
 - The < 4 ms redraw budget has to be measured in Safari with the page's clock; nothing is measured yet.
 - `data-clip`, `data-gi`, `data-sec` are used by scrolling and drag-select; keep them on whatever
   stays in the DOM, or move those to the rects.
+
+## Status (2026-10-08, the one grid, opt-in)
+Scenes and Clips fused into one grid behind `?canvas=1` / `#canvas` (debug mode: a toggle in the top bar). DOM
+tiles, not canvas drawing, so on-demand reading keeps reading `[data-gi]` tiles. LOCAL-CHANGES 130 to 138.
+- Model: capture time is the only axis; one fold value (`nCut`) for slider, pinch and − / =; levels are the grid
+  (lv 0 with `state.cv`) and the Viewer (lv 2). lv 1 is not used while the switch is on.
+- Code: `cvGrid` … `cvHints` just above `index()`; the plain functions (`foldTiles`, `foldSum`, `foldMark`,
+  `foldSplit`, `foldStep`, `foldPinch`, `foldWord`, `layFuseGeo`, `layFuse`) above them; the template block
+  `<sc-if value="{{ lvF }}">`. Hooks into the old paths are single guarded lines (`if (this.cvGrid()) …`).
+- No home in the one grid (listed, not dropped silently): the Clips tile zoom (pinch grew and shrank tiles; pinch
+  now folds); the short line joining two scenes shot under a minute apart (the tile's "gap of N s" says it in
+  words); ⇧← ⇧→ extending a selection clip by clip (a dragged box still selects); the scene strip above Clips
+  (the grid is that strip; it is still above the Viewer); "N of M decided" per scene (the four counts say it).
+Before it becomes the default: try it on the real card in Safari and the app (only headless Chromium with made-up
+clips so far); decide what a saved `state.cuts` should mean; give the pinch a real trackpad pass in WebKit
+(gesture events, not ⌃-wheel); then canvas drawing (1.3) can replace the DOM tiles using `layFuse` rects.
