@@ -355,6 +355,38 @@ input[type=range]{accent-color:#B8B3AB}
 <script type="text/x-dc" data-dc-script data-props="{&quot;startStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Open&quot;,&quot;options&quot;:[&quot;Open&quot;,&quot;Skim&quot;,&quot;Export&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;startLevel&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Chapters&quot;,&quot;options&quot;:[&quot;Chapters&quot;,&quot;Takes&quot;,&quot;Clip&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   static MK = {keep:'#A9D18E', maybe:'#FFD27A', cut:'#FF8A7A'};
+  // Decoded thumbnails, made once (canvas plan 1.1). A frame is a JPEG blob; drawing it needs a decoded bitmap, and
+  // decoding is what made tiles go grey when the grid changed. Two sizes: 'g' grid (160×90) and 'f' full (320×180).
+  // Every clip's grid cover is pinned; everything else is least-recently-used under a byte budget.
+  static ThumbCache = class {
+    constructor(make, budget) { this.make = make; this.budget = budget; this.m = new Map(); this.pending = new Map(); this.bytes = 0; this.decodes = 0; this.t = 0; }
+    key(id, i, s) { return id + ':' + i + ':' + s; }
+    get(id, i, s) { const e = this.m.get(this.key(id, i, s)); if (!e) return null; e.at = ++this.t; return e.bmp; }
+    ensure(id, i, s, src, pin) {
+      const k = this.key(id, i, s), e = this.m.get(k);
+      if (e) { e.at = ++this.t; if (pin) e.pin = true; return Promise.resolve(e.bmp); }
+      if (this.pending.has(k)) return this.pending.get(k);
+      const p = Promise.resolve(this.make(src, s)).then(bmp => {
+        this.pending.delete(k); if (!bmp) return null;
+        if (this.m.has(k)) { try { bmp.close && bmp.close(); } catch (x) {} return this.m.get(k).bmp; }
+        const bytes = (bmp.width || 0) * (bmp.height || 0) * 4; this.decodes++;
+        this.m.set(k, {bmp, bytes, at:++this.t, pin:!!pin, id}); this.bytes += bytes; this.trim(); return bmp;
+      }, () => { this.pending.delete(k); return null; });
+      this.pending.set(k, p); return p;
+    }
+    trim() { if (this.bytes <= this.budget) return; const free = [...this.m.entries()].filter(([, e]) => !e.pin).sort((a, b) => a[1].at - b[1].at); for (const [k, e] of free) { if (this.bytes <= this.budget * 0.9) break; this.drop(k, e); } }
+    drop(k, e) { this.m.delete(k); this.bytes -= e.bytes; try { e.bmp.close && e.bmp.close(); } catch (x) {} }
+    forget(id, i) { for (const [k, e] of [...this.m]) if (e.id === id && (i == null || k.startsWith(id + ':' + i + ':'))) this.drop(k, e); }
+    clear() { for (const [k, e] of [...this.m]) this.drop(k, e); this.pending.clear(); }
+    stats() { let pinned = 0; for (const e of this.m.values()) if (e.pin) pinned++; return {images:this.m.size, pinned, bytes:this.bytes, decodes:this.decodes}; }
+  };
+  static THUMB = {g:[160, 90], f:[320, 180]};
+  // A blob (just made) or a blob: URL (made earlier) → a bitmap at the size asked, scaled by the browser where it can.
+  async makeBmp(src, s) {
+    const [w, h] = Component.THUMB[s] || Component.THUMB.g, b = src instanceof Blob ? src : await (await fetch(src)).blob();
+    try { return await createImageBitmap(b, {resizeWidth:w, resizeHeight:h, resizeQuality:'medium'}); }
+    catch (x) { const full = await createImageBitmap(b); if (full.width === w) return full; const cv = new OffscreenCanvas(w, h); cv.getContext('2d').drawImage(full, 0, 0, w, h); full.close && full.close(); return cv.transferToImageBitmap(); }
+  }
   // What the screen calls each mark (the stored keys stay keep / maybe / cut).
   static WORD = {keep:'selected', maybe:'maybe', cut:'cut'};
   static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
@@ -362,13 +394,15 @@ class Component extends DCLogic {
   static LV = ['Scenes','Clips','Viewer'];
   state = {progOn:false,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
+  thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
   reading = new Set();
   // Memory controls, per viewer: how many MB of frames stay in memory, frames per clip, their size, and the reading pace.
   static MEMDEF = {budget:256, per:8, size:320, pace:'auto'};
   mp = (() => { try { return {...Component.MEMDEF, ...JSON.parse(localStorage.getItem('lumina-skimprefs:mem') || '{}')}; } catch (x) { return {...Component.MEMDEF}; } })();
   setMp(k, v) { this.mp = {...this.mp, [k]:v}; try { localStorage.setItem('lumina-skimprefs:mem', JSON.stringify(this.mp)); } catch (x) {} if (k === 'budget') this.enforce(); this.setState(s => ({tick:(s.tick || 0) + 1})); }
   frameIdx() { const n = this.mp.per || 8; return n >= 8 ? [0, 1, 2, 3, 4, 5, 6, 7] : Array.from({length:n}, (_, k) => Math.floor((k + 0.5) * 8 / n)); }
-  setFrame(c, i, blob) { c.frameSz = c.frameSz || []; const old = c.frames[i]; if (old && old.indexOf('blob:') === 0) URL.revokeObjectURL(old); c.frames[i] = blob ? URL.createObjectURL(blob) : null; c.frameSz[i] = blob ? blob.size : 0; c.thin = false; this.lastProg = Date.now(); }
+  setFrame(c, i, blob) { c.frameSz = c.frameSz || []; const old = c.frames[i]; if (old && old.indexOf('blob:') === 0) URL.revokeObjectURL(old); c.frames[i] = blob ? URL.createObjectURL(blob) : null; c.frameSz[i] = blob ? blob.size : 0; c.thin = false; this.lastProg = Date.now();
+    this.thumbs.forget(c.id, i); if (blob && i === this.firstIdx()) this.thumbs.ensure(c.id, i, 'g', blob, true); }
   // Over the budget: the clips farthest from the one you are on give up their frames, all but one first, then that one.
   // The 24 clips around you are never touched. Their measures stay; frames come back when you get near them.
   enforce() {
@@ -381,7 +415,7 @@ class Component extends DCLogic {
       if (tot <= goal) break;
       const have = c.frames.map((u, i) => u ? i : -1).filter(i => i >= 0); if (have.length <= pass) continue;
       const keep = pass ? have.reduce((a, b) => Math.abs(b - 3.5) < Math.abs(a - 3.5) ? b : a) : -1;
-      have.forEach(i => { if (i === keep) return; tot -= (c.frameSz && c.frameSz[i]) || 0; URL.revokeObjectURL(c.frames[i]); c.frames[i] = null; if (c.frameSz) c.frameSz[i] = 0; });
+      have.forEach(i => { if (i === keep) return; tot -= (c.frameSz && c.frameSz[i]) || 0; URL.revokeObjectURL(c.frames[i]); c.frames[i] = null; if (c.frameSz) c.frameSz[i] = 0; this.thumbs.forget(c.id, i); });
       c.thin = true; this.dropped = (this.dropped || 0) + 1;
     }
   }
@@ -417,6 +451,7 @@ class Component extends DCLogic {
     this._gs = e => { e.preventDefault(); this.gsc = 1; }; this._gc = e => { e.preventDefault(); const r = e.scale / (this.gsc || 1); this.gsc = e.scale; this.zoomBy(Math.log(r) * 1.6, e); }; this._ge = e => { e.preventDefault(); this.gsc = 1; };
     window.addEventListener('gesturestart', this._gs, {passive:false}); window.addEventListener('gesturechange', this._gc, {passive:false}); window.addEventListener('gestureend', this._ge, {passive:false});
     this.healthTick();
+    window.luminaSkimDebug = () => ({thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0});
     this._rs = () => { clearTimeout(this.rsT); this.rsT = setTimeout(() => this.setState({vw:window.innerWidth, vh:window.innerHeight}), 80); }; window.addEventListener('resize', this._rs);
     // S-Log3 / S-Gamut3.Cine → Rec.709: the curve per channel, then the gamut, fitted to the full transform in display space.
     this.dedupeNames(); this.syncStore(); this.calibrate();
@@ -1509,7 +1544,7 @@ class Component extends DCLogic {
     let saved = 0, savedB = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('lumina-skim:') === 0) { saved++; savedB += (localStorage.getItem(k) || '').length * 2; } } } catch (x) {}
     return {n:C.length, fr, frB, meas, saved, savedB, tabB:frB + C.length * 700 + s.undo.length * 120};
   }
-  dropFrames(cs) { (cs || []).forEach(c => { (c.frames || []).forEach(u => { if (u && u.indexOf('blob:') === 0) URL.revokeObjectURL(u); }); c.frames = [null, null, null, null, null, null, null, null]; c.frameSz = []; c._px = {}; }); }
+  dropFrames(cs) { (cs || []).forEach(c => { this.thumbs.forget(c.id); (c.frames || []).forEach(u => { if (u && u.indexOf('blob:') === 0) URL.revokeObjectURL(u); }); c.frames = [null, null, null, null, null, null, null, null]; c.frameSz = []; c._px = {}; }); }
   clearFrames = () => { if (this.realReading()) return; if (!this.d) return; const real = this.d.clips.filter(c => c._file); if (!real.length) return; this.qTok = {}; this.dropFrames(real); this.setState({imp:{n:real.length, done:0}}); this.runQueue(real, this.qTok); };
   forgetMarks = () => {
     if (!this.hasShoot()) return;
@@ -1605,6 +1640,7 @@ class Component extends DCLogic {
         rows.push({k:'clips', v:ms.n ? ms.n + (d && d.shoot.bytes ? ' · ' + this.fmtB(d.shoot.bytes) + ' on disk' : '') : 'none'});
         if (ms.n) rows.push({k:'read', v:run ? (imp.pass === 2 ? 'all in · measuring ' : 'reading ') + imp.done + ' of ' + imp.n : ms.meas + ' of ' + ms.n});
         rows.push({k:'frames', v:this.fmtB(ms.frB) + (B === 'all' ? '' : ' of ' + B + ' MB')});
+        { const ts = this.thumbs.stats(); if (st.memMore) rows.push({k:'decoded', v:ts.images + ' images · ' + this.fmtB(ts.bytes) + ' · ' + ts.decodes + ' decodes'}); }
         if (h && !h.web) { rows.push({k:'Mac', v:this.heatWord(h.thermal) + (h.lowPower ? ' · Low Power' : '') + (h.level ? ' · reading ' + this.paceWord(h) : '')}); if (h.footprintMB) rows.push({k:'Lumina', v:this.fmtB(h.footprintMB * 1048576) + (h.memGB ? ' of ' + Math.round(h.memGB) + ' GB' : '')}); }
         if (st.memMore) { rows.push({k:'frames made', v:String(ms.fr)}, {k:'decoders', v:String(this.workerN()) + ' · ' + (this.vOpen || 0) + ' open'}, {k:'undo steps', v:String(st.undo.length)}, {k:'video decode', v:this.cal == null ? 'not measured' : this.calDev <= 2 ? 'matches the files' : 'corrected · up to ' + this.calDev + ' levels'});
           if (h) rows.push({k:'memory', v:h.web ? '—' : ['fine', 'tight', 'short'][h.pressure] || 'fine'}, {k:'pace', v:this.paceWord(h) + (h.slowdown && h.slowdown !== 1 ? ' · ' + h.slowdown.toFixed(1) + '× frame time' : '')}); }
