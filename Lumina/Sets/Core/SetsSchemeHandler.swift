@@ -21,9 +21,9 @@ import WebKit
 ///   rendering; a bad look string 400; a file outside the opened folders 404.
 nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "lumina"
-    static let pageFile = "Lumina Sets v11.dc.html"
-    /// Edit is its own page, which support.js fetches when Sets mounts it (`<dc-import name="Lumina Edit v22">`).
-    static let editPageFile = "Lumina Edit v22.dc.html"
+    static let pageFile = "Lumina Sets v12.dc.html"
+    /// Edit is its own page, which support.js fetches when Sets mounts it (`<dc-import name="Lumina Edit v23">`).
+    static let editPageFile = "Lumina Edit v23.dc.html"
     /// The video step's page (design/handoff/lumina-skim), shown only by a Debug build run with
     /// `LUMINA_PAGE=skim` (Scripts/dev-skim.sh): `SetsPage`. It reads clips through WebKit's own
     /// `<video>` from a folder the user picks, with no plumbing yet. support.js is Pick's, byte for byte.

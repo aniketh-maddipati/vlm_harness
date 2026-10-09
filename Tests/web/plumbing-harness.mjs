@@ -68,7 +68,11 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   bridge.pending = shoot; await page.evaluate(() => __lumina.openFolder());
   await loaded(page);
   let s = await S(page);
-  ok(s.view === 'cull', 'read: lands in Cull', s.view);
+  ok(s.view === 'edit', 'read: a small shoot with nothing decided opens in Edit', s.view);
+  // The rest of this shoot is exercised from Pick, as before. Leaving Edit here, not beside the
+  // first keep, so that keep is not waiting on Edit's save debounce.
+  await page.evaluate(() => __lumina.logic().setView('cull', true));
+  await page.waitForTimeout(200);
   ok(s.n === 12 && s.realInfo.n === 12 && s.realInfo.bad === 0, 'read: 12 photos, 0 unreadable', s.realInfo);
   ok(s.realInfo.name === '2026-09-01' && s.realInfo.date === '2026-09-01', 'read: realInfo name + date', s.realInfo);
   ok(s.realInfo.rows >= 2, 'read: rows', s.realInfo);
@@ -307,6 +311,162 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     const L2 = bridge.canvas.layouts.slice(n1);
     ok(L2.length >= 1 && L2[L2.length - 1].visible && L2[L2.length - 1].holes.length === last.holes.length + 1, 'edit v22 (page): a chip that appears over the photo is sent as one more hole', L2.map(x => x.holes));
     await page.evaluate(() => document.getElementById('__chip').remove()); await page.waitForTimeout(300);
+    // Crop's frame is inset under the full-size skip. It must not be a hole (that is the page's
+    // black canvas). The dim is the frame's box-shadow, so the frame stays looked-through; the
+    // thirds grid is a hairline and is a hole, so the line shows over the photo. The Ratio /
+    // Straighten bar still is. A straighten and a zoom then have to reach the Mac with the page's
+    // own angle, scale and box. Opened from the page's Crop control, then Cancel, so the intro
+    // card and the zoom checks below stay as they were.
+    { const nCrop = bridge.canvas.layouts.length;
+      const opened = await page.evaluate(() => {
+        const norm = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const btn = [...document.querySelectorAll('[role="button"]')].find(b => norm(b) === 'Crop');
+        if (!btn) return false;
+        btn.click();
+        return true;
+      });
+      ok(opened, 'edit v22 (page): Crop is opened from the page\'s Crop control');
+      await page.waitForFunction(() => !!document.querySelector('[data-lumina="canvas"] [data-frame]'), null, { timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(350);
+      const crop = await page.evaluate(() => {
+        const canvas = document.querySelector('[data-lumina="canvas"]');
+        const frame = canvas && canvas.querySelector('[data-frame]');
+        const box = el => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; };
+        const norm = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const lines = frame ? [...frame.children].filter(el => !el.hasAttribute('data-h') && !el.hasAttribute('data-rot')).map(box) : [];
+        const bars = [...(canvas ? canvas.querySelectorAll('div') : [])].filter(el => /Ratio/.test(norm(el)) && /Straighten/.test(norm(el)) && /Apply/.test(norm(el)));
+        const barEl = bars.find(el => !bars.some(o => o !== el && el.contains(o))) || null;
+        const degText = [...(canvas ? canvas.querySelectorAll('div') : [])].map(norm).find(t => /^-?\d+(?:\.\d+)?°(?: · .+)?$/.test(t) && !(barEl && norm(barEl).includes(t) && t.length > 12)) || '';
+        const dialogs = [...document.querySelectorAll('[role="dialog"]')].map(box);
+        return { frame: frame ? box(frame) : null, lines, bar: barEl ? box(barEl) : null, degText, dialogs, shadow: frame ? getComputedStyle(frame).boxShadow : '' };
+      });
+      const cropLast = bridge.canvas.layouts.slice(nCrop).filter(x => x.visible).pop();
+      const holes = (cropLast && cropLast.holes) || [];
+      const overlap = (h, b) => {
+        if (!h || !b || !(b.w > 0) || !(b.h > 0)) return 0;
+        const x0 = Math.max(h.x, b.x), y0 = Math.max(h.y, b.y);
+        const x1 = Math.min(h.x + h.w, b.x + b.w), y1 = Math.min(h.y + h.h, b.y + b.h);
+        return x1 > x0 && y1 > y0 ? (x1 - x0) * (y1 - y0) : 0;
+      };
+      // The hole is the element's box plus a 1 px pad, clipped to the canvas. The intro card
+      // overlaps the frame and is a hole of its own; it is not the frame.
+      const isBox = (h, b) => Math.abs(h.x - b.x) < 6 && Math.abs(h.y - b.y) < 6 && Math.abs(h.x + h.w - (b.x + b.w)) < 6 && Math.abs(h.y + h.h - (b.y + b.h)) < 6;
+      const frameArea = crop.frame ? crop.frame.w * crop.frame.h : 0;
+      const isDialog = h => (crop.dialogs || []).some(d => isBox(h, d));
+      const coversInterior = h => !isDialog(h) && crop.frame && overlap(h, crop.frame) > 0.7 * h.w * h.h && overlap(h, crop.frame) > 0.2 * frameArea;
+      ok(!!(crop.frame && frameArea > 100 && cropLast && holes.length <= 16 && !holes.some(h => isBox(h, crop.frame)) && !holes.some(coversInterior)),
+        'edit v22 (page): with Crop open, no hole covers the crop interior', { frame: crop.frame, holes });
+      const grids = bridge.canvas.zooms.filter(z => z && Array.isArray(z.guides) && z.guides.some(g => g.k === 'grid'));
+      const gridSent = grids.length ? grids[grids.length - 1].guides.filter(g => g.k === 'grid') : [];
+      ok(crop.lines.length >= 4 && crop.lines.every(b => (b.w < 3 || b.h < 3) && !holes.some(h => isBox(h, b))) && gridSent.length >= 4 && /9999/.test(crop.shadow || '') && !holes.some(h => isBox(h, crop.frame)),
+        'edit v22 (page): the crop grid is drawn on the photo, not cut out of it, and the frame (the dim) is not a hole', { lines: crop.lines.length, grid: gridSent.length, shadow: crop.shadow, holes });
+      const canvasBox = cropLast && { x: cropLast.x, y: cropLast.y, w: cropLast.w, h: cropLast.h };
+      ok(!!(crop.bar && canvasBox && overlap(crop.bar, canvasBox) > 0.5 * crop.bar.w * crop.bar.h && holes.some(h => isBox(h, crop.bar))),
+        'edit v22 (page): the Ratio / Straighten bar stays a hole', { bar: crop.bar, holes });
+      const badgeHole = h => h.w > h.h * 1.4 && h.h > 8 && h.h < 40 && h.w < 240;
+      // v23 puts the live angle on the Straighten control (off the picture). A filled badge on the
+      // photo is still not a hole. An empty degText means that badge is gone.
+      ok(!holes.some(badgeHole),
+        'edit v22 (page): the on-photo degree badge is not a hole', { degText: crop.degText, holes });
+      // The page owns the gesture. Straighten is the image's rotate/scale (not the look, until
+      // Apply); zoom is the same pinch the canvas already follows, and it has to keep the angle.
+      const drive = (op, n) => page.evaluate(a => {
+        const el = document.querySelector('[data-lumina="canvas"]');
+        const k = Object.keys(el).find(x => x.startsWith('__reactFiber$'));
+        let E = null;
+        for (let f = el[k]; f && !E; f = f.return) if (f.stateNode && f.stateNode.logic && f.stateNode.logic.zoomTo) E = f.stateNode.logic;
+        if (!E) return false;
+        if (a.op === 'straighten') E.straighten(a.n); else E.zoomTo(a.n, null, null, false);
+        return true;
+      }, { op, n });
+      const cropView = () => page.evaluate(() => {
+        const canvas = document.querySelector('[data-lumina="canvas"]'), im = canvas.querySelector('[data-lumina-img]');
+        const m = new DOMMatrix(getComputedStyle(im).transform);
+        const c = canvas.getBoundingClientRect(), b = im.parentElement.getBoundingClientRect();
+        const k = Object.keys(canvas).find(x => x.startsWith('__reactFiber$'));
+        let E = null;
+        for (let f = canvas[k]; f && !E; f = f.return) if (f.stateNode && f.stateNode.logic && f.stateNode.logic.zoomTo) E = f.stateNode.logic;
+        return { ang: E && E.state.cd ? E.state.cd.ang : null, matrix: Math.atan2(m.b, m.a) * 180 / Math.PI, cover: Math.hypot(m.a, m.b),
+          box: { x: (c.left - b.left) / b.width, y: (c.top - b.top) / b.height, w: c.width / b.width, h: c.height / b.height } };
+      });
+      const zCrop = bridge.canvas.zooms.length;
+      ok(await drive('straighten', 45), 'edit v22 (page): straighten is the page\'s own control');
+      await page.waitForTimeout(700);
+      const spun = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], pageSpin = await cropView();
+      const axis = (spun && spun.guides || []).filter(g => g.k === 'axis');
+      ok(bridge.canvas.zooms.length > zCrop && spun && Math.abs(pageSpin.ang - 45) < 0.05 && Math.abs(spun.ang - pageSpin.matrix) < 0.2 && Math.abs(spun.cover - pageSpin.cover) < 0.02
+        && axis.length === 2 && axis.every(g => Math.abs(g.x1 - g.x0) > 20 && Math.abs(g.y1 - g.y0) > 20),
+        'edit v22 (page): a straighten reaches the Mac with the page\'s angle and scale, and the dotted axis stays on the photo', { sent: spun && { ang: spun.ang, cover: spun.cover, axis }, page: pageSpin });
+      ok(await drive('zoom', 2), 'edit v22 (page): zoom during crop is the page\'s own pinch');
+      await page.waitForTimeout(700);
+      const zoomed = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], pageZoom = await cropView();
+      ok(zoomed && Math.abs(zoomed.ang - pageZoom.matrix) < 0.2 && Math.abs(zoomed.cover - pageZoom.cover) < 0.02 && zoomed.w < spun.w
+        && ['x', 'y', 'w', 'h'].every(k => Math.abs(zoomed[k] - pageZoom.box[k]) < 0.02),
+        'edit v22 (page): a zoom during crop reaches the Mac with the page\'s box, still straightened', { sent: zoomed, page: pageZoom });
+      await drive('zoom', 1);
+      await page.waitForTimeout(200);
+      // Apply, then open Crop again. The angle in the message is the page's straighten, once.
+      // It is not added to the crop the look already has (that would be 90 here).
+      const applied = await page.evaluate(() => {
+        const el = document.querySelector('[data-lumina="canvas"]');
+        const k = Object.keys(el).find(x => x.startsWith('__reactFiber$'));
+        let E = null;
+        for (let f = el[k]; f && !E; f = f.return) if (f.stateNode && f.stateNode.logic && f.stateNode.logic.cropApply) E = f.stateNode.logic;
+        if (!E || !E.state.cd) return false;
+        E.cropApply();
+        return true;
+      });
+      ok(applied, 'edit v22 (page): Apply keeps this straighten');
+      await page.waitForFunction(() => !document.querySelector('[data-lumina="canvas"] [data-frame]'), null, { timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(200);
+      const reopened = await page.evaluate(() => {
+        const norm = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const btn = [...document.querySelectorAll('[role="button"]')].find(b => norm(b) === 'Crop');
+        if (btn) btn.click();
+        return !!btn;
+      });
+      ok(reopened, 'edit v22 (page): Crop opens again on the applied straighten');
+      await page.waitForFunction(() => !!document.querySelector('[data-lumina="canvas"] [data-frame]'), null, { timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(700);
+      const again = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], pageAgain = await cropView();
+      ok(!!(again && pageAgain) && Math.abs(pageAgain.ang - 45) < 0.05 && Math.abs(again.ang - pageAgain.matrix) < 0.2 && Math.abs(again.ang - 90) > 5,
+        'edit v22 (page): a second Crop sends the current straighten once, not stacked on the applied crop', { sent: again, page: pageAgain });
+      ok(await drive('straighten', -45), 'edit v22 (page): straighten is moved back by the angle it has');
+      await page.waitForTimeout(700);
+      const zeroed = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], pageZero = await cropView();
+      ok(!!(zeroed && pageZero) && Math.abs(pageZero.ang) < 0.05 && zeroed.ang === 0,
+        'edit v22 (page): the bridge sees angle 0 when the page\'s straighten is 0', { sent: zeroed, page: pageZero });
+      // Native canvas: the page's picture is hidden so it is not a second copy under the grid.
+      // The frame stays. The layout reply carries the bridge's canvas path, so that path has to
+      // say native too or the next layout puts the page picture back. Restored before Cancel.
+      const canvasPath = bridge.canvas.path;
+      bridge.canvas.path = 'native';
+      await page.evaluate(() => __lumina.editHeader({ canvas: 'native' }));
+      await page.waitForFunction(() => document.documentElement.getAttribute('data-lumina-crop-hide') === '1' && !!document.querySelector('[data-lumina="canvas"] [data-frame]'), null, { timeout: 3000 }).catch(() => {});
+      const hidden = await page.evaluate(() => {
+        const im = document.querySelector('[data-lumina="canvas"] [data-lumina-img]');
+        const frame = document.querySelector('[data-lumina="canvas"] [data-frame]');
+        return { hide: document.documentElement.getAttribute('data-lumina-crop-hide'), visibility: im ? getComputedStyle(im).visibility : null, frame: !!frame };
+      });
+      ok(hidden.hide === '1' && hidden.visibility === 'hidden' && hidden.frame, 'edit v22 (page): on the native canvas, Crop hides the page picture and keeps the frame', hidden);
+      bridge.canvas.path = canvasPath;
+      await page.evaluate(() => __lumina.editHeader({ canvas: 'image' }));
+      await page.waitForFunction(() => {
+        const im = document.querySelector('[data-lumina="canvas"] [data-lumina-img]');
+        return !document.documentElement.hasAttribute('data-lumina-crop-hide') && im && getComputedStyle(im).visibility === 'visible';
+      }, null, { timeout: 3000 }).catch(() => {});
+      const shown = await page.evaluate(() => {
+        const im = document.querySelector('[data-lumina="canvas"] [data-lumina-img]');
+        return { hide: document.documentElement.getAttribute('data-lumina-crop-hide'), visibility: im ? getComputedStyle(im).visibility : null };
+      });
+      ok(shown.hide == null && shown.visibility === 'visible', 'edit v22 (page): leaving the native canvas shows the page picture again', shown);
+      await page.evaluate(() => {
+        const norm = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const cancel = [...document.querySelectorAll('[data-lumina="canvas"] [role="button"]')].find(b => norm(b).startsWith('Cancel'));
+        if (cancel) cancel.click();
+      });
+      await page.waitForFunction(() => !document.querySelector('[data-lumina="canvas"] [data-frame]'), null, { timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(200); }
     // As-shot white balance from the canvas (the base landed): the page's photo starts there.
     const shot = await page.evaluate(rel => {
       __lumina.editHeader({ asShot: { kelvin: 4321, tint: 7 }, asShotRel: rel });
@@ -407,6 +567,8 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const slow = path.join(tmp, '2026-09-02');
   makeBigShoot(slow, jpegs, 160);
   const during = async (label, moves) => {
+    // A previous step (Save, Edit) would be where this folder reopens. This check is the read itself.
+    await page.evaluate(() => __lumina.logic().setState({ lastView: null }));
     bridge.delayMs = 25; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
     await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 30000 });
     for (const k of moves) { await key(page, k); await page.waitForTimeout(120); }
@@ -430,12 +592,30 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
   const again = await during('reopen during read', ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowRight']);
   ok(again.end.kept.length === 2 && again.end.kept.includes(first.end.kept[0]), 'reopen during read: the saved keep and the new one both kept', { first: first.end.kept, again: again.end.kept });
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  // Edit opened while the folder is still being read: the photo's path includes the folder
+  // (realInfo arrives only when the read ends), and finishing the read does not send you back to Pick.
+  // Its own folder, so it does not rewrite the session the reopen above just checked.
+  const earlyDir = path.join(tmp, '2026-09-03');
+  makeBigShoot(earlyDir, jpegs, 80);
+  await page.evaluate(() => __lumina.logic().setState({ lastView: null }));
+  bridge.delayMs = 25; bridge.pending = earlyDir; await page.evaluate(() => __lumina.openFolder());
+  await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'edit' || (l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48); }, null, { timeout: 30000 });
+  await page.evaluate(() => __lumina.logic().setView('edit'));
+  const early = await page.evaluate(() => { const l = __lumina.logic(), s = l.editShoot(); return { rel: s && s.P && s.P[0] && s.P[0].rel, view: l.state.view }; });
+  await loaded(page);
+  const landed = await page.evaluate(() => __lumina.logic().state.view);
+  bridge.delayMs = 0;
+  ok(/^2026-09-03\//.test(early.rel || ''), 'during read: Edit names the folder before the read ends', early);
+  ok(landed === 'edit', 'during read: finishing the read stays in Edit', { early, landed });
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
 
   // Scrolling while a folder is read, and keys typed fast. The page's own scroll handler still runs
   // under plumbing's lead (the time axis follows the scroll); the grid is never rebuilt under a moving
   // scroll; tiles that scrolled in keep the page's fade for later changes; a menu shortcut runs after
   // the keys still queued.
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  await page.evaluate(() => __lumina.logic().setState({ lastView: null }));
   bridge.delayMs = 120; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
   await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 60000 });
   const SCROLL = async ([frames, dy]) => {
