@@ -215,7 +215,7 @@ input[type=range]{accent-color:#B8B3AB}
         </sc-if>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:26px 22px">
           <sc-for list="{{ chs }}" as="g" hint-placeholder-count="5">
-            <div data-gi="{{ g.i }}" onMouseEnter="{{ gEnter }}" onClick="{{ gClick }}" onDoubleClick="{{ gDbl }}" style="position:relative;display:flex;flex-direction:column;gap:7px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;opacity:{{ g.op }}">
+            <div data-gi="{{ g.i }}" onMouseEnter="{{ gEnter }}" onClick="{{ gClick }}" onDoubleClick="{{ gDbl }}" style="content-visibility:auto;contain-intrinsic-size:auto 280px;position:relative;display:flex;flex-direction:column;gap:7px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;opacity:{{ g.op }}">
               <sc-if value="{{ g.join }}" hint-placeholder-val="{{ false }}"><div data-lumina="scene-join" title="{{ g.joinT }}" style="position:absolute;left:-14px;top:{{ g.jy }}px;width:22px;height:2px;margin-top:-1px;border-radius:1px;background:rgba(239,236,230,0.45);pointer-events:none"></div></sc-if>
               <div style="position:relative;aspect-ratio:16/9;border-radius:3px;overflow:hidden">
                 <div style="position:absolute;inset:0;background:{{ g.thumb }};filter:{{ g.flt }};animation:{{ g.anim }}"></div>
@@ -411,6 +411,7 @@ class Component extends DCLogic {
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
     window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu);
     this._md = e => { const st = this.state; if (!st.sel.length && !st.box) return; const t = e.target; if (this.sc && this.sc.contains(t)) return; if (t.closest && t.closest('[data-well],[data-lumina="memory"],[data-lumina="progress"]')) return; this.setState({sel:[], box:null}); }; window.addEventListener('mousedown', this._md);
+    this._vis = () => { if (!document.hidden) this.bump(); }; document.addEventListener('visibilitychange', this._vis);
     window.addEventListener('wheel', this._wh, {passive:false}); window.addEventListener('blur', this._bl);
     // WebKit (the app, Safari) sends a trackpad pinch as gesture events, Chromium as ⌃-wheel.
     this._gs = e => { e.preventDefault(); this.gsc = 1; }; this._gc = e => { e.preventDefault(); const r = e.scale / (this.gsc || 1); this.gsc = e.scale; this.zoomBy(Math.log(r) * 1.6, e); }; this._ge = e => { e.preventDefault(); this.gsc = 1; };
@@ -424,7 +425,7 @@ class Component extends DCLogic {
   }
   componentWillUnmount() {
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
-    window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md);
+    window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
     window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); this.dropVid();
     clearTimeout(this.propT); clearTimeout(this.flT);
   }
@@ -874,9 +875,9 @@ class Component extends DCLogic {
   gapsSet(v) {
     if (!this.gapsSorted) return;
     v = Math.max(0, Math.min(this.gapsSorted.length, v));
-    this.setState({nCut:v});
+    this.setState({nCut:v, nCutUi:null});
   };
-  gapChange = e => { this.userCut = true; this.gapsSet(+e.target.value); };
+  gapChange = e => { this.userCut = true; const v = +e.target.value; clearTimeout(this.gapT); this.setState({nCutUi:v}); this.gapT = setTimeout(() => this.gapsSet(v), 140); };
   // As many scenes as fit the window without scrolling: every gap cut when all the clips fit.
   sceneGrid() { const st = this.state, pad = Math.min(40, Math.max(16, st.vw * 0.022)), W = Math.max(250, st.vw - 2 * pad), cols = Math.max(1, Math.floor((W + 22) / 272)), tw = (W - (cols - 1) * 22) / cols; return {cols, tw}; }
   fitCut(n) {
@@ -956,8 +957,8 @@ class Component extends DCLogic {
     // chapters level
     if (vals.lv0) {
       const gs = this.gapsSorted;
-      vals.sliderOn = C.length > 1; vals.gapMax = gs.length; vals.nCut = st.nCut; vals.gapChange = this.gapChange;
-      vals.gapLine = this.plural(G.length, 'scene') + (st.cuts ? ' · moved by you' : '');
+      vals.sliderOn = C.length > 1; vals.gapMax = gs.length; vals.nCut = st.nCutUi != null ? st.nCutUi : st.nCut; vals.gapChange = this.gapChange;
+      vals.gapLine = st.nCutUi != null ? this.plural(Math.min(C.length, st.nCutUi + 1), 'scene') : this.plural(G.length, 'scene') + (st.cuts ? ' · moved by you' : '');
       vals.chs = G.map(g => {
         const cvc = g.clips.find(c => c.frames && c.frames.some(Boolean)) || g.clips[0], t0 = this.tone(cvc, this.firstIdx()), dn = {keep:0, maybe:0, cut:0};
         g.clips.forEach(c => { const m = st.marks[c.id]; if (m) dn[m]++; });
@@ -1225,6 +1226,7 @@ class Component extends DCLogic {
     this.hT = setTimeout(() => this.healthTick(), 2000);
   }
   async paceWait(tok) {
+    while (document.hidden && tok === this.qTok) { this.wasHidden = true; await new Promise(r => setTimeout(r, 500)); }
     const h = () => this.effHealth();
     while (h().level >= 3 && tok === this.qTok) { this.paused = true; await new Promise(r => setTimeout(r, 1000)); }
     if (this.paused) { this.paused = false; this.setState(s => ({tick:(s.tick || 0) + 1})); }
@@ -1274,6 +1276,7 @@ class Component extends DCLogic {
   firstIdx() { const f = this.frameIdx(); return f[Math.floor((f.length - 1) / 2)]; }
   // Two decoders on a Mac with 16 GB or more (VideoPolicy budgets), one otherwise and in a browser.
   workerN() { const h = this.health; if (h && !h.web) return h.memGB >= 15 ? 3 : 2; return this.notSafari() ? 2 : 3; }
+  bump() { if (this.bumpT) return; this.bumpT = setTimeout(() => { this.bumpT = 0; this.setState(s => ({tick:(s.tick || 0) + 1})); }, 120); }
   // The clip nearest the one you are on (by order on the card), taken out of the set.
   pickNear(left) { let best = null, bd = Infinity; const cur = this.byId && this.byId[this.state.cur], at = cur ? cur._i : 0; for (const c of left) { const dd = Math.abs((c._i || 0) - at); if (dd < bd) { bd = dd; best = c; if (!dd) break; } } if (best) left.delete(best); return best; }
   async runPass(list, tok, idxOf, pass) {
@@ -1284,7 +1287,8 @@ class Component extends DCLogic {
         if (tok !== this.qTok) return; await this.paceWait(tok); if (tok !== this.qTok) return;
         while (this.prio && this.prio.length) { const x = this.prio.shift(); if (x.thin) await this.readClip(x, tok); if (tok !== this.qTok) return; }
         const c = pass === 2 ? this.pickNear(left) : list[k++]; if (!c) return; const idx = idxOf(c);
-        if (idx.length) { const a = performance.now(); await this.readClip(c, tok, idx); if (this.clock) (this.clock['ms' + pass] || (this.clock['ms' + pass] = [])).push(Math.round(performance.now() - a));
+        if (idx.length) { const a = performance.now(); await this.readClip(c, tok, idx);
+          if (c.why === 'hidden') { c.why = null; if (c.facts && c.facts.state === 'unreliable') c.facts = {state:'pending'}; if (pass === 2) left.add(c); else list.push(c); continue; } if (this.clock) (this.clock['ms' + pass] || (this.clock['ms' + pass] = [])).push(Math.round(performance.now() - a));
           if (c.why === 'unsupported') { this.unsup = (this.unsup || 0) + 1; } else if (c.why) { c.tries = (c.tries || 0) + 1; this.failRun = (this.failRun || 0) + 1; if (this.failRun >= 3 && !this.halt) { this.halt = true; if (this.clock) this.clock.halts = (this.clock.halts || 0) + 1; this.setState(s => ({tick:(s.tick || 0) + 1})); } } else this.failRun = 0; }
         while (this.halt && tok === this.qTok) await new Promise(r => setTimeout(r, 400));
         if (tok !== this.qTok) return;
@@ -1350,12 +1354,12 @@ class Component extends DCLogic {
           let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!this.blank(im)) break; im = null; await new Promise(r => setTimeout(r, 120 + k * 160)); }
           if (!im) continue;
           const fb = await this.frameBlob(cv); this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
-          this.setState(s => ({tick:s.tick + 1}));
+          this.bump();
         }
         if (px.length) this.noteSpeed((performance.now() - t0) / px.length); c.facts = this.factsAll(c); c.why = null; c.tries = 0;
-      } catch (x) { if (x !== 'stopped') { c.why = typeof x === 'string' ? x : 'error'; if (c.facts.state === 'pending') c.facts = {state:'unreliable'}; } }
+      } catch (x) { if (x !== 'stopped') { c.why = document.hidden || this.wasHidden ? 'hidden' : typeof x === 'string' ? x : 'error'; this.wasHidden = false; if (c.facts.state === 'pending') c.facts = {state:'unreliable'}; } }
       URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {} this.vOpen--; this.reading.delete(c.id); this.readMs = performance.now() - t0;
-      this.setState(s => ({tick:s.tick + 1})); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);
+      this.bump(); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);
     });
   }
   static SL3T = [0.0000, 0.0000, 0.0000, 0.0007, 0.0239, 0.0469, 0.0754, 0.1118, 0.1498, 0.1903, 0.2337, 0.2803, 0.3303, 0.3835, 0.4395, 0.4976, 0.5569, 0.6161, 0.6742, 0.7298, 0.7822, 0.8309, 0.8759, 0.9178, 0.9578, 0.9972, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000];
@@ -1469,12 +1473,12 @@ class Component extends DCLogic {
           await new Promise(r => setTimeout(r, 20 * (1 + (this.simHeat || 0) * 0.6)));
           const fb = await this.frameBlob(cv); if (tok !== this.qTok) throw 'stopped';
           this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
-          this.setState(s => ({tick:s.tick + 1}));
+          this.bump();
         }
         if (px.length) this.noteSpeed((performance.now() - t0) / px.length); c.facts = this.factsAll(c); c.why = null; c.tries = 0;
-      } catch (x) { if (x !== 'stopped') { c.why = typeof x === 'string' ? x : 'error'; if (c.facts.state === 'pending') c.facts = {state:'unreliable'}; } }
+      } catch (x) { if (x !== 'stopped') { c.why = document.hidden || this.wasHidden ? 'hidden' : typeof x === 'string' ? x : 'error'; this.wasHidden = false; if (c.facts.state === 'pending') c.facts = {state:'unreliable'}; } }
       this.reading.delete(c.id); this.readMs = performance.now() - t0;
-      this.setState(s => ({tick:s.tick + 1})); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);
+      this.bump(); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);
     });
   }
   // Measures again from the frames already made, after a profile answer changes what the preview shows.
