@@ -22,12 +22,15 @@ const shoot = marks => {            // five clips, marked as given: e.g. 'cc...'
   return { clips, marks: Object.fromEntries(clips.filter(c => c.mark).map(c => [c.id, c.mark])) };
 };
 /** Press the button (or ⌘⏎) on a stand-in page: the files it would have written. */
-function press(sh, ex){
+function press(sh, ex, checked = 'passed'){
   const saved = [], said = [];
   const comp = {
     d: { shoot: { name: 'card', rate: 24 }, clips: sh.clips }, state: { marks: sh.marks, ex: { event: 'card', kw: 'maybe', ...ex } },
     buildX, api(){}, plural: (n, w) => n + ' ' + w + (n === 1 ? '' : 's'), setState(s){ said.push(s); },
   };
+  // the verdict of the page's own check for the file as it stands: passed, failed, or not in yet
+  const now = buildX.call(comp);
+  if (checked !== 'pending') comp.state.exChk = { text: checked === 'stale' ? now.text + ' ' : now.text, n: now.n, ok: checked !== 'failed', problems: checked === 'failed' ? ['x'] : [] };
   const a = { click(){ saved.push(this.download); }, remove(){} };
   const doc = { createElement: () => a, body: { appendChild(){} } };
   runDownload.call(comp, doc, class { constructor(p){ this.p = p; } }, { createObjectURL: () => 'blob:x', revokeObjectURL(){} }, () => {});
@@ -88,4 +91,12 @@ test('across every combination the button, the file and buildX agree', () => {
       assert.doesNotMatch(r.gate.label, /· 0 /, at);
     }
   assert.equal(press(shoot(''), OPTS.everything).saved.length, 0, 'no clips at all: nothing, even with Everything on');
+});
+
+test('no file until the check has passed for the file as it stands', () => {
+  const sh = shoot('kkmc.');
+  assert.deepEqual(press(sh, OPTS.default).saved, ['card.fcpxml']);
+  assert.deepEqual(press(sh, OPTS.default, 'pending').saved, [], 'still checking');
+  assert.deepEqual(press(sh, OPTS.default, 'failed').saved, [], 'the check failed');
+  assert.deepEqual(press(sh, OPTS.default, 'stale').saved, [], 'the verdict is for an earlier file');
 });
