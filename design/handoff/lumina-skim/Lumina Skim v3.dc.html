@@ -217,8 +217,9 @@ input[type=range]{accent-color:#B8B3AB}
           <sc-for list="{{ chs }}" as="g" hint-placeholder-count="5">
             <div data-gi="{{ g.i }}" onMouseEnter="{{ gEnter }}" onClick="{{ gClick }}" onDoubleClick="{{ gDbl }}" style="content-visibility:auto;contain-intrinsic-size:auto 280px;position:relative;display:flex;flex-direction:column;gap:7px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;opacity:{{ g.op }}">
               <sc-if value="{{ g.join }}" hint-placeholder-val="{{ false }}"><div data-lumina="scene-join" title="{{ g.joinT }}" style="position:absolute;left:-14px;top:{{ g.jy }}px;width:22px;height:2px;margin-top:-1px;border-radius:1px;background:rgba(239,236,230,0.45);pointer-events:none"></div></sc-if>
-              <div style="position:relative;aspect-ratio:16/9;border-radius:3px;overflow:hidden">
+              <div style="position:relative;aspect-ratio:16/9;border-radius:3px;overflow:hidden;background:#2A2826">
                 <div style="position:absolute;inset:0;background:{{ g.thumb }};filter:{{ g.flt }};animation:{{ g.anim }}"></div>
+                <sc-if value="{{ g.phOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-wait" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 10px;text-align:center;white-space:nowrap;overflow:hidden;pointer-events:none"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ g.phName }}</span><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ g.phSub }}</span></div></sc-if>
                 <div style="position:absolute;inset:0;border-radius:3px;box-shadow:{{ g.edge }};pointer-events:none"></div>
                 <sc-if value="{{ g.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ g.ghostC }};font-weight:700;opacity:0.7">{{ g.ghostT }}</div></sc-if>
               </div>
@@ -246,6 +247,7 @@ input[type=range]{accent-color:#B8B3AB}
                 <div data-clip="{{ p.id }}" onMouseEnter="{{ tEnter }}" onClick="{{ tClick }}" onDoubleClick="{{ tDbl }}" style="position:relative;display:flex;flex-direction:column;gap:7px;padding:7px;margin:-7px;border-radius:9px;background:{{ p.bg }};outline:{{ p.out }};outline-offset:1px">
                   <div style="position:relative;border-radius:4px;overflow:hidden">
                     <sc-if value="{{ grid42 }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px"><sc-for list="{{ p.fr }}" as="f" hint-placeholder-count="8"><div style="aspect-ratio:16/9;background:{{ f.bg }};filter:{{ f.flt }};animation:{{ f.anim }}"></div></sc-for></div></sc-if>
+                    <sc-if value="{{ p.phOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-wait" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 10px;text-align:center;white-space:nowrap;overflow:hidden;pointer-events:none"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ p.name }}</span><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ p.phSub }}</span></div></sc-if>
                     <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ p.edge }};pointer-events:none"></div>
                     <sc-if value="{{ p.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:#161514;color:{{ p.markC }};font-weight:700">{{ p.mark }}</div></sc-if>
                     <sc-if value="{{ p.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ p.ghostC }};font-weight:700;opacity:0.7">{{ p.ghostT }}</div></sc-if>
@@ -543,12 +545,30 @@ class Component extends DCLogic {
   }
   pendV() { return {key:'-', cid:'', t:'—', bg:'transparent', sh:'inset 0 0 0 1px rgba(239,236,230,0.2)', fg:'#6E6A64', cur:'default', tip:'measuring'}; }
   frameEv(c) { const f = c.facts || {}; return f.ev != null ? f.ev : 0; }
-  tone(c, i, big) {
+  // What a tile shows while it waits or changes (canvas A). No frame yet: a still, neutral tone (the tile writes the
+  // clip's name and time over it). A new picture is laid over the one this slot showed before, which stays underneath
+  // until the new one has been decoded, so a tile never passes through empty. A slot is a scene tile or a clip's frame.
+  static PH = '#2A2826';
+  waiting(c) { return !!c && !!(c._file || c._mock) && !(c.frames && c.frames.some(Boolean)); }
+  phSub(c) { return [c.t ? this.hm(c.t) : '', c.dur ? this.fmtDur(c.dur) : ''].filter(Boolean).join(' · '); }
+  pic(s, c, j) {
+    const url = c.frames[j];
+    if (s.url !== url) { const old = s.url && s.c && s.c.frames && s.c.frames[s.j] === s.url ? s : null; s.pu = old ? old.url : null; s.pc = old ? old.c : null; s.pj = old ? old.j : 0; s.url = url; s.c = c; s.j = j; if (s.pu) this.picWait(s, url); }
+    else if (s.pu && !(s.pc && s.pc.frames && s.pc.frames[s.pj] === s.pu)) s.pu = null;
+    return 'url(' + url + ') center/cover' + (s.pu ? ', url(' + s.pu + ') center/cover' : '') + ', ' + Component.PH;
+  }
+  picWait(s, url) {
+    const done = () => { if (s.url === url) { s.pu = null; s.pc = null; } };
+    if (typeof Image === 'undefined') return done();
+    const im = new Image(); im.src = url; (im.decode ? im.decode() : Promise.reject()).then(done, () => setTimeout(done, 400));
+  }
+  tone(c, i, big, slot) {
     const f = c.facts && c.facts.state === 'ready' ? c.facts : {};
     const h = c.look ? c.look.hue : 40, ev = this.frameEv(c), pv = this.pvOn(c);
+    const sl = slot || ((c._sl || (c._sl = {}))[i] || (c._sl[i] = {}));
     if (c.frames && !c.frames[i]) { let j = -1; for (let k = 1; k < 8 && j < 0; k++) { if (c.frames[i - k]) j = i - k; else if (c.frames[i + k]) j = i + k; } if (j >= 0) i = j; }
-    if (c.frames && c.frames[i]) return {bg:'url(' + c.frames[i] + ') center/cover', flt:pv ? this.pvFlt(c) : 'none', anim:'fade 220ms ease-out'};
-    if (c._file || c._mock) return c.facts && c.facts.state === 'unreliable' ? {bg:'#262523', flt:'none', anim:'none'} : {bg:'#2E2C29', flt:'none', anim:'breathe 1.8s ease-in-out ' + (i * 0.11).toFixed(2) + 's infinite'};
+    if (c.frames && c.frames[i]) return {bg:this.pic(sl, c, i), flt:pv ? this.pvFlt(c) : 'none', anim:'none'};
+    if (c._file || c._mock) { sl.url = null; sl.pu = null; return {bg:Component.PH, flt:'none', anim:'none'}; }
     let L = 0.5 + ev * 0.085 + Math.sin((i + 1) * 1.7 + c._i) * 0.035 + (f.clip || 0) / 40;
     if (f.bump === i) L += 0.28;
     L = Math.max(0.1, Math.min(0.96, L));
@@ -613,12 +633,58 @@ class Component extends DCLogic {
   flash(t) { clearTimeout(this.flT); this.setState({flash:t}); this.flT = setTimeout(() => this.setState({flash:null}), 2200); }
   // navigation
   // Clips grid geometry, worked out rather than measured, so only the rows near the screen are built.
-  tileGeo() {
-    const st = this.state, sc = this.sc, z = st.z1 || 1, gy = Math.round(20 * Math.min(1, z + 0.2)), gx = Math.round(18 * Math.min(1, z + 0.2));
-    const pad = Math.min(40, Math.max(16, st.vw * 0.022)), W = Math.max(200, (sc && sc.clientWidth ? sc.clientWidth : st.vw) - 2 * pad), tmin = Math.min(W, Math.round(272 * z));
+  tileGeo() { const st = this.state, sc = this.sc; return Component.layGeo({vw:st.vw, cw:sc && sc.clientWidth, z:st.z1}); }
+  // Layout as maths (canvas plan 1.2). Nothing below touches the DOM or this: sizes in, rectangles out, so the same
+  // numbers place the tiles today and will place them on the canvas. Lengths are CSS px from the scroller's content
+  // corner (its padding included). vw is the window's width, cw the scroller's (without its scrollbar) when known.
+  // Clips geometry: z is the tile zoom. th is a whole tile (8 frames in 2 rows, the name line, the flags), ph its pictures.
+  static layGeo(o) {
+    const z = o.z || 1, gy = Math.round(20 * Math.min(1, z + 0.2)), gx = Math.round(18 * Math.min(1, z + 0.2));
+    const pad = Math.min(40, Math.max(16, o.vw * 0.022)), W = Math.max(200, (o.cw ? o.cw : o.vw) - 2 * pad), tmin = Math.min(W, Math.round(272 * z));
     const cols = Math.max(1, Math.floor((W + gx) / (tmin + gx))), tw = (W - (cols - 1) * gx) / cols, fh = (tw - 6) / 4 * 9 / 16;
-    const th = 2 * fh + 2 + 7 + 18 + 7 + 20; return {cols, tw, th, gy, gx, pitch:th + gy};
+    const ph = 2 * fh + 2, th = ph + 7 + 18 + 7 + 20; return {cols, tw, th, gy, gx, pitch:th + gy, pad, W, ph, fw:(tw - 6) / 4, fh};
   }
+  // Scenes geometry: as many 250 px columns as fit, 22 px apart; a tile is its 16:9 cover and 74 px of lines, rows 26 px apart.
+  static laySceneGeo(o) {
+    const pad = Math.min(40, Math.max(16, o.vw * 0.022)), W = Math.max(250, (o.cw ? o.cw : o.vw) - 2 * pad), cols = Math.max(1, Math.floor((W + 22) / 272)), tw = (W - (cols - 1) * 22) / cols;
+    const ph = tw * 9 / 16, th = ph + 74; return {cols, tw, th, gx:22, gy:26, pitch:th + 26, pad, W, ph};
+  }
+  // Clips: groups is [{i, n}] (n = clips shown in scene i; empty scenes take no room). top and h are the scroller's
+  // scrollTop and height; over is how many screens are laid out above and below it (1 by default). cur {gi, k} keeps
+  // the rows around clip k of scene gi laid out wherever the window is. Each section: where its header and grid start,
+  // its rows, the rows laid out [r0, r1) and the space standing in for the rest. rects (unless rects:false) are the
+  // laid-out tiles in order: g scene, k clip within it, x y w h the tile, ph the height of its pictures.
+  static layClips(o) {
+    const geo = o.geo || Component.layGeo(o), top = o.top || 0, h = o.h || 0, over = o.over == null ? 1 : o.over, vTop = top - over * h, vBot = top + h + over * h;
+    const cur = o.cur || null, want = o.rects !== false, secs = [], rects = []; let y = 10;
+    for (const g of o.groups) {
+      if (!g.n) continue;
+      const bnd = g.i > 0, rows = Math.ceil(g.n / geo.cols), sTop = y, gTop = y + (bnd ? 44 : 0) + 6 + 26 + 12; y = gTop + rows * geo.pitch - geo.gy + 10;
+      let r0 = Math.max(0, Math.floor((vTop - gTop) / geo.pitch)), r1 = Math.min(rows, Math.ceil((vBot - gTop) / geo.pitch));
+      if (cur && cur.gi === g.i && cur.k >= 0) { const cr = Math.floor(cur.k / geo.cols); r0 = r1 > r0 ? Math.min(r0, Math.max(0, cr - 2)) : Math.max(0, cr - 2); r1 = Math.max(r1, Math.min(rows, cr + 3)); }
+      if (r1 <= r0) { r0 = rows; r1 = rows; }
+      const padT = r1 > r0 ? r0 * geo.pitch : Math.max(0, rows * geo.pitch - geo.gy), padB = r1 > r0 ? (rows - r1) * geo.pitch : 0;
+      secs.push({gi:g.i, bnd, y:sTop, headY:sTop + (bnd ? 44 : 0) + 6, top:gTop, rows, r0, r1, padT:Math.round(padT), padB:Math.round(padB)});
+      if (want) for (let k = r0 * geo.cols, e = Math.min(g.n, r1 * geo.cols); k < e; k++) rects.push({g:g.i, k, x:geo.pad + (k % geo.cols) * (geo.tw + geo.gx), y:gTop + Math.floor(k / geo.cols) * geo.pitch, w:geo.tw, h:geo.th, ph:geo.ph});
+    }
+    return {geo, secs, rects, height:y + 40};
+  }
+  // Scenes: n tiles in rows; head is the height of what stands above the grid (the scene slider). Rows in the window
+  // (with over screens around it) come back as rects: g the scene, x y w h the tile, ph the height of its cover.
+  static layScenes(o) {
+    const geo = o.geo || Component.laySceneGeo(o), n = o.n || 0, y0 = 18 + (o.head || 0), rows = Math.ceil(n / geo.cols), top = o.top || 0, h = o.h || 0, over = o.over == null ? 1 : o.over;
+    const all = !h, r0 = all ? 0 : Math.min(rows, Math.max(0, Math.floor((top - over * h - y0) / geo.pitch))), r1 = all ? rows : Math.max(r0, Math.min(rows, Math.ceil((top + h + over * h - y0) / geo.pitch))), rects = [];
+    if (o.rects !== false) for (let g = r0 * geo.cols, e = Math.min(n, r1 * geo.cols); g < e; g++) rects.push({g, x:geo.pad + (g % geo.cols) * (geo.tw + geo.gx), y:y0 + Math.floor(g / geo.cols) * geo.pitch, w:geo.tw, h:geo.th, ph:geo.ph});
+    return {geo, rows, r0, r1, rects, height:y0 + Math.max(0, rows * geo.pitch - geo.gy) + 40};
+  }
+  // One way in: lv 0 Scenes, 1 Clips; z the Clips tile zoom; win {vw, cw, top, h}; groups [{i, n}] (the grouping level
+  // decides how many there are); cur {gi, k}. Returns {geo, rects, height} and the level's own rows or sections.
+  static layout(o) {
+    const w = o.win || {}, a = {vw:w.vw, cw:w.cw, top:w.top, h:w.h, over:o.over, rects:o.rects};
+    return o.lv === 0 ? Component.layScenes({...a, n:o.groups.length, head:o.head}) : Component.layClips({...a, z:o.z, groups:o.groups, cur:o.cur});
+  }
+  // Which tile is under a point of the scroller's content (null between tiles).
+  static layHit(rects, x, y) { for (let i = 0; i < rects.length; i++) { const r = rects[i]; if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r; } return null; }
   scScroll = () => { if (this.scRaf) return; this.scRaf = requestAnimationFrame(() => { this.scRaf = 0; const sc = this.sc; if (!sc) return; const st = this.state, g = this.tileGeo(); if (Math.abs(sc.scrollTop - (st.scTop || 0)) > g.pitch * 0.5 || sc.clientHeight !== st.scH) this.setState({scTop:sc.scrollTop, scH:sc.clientHeight}); }); };
   scrollTo(sel, top) {
     const sc = this.sc; if (!sc || !sc.isConnected) return; const el = sc.querySelector(sel); if (!el) return;
@@ -914,7 +980,7 @@ class Component extends DCLogic {
   };
   gapChange = e => { this.userCut = true; const v = +e.target.value; clearTimeout(this.gapT); this.setState({nCutUi:v}); this.gapT = setTimeout(() => this.gapsSet(v), 140); };
   // As many scenes as fit the window without scrolling: every gap cut when all the clips fit.
-  sceneGrid() { const st = this.state, pad = Math.min(40, Math.max(16, st.vw * 0.022)), W = Math.max(250, st.vw - 2 * pad), cols = Math.max(1, Math.floor((W + 22) / 272)), tw = (W - (cols - 1) * 22) / cols; return {cols, tw}; }
+  sceneGrid() { return Component.laySceneGeo({vw:this.state.vw}); }
   fitCut(n) {
     const gs = this.gapsSorted || [], {cols, tw} = this.sceneGrid(), th = tw * 9 / 16 + 74 + 26, avail = this.state.vh - 52 - 44 - 30 - 48 - 120;
     const fit = cols * Math.max(1, Math.floor(avail / th));
@@ -995,14 +1061,14 @@ class Component extends DCLogic {
       vals.sliderOn = C.length > 1; vals.gapMax = gs.length; vals.nCut = st.nCutUi != null ? st.nCutUi : st.nCut; vals.gapChange = this.gapChange;
       vals.gapLine = st.nCutUi != null ? this.plural(Math.min(C.length, st.nCutUi + 1), 'scene') : this.plural(G.length, 'scene') + (st.cuts ? ' · moved by you' : '');
       vals.chs = G.map(g => {
-        const cvc = g.clips.find(c => c.frames && c.frames.some(Boolean)) || g.clips[0], t0 = this.tone(cvc, this.firstIdx()), dn = {keep:0, maybe:0, cut:0};
+        const cvc = g.clips.find(c => c.frames && c.frames.some(Boolean)) || g.clips[0], t0 = this.tone(cvc, this.firstIdx(), false, (this.gSlot || (this.gSlot = []))[g.i] || (this.gSlot[g.i] = {})), dn = {keep:0, maybe:0, cut:0};
         g.clips.forEach(c => { const m = st.marks[c.id]; if (m) dn[m]++; });
         const anySel = g.vis.some(c => selSet.has(c.id)), isCur = st.gi === g.i;
         const gm = st.held ? (st.sel.length ? (anySel ? st.held : null) : (isCur ? st.held : null)) : null;
         const n = g.clips.length, few = n <= 48;
         const sg = this.sceneGrid(), join = g.i > 0 && g.gapS != null && g.gapS <= 60 && g.i % sg.cols !== 0;
         return {join, joinT:'continuous · ' + this.fmtGap(g.gapS || 0) + ' apart', jy:Math.round(8 + sg.tw * 9 / 32), i:g.i, title:g.title, size:this.fmtB(g.bytes), count:g.vis.length === n ? this.plural(n, 'clip') : g.vis.length + ' of ' + this.plural(n, 'clip') + ' shown', why:g.why,
-          thumb:t0.bg, flt:t0.flt, anim:t0.anim, edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
+          thumb:t0.bg, flt:t0.flt, anim:t0.anim, phOn:this.waiting(cvc), phName:cvc.name.replace(/\.\w+$/, ''), phSub:this.phSub(cvc), edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
           bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.6)' : 'none', op:g.vis.length ? 1 : 0.4,
           dotsOn:few, dots:few ? g.clips.map(c => ({c:st.marks[c.id] ? MK[st.marks[c.id]] : 'rgba(239,236,230,0.2)'})) : [],
           barOn:!few, segs:few ? [] : ['keep', 'maybe', 'cut'].map(m => ({w:(dn[m] / n * 100).toFixed(1) + '%', c:MK[m]}))};
@@ -1010,17 +1076,14 @@ class Component extends DCLogic {
     }
     // takes level
     if (vals.lv1) {
-      const geo = this.tileGeo(), vTop = (st.scTop || 0) - (st.scH || st.vh), vBot = (st.scTop || 0) + 2 * (st.scH || st.vh); let y = 10;
+      const geo = this.tileGeo(), curG = st.cur != null ? G.find(g => g.vis.some(c => c.id === st.cur)) : null, SL = {};
+      Component.layClips({geo, top:st.scTop || 0, h:st.scH || st.vh, groups:G.map(g => ({i:g.i, n:g.vis.length})), cur:curG ? {gi:curG.i, k:curG.vis.findIndex(c => c.id === st.cur)} : null, rects:false}).secs.forEach(s => { SL[s.gi] = s; });
       const curIdx = id => id;
       vals.tileCols = geo.cols; vals.tileGap = geo.gy + 'px ' + geo.gx + 'px';
       vals.secs = G.filter(g => g.vis.length).map(g => {
         const dn = g.clips.filter(c => st.marks[c.id]).length, bndOk = g.i > 0;
         // this section's rows on screen (or around the clip you're on), the rest as spacers of the same height
-        const rows = Math.ceil(g.vis.length / geo.cols), gTop = y + (bndOk ? 44 : 0) + 6 + 26 + 12; y = gTop + rows * geo.pitch - geo.gy + 10;
-        let r0 = Math.max(0, Math.floor((vTop - gTop) / geo.pitch)), r1 = Math.min(rows, Math.ceil((vBot - gTop) / geo.pitch));
-        const ci = g.vis.findIndex(c => c.id === st.cur); if (ci >= 0) { const cr = Math.floor(ci / geo.cols); r0 = r1 > r0 ? Math.min(r0, Math.max(0, cr - 2)) : Math.max(0, cr - 2); r1 = Math.max(r1, Math.min(rows, cr + 3)); }
-        if (r1 <= r0) { r0 = rows; r1 = rows; }
-        const vis = g.vis.slice(r0 * geo.cols, r1 * geo.cols), padT = r1 > r0 ? r0 * geo.pitch : Math.max(0, rows * geo.pitch - geo.gy), padB = r1 > r0 ? (rows - r1) * geo.pitch : 0;
+        const L = SL[g.i], vis = g.vis.slice(L.r0 * geo.cols, L.r1 * geo.cols), padT = L.padT, padB = L.padB;
         return {gi:g.i, title:g.title, count:g.vis.length === g.clips.length ? this.plural(g.clips.length, 'clip') : g.vis.length + ' of ' + this.plural(g.clips.length, 'clip'), size:this.fmtB(g.bytes), why:g.why,
           hWhy:bndOk ? '' : g.why, bnd:bndOk, bFg:'#9A958D', bLine:'rgba(239,236,230,0.12)',
           prog:dn + ' of ' + g.clips.length + ' decided',
@@ -1029,7 +1092,7 @@ class Component extends DCLogic {
             const m = st.marks[c.id] || null, isSel = selSet.has(c.id), isCur = st.cur === c.id;
             const gm = ghostFor(isSel, isCur);
             const gc = gm ? (MK[gm] || '#B8B3AB') : null, ch = this.chips(c);
-            return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:c.dur ? this.fmtDur(c.dur) : '—', size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c),
+            return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:c.dur ? this.fmtDur(c.dur) : '—', size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c), phOn:this.waiting(c), phSub:this.phSub(c),
               edge:gm ? 'inset 0 0 0 2px ' + gc + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gc || '',
               chips:ch.pending ? [this.pendV(), this.pendV()] : ch.list.slice(0, 3).map(x => this.chipV(c, x)),
               bg:isSel ? 'rgba(255,210,122,0.08)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.7)' : 'none'};
