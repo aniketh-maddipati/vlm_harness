@@ -995,7 +995,7 @@ class Component extends DCLogic {
   }
   furl() {
     const st = this.state; if (st.lv === 0) return;
-    if (st.cv) { this.wantScroll = ['@cur']; return this.setState({lv:0, sel:[], box:null}); }
+    if (st.cv) { this.pinchHold = true; this.wantScroll = ['@cur']; return this.setState({lv:0, sel:[], box:null}); }
     if (st.lv === 1) { const gi = this.gOfAll[st.cur] ?? st.gi; this.wantScroll = ['[data-gi="' + gi + '"]']; this.setState({lv:0, gi, sel:[], box:null}); }
     else { if (st.lv === 2) this.wantScroll = ['[data-clip="' + st.cur + '"]']; this.setState({lv:st.lv - 1}); }
   }
@@ -1176,14 +1176,20 @@ class Component extends DCLogic {
   zoomBy(dz, e) {
     const st = this.state; if (!st.ready || st.step !== 'skim' || !this.d || !this.d.clips.length || !isFinite(dz) || !dz) return;
     const now = Date.now();
+    const quiet = now - (this.pinchLast || 0) > 250; this.pinchLast = now;
     if (now < (this.pinchLock || 0)) { this.pinch = 0; return; }
+    // the one grid: a pinch that has just changed what the pinch means (reached single clips, opened the Viewer, came
+    // back from it) is over; the next one starts after a quarter second without pinch steps
+    if (this.pinchHold) { if (!quiet) { this.pinch = 0; return; } this.pinchHold = false; }
     const edge = (dir, go) => { this.pinch = (this.pinch || 0) + dz; if (dir > 0 ? this.pinch > 0.45 : this.pinch < -0.45) { this.pinch = 0; this.pinchLock = now + 420; go(); } };
     if (this.cvGrid()) {
       // the one grid: a pinch folds and unfolds; past single clips it opens the clip under the pointer (or the current one)
-      const max = (this.gapsSorted || []).length, hov = this.hoverCl && this.byId[this.hoverCl] ? this.hoverCl : st.cur;
-      if (st.nCut >= max && dz > 0) return edge(1, () => this.cvOpen(this.hoverId || st.cur));
+      const max = (this.gapsSorted || []).length, el = e && e.target && e.target.closest ? e.target.closest('[data-gi]') : null, under = el ? el.getAttribute('data-first') : null, hov = under && this.byId[under] ? under : st.cur;
+      if (st.nCut >= max && dz > 0) return edge(1, () => { this.pinchHold = true; this.cvOpen(hov); });
       const r = Component.foldPinch(st.nCut, max, (this.pinch || 0) + dz); this.pinch = r.acc;
-      if (r.n !== st.nCut) { if (hov !== st.cur) this.setState({cur:hov}); this.cvSet(r.n); }
+      // reaching single clips ends the pinch: opening the Viewer takes a pinch of its own. The tile under the pointer
+      // becomes the current one, so it is the one kept in view as the tiles split and join.
+      if (r.n !== st.nCut) { if (r.n >= max) { this.pinch = 0; this.pinchHold = true; } if (this.gOfAll[hov] !== this.gOfAll[st.cur]) this.setState({cur:hov}); this.cvSet(r.n); }
       return;
     }
     if (st.lv === 0) return edge(dz > 0 ? 1 : -1, () => dz > 0 ? this.unfurl(this.hoverGi ?? st.gi) : null);
