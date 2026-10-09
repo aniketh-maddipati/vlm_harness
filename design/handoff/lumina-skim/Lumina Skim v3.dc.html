@@ -169,6 +169,31 @@ input[type=range]{accent-color:#B8B3AB}
               <span data-lumina="export-sub" style="color:#B8B3AB">{{ exSub }}</span>
               <sc-if value="{{ exDoneOn }}" hint-placeholder-val="{{ false }}"><span role="status" style="color:#A9D18E">{{ exDone }}</span></sc-if>
             </div>
+            <div data-lumina="export-summary" style="display:flex;flex-direction:column;gap:16px;padding:16px;border-radius:10px;background:#2A2927">
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D">What you download</span>
+                <span data-lumina="sum-file" style="font-size:14px;color:#EFECE6;overflow-wrap:anywhere">{{ sumFile }}</span>
+                <span data-lumina="sum-check" style="color:{{ sumCheckC }}">{{ sumCheck }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D">The clips it points at</span>
+                <span data-lumina="sum-in" style="color:#EFECE6">{{ sumIn }}</span>
+                <sc-if value="{{ sumPvOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="sum-previews" style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ sumPv }}" as="p" hint-placeholder-count="6"><div title="{{ p.tip }}" style="position:relative;width:96px;height:54px;border-radius:3px;overflow:hidden;background:#1E1D1B;box-shadow:inset 0 0 0 2px {{ p.c }}"><div style="position:absolute;inset:2px;background:{{ p.bg }};filter:{{ p.flt }}"></div><span style="position:absolute;left:4px;bottom:3px;right:4px;font-size:10px;color:#EFECE6;text-shadow:0 1px 2px rgba(0,0,0,0.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</span></div></sc-for><sc-if value="{{ sumMoreOn }}" hint-placeholder-val="{{ false }}"><div style="width:96px;height:54px;border-radius:3px;display:grid;place-items:center;background:#1E1D1B;color:#9A958D">{{ sumMore }}</div></sc-if></div></sc-if>
+                <span style="color:#9A958D">{{ sumWhere }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D">What this pass did</span>
+                <sc-for list="{{ sumDid }}" as="r" hint-placeholder-count="4"><span style="display:flex;align-items:center;gap:8px;color:#EFECE6"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:{{ r.c }}"></span>{{ r.t }}</span></sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D">In Final Cut Pro</span>
+                <sc-for list="{{ sumSteps }}" as="r" hint-placeholder-count="4"><span style="display:flex;gap:8px;color:#EFECE6;line-height:1.5"><span style="flex:none;width:16px;color:#9A958D;text-align:right">{{ r.k }}</span><span>{{ r.t }}</span></span></sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D">Check after the import</span>
+                <sc-for list="{{ sumLook }}" as="r" hint-placeholder-count="3"><span style="display:flex;gap:8px;color:#B8B3AB;line-height:1.5"><span style="flex:none;width:16px;color:#9A958D;text-align:right">·</span><span>{{ r.t }}</span></span></sc-for>
+              </div>
+            </div>
             <div data-lumina="cut-list" style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:10px;background:#2A2927">
               <span style="display:flex;align-items:center;gap:10px;font-size:13px;color:{{ cutFg }}"><span style="width:8px;height:8px;border-radius:50%;background:{{ cutDot }}"></span>{{ cutLine }}</span>
               <sc-if value="{{ cutOn }}" hint-placeholder-val="{{ false }}">
@@ -182,7 +207,7 @@ input[type=range]{accent-color:#B8B3AB}
               </sc-if>
               <sc-if value="{{ cutSayOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="cut-say" role="status" style="color:{{ cutSayC }}">{{ cutSay }}</span></sc-if>
             </div>
-            <div style="display:flex;flex-direction:column;gap:3px;color:#9A958D"><span>Clip files are never changed.</span><span>{{ exPathLine }}</span><sc-if value="{{ exOkOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="export-checked">{{ exOkLine }}</span></sc-if></div>
+
           </div>
           <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
             <div data-lumina="details" role="button" tabIndex="0" aria-expanded="{{ exMore }}" onClick="{{ exMoreGo }}" style="align-self:flex-start;display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:8px;color:#9A958D;cursor:pointer" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:inline-block;width:12px;text-align:center;transform:rotate({{ exMoreRot }});transition:transform 120ms ease-out">›</span>Details</div>
@@ -562,14 +587,16 @@ class Component extends DCLogic {
     window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); else if (what === 'colour') this.colourCheck(); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
     this._rs = () => { clearTimeout(this.rsT); this.rsT = setTimeout(() => this.setState({vw:window.innerWidth, vh:window.innerHeight}), 80); }; window.addEventListener('resize', this._rs);
     // S-Log3 / S-Gamut3.Cine → Rec.709: the curve per channel, then the gamut, fitted to the full transform in display space.
-    this.dedupeNames(); this.syncStore(); this.calibrate();
+    this.dropSavedMarks(); this.dedupeNames(); this.syncStore(); this.calibrate();
+    // nothing is saved, so leaving with marks that were not downloaded asks first (the browser's own question)
+    this._bu = e => { const st = this.state; if (Component.KEEP_MARKS || !this.hasShoot() || !Object.keys(st.marks).length || st.exAt === st.marks) return; e.preventDefault(); e.returnValue = ''; return ''; }; window.addEventListener('beforeunload', this._bu);
     this._kw = e => { if ((e.metaKey || e.ctrlKey) && (e.key === 'w' || e.key === 'W')) { e.preventDefault(); this.closeShoot(); } }; window.addEventListener('keydown', this._kw);
     if (!document.getElementById('lumina-pv-filters')) document.body.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" id="lumina-pv-filters" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><filter id="lumina-slog3" color-interpolation-filters="sRGB" x="0" y="0" width="1" height="1"><feComponentTransfer><feFuncR type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncG type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncB type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/></feComponentTransfer><feColorMatrix type="matrix" values="1.9014 -0.8790 -0.0434 0.0000 0.0067 -0.1553 1.3955 -0.2447 0.0000 0.0003 0.0021 -0.3185 1.3129 0.0000 -0.0011 0 0 0 1 0"/></filter></svg>');
   }
   componentWillUnmount() {
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
-    window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); this.dropVid();
+    window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); window.removeEventListener('beforeunload', this._bu); this.dropVid();
     clearTimeout(this.propT); clearTimeout(this.flT);
   }
   componentDidUpdate(pp, ps) {
@@ -597,9 +624,8 @@ class Component extends DCLogic {
     this.d = d; this.byId = {}; d.clips.forEach((c, i) => { c._i = i; this.byId[c.id] = c; });
     let marks = {}, dis = {};
     d.clips.forEach(c => { if (c.mark) marks[c.id] = c.mark; if (c.dismissed && c.dismissed.length) dis[c.id] = c.dismissed.slice(); });
-    let saved = null; this.recNote = null;
-    if (d.__sample) { try { saved = JSON.parse(localStorage.getItem(this.storeKey(d)) || 'null'); } catch (x) {} if (saved) { marks = saved.marks || {}; dis = saved.dis || {}; if (saved.prof) this.applyProfile(d, saved.prof); } }
-    else if (d.clips.length && !d.__mock) { const r = this.reconcile(d); marks = r.marks; dis = r.dis; saved = {cuts:r.cuts}; if (r.prof) this.applyProfile(d, r.prof); this.recNote = r.note ? {t:r.note, at:Date.now()} : null; }
+    // Marks live in this tab only: nothing is read back from an earlier visit, so every open starts undecided.
+    const saved = null; this.recNote = null;
     this.gapBy = {}; (d.gaps || []).forEach(g => this.gapBy[g.after] = g.s);
     this.gapsSorted = (d.gaps || []).slice().sort((a, b) => (b.sc || 0) - (a.sc || 0) || b.s - a.s);
     const nCut = this.fitCut(d.clips.length); this.userCut = false;
@@ -1523,6 +1549,9 @@ class Component extends DCLogic {
     Object.assign(vals, this.extraVals(markN, markB, und));
     return vals;
   }
+  // A stored entry that holds marks: a shoot's entry ('lumina-skim:<shoot>'), not the read clock or the folder locations.
+  static isMarkKey(k) { return typeof k === 'string' && k.indexOf('lumina-skim:') === 0 && k !== 'lumina-skim:clock'; }
+  dropSavedMarks() { if (Component.KEEP_MARKS) return; const drop = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (Component.isMarkKey(k)) drop.push(k); } } catch (x) {} drop.forEach(k => this.persist(k, null)); }
   clipKey(c) { return (c.name || '').toUpperCase() + '@' + (c.t || '').slice(0, 19); }
   storeKey(d) { d = d || this.d; if (d.shoot && d.shoot.key) return d.shoot.key; return 'lumina-skim:' + (d.__sample ? 'sample-' + (this.sampleKey || 'host') : d.shoot.fp ? (d.shoot.base || d.shoot.name) + '-' + d.clips.length + '-' + d.shoot.fp : d.shoot.name + '-' + d.clips.length); }
   // Which clips a shoot is: the first and last clip's names and times, so two shoots with the same folder name stay apart.
@@ -1561,8 +1590,11 @@ class Component extends DCLogic {
     if (!v) { let old = null; try { old = localStorage.getItem(legacy); } catch (x) {} if (old) { try { v = JSON.parse(old); } catch (x) {} if (v) { this.persist(key, old); this.persist(legacy, null); } } }
     d.shoot.name = v && v.name ? v.name : this.freeName(base, key);
   }
+  // Marks are not saved anywhere (Component.KEEP_MARKS): a reload, a new visit or Close starts clean. The code that wrote
+  // them stays for the day they come back as a choice.
+  static KEEP_MARKS = false;
   save() {
-    const s = this.state; if (!this.d || !this.d.clips.length || this.d.__mock) return;
+    const s = this.state; if (!Component.KEEP_MARKS || !this.d || !this.d.clips.length || this.d.__mock) return;
     const none = !Object.keys(s.marks).length && !Object.keys(s.dis).length && !s.cuts;
     const sh = this.d.shoot;
     if (this.d.__sample) { this.persist(this.storeKey(), none ? null : JSON.stringify({marks:s.marks, dis:s.dis, cuts:s.cuts, at:Date.now()})); return; }
@@ -1585,6 +1617,7 @@ class Component extends DCLogic {
     const v = this.hostStore(); if (!v) return; let all = null;
     try { all = await v.storeAll(); } catch (x) { return; }
     if (!all || typeof all !== 'object') return;
+    if (!Component.KEEP_MARKS) { Object.keys(all).filter(k => Component.isMarkKey(k)).forEach(k => this.persist(k, null)); return; }
     try { const drop = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('lumina-skim:') === 0 && !(k in all)) drop.push(k); } drop.forEach(k => localStorage.removeItem(k)); Object.keys(all).forEach(k => localStorage.setItem(k, all[k])); } catch (x) {}
     this.dedupeNames(); this.setState(s => ({tick:(s.tick || 0) + 1}));
   }
@@ -2271,6 +2304,39 @@ class Component extends DCLogic {
   // The folder is remembered for the shoot (one small entry for all shoots, outside the marks).
   rootSaved(name) { try { const m = JSON.parse(localStorage.getItem('lumina-skimroots') || '{}'); return (m && typeof m[name] === 'string' && m[name]) || ''; } catch (x) { return ''; } }
   rootSave(val) { const name = this.d && this.d.shoot.name; if (!name) return; let m = {}; try { m = JSON.parse(localStorage.getItem('lumina-skimroots') || '{}') || {}; } catch (x) {} if (val && val.trim()) m[name] = val.trim(); else delete m[name]; this.persist('lumina-skimroots', Object.keys(m).length ? JSON.stringify(m) : null); }
+  // The one summary on Export: what the download is, what it points at, what the pass did, how to bring it into Final Cut
+  // and what to check there. Plain words from plain numbers, so Tests/web/skim-summary.test.mjs reads it out of the page.
+  // o: {file, bytes, check: null|{ok, problems}, n, dur, inBytes, total, totalBytes, markN, markB, all, maybes, event,
+  //     root (where Final Cut will look, '' when unknown), real (every clip has its real location: the app), sample (the sample
+  //     shoot), slog (S-Log3 clips in the file)}
+  static exSummary(o, fmtB, fmtDur) {
+    const P = (n, w) => n + ' ' + w + (n === 1 ? '' : 's'), mN = o.markN || {}, mB = o.markB || {}, und = Math.max(0, o.total - (mN.keep || 0) - (mN.maybe || 0) - (mN.cut || 0));
+    const out = {};
+    out.file = o.n ? o.file + ' · ' + (o.bytes < 1024 ? o.bytes + ' bytes' : Math.max(1, Math.round(o.bytes / 1024)) + ' KB') + ' · a list for Final Cut, not the footage' : 'Nothing to download yet: select clips with K, or turn on Everything under Details.';
+    out.check = !o.n ? '' : !o.check ? 'Checking the file…' : o.check.ok ? 'Checked: ' + P(o.n, 'clip') + ', well formed.' : 'Not ready: ' + o.check.problems[0];
+    out.checkBad = !!(o.n && o.check && !o.check.ok);
+    out.inLine = o.n ? P(o.n, 'clip') + ' · ' + fmtDur(o.dur) + ' · ' + fmtB(o.inBytes) + ' of footage, linked where it is. Nothing is copied or changed.' : 'No clips yet.';
+    out.where = !o.n ? '' : o.sample ? 'Sample clips: the paths point at the card as the camera wrote it.' : o.real ? 'Final Cut links to the files where Lumina read them.' : o.root ? 'Final Cut will look for them in ' + o.root + '.' : 'Final Cut will look on a card mounted as it was named. Opened a folder? Paste its location under Details ▸ Folder.';
+    out.did = [
+      {k:'all', t:'Sorted ' + P(o.total, 'clip') + ' · ' + fmtB(o.totalBytes) + ' in one pass'},
+      {k:'keep', t:(mN.keep || 0) + ' selected · ' + fmtB(mB.keep || 0) + (o.all || mN.keep ? ' · Favorites in Final Cut' : '')},
+      {k:'maybe', t:(mN.maybe || 0) + ' maybe · ' + fmtB(mB.maybe || 0) + (o.all || o.maybes ? ' · keyword “maybe”' : ' · left out')},
+      {k:'cut', t:(mN.cut || 0) + ' cut · ' + fmtB(mB.cut || 0) + (mN.cut ? ' you can free' : '') + (o.all ? ' · Rejected in Final Cut' : ' · left out')}];
+    if (und) out.did.push({k:'und', t:und + ' undecided' + (o.all ? ' · unrated in Final Cut' : ' · left out')});
+    const ev = o.event ? '“' + o.event + '”' : 'named after the shoot';
+    out.steps = [
+      {k:'1', t:'Download (⌘⏎). The file lands in Downloads.'},
+      {k:'2', t:'In Final Cut Pro choose File ▸ Import ▸ XML… and pick ' + (o.file || 'the file') + '.'},
+      {k:'3', t:'Pick a library. The clips arrive in a new event ' + ev + '.'},
+      {k:'4', t:(o.all ? 'Selected clips are Favorites and cut clips Rejected; with the browser set to Hide Rejected you see only what is worth a look.' : 'Only the clips in the file arrive' + (mN.keep ? '; selected clips are Favorites' : '') + '.') + (o.all || o.maybes ? ' Maybes carry the keyword “maybe”.' : '')}];
+    if (o.slog) out.steps.push({k:'5', t:P(o.slog, 'S-Log3 clip') + ' arrive with Camera LUT Sony S-Log3/S-Gamut3.Cine, so they look like the Rec.709 preview here.'});
+    out.look = [
+      {t:'The event holds ' + P(o.n, 'clip') + '.'},
+      {t:'No clip shows Missing File. If some do: File ▸ Relink Files and point at the folder, or set Details ▸ Folder and download again.'}];
+    if (mN.keep) out.look.push({t:'Filter the browser by Favorites: ' + P(mN.keep, 'clip') + '.'});
+    if (o.slog) out.look.push({t:'An S-Log3 clip, Info inspector in its Settings view: Camera LUT reads Sony S-Log3/S-Gamut3.Cine. Want the log picture? Set it to None.'});
+    return out;
+  }
   // What the Final Cut download would hold under the options, and what its button says. n is the number of clips in the
   // .fcpxml (the same clips buildX takes); 0 means there is nothing to write, so the button is off and no file is made.
   static exGate(markN, total, ex) {
@@ -2346,7 +2412,7 @@ class Component extends DCLogic {
     a.href = u; a.download = (st.ex.event || this.d.shoot.name || 'Lumina').replace(/[\/:]/g, '-') + '.fcpxml'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
     const by = {keep:[], maybe:[], cut:[]}; Object.keys(st.marks).forEach(id => by[st.marks[id]] && by[st.marks[id]].push(id));
     this.api('handoff', {keep:by.keep, maybe:st.ex.maybes ? by.maybe : [], keyword:'maybe', cut:by.cut, trash:false, event:st.ex.event});
-    this.setState({exDone:'Saved ' + a.download + ' · ' + this.plural(x.n, 'clip')});
+    this.setState({exDone:'Saved ' + a.download + ' · ' + this.plural(x.n, 'clip'), exAt:st.marks, exFile:{name:a.download, n:x.n, bytes:blob.size}});
   };
   // The cut clips as plain text, for deleting by hand in Finder: one line with the count and total size, a blank line, then one
   // clip per line in capture order. The file name comes first, padded with spaces to a common width, then the folder it is in
@@ -2409,10 +2475,10 @@ class Component extends DCLogic {
     const si = steps.findIndex(s => s[0] === st.step), ms = this.memStats();
     const v = {isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
       stepTabs:steps.map((s, i) => ({t:s[1], on:i === si, fg:i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), go:() => this.setStep(s[0])})),
-      dbgOn:!!st.dbg, cvA:!!st.cv, cvT:'one grid · ' + (st.cv ? 'on' : 'off'), cvFg:st.cv ? '#1E1D1B' : '#B8B3AB', cvBg:st.cv ? '#B8B3AB' : 'rgba(239,236,230,0.06)', cvToggle:this.cvToggle, dropNote:window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves this Mac.',
+      dbgOn:!!st.dbg, cvA:!!st.cv, cvT:'one grid · ' + (st.cv ? 'on' : 'off'), cvFg:st.cv ? '#1E1D1B' : '#B8B3AB', cvBg:st.cv ? '#B8B3AB' : 'rgba(239,236,230,0.06)', cvToggle:this.cvToggle, dropNote:(window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves this Mac.') + ' Marks stay in this tab and are gone when it closes.',
       closeGo:this.closeShoot, closeT:st.closeConfirm ? 'Close? Click again' : 'Close', closeFg:st.closeConfirm ? '#FFD27A' : '#9A958D', closeBg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.06)',
-      closeTip:'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open. Its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' stay saved for the next time you open these clips. ⌘W',
-      forgetOn:has && (Object.keys(st.marks).length > 0 || !!st.memConfirm), forgetGo:this.forgetMarks, forgetT:'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + (st.memConfirm ? '? Click again' : ''), forgetFg:st.memConfirm ? '#FF8A7A' : '#9A958D', forgetBg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.06)',
+      closeTip:'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open. Marks are not saved: ' + (Object.keys(st.marks).length ? 'its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' go with it. Download for Final Cut first.' : 'nothing to lose.') + ' ⌘W',
+      forgetOn:Component.KEEP_MARKS && has && (Object.keys(st.marks).length > 0 || !!st.memConfirm), forgetGo:this.forgetMarks, forgetT:'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + (st.memConfirm ? '? Click again' : ''), forgetFg:st.memConfirm ? '#FF8A7A' : '#9A958D', forgetBg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.06)',
       memOn:st.memOn && !!st.dbg, memToggle:() => this.setState({memOn:!st.memOn, memConfirm:false, closeConfirm:false}), memBg:st.memOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)', memPill:this.fmtB(ms.tabB),
       memTab:(() => { const h = this.health ? this.effHealth() : null, rows = [], B = this.mp.budget, imp = st.imp, run = !!(imp && imp.done < imp.n);
         rows.push({k:'clips', v:ms.n ? ms.n + (d && d.shoot.bytes ? ' · ' + this.fmtB(d.shoot.bytes) + ' on disk' : '') : 'none'});
@@ -2442,8 +2508,8 @@ class Component extends DCLogic {
         {k:'heat', opts:[0, 1, 2, 3].map(l => ({t:['real', 'warm', 'hot', 'very hot'][l], tip:l ? 'pretend the Mac is ' + ['', 'warm', 'hot', 'very hot'][l] : 'what the Mac reports', on:(this.simHeat || 0) === l, bg:(this.simHeat || 0) === l ? '#EFECE6' : 'rgba(239,236,230,0.08)', fg:(this.simHeat || 0) === l ? '#1E1D1B' : '#EFECE6', go:() => { this.simHeat = l; this.setState(s => ({tick:(s.tick || 0) + 1})); }}))}],
       memBtns:[
         {t:'Make frames again', sub:this.realReading() ? 'After reading finishes. Now it would start the card over.' : 'Reads the card again' + (this.lastClock && this.lastClock.done ? ', about ' + this.fmtSec(this.lastClock.done) : '') + '. Marks stay.', subC:'#B8B3AB', go:this.clearFrames, op:this.realReading() || !ms.fr ? 0.45 : 1, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'},
-        {t:st.memConfirm ? 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + '? Click again to forget' : 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark'), sub:'Deletes this shoot\u2019s marks for good. Clips are not touched.', subC:st.memConfirm ? '#FF8A7A' : '#B8B3AB', go:this.forgetMarks, op:has ? 1 : 0.45, bg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.08)', fg:st.memConfirm ? '#FF8A7A' : '#EFECE6'},
-        {t:st.closeConfirm ? 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + '? Click again to close' : 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open', sub:'Frees ' + this.fmtB(ms.frB) + ' of frames and measurements. Its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' stay saved for the next time you open these clips. ⌘W', subC:st.closeConfirm ? '#FFD27A' : '#B8B3AB', go:this.closeShoot, op:has ? 1 : 0.45, bg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.08)', fg:st.closeConfirm ? '#FFD27A' : '#EFECE6'},
+        ...(Component.KEEP_MARKS ? [{t:st.memConfirm ? 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + '? Click again to forget' : 'Forget ' + this.plural(Object.keys(st.marks).length, 'mark'), sub:'Deletes this shoot\u2019s marks for good. Clips are not touched.', subC:st.memConfirm ? '#FF8A7A' : '#B8B3AB', go:this.forgetMarks, op:has ? 1 : 0.45, bg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.08)', fg:st.memConfirm ? '#FF8A7A' : '#EFECE6'}] : []),
+        {t:st.closeConfirm ? 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + '? Click again to close' : 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open', sub:'Frees ' + this.fmtB(ms.frB) + ' of frames and measurements. Marks are not saved: ' + (Object.keys(st.marks).length ? 'its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' go with it.' : 'nothing to lose.') + ' ⌘W', subC:st.closeConfirm ? '#FFD27A' : '#B8B3AB', go:this.closeShoot, op:has ? 1 : 0.45, bg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.08)', fg:st.closeConfirm ? '#FFD27A' : '#EFECE6'},
         {t:this.ccFile ? 'Save the colour check' : 'Colour check frames', sub:this.ccSay || 'One picture of the S-Log3 clips at 2, 5 and 8 s, as read and as shown, with the table used. For comparing with Final Cut.', subC:'#B8B3AB', go:this.colourCheck, op:d && d.clips.some(c => c._file && (this.prof(c) || {}).g === 'S-Log3') && !this.ccBusy ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'}],
       impOn:!!(st.imp && st.imp.done < st.imp.n), impW:st.imp ? Math.round(st.imp.done / Math.max(1, st.imp.n) * 100) + '%' : '0%',
       fileRef:this.fileRef, pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
@@ -2488,6 +2554,17 @@ class Component extends DCLogic {
       { const rt = String(ex.root || '').trim(), ok = rt[0] === '/' || /^file:\/\//.test(rt);
         v.exPathLine = !d.shoot.real ? 'Paths point at the card as the camera wrote it.' : ok ? 'Final Cut will look for the clips in ' + rt.replace(/\/+$/, '') + '.' : 'Paths assume the card is mounted at /Volumes/' + (d.shoot.base || d.shoot.name) + '. Opened a folder instead? Say where it is under Details.'; }
       v.exDone = st.exDone || ''; v.exDoneOn = !!st.exDone;
+      { const inc = d.clips.filter(c => { const m = st.marks[c.id]; return ex.all || m === 'keep' || (ex.maybes && m === 'maybe'); }), rt = String(ex.root || '').trim();
+        const S = Component.exSummary({file:(ex.event || d.shoot.name || 'Lumina').replace(/[\/:]/g, '-') + '.fcpxml', bytes:new Blob([x.text]).size, check:chk, n:x.n, dur:inc.reduce((s, c) => s + (c.dur || 0), 0), inBytes:inc.reduce((s, c) => s + (c.bytes || 0), 0),
+          total:d.clips.length, totalBytes:d.clips.reduce((s, c) => s + (c.bytes || 0), 0), markN, markB, all:ex.all, maybes:ex.maybes, event:ex.event || d.shoot.name, root:rt[0] === '/' || /^file:\/\//.test(rt) ? rt.replace(/\/+$/, '') : '', real:d.clips.length > 0 && d.clips.every(c => c.path && c.path[0] === '/'), sample:!d.shoot.real,
+          slog:inc.filter(c => c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine').length}, b => this.fmtB(b), s => this.fmtDur(s));
+        const DOT = {all:'rgba(239,236,230,0.5)', keep:MK.keep, maybe:MK.maybe, cut:MK.cut, und:'rgba(239,236,230,0.3)'}, order = {keep:0, maybe:1, cut:2};
+        v.sumFile = S.file; v.sumCheck = S.check; v.sumCheckC = S.checkBad ? '#FFD27A' : '#9A958D'; v.sumIn = S.inLine; v.sumWhere = S.where;
+        v.sumDid = S.did.map(r => ({t:r.t, c:DOT[r.k]})); v.sumSteps = S.steps; v.sumLook = S.look;
+        // previews: selected first, then maybes, then the rest, in capture order within each; twelve at most
+        const pv = inc.slice().sort((a, b) => (order[st.marks[a.id]] ?? 3) - (order[st.marks[b.id]] ?? 3) || a._i - b._i), fi = this.firstIdx();
+        v.sumPv = pv.slice(0, 12).map(c => { const t = this.tone(c, fi), m = st.marks[c.id]; return {bg:t.bg, flt:t.flt, name:c.name.replace(/\.\w+$/, ''), c:m ? MK[m] : 'rgba(239,236,230,0.18)', tip:c.name + ' · ' + (m ? this.W(m) : 'undecided') + ' · ' + this.fmtB(c.bytes)}; });
+        v.sumPvOn = v.sumPv.length > 0; v.sumMoreOn = pv.length > 12; v.sumMore = '+' + (pv.length - 12) + ' more'; }
       v.exGroups = G.map(g => { const k = g.clips.filter(c => st.marks[c.id] === 'keep').length, m = g.clips.filter(c => st.marks[c.id] === 'maybe').length; return {title:g.title, k:k + ' selected', m:ex.maybes ? m + ' maybe' : '', on:ex.all || k + (ex.maybes ? m : 0) > 0}; }).filter(g => g.on);
       v.backSkim = () => this.setStep('skim');
     }
