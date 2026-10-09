@@ -1,5 +1,5 @@
-// Marking in the Skim page: which clip a mark moves on to, and what undo and redo put back.
-// The page is the one implementation; nextUp, markStep and stepCur are read out of it the way
+// Marking in the Skim page: a mark is a toggle on the clip you are on, and undo and redo put it back.
+// The page is the one implementation; markToggle, markStep and stepCur are read out of it the way
 // skim-export.mjs reads buildX.
 //
 //   node --test Tests/web/skim-marking.test.mjs
@@ -10,76 +10,72 @@ import { PAGE, extractMethod } from './skim-export.mjs';
 
 const src = fs.readFileSync(PAGE, 'utf8');
 const C = {};
-for (const [name, args] of [['nextUp', 'flat, marks, cur'], ['markStep', 'marks, step, back'], ['stepCur', 'step, back']]){
+for (const [name, args] of [['markToggle', 'has, m'], ['markStep', 'marks, step, back'], ['stepCur', 'step']]){
   const body = extractMethod(src, name, 'static ' + name + '(' + args + ') {').replace(/^static /, 'function ');
   C[name] = new Function('Component', 'return ' + body)(C);
 }
-const flat = ['a', 'b', 'c', 'd', 'e'];
 
-// One tap as the page does it (quick): mark cur, record the step, move on.
-function tap(s, m){
-  const step = {k:'mark', ids:[s.cur], prev:{[s.cur]:s.marks[s.cur] || null}, next:m};
-  const marks = C.markStep(s.marks, step, false);
-  step.at = {from:s.cur, to:C.nextUp(flat, marks, s.cur)};
-  return {marks, cur:step.at.to, undo:[...s.undo, step], redo:[]};
+// One press as the page does it (quick): toggle the mark on cur, record the step, stay.
+function press(s, m){
+  const has = s.marks[s.cur] || null;
+  const step = {k:'mark', ids:[s.cur], prev:{[s.cur]:has}, next:C.markToggle(has, m)};
+  return {marks:C.markStep(s.marks, step, false), cur:s.cur, undo:[...s.undo, step], redo:[]};
 }
-function undo(s){ const step = s.undo.at(-1); return {marks:C.markStep(s.marks, step, true), cur:C.stepCur(step, true) || s.cur, undo:s.undo.slice(0, -1), redo:[...s.redo, step]}; }
-function redo(s){ const step = s.redo.at(-1); return {marks:C.markStep(s.marks, step, false), cur:C.stepCur(step, false) || s.cur, redo:s.redo.slice(0, -1), undo:[...s.undo, step]}; }
-const start = () => ({marks:{}, cur:'a', undo:[], redo:[]});
+function undo(s){ const step = s.undo.at(-1); return {marks:C.markStep(s.marks, step, true), cur:C.stepCur(step) || s.cur, undo:s.undo.slice(0, -1), redo:[...s.redo, step]}; }
+function redo(s){ const step = s.redo.at(-1); return {marks:C.markStep(s.marks, step, false), cur:C.stepCur(step) || s.cur, redo:s.redo.slice(0, -1), undo:[...s.undo, step]}; }
+const start = (marks = {}) => ({marks, cur:'a', undo:[], redo:[]});
 
-test('a mark moves on to the next clip when nothing is decided', () => {
-  assert.equal(C.nextUp(flat, {a:'keep'}, 'a'), 'b');
+test('toggle on: a press marks an undecided clip and stays on it', () => {
+  for (const m of ['keep', 'maybe', 'cut']){
+    const s = press(start(), m);
+    assert.deepEqual(s.marks, {a:m}); assert.equal(s.cur, 'a');
+  }
 });
 
-test('a mark skips clips that are already decided', () => {
-  assert.equal(C.nextUp(flat, {a:'keep', b:'cut', c:'maybe'}, 'a'), 'd');
+test('toggle off: the mark the clip already has turns off', () => {
+  for (const m of ['keep', 'maybe', 'cut']){
+    assert.equal(C.markToggle(m, m), null);
+    const s = press(press(start(), m), m);
+    assert.deepEqual(s.marks, {}); assert.equal(s.cur, 'a');
+  }
 });
 
-test('past the last undecided clip it goes back to the first undecided one', () => {
-  assert.equal(C.nextUp(flat, {c:'keep', d:'cut', e:'cut'}, 'e'), 'a');
-  assert.equal(C.nextUp(flat, {a:'keep', c:'keep', d:'cut', e:'cut'}, 'd'), 'b');
+test('switch: a different mark replaces the one the clip has', () => {
+  assert.equal(C.markToggle('maybe', 'cut'), 'cut');
+  assert.equal(C.markToggle(null, 'keep'), 'keep');
+  assert.equal(C.markToggle(undefined, 'keep'), 'keep');
+  const s = press(press(start(), 'maybe'), 'cut');
+  assert.deepEqual(s.marks, {a:'cut'}); assert.equal(s.cur, 'a');
 });
 
-test('with every clip decided it is simply the next clip, and the last clip stays', () => {
-  const all = {a:'keep', b:'keep', c:'cut', d:'maybe', e:'cut'};
-  assert.equal(C.nextUp(flat, all, 'b'), 'c');
-  assert.equal(C.nextUp(flat, all, 'e'), 'e');
+test('other clips are not touched', () => {
+  const s = press(press(start({b:'keep', c:'cut'}), 'cut'), 'cut');
+  assert.deepEqual(s.marks, {b:'keep', c:'cut'});
 });
 
-test('one clip, or a clip that is not listed, stays where it is', () => {
-  assert.equal(C.nextUp(['a'], {a:'cut'}, 'a'), 'a');
-  assert.equal(C.nextUp(flat, {}, 'zz'), 'zz');
-  assert.equal(C.nextUp([], {}, null), null);
+test('undo restores what was there: on, switched and off, one step at a time', () => {
+  let s = press(press(press(start(), 'keep'), 'cut'), 'cut');       // on, switch, off
+  assert.deepEqual(s.marks, {});
+  s = undo(s); assert.deepEqual(s.marks, {a:'cut'});
+  s = undo(s); assert.deepEqual(s.marks, {a:'keep'});
+  s = undo(s); assert.deepEqual(s.marks, {});
+  assert.equal(s.cur, 'a'); assert.equal(s.undo.length, 0); assert.equal(s.redo.length, 3);
 });
 
-test('a full pass is one tap a clip and ends with nothing undecided', () => {
-  let s = start(); const seen = [];
-  for (const m of ['keep', 'cut', 'maybe', 'cut', 'keep']){ seen.push(s.cur); s = tap(s, m); }
-  assert.deepEqual(seen, flat);
-  assert.deepEqual(s.marks, {a:'keep', b:'cut', c:'maybe', d:'cut', e:'keep'});
-  assert.equal(s.cur, 'e');
+test('redo does the press again', () => {
+  let s = redo(undo(press(start(), 'maybe')));
+  assert.deepEqual(s.marks, {a:'maybe'});
+  s = redo(undo(press(s, 'maybe')));                                 // the toggle off, undone and redone
+  assert.deepEqual(s.marks, {});
 });
 
-test('undo steps back to the clip just marked and clears its mark', () => {
-  let s = tap(tap(start(), 'keep'), 'cut');
-  assert.equal(s.cur, 'c');
-  s = undo(s);
-  assert.equal(s.cur, 'b'); assert.deepEqual(s.marks, {a:'keep'});
+test('undo lands on the clip the step marked, wherever you have gone since', () => {
+  let s = press(start(), 'cut');
+  s = {...s, cur:'d'};
   s = undo(s);
   assert.equal(s.cur, 'a'); assert.deepEqual(s.marks, {});
-});
-
-test('undo restores the mark a clip had before it was changed', () => {
-  let s = {marks:{b:'keep'}, cur:'b', undo:[], redo:[]};
-  s = tap(s, 'cut');
-  assert.equal(s.marks.b, 'cut'); assert.equal(s.cur, 'c');
-  s = undo(s);
-  assert.equal(s.marks.b, 'keep'); assert.equal(s.cur, 'b');
-});
-
-test('redo marks the clip again and moves on again', () => {
-  let s = redo(undo(tap(start(), 'maybe')));
-  assert.deepEqual(s.marks, {a:'maybe'}); assert.equal(s.cur, 'b');
+  s = redo({...s, cur:'e'});
+  assert.equal(s.cur, 'a'); assert.deepEqual(s.marks, {a:'cut'});
 });
 
 test('a step over several clips puts each earlier mark back and does not move', () => {
@@ -87,7 +83,7 @@ test('a step over several clips puts each earlier mark back and does not move', 
   const after = C.markStep({b:'keep', c:'maybe', e:'keep'}, step, false);
   assert.deepEqual(after, {a:'cut', b:'cut', c:'cut', e:'keep'});
   assert.deepEqual(C.markStep(after, step, true), {b:'keep', c:'maybe', e:'keep'});
-  assert.equal(C.stepCur(step, true), null); assert.equal(C.stepCur(step, false), null);
+  assert.equal(C.stepCur(step), null);
 });
 
 test('markStep leaves the marks it was given untouched', () => {
@@ -96,11 +92,12 @@ test('markStep leaves the marks it was given untouched', () => {
   assert.deepEqual(marks, {a:'keep'});
 });
 
-test('the page moves on with nextUp and undoes through markStep and stepCur', () => {
-  const quick = extractMethod(src, 'quick', 'quick(m) {'), apply = extractMethod(src, 'apply', 'apply(step, back) {');
-  assert.match(quick, /Component\.nextUp\(this\.flat, \{\.\.\.st\.marks, \[st\.cur\]:m\}, st\.cur\)/);
-  assert.match(quick, /step\.at = \{from:st\.cur, to:n\}/);
+test('the page toggles in quick, never moves on a mark, and undoes through markStep and stepCur', () => {
+  const quick = extractMethod(src, 'quick', 'quick(m) {'), apply = extractMethod(src, 'apply', 'apply(step, back) {'), doMark = extractMethod(src, 'doMark', 'doMark(ids, m) {');
+  assert.match(quick, /this\.doMark\(\[st\.cur\], Component\.markToggle\(st\.marks\[st\.cur\] \|\| null, m\)\)/);
+  assert.doesNotMatch(quick + doMark, /goClip|takeStep|this\.move\(|cur:/);   // a mark never changes the clip you are on
+  assert.doesNotMatch(quick + doMark, /\bpv\b/);                             // nor the preview switch
+  assert.doesNotMatch(src, /nextUp/);
   assert.match(apply, /Component\.markStep\(st\.marks, step, back\)/);
-  assert.match(apply, /this\.goClip\(Component\.stepCur\(step, back\)\)/);
-  assert.doesNotMatch(quick + extractMethod(src, 'goClip', 'goClip(n) {'), /\bpv\b/);   // marking and moving on never touch the preview switch
+  assert.match(apply, /this\.goClip\(Component\.stepCur\(step\)\)/);
 });
