@@ -82,12 +82,14 @@ test('filters written as functions, and no filter, stay on the video', () => {
   assert.equal(p.pvVia(undefined), 'video');
 });
 
-test('the Viewer\'s canvas takes the same filter value as the stills and the video, and is wired up', () => {
+test('the Viewer\'s canvas and video take the clip\'s filter, and are wired up', () => {
   const cv = src.match(/<canvas ref="\{\{ pvCvRef \}\}"[^>]*>/);
   assert.ok(cv, 'no preview canvas in the Viewer');
-  assert.match(cv[0], /filter:\{\{ it\.flt \}\}/);
+  assert.match(cv[0], /filter:\{\{ it\.vflt \}\}/);
   assert.match(cv[0], /transform:\{\{ it\.zt \}\}/);
-  assert.match(src, /<video ref="\{\{ vidRef \}\}"[^>]*filter:\{\{ it\.flt \}\}/);
+  assert.match(src, /<video ref="\{\{ vidRef \}\}"[^>]*filter:\{\{ it\.vflt \}\}/);
+  // the clip's own filter, whether or not a still of it has been made yet
+  assert.match(src, /vflt:this\.pvOn\(cc\) \? this\.pvFlt\(cc\) : 'none'/);
   assert.match(src, /pvCvRef:this\.pvCvRef/);
   assert.match(src, /this\.syncVid\(\); this\.paintVid\(\);/);
 });
