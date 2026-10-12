@@ -62,3 +62,8 @@ tiles, not canvas drawing, so on-demand reading keeps reading `[data-gi]` tiles.
 Before it becomes the default: try it on the real card in Safari and the app (only headless Chromium with made-up
 clips so far); decide what a saved `state.cuts` should mean; give the pinch a real trackpad pass in WebKit
 (gesture events, not ⌃-wheel); then canvas drawing (1.3) can replace the DOM tiles using `layFuse` rects.
+
+## Status (2026-10-09, one grid)
+The DOM grid became the one grid instead of a canvas (LOCAL-CHANGES 148, 149): clips first, scenes as headers, six
+sizes on a pinch that follows the fingers, skimming on every tile, Export as a sheet over it. Drawing to a canvas
+(1.3) was not needed for 150 clips at 60 fps in Chromium; not yet measured in Safari or on a 400-clip card.

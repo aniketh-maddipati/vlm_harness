@@ -3,7 +3,8 @@ import PackageDescription
 
 // lumina-render: the app's LookPipeline as a command line tool for the parity harness
 // (Tools/parity). Sources/lumina-render/Look is a symlink to Lumina/Sets/Look, so the tool
-// renders through exactly the graph the app ships. Builds with `swift build` alone; the
+// renders through exactly the graph the app ships; SetsNumber.swift links the one bridge file
+// the canvas reads page numbers with (Lumina/Sets/Core/SetsNumber.swift). Builds with `swift build` alone; the
 // Makefile at the repo root does that (`make parity` / `make render`).
 //
 // LUMINA_TOOLS: the Makefile and CI build this package in release configuration. The Look

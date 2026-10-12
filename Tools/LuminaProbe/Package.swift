@@ -6,8 +6,8 @@ import PackageDescription
 // masks, state dumps, folder picker and downloads, a seeded key fuzzer, crash/hang/resource
 // watchdogs. Kept outside Lumina.xcodeproj so it builds with `swift build` alone.
 //
-// Sources/LuminaProbe/SetsCore and SetsLook are symlinks to the app's own bridge (Lumina/Sets/Core)
-// and Edit look pipeline (Lumina/Sets/Look), compiled in: app-mode scenarios exercise the exact
+// Sources/LuminaProbe/SetsCore, SetsLook and SetsVideo are symlinks to the app's own bridge (Lumina/Sets/Core),
+// Edit look pipeline (Lumina/Sets/Look) and video policy and Skim stores (Lumina/Sets/Video, which the bridge calls), compiled in: app-mode scenarios exercise the exact
 // native code the app ships. rules-v1.json is read from LUMINA_RULES (LookRules.bundled), not bundled.
 //
 // LUMINA_TOOLS: Scripts/probe.sh builds this package in release configuration, and the scenarios
