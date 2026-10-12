@@ -96,7 +96,7 @@ test('the page: clips first by default, every input path wired', () => {
   assert.match(src, /if \(this\.cvGrid\(\) && this\.state\.step === 'skim' && !this\.pinchHold\) return this\.cvPinch\(Math\.log\(r\), e\);/, 'gesture events (WebKit) pinch the grid');
   assert.match(src, /if \(this\.pzOn\) this\.cvPinchEnd\(\);/, 'letting go springs back');
   assert.match(src, /this\.cvGrid\(\) && this\.hoverGi != null && this\.cvSkimBy\(e\.deltaX\)/, 'two fingers sideways skim the tile under the pointer');
-  for (const k of ["case '[': if (this.cvGrid()) return this.cvFold(-1);", "case ']': if (this.cvGrid()) return this.cvFold(1);", 'if (this.cvGrid()) return this.cvZoom(-1);', 'if (this.cvGrid()) return this.cvZoom(1);', 'if (this.cvGrid()) return this.cvMoveRow(1);', 'if (this.cvGrid()) return this.cvMoveRow(-1);']) assert.ok(src.includes(k), k);
+  for (const k of ["case '[': if (this.cvGrid()) return;", "case ']': if (this.cvGrid()) return;", 'if (this.cvGrid()) return this.cvZoom(-1);', 'if (this.cvGrid()) return this.cvZoom(1);', 'if (this.cvGrid()) return this.cvMoveRow(1);', 'if (this.cvGrid()) return this.cvMoveRow(-1);']) assert.ok(src.includes(k), k);
   assert.match(src, /onMouseMove="\{\{ fMove \}\}" onMouseLeave="\{\{ fLeave \}\}"/);
   assert.match(src, /data-scene="\{\{ h\.s \}\}" data-nobox="1" onClick="\{\{ hClick \}\}"/);
 });
@@ -143,14 +143,13 @@ test('marks are never stored: nothing read back, nothing written, old entries dr
   assert.match(src, /forgetOn:Component\.KEEP_MARKS && /, 'no Forget marks button');
 });
 
-test('the one grid shows less: no level tabs, the scene slider and the raw file only in debug mode, Export as a sheet over the grid', () => {
+test('the one grid shows less: no level tabs, no scene slider, the raw file only in debug mode, Export as a sheet over the grid', () => {
   const tpl = src.slice(0, src.indexOf('class Component'));
   const tabs = tpl.indexOf('data-lumina="levels"'), tabsIf = tpl.lastIndexOf('<sc-if value="{{ lvTabsOn }}"', tabs);
   assert.ok(tabsIf > 0 && !tpl.slice(tabsIf, tabs).includes('</sc-if>'), 'the level tabs sit inside lvTabsOn');
   assert.match(src, /lvTabsOn:!st\.cv/);
-  const sl = tpl.indexOf('aria-label="scenes"'), slIf = tpl.lastIndexOf('<sc-if value="{{ scOn }}"', sl);
-  assert.ok(slIf > 0 && !tpl.slice(slIf, sl).includes('</sc-if>'), 'the scene slider sits inside scOn');
-  assert.match(src, /vals\.scOn = !!st\.dbg;/);
+  const grid = tpl.slice(tpl.indexOf('<sc-if value="{{ lvF }}"'), tpl.indexOf('<sc-if value="{{ lv0 }}"'));
+  assert.ok(!grid.includes('aria-label="scenes"') && !grid.includes('data-lumina="fold-strip"'), 'no scene slider and no size strip over the grid');
   for (const k of ['By scene</span>', 'The .fcpxml</span>', '{{ exRows }}']) { const at = tpl.indexOf(k), on = tpl.lastIndexOf('<sc-if value="{{ exDbg }}"', at); assert.ok(on > 0 && !tpl.slice(on, at).includes('</sc-if>'), k); }
   assert.ok(!/data-lumina="export-problems"[\s\S]{0,40}exDbg/.test(tpl) && tpl.indexOf('export-problems') > 0, 'a failed check still shows');
   assert.match(src, /const sheet = !!st\.cv && st\.step === 'export' && this\.hasShoot\(\), sk = st\.step === 'skim' \|\| sheet;/);
