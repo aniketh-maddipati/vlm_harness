@@ -67,3 +67,9 @@ clips so far); decide what a saved `state.cuts` should mean; give the pinch a re
 The DOM grid became the one grid instead of a canvas (LOCAL-CHANGES 148, 149): clips first, scenes as headers, six
 sizes on a pinch that follows the fingers, skimming on every tile, Export as a sheet over it. Drawing to a canvas
 (1.3) was not needed for 150 clips at 60 fps in Chromium; not yet measured in Safari or on a 400-clip card.
+
+## Status (2026-10-12, time axis)
+The one grid is one canvas on capture time (LOCAL-CHANGES 150): runs of clips per interval beside a solid rod, a pinch
+and − / = move along the intervals (`Component.TI`, 5 s to a day, default a minute) and regroup, no size or scene strip,
+no scene headers. Checked in headless Chromium with the 150-clip test load (made-up clips): the rod and its marks, the
+regroup on a ⌃-wheel pinch and on − / =, no page errors. Not yet tried in Safari, the app or on a real card.

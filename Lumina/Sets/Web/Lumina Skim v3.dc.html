@@ -281,29 +281,18 @@ input[type=range]{accent-color:#B8B3AB}
     </sc-if>
 
     <sc-if value="{{ lvF }}" hint-placeholder-val="{{ false }}">
-      <div data-lumina="fold-strip" data-nobox="1" style="flex:none;height:40px;display:flex;align-items:center;gap:8px;padding:0 clamp(16px,2.2vw,40px);border-bottom:1px solid rgba(239,236,230,0.06);color:#9A958D;white-space:nowrap;overflow:hidden">
-        <span data-lumina="zoom-less" role="button" tabIndex="0" aria-label="smaller tiles" onClick="{{ zLess }}" title="Smaller tiles (−, or pinch in)" style="flex:none;cursor:pointer;opacity:{{ zLessOp }};min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">−</span>
-        <span data-lumina="zoom-levels" style="flex:none;display:flex;gap:2px"><sc-for list="{{ zLevels }}" as="z" hint-placeholder-count="6"><span role="button" tabIndex="0" aria-pressed="{{ z.on }}" onClick="{{ z.go }}" style="flex:none;cursor:pointer;height:20px;line-height:20px;padding:0 7px;border-radius:5px;background:{{ z.bg }};color:{{ z.fg }}" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ z.t }}</span></sc-for></span>
-        <span data-lumina="zoom-more" role="button" tabIndex="0" aria-label="larger tiles" onClick="{{ zMore }}" title="{{ zMoreT }}" style="flex:none;cursor:pointer;min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">=</span>
-        <sc-if value="{{ scOn }}" hint-placeholder-val="{{ false }}">
-        <span style="flex:none;width:1px;height:18px;margin:0 8px;background:rgba(239,236,230,0.12)"></span>
-        <span data-lumina="scenes-less" role="button" tabIndex="0" aria-label="fewer scenes" onClick="{{ scLess }}" title="Fewer scenes ([)" style="flex:none;cursor:pointer;min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">[</span>
-        <span style="flex:none">fewer scenes</span>
-        <input type="range" aria-label="scenes" min="0" max="{{ gapMax }}" step="1" value="{{ nCut }}" onChange="{{ gapChange }}" title="fewer scenes ← where the shoot is split → more scenes" style="flex:0 1 220px;min-width:90px"></input>
-        <span style="flex:none">more</span>
-        <span data-lumina="scenes-more" role="button" tabIndex="0" aria-label="more scenes" onClick="{{ scMore }}" title="More scenes (])" style="flex:none;cursor:pointer;min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">]</span>
-        </sc-if>
-        <span data-lumina="fold-count" style="flex:none;margin-left:10px;color:#EFECE6">{{ foldLine }}</span>
-        <span data-lumina="fold-where" style="flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ foldAt }}</span>
-      </div>
+      <sc-if value="{{ tiSayOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="time-step" role="status" aria-live="polite" style="position:absolute;left:50%;top:14px;z-index:6;transform:translateX(-50%);padding:5px 12px;border-radius:8px;background:rgba(22,21,20,0.9);box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 6px 18px rgba(0,0,0,0.4);color:#EFECE6;font-weight:600;white-space:nowrap;pointer-events:none;animation:fade 100ms ease-out">{{ tiSay }}</div></sc-if>
       <div data-screen-label="Grid" data-lumina="fused" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" onScroll="{{ scScroll }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:14px clamp(16px,2.2vw,40px) 0">
-        <div data-lumina="fused-in" ref="{{ fInRef }}" style="position:relative;height:{{ fH }}px;will-change:transform">
+        <div data-lumina="fused-in" ref="{{ fInRef }}" style="position:relative;margin-left:{{ fGut }}px;height:{{ fH }}px;will-change:transform">
+          <div data-lumina="time-rod" style="position:absolute;left:{{ fRodX }}px;top:{{ fRodT }}px;width:3px;height:{{ fRodH }}px;border-radius:2px;background:#5B5854;pointer-events:none"></div>
           <sc-for list="{{ fh }}" as="h" hint-placeholder-count="2">
-            <div data-scene="{{ h.s }}" data-nobox="1" onClick="{{ hClick }}" title="{{ h.tip }}" style="position:absolute;left:0;right:0;top:{{ h.y }}px;height:{{ fHh }}px;box-sizing:border-box;padding:0 8px 8px;margin:0 -8px;display:flex;align-items:flex-end;gap:14px;white-space:nowrap;overflow:hidden;cursor:pointer;border-radius:8px;background:{{ h.bg }}" style-hover="background:rgba(239,236,230,0.04)">
-              <span style="flex:none;font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;line-height:24px;color:#EFECE6">{{ h.title }}</span>
-              <span style="flex:none;color:#B8B3AB;line-height:18px">{{ h.line }}</span>
-              <span data-lumina="scene-marks" style="flex:none;display:flex;gap:10px;line-height:18px"><sc-for list="{{ h.cnt }}" as="k" hint-placeholder-count="4"><span style="flex:none;color:{{ k.c }}">{{ k.t }}</span></sc-for></span>
-              <span style="flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right;color:#9A958D;line-height:18px">{{ h.why }}</span>
+            <div data-scene="{{ h.s }}" data-nobox="1" onClick="{{ hClick }}" data-lumina="time-mark" title="{{ h.tip }}" style="position:absolute;left:{{ fMarkX }}px;top:{{ h.y }}px;width:{{ fMarkW }}px;display:flex;align-items:flex-start;white-space:nowrap;cursor:pointer;border-radius:6px;background:{{ h.bg }}" style-hover="background:rgba(239,236,230,0.05)">
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end;padding:1px 0 3px;overflow:hidden">
+                <sc-if value="{{ h.dateOn }}" hint-placeholder-val="{{ false }}"><span style="color:#FFD27A;font-weight:600;line-height:15px">{{ h.date }}</span></sc-if>
+                <span style="font-size:13px;line-height:18px;color:#EFECE6">{{ h.time }}</span>
+                <span data-lumina="scene-marks" style="color:#9A958D;line-height:15px">{{ h.line }}</span>
+              </div>
+              <div style="flex:none;width:24px;height:22px;display:grid;place-items:center"><span style="width:11px;height:11px;border-radius:50%;background:{{ h.dot }};box-shadow:0 0 0 3px #1E1D1B"></span></div>
             </div>
           </sc-for>
           <sc-for list="{{ ft }}" as="g" hint-placeholder-count="8">
@@ -886,6 +875,44 @@ class Component extends DCLogic {
   static skimAt(x, left, w, n) { if (!(w > 0) || !(n > 0)) return 0; return Math.max(0, Math.min(n - 1, Math.floor((x - left) / w * n))); }
   // A stretch past either end of the levels gives a third as much, so the grid still follows the fingers a little.
   static rubber(pz, zl, top) { return (zl <= 0 && pz < 0) || (zl >= top && pz > 0) ? pz * 0.3 : pz; }
+  // The time axis. The one grid groups clips by the stretch of capture time they start in: clips that start in the
+  // same interval (a minute by default) share a run of rows, and the runs sit a little apart (TI_GAP) beside a solid
+  // rod on the left (TI_GUT wide) that names each run’s time. There are no scenes and no levels: a pinch moves along
+  // TI, out for shorter intervals, in for longer ones, and the clips regroup under the fingers; − and = do the same.
+  // Each step is [seconds, tile size (a zl of zlGeo)]: the shorter the interval, the larger the tiles.
+  static TI = [[5, 4], [10, 3], [30, 3], [60, 2], [120, 2], [300, 2], [600, 1], [1800, 1], [3600, 1], [10800, 1], [86400, 1]];
+  static TI_DEF = 3;
+  static TI_GAP = 12;
+  static TI_GUT = 92;
+  static TI_PINCH = 0.3;
+  static tiWord(s) { return s < 60 ? s + ' s' : s < 3600 ? s / 60 + ' min' : s < 86400 ? s / 3600 + ' h' : 'day'; }
+  // A clip’s start in seconds, read from its capture time as written (local time, no zone), so intervals line up with
+  // the camera’s clock: a minute starts at :00, a day at midnight. NaN when the time can’t be read.
+  static tiSec(t) { const v = Date.parse(String(t || '').slice(0, 19) + 'Z'); return isFinite(v) ? v / 1000 : NaN; }
+  // tiCuts: the places i (after clip i) where the interval changes, over starts in capture order. A clip whose time
+  // can’t be read stays with the clip before it.
+  static tiCuts(ts, iv) {
+    const out = []; let last = null;
+    for (let i = 0; i < ts.length; i++) { if (!isFinite(ts[i])) continue; const b = Math.floor(ts[i] / iv); if (last != null && b !== last) out.push(i - 1); last = b; }
+    return out;
+  }
+  // What the rod says at a run: its time to the interval (seconds under a minute, the date alone for a day), with the
+  // date in front when the run starts a new day.
+  static tiLabel(t, iv, prev) {
+    const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], d = String(t || ''), day = d.slice(0, 10);
+    const date = day.length === 10 ? MO[+day.slice(5, 7) - 1] + ' ' + +day.slice(8, 10) : '';
+    if (iv >= 86400) return {date, time:''};
+    const sec = Component.tiSec(d), at = isFinite(sec) ? Math.floor(sec / iv) * iv : null, hh = at == null ? d.slice(11, 16) : new Date(at * 1000).toISOString().slice(11, iv < 60 ? 19 : 16);
+    return (!prev || String(prev).slice(0, 10) !== day) && date ? {date, time:hh} : {date:'', time:hh};
+  }
+  // A pinch along TI: out (acc > 0) for the next shorter interval, in for the next longer one, every TI_PINCH of the
+  // log of the scale. Returns the step and what is left of the pinch; at either end it stays.
+  static tiPinch(i, acc) {
+    const P = Component.TI_PINCH, top = Component.TI.length - 1;
+    if (acc >= P && i > 0) return {i:i - 1, acc:acc - P};
+    if (acc <= -P && i < top) return {i:i + 1, acc:acc + P};
+    return {i, acc};
+  }
   // The one grid on the page (state.cv; lv 0 is the grid, lv 2 the Viewer, lv 1 is not used). At zoom levels 1 to 5
   // (state.zl) every clip is its own tile under its scene’s header; at 0 each scene is one tile. The current tile is the
   // one holding the current clip.
@@ -893,7 +920,10 @@ class Component extends DCLogic {
   // Clip tiles: the grid on Skim at a clip level. Then G holds one tile per clip and SC the scenes for the headers;
   // everywhere else (the Viewer’s strips, Export) G is the scenes as before.
   cvClips() { const st = this.state; return !!st.cv && (st.step === 'skim' || st.step === 'export') && st.lv === 0 && st.zl > 0; }
-  cvGeo(zl) { const st = this.state, sc = this.sc; return Component.zlGeo({vw:st.vw, cw:sc && sc.clientWidth, zl:zl == null ? st.zl : zl}); }
+  // The grid sits right of the rod’s gutter, and runs of one interval are TI_GAP apart instead of under a header.
+  cvGeo(zl) { const st = this.state, sc = this.sc, g = Component.zlGeo({vw:st.vw, cw:(sc && sc.clientWidth ? sc.clientWidth : st.vw) - Component.TI_GUT, zl:zl != null ? zl : st.zl > 0 ? Component.TI[this.cvTi()][1] : 0}); return g.zl ? {...g, hh:Component.TI_GAP} : g; }
+  cvTi() { const t = this.state.ti; return t == null ? Component.TI_DEF : t; }
+  cvRub(pz) { const top = Component.TI.length - 1; return Component.rubber(pz, top - this.cvTi(), top); }
   cvG(gi) { const G = this.G || []; return G[gi != null ? gi : (this.gOfAll ? this.gOfAll[this.state.cur] : 0) ?? 0] || null; }
   cvSecs() { return this.cvClips() && this.SC ? this.SC.map(s => ({n:s.clips.length, head:true})) : [{n:(this.G || []).length, head:false}]; }
   cvToggle = () => { const st = this.state, cv = !st.cv; this.pinch = 0; this.wantScroll = cv ? ['@cur'] : null; this.setState({cv, lv:st.lv === 1 || (!cv && st.lv === 0) ? 0 : st.lv, gi:(this.gOfAll && this.gOfAll[st.cur]) ?? 0, sel:[], box:null, scTop:0, skim:null}); };
@@ -901,8 +931,8 @@ class Component extends DCLogic {
   // How many scenes: the slider, [ and ]. One value (nCut, the strongest breaks kept); the tiles keep their size.
   cvSet(v) { const max = (this.gapsSorted || []).length; v = Math.max(0, Math.min(max, v)); this.userCut = true; this.kbAt = Date.now(); this.wantScroll = ['@cur']; this.setState({nCut:v, nCutUi:null, skim:null}); }
   cvFold(d) { this.cvSet(this.state.nCut + d); }
-  // − / =: one size smaller or larger; = on the largest clips opens the current clip in the Viewer.
-  cvZoom(d) { const st = this.state; if (d > 0 && st.zl >= 5) return this.cvOpen(st.cur); this.cvZoomTo(st.zl + d, null); }
+  // − / =: the next longer or shorter interval.
+  cvZoom(d) { this.cvTiTo(this.cvTi() - d, null); }
   // Enter or a double-click: a single clip opens in the Viewer; a scene tile opens into its clips, at the usual size.
   cvOpen(id) {
     const st = this.state, cur = id && this.byId[id] ? id : st.cur, g = this.cvG(this.gOfAll[cur]); if (!g) return;
@@ -919,11 +949,22 @@ class Component extends DCLogic {
     this.kbAt = Date.now(); this.wantScroll = before ? null : ['@cur'];
     this.setState({zl, cur:id || st.cur, skim:null, sel:[], box:null}, () => this.cvLand(id, before, at, flip, !flip));
   }
+  // A new interval: the clips regroup. The clip under the fingers (at, from a pinch) or the current one stays where it
+  // is on the screen, every clip on the screen before and after glides from its old place to its new one, and the
+  // interval shows over the grid for a moment.
+  cvTiTo(ti, at) {
+    const st = this.state, top = Component.TI.length - 1; ti = Math.max(0, Math.min(top, ti)); if (ti === this.cvTi() || !this.d) return;
+    const sc = this.sc, id = at && at.id && this.byId[at.id] ? at.id : st.cur, el = sc && id && this.gOfAll ? sc.querySelector('[data-gi="' + this.gOfAll[id] + '"]') : null;
+    const before = el ? el.getBoundingClientRect() : null, flip = this.cvRects();
+    clearTimeout(this.tiT); this.tiT = setTimeout(() => this.setState({tiSay:false}), 1100);
+    this.kbAt = Date.now(); this.wantScroll = before ? null : ['@cur'];
+    this.setState({ti, cur:id || st.cur, skim:null, box:null, tiSay:true}, () => this.cvLand(id, before, at, flip, false));
+  }
   cvRects() { const out = new Map(), sc = this.sc; if (!sc) return out; sc.querySelectorAll('[data-gi][data-first]').forEach(el => out.set(el.getAttribute('data-first'), el.getBoundingClientRect())); return out; }
   cvLand(id, before, at, flip, fade) {
     const sc = this.sc, inner = this.fIn, geo = this.fGeo, secs = this.fSecs; if (!sc || !inner || !sc.isConnected || !geo || !secs || !this.gOfAll) return;
     const p = Component.laySecAt(geo, secs, this.gOfAll[id]); if (!p) return;
-    const r = sc.getBoundingClientRect(), base = r.top + inner.offsetTop, pinch = !!(at && at.py != null && this.pzOn), s1 = pinch ? Math.exp(Component.rubber(this.pz, this.state.zl, 5)) : 1;
+    const r = sc.getBoundingClientRect(), base = r.top + inner.offsetTop, pinch = !!(at && at.py != null && this.pzOn), s1 = pinch ? Math.exp(this.cvRub(this.pz)) : 1;
     // the anchor’s top stays at the same height on the screen; during a pinch the scale is about the fingers
     if (before) {
       let T = pinch ? p.y + base - at.py - (before.top + 8 - at.py) / s1 : p.y + base - (before.top + 8);
@@ -943,10 +984,9 @@ class Component extends DCLogic {
       else if (fade) { try { inner.animate([{opacity:0.3}, {opacity:1}], {duration:200, easing:'ease-out'}); } catch (x) {} }
     });
   }
-  // The pinch in the one grid. The grid follows the fingers (a scale about them, pz its log); once the fingers have
-  // gone most of the way to the next size, the size changes under them and what is left of the pinch carries on
-  // from there, so the tile under the fingers keeps growing or shrinking without a jump. Past the largest clips a
-  // pinch opens the clip under the fingers; past scenes the grid only stretches. Letting go springs back to rest.
+  // The pinch in the one grid moves along the time axis. The grid follows the fingers (a scale about them, pz its log);
+  // every TI_PINCH of it the interval changes under them (out: shorter, in: longer), the clips regroup, and what is
+  // left of the pinch carries on from there. Past either end the grid only stretches. Letting go springs back.
   cvPinch(dz, e) {
     const st = this.state, inner = this.fIn, sc = this.sc; if (!inner || !sc || !isFinite(dz) || !dz) return;
     if (!this.pzOn) {
@@ -957,15 +997,13 @@ class Component extends DCLogic {
       inner.style.transformOrigin = (px - r.left - inner.offsetLeft) + 'px ' + (py - r.top - inner.offsetTop + sc.scrollTop) + 'px';
     }
     const P = this.pzOn; this.pz += dz; clearTimeout(this.pzT); this.pzT = setTimeout(() => this.cvPinchEnd(), 180);
-    const zl = st.zl, geoOf = z => this.cvGeo(z);
-    if (zl < 5) { const up = Component.zlStep(zl, zl + 1, geoOf); if (this.pz >= up * 0.6) { this.pz -= up; return this.cvZoomTo(zl + 1, P); } }
-    else if (this.pz > 0.4) { const id = P.id; this.cvPinchEnd(true); this.pinchHold = true; return this.cvOpen(id); }
-    if (zl > 0) { const dn = Component.zlStep(zl, zl - 1, geoOf); if (this.pz <= dn * 0.6) { this.pz -= dn; return this.cvZoomTo(zl - 1, P); } }
-    inner.style.transform = 'scale(' + Math.exp(Component.rubber(this.pz, zl, 5)) + ')';
+    const t = Component.tiPinch(this.cvTi(), this.pz);
+    if (t.i !== this.cvTi()) { this.pz = t.acc; return this.cvTiTo(t.i, P); }
+    inner.style.transform = 'scale(' + Math.exp(this.cvRub(this.pz)) + ')';
   }
   cvPinchEnd(now) {
     clearTimeout(this.pzT); const inner = this.fIn, P = this.pzOn, pz = this.pz || 0; this.pzOn = null; this.pz = 0; if (!inner || !P) return;
-    const s = Math.exp(Component.rubber(pz, this.state.zl, 5)); inner.style.transform = '';
+    const s = Math.exp(this.cvRub(pz)); inner.style.transform = '';
     if (!now && Math.abs(s - 1) > 0.004) { try { inner.animate([{transform:'scale(' + s + ')'}, {transform:'scale(1)'}], {duration:280, easing:'cubic-bezier(0.25, 1, 0.5, 1)'}); } catch (x) {} }
   }
   // K M C on a tile: one clip toggles at once; a scene tile asks first with the count, then sets or clears them all.
@@ -1020,14 +1058,10 @@ class Component extends DCLogic {
     this.fGeo = geo; this.fSecs = secs;
     const nm = c => c.name.replace(/\.\w+$/, ''), ncut = st.nCutUi != null ? st.nCutUi : st.nCut, compact = zl > 0 && zl < 3;
     vals.gapMax = gs.length; vals.nCut = ncut; vals.gapChange = this.gapChange; vals.fTh = geo.th; vals.fPh = geo.ph; vals.fH = L.height; vals.fHh = geo.hh; vals.fInRef = this.fInRef;
-    vals.zLess = () => this.cvZoom(-1); vals.zMore = () => this.cvZoom(1); vals.zLessOp = zl > 0 ? 1 : 0.35; vals.zMoreT = zl >= 5 ? 'Open the current clip in the Viewer (=, or pinch out)' : 'Larger tiles (=, or pinch out)';
-    vals.zLevels = Component.ZL_WORD.map((t, i) => ({t, on:i === zl, fg:i === zl ? '#1E1D1B' : '#9A958D', bg:i === zl ? '#B8B3AB' : 'transparent', go:() => this.cvZoomTo(i, null)}));
-    vals.scOn = !!st.dbg;
-    vals.scLess = () => this.cvFold(-1); vals.scMore = () => this.cvFold(1);
-    const nSc = st.nCutUi != null ? Math.min(C.length, st.nCutUi + 1) : SC.length;
-    vals.foldLine = this.plural(nSc, 'scene') + ' · ' + this.plural(C.length, 'clip');
-    const scI = cg ? (zl > 0 ? (this.scOf ? this.scOf[cg.clips[0].id] : 0) : cg.i) : 0;
-    vals.foldAt = !cg || st.nCutUi != null ? '' : '· scene ' + (scI + 1) + ' of ' + SC.length + (zl > 0 ? ' · ' + nm(cg.clips[0]) : '');
+    // the rod: a gutter left of the grid, the rod 20 px from the tiles, a mark (time, count, dot on the rod) per run
+    const gut = Component.TI_GUT, iv = Component.TI[this.cvTi()][0];
+    vals.fGut = gut; vals.fMarkX = -gut; vals.fMarkW = gut - 8; vals.fRodX = -21.5; vals.fRodT = geo.hh + 11; vals.fRodH = Math.max(0, L.height - 40 - geo.hh - 11);
+    vals.tiSayOn = !!st.tiSay; vals.tiSay = 'every ' + Component.tiWord(iv) + ' · ' + this.plural(SC.length, 'group');
     const sk = st.skim, fi = this.firstIdx(), dotMax = Math.floor((geo.tw + 3) / 9);
     this.gSlot = this.gSlot || [];
     const cnt4 = S => [['keep', S.keep, this.W('keep')], ['maybe', S.maybe, this.W('maybe')], ['cut', S.cut, this.W('cut')], [null, S.und, 'undecided']].map(([m, k, w]) => ({t:k + ' ' + w, c:!k ? '#6E6A64' : m ? MK[m] : '#B8B3AB'}));
@@ -1035,7 +1069,7 @@ class Component extends DCLogic {
       const g = G[it.g]; if (!g) return null;
       const n = g.clips.length, one = n === 1, c0 = g.clips[0], isCur = !!cg && cg.i === g.i, anySel = g.clips.some(c => selSet.has(c.id)), skI = sk && sk.gi === g.i ? sk.i : null;
       const gm = st.held ? (st.sel.length ? (anySel ? st.held : null) : (isCur ? st.held : null)) : null;
-      const base = {i:g.i, n, first:c0.id, x:it.x, y:it.y, w:it.w, fold:!one, one, why:g.why || '', bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.65)' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
+      const base = {i:g.i, n, first:c0.id, x:it.x, y:it.y, w:it.w, fold:!one, one, why:one ? '' : g.why || '', bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.65)' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
         cell:'', durOn:false, dots:[], dotsOn:false, barOn:false, segs:[], cnt:[], cntT:'', note:'', noteT:'', noteC:'#9A958D', chips:[], chipNone:'', state:'', stateC:'#9A958D', badgeOn:false, badge:'', markOn:false, mark:'', markC:'', thumb:Component.PH, flt:'none', phName:nm(c0), skOn:false, sk:[], l2:true, l3:false, tH:'24px', rightC:'#9A958D'};
       if (one) {
         const m = st.marks[c0.id] || null, ch = this.chips(c0), t = this.tone(c0, skI != null ? skI : fi);
@@ -1061,15 +1095,17 @@ class Component extends DCLogic {
         cnt, cntT:cnt.map(k => k.t).join(' · '), note, noteT:note, noteC:S.noted ? '#FFD27A' : '#9A958D'};
     }).filter(Boolean);
     vals.fh = L.items.filter(it => it.kind === 'h').map(it => {
-      const s = SC[it.s]; if (!s) return null; const ids = s.clips.map(c => c.id), S = Component.foldSum(s.clips.map(c => ({id:c.id, dur:c.dur, bytes:c.bytes, notes:[], pending:false})), st.marks), cnt = cnt4(S).filter((k, i) => i === 3 || S[['keep', 'maybe', 'cut'][i]]);
-      const all = ids.length > 0 && ids.every(id => selSet.has(id));
-      return {s:it.s, y:it.y, title:s.title, line:this.plural(S.n, 'clip') + ' · ' + this.fmtDur(S.dur) + ' · ' + this.fmtB(s.bytes), cnt, why:s.why || '', bg:all ? 'rgba(255,210,122,0.07)' : 'transparent', tip:'Scene ' + (it.s + 1) + ' of ' + SC.length + ': click to select its ' + this.plural(ids.length, 'clip') + ', then K M C'};
+      const s = SC[it.s]; if (!s) return null; const ids = s.clips.map(c => c.id), S = Component.foldSum(s.clips.map(c => ({id:c.id, dur:c.dur, bytes:c.bytes, notes:[], pending:false})), st.marks);
+      const lab = Component.tiLabel(s.clips[0].t, iv, it.s > 0 && SC[it.s - 1] ? SC[it.s - 1].clips[0].t : null), allM = ['keep', 'maybe', 'cut'].find(m => S[m] === S.n) || null;
+      const all = ids.length > 0 && ids.every(id => selSet.has(id)), when = lab.time ? (lab.date ? lab.date + ' ' : '') + lab.time : lab.date;
+      return {s:it.s, y:it.y + geo.hh, date:lab.date, dateOn:!!(lab.date && lab.time), time:lab.time || lab.date, line:this.plural(S.n, 'clip'), dot:allM ? MK[allM] : all ? '#FFD27A' : '#B8B3AB', bg:all ? 'rgba(255,210,122,0.07)' : 'transparent',
+        tip:when + ' · ' + this.plural(ids.length, 'clip') + ' · ' + this.fmtDur(S.dur) + ' · ' + this.fmtB(s.bytes) + ': click to select them, then K M C'};
     }).filter(Boolean);
   }
   cvHints() {
     const st = this.state, g = this.cvG(), out = [], add = (k, t) => { if (t) out.push({k, t}); }; if (!g) return {lead:'', list:out};
     const one = g.clips.length === 1, nm = g.clips[0].name.replace(/\.\w+$/, '');
-    add('← → ↑ ↓', 'move'); add('− =', st.zl >= 5 ? 'size · = Viewer' : 'size'); add('[ ]', 'scenes'); add('⏎', one ? 'Viewer' : 'open scene');
+    add('← → ↑ ↓', 'move'); add('pinch − =', 'every ' + Component.tiWord(Component.TI[this.cvTi()][0])); add('⏎', one ? 'Viewer' : 'open');
     add('K M C', one ? 'mark on / off' : 'mark ' + this.plural(g.clips.length, 'clip')); add('esc', 'put back'); add('⌘⏎', 'export');
     return {lead:(one ? nm : g.title), list:out};
   }
@@ -1077,8 +1113,8 @@ class Component extends DCLogic {
     this.G = this.buildGroups(); this.flat = []; this.gOf = {};
     this.G.forEach(g => g.vis.forEach(c => { this.gOf[c.id] = g.i; this.flat.push(c.id); }));
     this.gOfAll = {}; this.G.forEach(g => g.clips.forEach(c => this.gOfAll[c.id] = g.i));
-    // the one grid at a clip size: the scenes for the headers, from the scene slider's value
-    if (this.cvClips()) { this.SC = this.buildGroups(new Set((this.gapsSorted || []).slice(0, this.state.nCut).map(g => g.after))); this.scOf = {}; this.SC.forEach(s => s.clips.forEach(c => this.scOf[c.id] = s.i)); }
+    // the one grid: runs of clips that start in the same interval of capture time (state.ti on Component.TI)
+    if (this.cvClips()) { const C = this.d.clips, ts = C.map(c => Component.tiSec(c.t)); this.SC = this.buildGroups(new Set(Component.tiCuts(ts, Component.TI[this.cvTi()][0]).map(i => C[i].id))); this.scOf = {}; this.SC.forEach(s => s.clips.forEach(c => this.scOf[c.id] = s.i)); }
     else { this.SC = null; this.scOf = null; }
   }
 
@@ -1307,8 +1343,8 @@ class Component extends DCLogic {
         if (e.shiftKey && st.lv >= 2) return this.takeStep(d);
         return this.move(d);
       }
-      case '[': if (this.cvGrid()) return this.cvFold(-1); return this.chapJump(-1);
-      case ']': if (this.cvGrid()) return this.cvFold(1); return this.chapJump(1);
+      case '[': if (this.cvGrid()) return; return this.chapJump(-1);
+      case ']': if (this.cvGrid()) return; return this.chapJump(1);
       case 'v': case 'V': return this.pvToggle();
       case 'z': case 'Z': return this.zoomKey();
       case '-': case '_': if (this.cvGrid()) return this.cvZoom(-1); if (k === '_') return; return this.gapsSet(st.nCut - 1);
