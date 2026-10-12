@@ -75,3 +75,11 @@ test('double-click in, double-click out: the hooks are wired', () => {
   const el = sel => ({closest:s => s.split(',').some(x => x.trim() === sel) ? {} : null});
   assert.equal(C.dblSkip(el('button')), true); assert.equal(C.dblSkip(el('div')), false); assert.equal(C.dblSkip(null), false);
 });
+
+test('letting go of Space puts the grid back at the scroll it was opened from', () => {
+  assert.match(src, /this\.pvAt = st\.cv && st\.lv === 0 && this\.sc \? \{top:this\.sc\.scrollTop, cur\} : null;/);
+  const back = src.slice(src.indexOf('  pvBack(from) {'), src.indexOf('  takeStep(d) {'));
+  assert.match(back, /this\.state\.cur === at\.cur\) this\.wantScroll = \['@top', at\.top\]/, 'only when the Viewer is still on that clip');
+  assert.equal((src.match(/this\.pvBack\(from\)/g) || []).length, 2, 'Space up after a hold and Space again after a tap');
+  assert.match(src, /if \(w\[0\] === '@top'\) \{ if \(this\.sc\) \{ this\.sc\.scrollTop = w\[1\];/);
+});

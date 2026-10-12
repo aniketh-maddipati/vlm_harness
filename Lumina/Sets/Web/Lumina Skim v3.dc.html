@@ -911,7 +911,7 @@ class Component extends DCLogic {
     if (pp.sample !== this.props.sample || pp.startLevel !== this.props.startLevel || pp.startStep !== this.props.startStep) this.load();
     const s0 = this.state, L = this._ls || {};
     if (this.d && (L.m !== s0.marks || L.d !== s0.dis || L.c !== s0.cuts)) { const first = !this._ls; this._ls = {m:s0.marks, d:s0.dis, c:s0.cuts}; if (!first) this.save(); }
-    if (this.wantScroll) { let w = this.wantScroll; this.wantScroll = null; if (w[0] === '@cur') w = ['[data-gi="' + ((this.gOfAll && this.gOfAll[s0.cur]) ?? 0) + '"]', w[1]]; this.scrollTo(w[0], w[1]); }
+    if (this.wantScroll) { let w = this.wantScroll; this.wantScroll = null; if (w[0] === '@top') { if (this.sc) { this.sc.scrollTop = w[1]; this.setState({scTop:this.sc.scrollTop}); } } else { if (w[0] === '@cur') w = ['[data-gi="' + ((this.gOfAll && this.gOfAll[s0.cur]) ?? 0) + '"]', w[1]]; this.scrollTo(w[0], w[1]); } }
     const zk = this._zk || {}; this._zk = {cur:s0.cur, lv:s0.lv, step:s0.step};
     if (zk.cur !== s0.cur && this.d) this.refill();
     if ((s0.lv === 1 || (s0.cv && s0.lv === 0)) && this.sc && (zk.lv !== s0.lv || this.sc.clientHeight !== s0.scH)) this.scScroll();
@@ -1615,16 +1615,22 @@ class Component extends DCLogic {
   // 230 ms, as a quick mark) keeps it open, and the next Space closes it, back where it was opened from.
   spaceDown(e) {
     const st = this.state; if (!this.d.clips.length) return;
-    if (st.lv >= 2) { const from = this.pvFrom ?? (st.cv ? 0 : 1); this.pvPeek = null; this.pvFrom = null; return this.setLv(from); }
+    if (st.lv >= 2) { const from = this.pvFrom ?? (st.cv ? 0 : 1); this.pvPeek = null; this.pvFrom = null; return this.pvBack(from); }
     let cur = st.cur;
     if (!st.cv && st.lv === 0) { const first = this.firstVis(st.gi); cur = this.gOf[st.cur] === st.gi ? st.cur : first; }
     if (!cur || !this.byId[cur]) return;
-    this.pvPeek = {at:e.timeStamp}; this.pvFrom = st.lv;
+    this.pvPeek = {at:e.timeStamp}; this.pvFrom = st.lv; this.pvAt = st.cv && st.lv === 0 && this.sc ? {top:this.sc.scrollTop, cur} : null;
     this.setState({lv:2, cur, fx:0, sel:[], box:null, pan:[0.5, 0.5]});
   }
   spaceUp(e) {
     const p = this.pvPeek; this.pvPeek = null; if (!p || e.timeStamp - p.at < 230 || this.state.lv < 2) return;
-    const from = this.pvFrom ?? 0; this.pvFrom = null; this.setLv(from);
+    const from = this.pvFrom ?? 0; this.pvFrom = null; this.pvBack(from);
+  }
+  // Back from the preview to the grid as it was: the same scroll, so the pointer is still over the clip it was
+  // over (a grid that scrolls, as few clips at elastic sizes do, otherwise came back with the clip moved under it).
+  pvBack(from) {
+    const at = this.pvAt; this.pvAt = null; this.setLv(from);
+    if (at && from === 0 && this.state.cv && this.state.cur === at.cur) this.wantScroll = ['@top', at.top];
   }
   takeStep(d) { const n = Component.clipAt(this.flat, this.state.cur, d); if (n) this.setState({cur:n, fx:0, hv:null}); }
   chapJump(d) {
