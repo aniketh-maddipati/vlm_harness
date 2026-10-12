@@ -105,6 +105,7 @@ row's next step is waiting for a chat to pick it up.
 | skim-faults | video/skim-faults | FAULTS.md | Handoff merged; level with mvp. Not started. Fault fixtures, tests, fixes. |
 | skim-perfgate | video/skim-perfgate | PERFGATE.md | Handoff merged; level with mvp. Not started. Benchmarks + budgets + baseline + CI. |
 | skim-freespace | video/skim-freespace | FREESPACE.md | Created in round 2 with a draft handoff. Not started. Move cut clips to the Trash, Mac app only, never a card. |
+| skim-storage | video/skim-storage | STORAGE.md | Created 2026-10-12; absorbs skim-freespace (its move to Trash is item 3). Step 1, the storage line from frames in memory and Drop frames, is LOCAL-CHANGES 210 to 213. |
 | skim-beta | video/skim-beta | BETA.md | Created in round 2 with a draft handoff. Not started. Release build, Developer ID + notarization (ask before any Apple credentials), Sparkle, signed live page, Send report. |
 
 ## Planned merge of mvp into skim-native (not done; wait for a chat working there)
