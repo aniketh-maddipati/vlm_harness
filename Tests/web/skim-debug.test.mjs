@@ -76,7 +76,7 @@ test('per-load timings are only shown in debug mode and are still recorded', () 
 });
 
 test('the trust line is on the Open step and words stay neutral', () => {
-  assert.match(src, /'Read only\. Nothing leaves this Mac\.'/);
+  assert.match(src, /'Read only\. Nothing leaves ' \+ this\.devName\(\) \+ '\.'/);   // 'this Mac' on a Mac (skim-mobile.test.mjs)
   assert.match(template, /data-lumina="drop-note"[^>]*>\{\{ dropNote \}\}/);
   for (const k of ['closeGo:', 'closeTip:', 'forgetOn:', 'pauseOn:']) {
     const line = src.split('\n').find(l => l.includes('      ' + k)); assert.ok(line, k);
