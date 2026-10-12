@@ -607,6 +607,17 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // One Skim shoot's entry, or its removal when `value` is null.
             guard let key = body["key"] as? String else { return (false, nil) }
             return (SkimStore(dir: supportDir.appendingPathComponent("skim", isDirectory: true)).set(key, body["value"] as? String), nil)
+        case "skimCoverGet":
+            // Skim's saved covers and first measures (SkimCovers, `skim/covers/` in the container), off the main thread.
+            return (await skimCover(op, body), nil)
+        case "skimCoverPut":
+            return (await skimCover(op, body), nil)
+        case "skimCoverTouch":
+            return (await skimCover(op, body), nil)
+        case "skimCoverStat":
+            return (await skimCover(op, body), nil)
+        case "skimCoverDrop":
+            return (await skimCover(op, body), nil)
         case "skimHealth":
             // Skim's pacing: heat, Low Power Mode, memory pressure, this app's footprint (SkimHealth).
             return (SkimHealth.shared.read(slowdown: (body["slowdown"] as? NSNumber)?.doubleValue ?? 1), nil)
@@ -629,6 +640,22 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (true, nil)
         default:
             return (nil, "unknown op \(op)")
+        }
+    }
+
+    /// Skim's saved covers (SkimCovers): every file read and write runs off the main thread.
+    private func skimCover(_ op: String, _ body: [String: Any]) async -> Any {
+        let covers = SkimCovers(dir: supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("covers", isDirectory: true))
+        let shoot = body["shoot"] as? [String: Any] ?? [:], k = shoot["k"] as? String ?? "", name = shoot["name"] as? String ?? "", n = (shoot["n"] as? NSNumber)?.intValue ?? 0
+        let keys = body["keys"] as? [String] ?? [], recs = body["recs"] as? [[String: String]] ?? []
+        switch op {
+        case "skimCoverGet": return await Task.detached(priority: .utility) { covers.get(keys) }.value
+        case "skimCoverPut": return await Task.detached(priority: .utility) { covers.put(k: k, name: name, n: n, recs: recs).rawValue }.value
+        case "skimCoverTouch": return await Task.detached(priority: .utility) { covers.touch(k: k, name: name, n: n) }.value
+        case "skimCoverDrop": return await Task.detached(priority: .utility) { covers.drop(keys) }.value
+        default:
+            let st = await Task.detached(priority: .utility) { covers.stat() }.value
+            return ["bytes": st.bytes, "shoots": st.shoots.map { ["k": $0.k, "name": $0.name, "at": $0.at, "bytes": $0.bytes, "n": $0.n] as [String: Any] }] as [String: Any]
         }
     }
 

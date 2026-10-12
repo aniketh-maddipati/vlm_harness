@@ -647,6 +647,23 @@ class Component extends DCLogic {
         keys.forEach(k => { ss.delete(k); const c = ix.openCursor(IDBKeyRange.only(k)); c.onsuccess = () => { const cu = c.result; if (cu) { cu.delete(); cu.continue(); } }; }); }); return true; } catch (x) { return false; }
     }
   };
+  // The same store in the Mac app, whose web view keeps nothing after a quit: the records go to the app's container
+  // (`lumina.video.cover*`, the bridge's skimCover* ops, SkimCovers.swift). Covers travel as base64 and come back as
+  // `coverB64`, turned into a Blob a batch at a time by coverLoad. The app keeps the cap with the same order.
+  static HostCovers = class {
+    constructor(v, cap) { this.v = v; this.cap = cap; this.full = false; this.off = false; this.host = true; }
+    static toB64(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(r.error); r.readAsDataURL(blob); }); }
+    static fromB64(b) { const s = atob(b), a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return new Blob([a], {type:'image/jpeg'}); }
+    async get(keys) { const m = new Map(); try { const o = (await this.v.coverGet(keys)) || {}; Object.keys(o).forEach(k => { try { m.set(k, {...JSON.parse(o[k].meta), coverB64:o[k].cover}); } catch (x) {} }); } catch (x) {} return m; }
+    touch(shoot) { return Promise.resolve().then(() => this.v.coverTouch(shoot)).catch(() => {}); }
+    async put(shoot, recs) {
+      if (this.full || !recs.length) return false;
+      try { const out = []; for (const r of recs) { const {cover, ...meta} = r; out.push({k:r.k, meta:JSON.stringify(meta), cover:await Component.HostCovers.toB64(cover)}); }
+        const res = await this.v.coverPut(shoot, out); if (res === 'full') this.full = true; return res === 'saved'; } catch (x) { return false; }
+    }
+    async stat() { try { const o = (await this.v.coverStat()) || {}; return {bytes:o.bytes || 0, shoots:o.shoots || [], ok:true}; } catch (x) { return {bytes:0, shoots:[], ok:false}; } }
+    async drop(keys) { try { return !!(await this.v.coverDrop(keys)); } catch (x) { return false; } }
+  };
   // Which shoots give way, oldest opened first, never the one open, until what is held fits the cap.
   static evictOrder(shoots, cur, bytes, cap) { const out = []; let left = bytes; for (const s of (shoots || []).filter(s => s.k !== cur).sort((a, b) => (a.at || 0) - (b.at || 0))) { if (left <= cap) break; out.push(s.k); left -= s.bytes || 0; } return out; }
   // A saved record's size: its cover plus the few hundred bytes of numbers beside it.
@@ -667,7 +684,7 @@ class Component extends DCLogic {
   state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:''},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
-  covers = new Component.CoverCache('lumina-skim-covers', 200e6);
+  covers = (() => { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.coverGet ? new Component.HostCovers(v, 200e6) : new Component.CoverCache('lumina-skim-covers', 200e6); })();
   reading = new Set();
   // Memory controls, per viewer: how many MB of frames stay in memory, frames per clip, their size, and the reading pace.
   static MEMDEF = {budget:256, per:8, size:320, pace:'auto'};
@@ -707,15 +724,17 @@ class Component extends DCLogic {
     this.setState(s => ({tick:(s.tick || 0) + 1})); return p;
   };
   // Saved covers, the page's side. coverLoad: before the first pass, every clip found saved gets its cover, length and
-  // measures back, so the pass has nothing to read for it. In batches with a breath between, so no task runs long.
+  // measures back, so the pass has nothing to read for it. 60 clips at a time with a breath between, so no task runs long.
   coverVer() { return this.covVer || (this.covVer = 'v1-' + this.frameIdx().length + '-' + Component.SL3T.length + '-' + Component.SL3T.reduce((s, x, i) => s + x * (i + 1), 0).toFixed(4)); }
   async coverLoad(d) {
     if (!d || d.__mock || d.__sample || this.covers.off) return; const C = d.clips, f = this.firstIdx(), ver = this.coverVer(), t0 = performance.now();
-    const m = await this.covers.get(C.map(c => Component.coverKey(c.name, c.t, c.bytes))); let hits = 0;
-    for (let i = 0; i < C.length; i++) {
-      const c = C[i], r = m.get(Component.coverKey(c.name, c.t, c.bytes)); if (r && r.ver === ver && r.f === f && r.cover && !c.frames[f]) {
-        c.dur = r.dur; c.w = r.w; c.h = r.h; c.short = !!r.short; c.col = r.col; c._px = {[f]:r.px}; c.facts = r.facts; c.first = !!r.first; c._saved = true; this.setFrame(c, f, r.cover); hits++; }
-      if (i % 60 === 59) { this.bump(); await new Promise(res => setTimeout(res, 0)); }
+    let hits = 0;
+    for (let a = 0; a < C.length; a += 60) {
+      const part = C.slice(a, a + 60), m = await this.covers.get(part.map(c => Component.coverKey(c.name, c.t, c.bytes)));
+      for (const c of part) { const r = m.get(Component.coverKey(c.name, c.t, c.bytes)); if (!r || r.ver !== ver || r.f !== f || !(r.cover || r.coverB64) || c.frames[f]) continue;
+        let cover = r.cover; try { if (!cover) cover = Component.HostCovers.fromB64(r.coverB64); } catch (x) { continue; }
+        c.dur = r.dur; c.w = r.w; c.h = r.h; c.short = !!r.short; c.col = r.col; c._px = {[f]:r.px}; c.facts = r.facts; c.first = !!r.first; c._saved = true; this.setFrame(c, f, cover); hits++; }
+      this.bump(); await new Promise(res => setTimeout(res, 0));
     }
     this.covHits = {n:hits, of:C.length, ms:Math.round(performance.now() - t0)}; if (this.clock) { this.clock.saved = hits; }
     this.covers.touch({k:this.storeKey(d), name:d.shoot.name, n:C.length}); this.coverStat(); this.bump();
@@ -1986,7 +2005,7 @@ class Component extends DCLogic {
         btns:[btn('storage-drop', Component.dumpSay('frames', far.bytes + far.dec, far.n, fb), 'Keeps one cover per clip and the 24 clips around this one. Marks stay.', far.n > 0, this.dropFar),
           btn('storage-remake', 'Make frames again', busy ? 'After reading finishes.' : 'Reads ' + this.plural(C.filter(c => c._file).length, 'clip') + ' again. Marks stay.', !busy && C.some(c => c._file), this.storeRemake)],
         saidOn:!!(said && said.k === 'frames'), said:said ? said.t : ''}].concat(cs && cs.ok ? [{k:'saved', t:'Saved covers and measures', fig:fb(cs.bytes) + ' · ' + this.plural(cs.shoots.length, 'shoot'), figC:'#B8B3AB',
-        sub:(this.covers.full ? 'Storage here is full, so covers are not being saved now. Everything else works. ' : '') + (this.covHits && this.covHits.n ? this.covHits.n + ' of ' + this.plural(this.covHits.of, 'clip') + ' opened from saved covers. ' : '') + 'Opening these clips again shows covers and flags at once. Up to ' + fb(this.covers.cap) + '; the shoot opened longest ago goes first.' + (host ? ' Kept until Lumina quits.' : ''),
+        sub:(this.covers.full ? 'Storage here is full, so covers are not being saved now. Everything else works. ' : '') + (this.covHits && this.covHits.n ? this.covHits.n + ' of ' + this.plural(this.covHits.of, 'clip') + ' opened from saved covers. ' : '') + 'Opening these clips again shows covers and flags at once. Up to ' + fb(this.covers.cap) + '; the shoot opened longest ago goes first.' + (host && !this.covers.host ? ' Kept until Lumina quits.' : ''),
         btns:[btn('storage-clear', Component.dumpSay('saved', othB, others.length, fb), 'Every saved shoot but this one. Marks stay; those clips read again when opened.', others.length > 0, this.coverClearOthers),
           btn('storage-remeasure', 'Re-measure this shoot', busy ? 'After reading finishes.' : 'Forgets this shoot\u2019s saved covers and reads it again. Marks stay.', !busy && C.some(c => c._file), this.coverRemeasure)],
         saidOn:!!(said && said.k === 'saved'), said:said ? said.t : ''}] : []) : [];

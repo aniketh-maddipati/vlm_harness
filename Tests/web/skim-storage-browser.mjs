@@ -3,6 +3,7 @@
 //   1. Drop frames gives back what it said and Esc closes the rows.
 //   2. Saved covers: a reopen reads nothing; Clear for shoots not open and Re-measure bring the full read back.
 //   3. A full quota (IndexedDB puts refused) says so in the row and the shoot still reads.
+//   4. The Mac app's way (a stand-in for the skimCover* bridge ops, kept in localStorage): a reopen reads nothing.
 //
 //   node Tests/web/skim-storage-browser.mjs        # needs ffmpeg and Playwright's Chromium
 import fs from 'node:fs';
@@ -18,10 +19,19 @@ const clips = (dir, n, src) => { fs.mkdirSync(dir, {recursive:true}); for (let i
 clips(path.join(T, 'shoot'), 30, 'testsrc2'); clips(path.join(T, 'other'), 6, 'testsrc');
 
 let fails = 0; const ok = (c, what) => { console.log((c ? 'ok    ' : 'FAIL  ') + what); if (!c) fails++; };
-async function run(quota) {
+async function run(quota, host) {
   const b = await pw.chromium.launch({executablePath:process.env.CHROMIUM || undefined}), ctx = await b.newContext({viewport:{width:1440, height:900}}), errs = [];
   // videos the page makes (its readers): what "reads nothing" counts
   await ctx.addInitScript(() => { window.__vids = 0; const ce = Document.prototype.createElement; Document.prototype.createElement = function (t, o) { if (String(t).toLowerCase() === 'video') window.__vids++; return ce.call(this, t, o); }; });
+  if (host) await ctx.addInitScript(() => {
+    const db = () => JSON.parse(localStorage.getItem('fake-covers') || '{}'), save = o => localStorage.setItem('fake-covers', JSON.stringify(o)), ask = v => new Promise(r => setTimeout(() => r(v), 5));
+    window.lumina = {video:{
+      coverGet: keys => { const o = db(), out = {}; for (const s of Object.values(o)) for (const k of keys) if (s.recs[k]) out[k] = s.recs[k]; return ask(out); },
+      coverPut: (sh, recs) => { const o = db(), s = o[sh.k] || {k:sh.k, name:sh.name, at:0, recs:{}}; s.at = Date.now(); recs.forEach(r => s.recs[r.k] = {meta:r.meta, cover:r.cover}); o[sh.k] = s; save(o); return ask('saved'); },
+      coverTouch: sh => { const o = db(); o[sh.k] = o[sh.k] || {k:sh.k, name:sh.name, recs:{}}; o[sh.k].at = Date.now(); save(o); return ask(true); },
+      coverStat: () => { const o = db(); let bytes = 0; const shoots = Object.values(o).map(s => { const b = Object.values(s.recs).reduce((a, r) => a + r.cover.length * 0.75 + r.meta.length, 0); bytes += b; return {k:s.k, name:s.name, at:s.at, bytes:b, n:Object.keys(s.recs).length}; }); return ask({bytes, shoots}); },
+      coverDrop: keys => { const o = db(); keys.forEach(k => delete o[k]); save(o); return ask(true); }}};
+  });
   if (quota) await ctx.addInitScript(() => { const put = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function (v, k) { if (this.name === 'clip') throw new DOMException('full', 'QuotaExceededError'); return put.call(this, v, k); }; });
   const open = async dir => {
     const p = await ctx.newPage(); p.on('pageerror', e => errs.push(String(e)));
@@ -35,7 +45,12 @@ async function run(quota) {
   const tap = async (p, sel) => { await p.click(sel); await p.waitForTimeout(700); };
 
   let {p, read} = await open(path.join(T, 'shoot'));
-  if (!quota) {
+  if (host) {
+    const first = read; await p.close(); ({p, read} = await open(path.join(T, 'shoot')));
+    ok(first >= 30 && read <= first - 30, 'through the app\'s store, a reopen reads nothing: ' + first + ' videos the first time, ' + read + ' again');
+    await tap(p, '[data-lumina="storage"]'); const r = await rows(p);
+    ok(/30 of 30 clips opened from saved covers/.test(r) && !/Kept until Lumina quits/.test(r), 'the row says where they came from, and nothing about a quit');
+  } else if (!quota) {
     ok(/^storage · in memory \d+ MB of \d+ MB/.test(await line(p)), 'the line outside debug mode: ' + await line(p));
     await tap(p, '[data-lumina="storage"]'); ok(/Frames in memory/.test(await rows(p)), 'a click opens the rows');
     await p.keyboard.press('Escape'); await p.waitForTimeout(150); ok(!(await rows(p)), 'Esc closes them');
@@ -58,6 +73,6 @@ async function run(quota) {
   ok(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.slice(0, 3).join(' | ') : ''));
   await b.close();
 }
-await run(false); await run(true);
+await run(false); await run(true); await run(false, true);
 fs.rmSync(T, {recursive:true, force:true});
 console.log(fails ? fails + ' failed' : 'all passed'); process.exit(fails ? 1 : 0);
