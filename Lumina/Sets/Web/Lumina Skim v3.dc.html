@@ -411,7 +411,7 @@ button:focus:not(:focus-visible){outline:none}
     </sc-if>
 
     <sc-if value="{{ lv1 }}" hint-placeholder-val="{{ false }}">
-      <div data-screen-label="Takes" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" onScroll="{{ scScroll }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:10px clamp(16px,2.2vw,40px) 40px;animation:unfurl 180ms ease-out">
+      <div data-screen-label="Takes" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" onDoubleClick="{{ gridDbl }}" onScroll="{{ scScroll }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:10px clamp(16px,2.2vw,40px) 40px;animation:unfurl 180ms ease-out">
         <sc-for list="{{ secs }}" as="s" hint-placeholder-count="2">
           <sc-if value="{{ s.bnd }}" hint-placeholder-val="{{ false }}">
             <div data-nobox="1" data-lumina="boundary" data-bi="{{ s.gi }}" style="height:30px;display:flex;align-items:center;gap:12px;margin:10px 0 4px;color:{{ s.bFg }}"><div style="flex:1;height:1px;background:{{ s.bLine }}"></div><span>{{ s.why }}</span><div style="flex:1;height:1px;background:{{ s.bLine }}"></div></div>
@@ -443,10 +443,10 @@ button:focus:not(:focus-visible){outline:none}
 
     <sc-if value="{{ lv2 }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Clip" style="flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,300px);gap:28px;padding:18px clamp(16px,2.2vw,40px) 28px;animation:unfurl 180ms ease-out">
-        <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+        <div onDoubleClick="{{ viewDbl }}" style="display:flex;flex-direction:column;gap:10px;min-width:0">
           <div data-lumina="clip-row" style="display:flex;align-items:flex-end;gap:12px;min-width:0">
             <sc-for list="{{ row.items }}" as="it" hint-placeholder-count="2">
-              <div data-pic="1" data-clip="{{ it.id }}" onMouseDown="{{ picDown }}" onMouseMove="{{ picMove }}" onMouseLeave="{{ picLeave }}" onClick="{{ picClick }}" onDoubleClick="{{ viewDbl }}" style="flex:none;width:{{ it.w }}px;display:flex;flex-direction:column;gap:6px;opacity:{{ it.op }};transition:opacity 120ms">
+              <div data-pic="1" data-clip="{{ it.id }}" onMouseDown="{{ picDown }}" onMouseMove="{{ picMove }}" onMouseLeave="{{ picLeave }}" onClick="{{ picClick }}" style="flex:none;width:{{ it.w }}px;display:flex;flex-direction:column;gap:6px;opacity:{{ it.op }};transition:opacity 120ms">
                 <div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;cursor:{{ it.cur }};background:#161514">
                   <div style="position:absolute;inset:0;background:{{ it.bg }};filter:{{ it.flt }};animation:{{ it.anim }};transform:{{ it.zt }};transform-origin:{{ it.zo }}"></div>
                   <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><video ref="{{ vidRef }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transition:opacity 120ms;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></video></sc-if>
@@ -794,6 +794,11 @@ class Component extends DCLogic {
       return;
     }
     if (!T.axis && T.wasCur && T.gi != null && Date.now() - T.at < 500 && !this.state.held && e.type === 'touchend') { if (e.cancelable) e.preventDefault(); this.fDbl({currentTarget:T.el}); }
+    // The Viewer: a double tap on the picture goes back out to the clips (zoomed in, it fits first), as a double-click does.
+    if (!T.axis && T.gi == null && T.el && T.el.hasAttribute('data-pic') && !this.state.held && e.type === 'touchend') {
+      const id = T.el.getAttribute('data-clip'), now = Date.now(), p = this.picTap; this.picTap = {id, at:now};
+      if (p && p.id === id && now - p.at < 350) { this.picTap = null; if (e.cancelable) e.preventDefault(); if (this.state.zc > 1.01) this.setState({zc:1}); else this.furl(); }
+    }
   }
   // The device the page runs on, in words: what is read and where.
   devName() {
@@ -1047,6 +1052,34 @@ class Component extends DCLogic {
     const tw = (W - (cols - 1) * gx) / cols, ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
     return {zl, cols, tw, th, gx, gy, pitch:th + gy, pad, W, ph, lines, hh:zl ? 46 : 0};
   }
+  // Elastic tiles: few clips get larger tiles instead of empty screen. geo is zlGeo's answer for the interval's size,
+  // secs the runs ({n, head}: a run starts a new row, hh above it), h the scroller's height. Every tile is at most
+  // FIT_MAX px wide, and one that grows past the next size's width takes that size's lines and gaps.
+  //  - All of it fits on the screen at the usual size: the fewest columns whose layout still fits in h.
+  //  - It doesn't, but no run fills a row (the columns right of the longest run are always empty): the tiles widen
+  //    into those columns, never past the longest run and never so tall that a screen holds less than two rows.
+  // Otherwise geo as it was, so a full shoot scrolls exactly as before.
+  static FIT_MAX = 720;
+  static zlFit(geo, secs, h) {
+    const S = secs || [], hh = geo.hh || 0, Z = Component.ZL, top = 14;
+    if (!geo.zl || !(h > 0) || !S.length) return geo;
+    const tall = (cols, th, gy) => S.reduce((y, s) => y + (s.head ? hh : 0) + Math.ceil(s.n / cols) * (th + gy), 0) - gy + 40 + top;
+    const fits = tall(geo.cols, geo.th, geo.gy) <= h, run = S.reduce((m, s) => Math.max(m, s.n), 1);
+    if (!fits && run >= geo.cols) return geo;
+    let best = geo;
+    for (let cols = geo.cols - 1; cols >= (fits ? 1 : run); cols--) {
+      let zl = geo.zl, gx = 22, gy = 26, tw = 0;
+      for (let k = 0; k < 2; k++) {
+        gx = zl === 1 ? 12 : zl === 2 ? 16 : 22; gy = zl === 1 ? 14 : zl === 2 ? 18 : 26; tw = (geo.W - (cols - 1) * gx) / cols;
+        let up = zl; while (up < 5 && Z[up + 1] <= tw) up++; if (up === zl) break; zl = up;
+      }
+      if (tw > Component.FIT_MAX) break;
+      const ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
+      if (fits ? tall(cols, th, gy) > h : (th + gy) * 2 > h) break;
+      best = {...geo, zl, cols, tw, th, gx, gy, pitch:th + gy, ph, lines, fit:true};
+    }
+    return best;
+  }
   // laySecs: tiles in sections (secs: [{n, head}], n tiles each, in order). A section starts a new row, under a header
   // hh px tall when head is set. Laid out: the rows that reach into [top − over·h, top + h + over·h] and the row holding
   // tile cur (all rows when h is 0). Items are headers (kind h, with s and y) and tiles (kind t, with g, s, k, x, y, w, h): g
@@ -1140,7 +1173,9 @@ class Component extends DCLogic {
   // everywhere else (the Viewer’s strips, Export) G is the scenes as before.
   cvClips() { const st = this.state; return !!st.cv && (st.step === 'skim' || st.step === 'export') && st.lv === 0 && st.zl > 0; }
   // The grid sits right of the rod’s gutter, and runs of one interval are TI_GAP apart instead of under a header.
-  cvGeo(zl) { const st = this.state, sc = this.sc, g = Component.zlGeo({vw:st.vw, cw:(sc && sc.clientWidth ? sc.clientWidth : st.vw) - Component.TI_GUT, zl:zl != null ? zl : st.zl > 0 ? Component.TI[this.cvTi()][1] : 0}); return g.zl ? {...g, hh:Component.TI_GAP} : g; }
+  // Few clips: the tiles grow to fill the screen (zlFit); an explicit zl is a size asked for and stays as it is.
+  cvGeo(zl) { const st = this.state, sc = this.sc, g = Component.zlGeo({vw:st.vw, cw:(sc && sc.clientWidth ? sc.clientWidth : st.vw) - Component.TI_GUT, zl:zl != null ? zl : st.zl > 0 ? Component.TI[this.cvTi()][1] : 0}); if (!g.zl) return g;
+    const t = {...g, hh:Component.TI_GAP}; return zl != null ? t : Component.zlFit(t, this.cvSecs(), st.scH || (sc && sc.clientHeight) || 0); }
   cvTi() { const t = this.state.ti; return t == null ? Component.TI_DEF : t; }
   cvRub(pz) { const top = Component.TI.length - 1; return Component.rubber(pz, top - this.cvTi(), top); }
   cvG(gi) { const G = this.G || []; return G[gi != null ? gi : (this.gOfAll ? this.gOfAll[this.state.cur] : 0) ?? 0] || null; }
@@ -1325,7 +1360,7 @@ class Component extends DCLogic {
   cvHints() {
     const st = this.state, g = this.cvG(), out = [], add = (k, t) => { if (t) out.push({k, t}); }; if (!g) return {lead:'', list:out};
     const one = g.clips.length === 1, nm = g.clips[0].name.replace(/\.\w+$/, '');
-    add('← → ↑ ↓', 'move'); add('pinch − =', 'every ' + Component.tiWord(Component.TI[this.cvTi()][0])); add('⏎', one ? 'Viewer' : 'open');
+    add('← → ↑ ↓', 'move'); add('pinch − =', 'every ' + Component.tiWord(Component.TI[this.cvTi()][0])); add('⏎ 2×click', one ? 'Viewer' : 'open');
     add('K M C', one ? 'mark on / off' : 'mark ' + this.plural(g.clips.length, 'clip')); add('esc', 'put back'); add('⌘⏎', 'export');
     return {lead:(one ? nm : g.title), list:out};
   }
@@ -1798,9 +1833,14 @@ class Component extends DCLogic {
     return {k:1, wc:Math.floor(Math.min(W, cap)), wo:0, gap};
   }
   viewTap = () => { const st = this.state; if (st.held && st.cur) { this.heldTapped = true; this.doMark([st.cur], st.held); } };
-  // Double-click in the Viewer goes to Export; nothing has to be selected first.
-  viewDbl = () => { const st = this.state; if (st.held || this.isTouch()) return;   // on a phone a double tap is not a wish to leave for Export
-    if (st.zc > 1.01) return this.setState({zc:1}); this.setStep('export'); };
+  // A double-click goes in, a double-click comes back out: in the Viewer (on a picture or the space around it, not on
+  // a button) it goes back to the clips, on the clip it was on; zoomed in, it fits the picture first. Export is ⌘⏎.
+  viewDbl = e => { const st = this.state; if (st.held || this.isTouch() || Component.dblSkip(e && e.target)) return;   // a phone: the double tap in tEnd
+    if (st.zc > 1.01) return this.setState({zc:1}); this.furl(); };
+  // Clicks on a control are not a double-click on the space around it.
+  static dblSkip(t) { return !!(t && t.closest && t.closest('button,input,select,textarea,a,[role="dialog"],[role="alertdialog"]')); }
+  // Takes (the levels layout, #levels): a double-click on the space between tiles goes back out to Chapters.
+  gridDbl = e => { if (this.state.held || this.state.lv !== 1 || Component.dblSkip(e.target) || (e.target.closest && e.target.closest('[data-clip],[data-nobox]'))) return; this.furl(); };
   noKeepBack = () => { this.setState({noKeep:false}); this.furl(); };
   noKeepStay = () => this.setState({noKeep:false});
   pvToggle = e => { Component.letGo(e); const st = this.state; this.setState({pv:!st.pv}); this.api('preview', !st.pv); };
@@ -1879,7 +1919,7 @@ class Component extends DCLogic {
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick,
       wClick:this.wClick, 
-      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef,
+      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef,
       grid42:true,
       boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
       undoN:st.undo.length, redoN:st.redo.length, undoC:st.undo.length ? '#EFECE6' : '#6E6A64', redoC:st.redo.length ? '#EFECE6' : '#6E6A64',
@@ -2051,8 +2091,11 @@ class Component extends DCLogic {
   // ↓ on the grid's last row goes on into the dock; ⇧↓ goes there from any row.
   dockLastRow() { const g = this.cvG(); return !!g && Component.laySecNav(this.fGeo || this.cvGeo(), this.fSecs || this.cvSecs(), g.i, 1) === g.i; }
   dockId(e) { return e.currentTarget.getAttribute('data-dock'); }
-  dockClick = e => { const id = this.dockId(e), st = this.state; if (st.held) { this.heldTapped = true; this.setState({dk:id, cur:id}); return this.doMark([id], Component.markToggle(st.marks[id] || null, st.held)); } this.dockGo(id); };
-  dockDbl = e => { if (!this.state.held) this.dockOpen(this.dockId(e)); };
+  // On a phone a tap on the dock's clip you are already on does what a double-click does (in, or back out), as on the grid.
+  dockClick = e => { const id = this.dockId(e), st = this.state; if (st.held) { this.heldTapped = true; this.setState({dk:id, cur:id}); return this.doMark([id], Component.markToggle(st.marks[id] || null, st.held)); }
+    if (this.isTouch() && st.dk === id && st.cur === id) return this.dockDbl(e); this.dockGo(id); };
+  // On a phone the second tap in dockClick does this; the browser's own double-click there is ignored.
+  dockDbl = e => { const st = this.state, id = this.dockId(e); if (st.held || (e.type === 'dblclick' && this.isTouch())) return; if (st.lv === 2 && st.cur === id) return this.furl(); this.dockOpen(id); };
   // K M C with the dock's focus mark that clip only (never a folded tile). A clip that stops being selected leaves
   // the dock, and the focus goes to its neighbour (none left: the focus goes back to the grid).
   dockMark(m) {
@@ -2089,12 +2132,12 @@ class Component extends DCLogic {
     out.dock = L.map(x => {
       const c = this.byId[x.id], t = this.tone(c, this.firstIdx(), false, slot[x.id] || (slot[x.id] = {})), isF = foc === x.id, isC = st.cur === x.id;
       return {id:x.id, ml:x.brk ? 18 : 0, pic:t.bg, flt:t.flt, phOn:this.waiting(c), name:nm(c), nameC:isF || isC ? '#EFECE6' : '#B8B3AB', sub:[c.t ? this.hm(c.t) : '', c.dur ? this.fmtDur(c.dur) : ''].filter(Boolean).join(' · '),
-        out:isF ? '2px solid #FFD27A' : isC ? '1.5px solid rgba(239,236,230,0.65)' : 'none', bg:isF ? 'rgba(255,210,122,0.07)' : 'transparent', tip:nm(c) + ' · double-click to view large'};
+        out:isF ? '2px solid #FFD27A' : isC ? '1.5px solid rgba(239,236,230,0.65)' : 'none', bg:isF ? 'rgba(255,210,122,0.07)' : 'transparent', tip:nm(c) + (st.lv === 2 && isC ? ' · double-click to go back to the clips' : ' · double-click to view large')};
     });
     for (const id in slot) if (!ids.includes(id)) delete slot[id];
     if (foc && !st.held) {
       const n = Component.dockStep(ids, foc, 1), p = Component.dockStep(ids, foc, -1), list = [], add = (k, t) => { if (t) list.push({k, t}); };
-      add('← →', ids.length > 1 && 'move'); add('↑', st.lv >= 2 ? 'back to the Viewer' : 'back to the clips'); add('⏎', st.lv >= 2 ? '' : 'view large'); add('2×click', 'view large');
+      add('← →', ids.length > 1 && 'move'); add('↑', st.lv >= 2 ? 'back to the Viewer' : 'back to the clips'); add('⏎', st.lv >= 2 ? '' : 'view large'); add('2×click', st.lv >= 2 && st.cur === foc ? 'back to the clips' : 'view large');
       add('K', 'take out'); add('M C', 'mark'); add('esc', 'leave');
       out.hints = list; out.hintLead = 'Selected · ' + nm(this.byId[foc]) + ' · ' + (ids.indexOf(foc) + 1) + ' of ' + ids.length;
       if (n === foc && p === foc) out.hints = list.filter(h => h.k !== '← →');
@@ -3068,7 +3111,7 @@ class Component extends DCLogic {
     }
     const fi = Math.round(st.fx);
     if (st.lv === 2) {
-      add('⏎', next && 'next'); add('⇧⏎', prev && 'back'); add('K M C', 'mark on / off'); add('← →', 'scrub'); add('⇧R', 'Rec.709 ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('↑', 'Clips');
+      add('⏎', next && 'next'); add('⇧⏎', prev && 'back'); add('K M C', 'mark on / off'); add('← →', 'scrub'); add('⇧R', 'Rec.709 ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('↑ 2×click', 'Clips');
       return {lead:'Viewer · ' + nm(st.cur), list:out};
     }
     add('↑', 'Viewer · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M C', 'mark ' + nm(st.cur));
