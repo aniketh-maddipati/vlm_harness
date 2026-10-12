@@ -76,6 +76,15 @@ a new empty library (eleven clips online, five with the LUT, six at 24p). Select
 the Folder field tried by hand in Safari; a switch for the LUT; other log profiles; camera timecode; audio layout. Open in colour: a matrix refit would take Safari to about
 1.61 / 3.63 (not applied); clipping is read a little low; the bright end of the curve has few samples.
 Evidence: ~/LuminaEvidence/skim-rec709/ (2026-10-08-fcp-stills, 2026-10-09-fcp-stills-5clips, -safari-check, -flags).
+2026-10-12: main merged into video/skim-mvp (2fecc42d; Sets v12, Edit v23), pushed, and opened against main as
+pull request 235. Pull request 236 merged into it (21230272): the Viewer keeps Rec.709 when the clip's video
+arrives and the switch fades (LOCAL-CHANGES 146 to 148), the probe compiles Lumina/Sets/Video, video-budget names
+Sets v12, and the WebKit flow goes to Pick before it keeps; lumina-render compiles SetsNumber (from pull request
+232's branch). Deployed 21230272 (2026-10-12 21:42 UTC), checked on the live page: build stamp, the Viewer fix,
+the Folder field, the Sony LUT, the curve. Not seen on screen in Safari with real S-Log3 clips: the Viewer fix.
+A layout sweep at twelve window sizes (headless Chrome, not Safari) found three things, none fixed: the bars are
+cut off at 1024 wide and under, Clips leaves most of a wide window empty (the one grid does not), and the Viewer's
+picture takes 20 to 29 % of the window. Evidence: ~/LuminaEvidence/skim-layout/2026-10-09-sweep.
 Open, found on the way: C0248 on the card (all black, 0.5 s) is reported as unreadable though it plays;
 pass-2 frames skipped on a seek timeout are not queued again; in a browser, pacing by heat does nothing.
 Assessed, not changed (waiting on the user): hide the developer memory controls; add a list of cut clips to
@@ -96,6 +105,7 @@ row's next step is waiting for a chat to pick it up.
 | skim-faults | video/skim-faults | FAULTS.md | Handoff merged; level with mvp. Not started. Fault fixtures, tests, fixes. |
 | skim-perfgate | video/skim-perfgate | PERFGATE.md | Handoff merged; level with mvp. Not started. Benchmarks + budgets + baseline + CI. |
 | skim-freespace | video/skim-freespace | FREESPACE.md | Created in round 2 with a draft handoff. Not started. Move cut clips to the Trash, Mac app only, never a card. |
+| skim-storage | video/skim-storage | STORAGE.md | Created 2026-10-12; absorbs skim-freespace (its move to Trash is item 3). Step 1, the storage line from frames in memory and Drop frames, is LOCAL-CHANGES 210 to 213. |
 | skim-beta | video/skim-beta | BETA.md | Created in round 2 with a draft handoff. Not started. Release build, Developer ID + notarization (ask before any Apple credentials), Sparkle, signed live page, Send report. |
 
 ## Planned merge of mvp into skim-native (not done; wait for a chat working there)

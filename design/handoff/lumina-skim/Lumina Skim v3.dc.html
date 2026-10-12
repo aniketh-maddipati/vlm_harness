@@ -180,7 +180,7 @@ button:focus:not(:focus-visible){outline:none}
             <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>{{ pickT }}</span>
             <span data-lumina="drop-note" style="color:#9A958D">{{ dropNote }}</span>
           </button>
-          <sc-if value="{{ pickAltOn }}" hint-placeholder-val="{{ true }}"><button type="button" data-lumina="pick-alt" onClick="{{ pickAlt }}" style="box-sizing:content-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;align-self:center;padding:9px 16px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pickAltT }}</button></sc-if>
+          <sc-if value="{{ pickAltOn }}" hint-placeholder-val="{{ true }}"><button type="button" data-lumina="pick-alt" onClick="{{ pickAlt }}" style="box-sizing:content-box;padding:0;background:transparent;box-sizing:content-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;align-self:center;padding:9px 16px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pickAltT }}</button></sc-if>
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <input ref="{{ clipRef }}" type="file" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#FFD27A">{{ impMsg }}</div></sc-if>
@@ -526,9 +526,9 @@ button:focus:not(:focus-visible){outline:none}
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
   <div data-lumina="keybar" style="flex:none;height:30px;display:flex;align-items:center;gap:16px;padding:0 20px;border-top:1px solid rgba(239,236,230,0.06);color:#B8B3AB;white-space:nowrap;overflow:hidden">
     <sc-if value="{{ navOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="nav" style="flex:none;display:flex;align-items:center;gap:6px">
-      <button type="button" data-lumina="nav-grid" onClick="{{ navGrid }}" style="padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:content-box;height:28px;padding:0 12px;border-radius:7px;display:flex;align-items:center;gap:6px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;white-space:nowrap">‹ Clips</button>
-      <button type="button" data-lumina="nav-prev" aria-label="previous clip" onClick="{{ navPrev }}" style="padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:content-box;height:28px;padding:0 12px;border-radius:7px;display:grid;place-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;opacity:{{ navPrevOp }};font-size:16px">‹</button>
-      <button type="button" data-lumina="nav-next" aria-label="next clip" onClick="{{ navNext }}" style="padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:content-box;height:28px;padding:0 12px;border-radius:7px;display:grid;place-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;opacity:{{ navNextOp }};font-size:16px">›</button>
+      <button type="button" data-lumina="nav-grid" onClick="{{ navGrid }}" style="box-sizing:content-box;padding:0;background:transparent;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:content-box;height:28px;padding:0 12px;border-radius:7px;display:flex;align-items:center;gap:6px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;white-space:nowrap">‹ Clips</button>
+      <button type="button" data-lumina="nav-prev" aria-label="previous clip" onClick="{{ navPrev }}" style="box-sizing:content-box;padding:0;background:transparent;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:content-box;height:28px;padding:0 12px;border-radius:7px;display:grid;place-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;opacity:{{ navPrevOp }};font-size:16px">‹</button>
+      <button type="button" data-lumina="nav-next" aria-label="next clip" onClick="{{ navNext }}" style="box-sizing:content-box;padding:0;background:transparent;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:content-box;height:28px;padding:0 12px;border-radius:7px;display:grid;place-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;opacity:{{ navNextOp }};font-size:16px">›</button>
     </div></sc-if>
     <div data-lumina="hints" style="flex:1;min-width:0;display:flex;align-items:center;gap:16px;overflow:hidden">
       <span data-lumina="where" style="flex:none;color:#EFECE6;font-weight:600">{{ hintLead }}</span>
@@ -554,7 +554,21 @@ button:focus:not(:focus-visible){outline:none}
         <button type="button" data-well="{{ w.m }}" aria-label="{{ w.l }} {{ w.n }}" onClick="{{ wClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:30px;min-width:92px;box-sizing:border-box;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;background:{{ w.bg }};box-shadow:inset 0 0 0 1px {{ w.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="background:rgba(239,236,230,0.1)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:8px;height:8px;border-radius:50%;background:{{ w.c }}"></span><span style="color:#EFECE6">{{ w.l }}</span><span style="flex:1"></span><span style="color:#B8B3AB">{{ w.n }}</span></button>
       </sc-for>
     </div>
-    <div style="min-width:0;display:flex;justify-content:flex-end;gap:14px;color:#B8B3AB;overflow:hidden"><span data-lumina="footer-cut" style="color:{{ cutC }}">{{ cutSoFar }}</span><span style="color:#9A958D">{{ freeTxt }}</span></div>
+    <div style="min-width:0;display:flex;justify-content:flex-end;align-items:center;gap:14px;color:#B8B3AB"><div style="min-width:0;display:flex;justify-content:flex-end;gap:14px;overflow:hidden"><span data-lumina="footer-cut" style="color:{{ cutC }}">{{ cutSoFar }}</span><span style="color:#9A958D">{{ freeTxt }}</span></div>
+      <div style="position:relative;flex:none">
+        <button type="button" data-lumina="storage" aria-label="Storage" aria-expanded="{{ storeOn }}" onClick="{{ storeToggle }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:6px;color:{{ storeFg }};cursor:pointer;background:{{ storeBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ storeLine }}<span style="color:#9A958D">{{ storeArrow }}</span></button>
+        <sc-if value="{{ storeOn }}" hint-placeholder-val="{{ false }}">
+          <div data-lumina="storage-rows" role="dialog" aria-label="Storage" style="position:absolute;right:0;bottom:34px;z-index:35;width:380px;max-height:calc(100vh - 120px);overflow-y:auto;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:14px;animation:fade 100ms ease-out;white-space:normal;line-height:1.45">
+            <sc-for list="{{ storeRows }}" as="sr" hint-placeholder-count="1"><div data-store="{{ sr.k }}" style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#EFECE6;font-weight:600">{{ sr.t }}</span><span data-lumina="storage-figure" style="color:{{ sr.figC }};white-space:nowrap">{{ sr.fig }}</span></div>
+              <span style="color:#9A958D">{{ sr.sub }}</span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ sr.btns }}" as="sb" hint-placeholder-count="2"><button type="button" data-lumina="{{ sb.id }}" aria-disabled="{{ sb.off }}" onClick="{{ sb.go }}" title="{{ sb.tip }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;opacity:{{ sb.op }};cursor:{{ sb.cur }};white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sb.t }}</button></sc-for></div>
+              <sc-if value="{{ sr.saidOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="storage-said" role="status" style="color:#A9D18E">{{ sr.said }}</span></sc-if>
+            </div></sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
   </div>
   </sc-if>
 
@@ -587,6 +601,7 @@ class Component extends DCLogic {
     trim() { if (this.bytes <= this.budget) return; const free = [...this.m.entries()].filter(([, e]) => !e.pin).sort((a, b) => a[1].at - b[1].at); for (const [k, e] of free) { if (this.bytes <= this.budget * 0.9) break; this.drop(k, e); } }
     drop(k, e) { this.m.delete(k); this.bytes -= e.bytes; try { e.bmp.close && e.bmp.close(); } catch (x) {} }
     forget(id, i) { for (const [k, e] of [...this.m]) if (e.id === id && (i == null || k.startsWith(id + ':' + i + ':'))) this.drop(k, e); }
+    bytesOf(id, i) { let b = 0; for (const [k, e] of this.m) if (e.id === id && k.startsWith(id + ':' + i + ':')) b += e.bytes; return b; }
     clear() { for (const [k, e] of [...this.m]) this.drop(k, e); this.pending.clear(); }
     stats() { let pinned = 0; for (const e of this.m.values()) if (e.pin) pinned++; return {images:this.m.size, pinned, bytes:this.bytes, decodes:this.decodes}; }
   };
@@ -613,6 +628,38 @@ class Component extends DCLogic {
   static isDebug(search, hash) { const q = /[?&]debug=1(&|$)/, h = /^#debug($|[&=\/])/; return q.test(search || '') || h.test(hash || ''); }
   // The footer's cut line, as the space he gets back.
   static cutLine(n, bytes, fmtB) { return n ? 'cut: ' + n + ' clip' + (n === 1 ? '' : 's') + ' · ' + fmtB(bytes) + ' you can free' : 'cut: none yet'; }
+  // Storage (STORAGE.md): what fills up while a shoot is open, as one line in the footer that opens to a row per thing.
+  // A part is {t, b, of} (b held of a limit) or {t, free} (a drive); a part with nothing measured is left out, never guessed.
+  static storeLine(parts, fmtB) {
+    const said = (parts || []).filter(p => p && (p.b != null || p.free != null)).map(p => p.free != null ? p.t + ' ' + fmtB(p.free) + ' free' : p.t + ' ' + fmtB(p.b) + (p.of ? ' of ' + fmtB(p.of) + (p.b > p.of ? ' · over' : '') : ''));
+    return said.length ? 'storage · ' + said.join(' · ') : 'storage · nothing held';
+  }
+  // A dump button says what it gives back before the click: 'Drop frames · 180 MB'; nothing to give back says so.
+  static dumpSay(kind, bytes, n, fmtB) { const t = {frames:'Drop frames'}[kind] || kind; return n && bytes > 0 ? t + ' · ' + fmtB(bytes) : t + ' · nothing to give back'; }
+  // What Drop frames gives back: what enforce() does at a limit of zero. Every clip more than 12 from the one you are on
+  // keeps one frame, its cover (or the frame nearest it); the 24 around you are not touched. Only frames this tab made
+  // (blob: URLs) are dropped, since only those can be made again. Marks are not part of it.
+  static farFrames(clips, at, cover) {
+    const frames = []; let bytes = 0, n = 0;
+    for (const c of clips || []) {
+      if (Math.abs(c._i - at) <= 12 || !c.frames) continue;
+      const have = c.frames.map((u, i) => u ? i : -1).filter(i => i >= 0); if (have.length < 2) continue;
+      const keep = have.includes(cover) ? cover : have.reduce((a, b) => Math.abs(b - cover) < Math.abs(a - cover) ? b : a); let any = false;
+      for (const i of have) if (i !== keep && c.frames[i].indexOf('blob:') === 0) { frames.push([c, i]); bytes += (c.frameSz && c.frameSz[i]) || 0; any = true; }
+      if (any) n++;
+    }
+    return {frames, bytes, n};
+  }
+  farPlan() { if (!this.d) return {frames:[], bytes:0, n:0, dec:0}; const at = this.byId && this.byId[this.state.cur] ? this.byId[this.state.cur]._i : 0, p = Component.farFrames(this.d.clips, at, this.firstIdx()); p.dec = p.frames.reduce((s, [c, i]) => s + this.thumbs.bytesOf(c.id, i), 0); return p; }
+  // Drop frames: the plan above, at once. The clips come back thin, so refill() makes their frames again when you get near.
+  dropFar = () => {
+    const p = this.farPlan(); if (!p.n) return p;
+    p.frames.forEach(([c, i]) => { URL.revokeObjectURL(c.frames[i]); c.frames[i] = null; if (c.frameSz) c.frameSz[i] = 0; this.thumbs.forget(c.id, i); c.thin = true; });
+    this.dropped = (this.dropped || 0) + p.n; this.storeSaid = {k:'frames', t:'Gave back ' + this.fmtB(p.bytes + p.dec) + ' from ' + this.plural(p.n, 'clip') + '. Covers and marks stay.'};
+    this.setState(s => ({tick:(s.tick || 0) + 1})); return p;
+  };
+  // Make frames again, from the storage line: the same as the debug panel's, and says so while reading runs.
+  storeRemake = () => { if (this.realReading() || !this.d) return; this.storeSaid = {k:'frames', t:'Making frames again. Keys and marking work meanwhile.'}; this.clearFrames(); };
   // Pause / Go on beside the reading line: pause sets the pace to paused, Go on returns it to auto.
   static nextPace(pace) { return pace === 'paused' ? 'auto' : 'paused'; }
   // Go on is saved with the other controls; a pause is for this tab only, so a later visit never starts paused.
@@ -1501,6 +1548,7 @@ class Component extends DCLogic {
     if (meta && /^[123]$/.test(k)) { e.preventDefault(); return this.setStep(['import', 'skim', 'export'][+k - 1]); }
     if (meta && kl === 'o') { e.preventDefault(); this.setStep('import'); return setTimeout(() => this.pickFolder(), 60); }
     if (st.memOn && k === 'Escape') return this.setState({memOn:false});
+    if (st.storeOn && k === 'Escape') return this.setState({storeOn:false});
     if (kl === 'r' && e.shiftKey && !meta && !e.altKey && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); return this.pvToggle(); }
     if (st.step !== 'skim') {
       if (st.step === 'export') { if (k === 'Escape' && !(t && t.tagName === 'INPUT')) { e.preventDefault(); return this.setStep('skim'); } if (meta && k === 'Enter') { e.preventDefault(); return this.download(); } }
@@ -1785,7 +1833,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {storeOn:false, storeLine:'', storeRows:[], storeFg:'#9A958D', storeBg:'rgba(239,236,230,0.06)', storeArrow:'▴', notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
     // in the one grid Export is a sheet over the grid, so the grid stays where it was
@@ -1847,6 +1895,18 @@ class Component extends DCLogic {
     vals.wells = ['keep', 'maybe', 'cut'].map(m => ({m, l:this.W(m), n:markN[m], c:MK[m], bg:'rgba(239,236,230,0.05)', ring:'rgba(239,236,230,0.1)'}));
     vals.cutSoFar = Component.cutLine(markN.cut, markB.cut, b => this.fmtB(b)); vals.cutC = markN.cut ? '#B8B3AB' : '#9A958D';
     vals.freeTxt = (d.shoot.free == null ? '' : 'card: ' + this.fmtB(d.shoot.free) + ' free');
+    // storage: the line and its rows (step 1: frames in memory)
+    { const ms = this.memStats(), ts = this.thumbs.stats(), B = this.mp.budget, held = ms.frB + ts.bytes, of = B === 'all' || !B ? null : B * 1048576 + this.thumbs.budget, fb = b => this.fmtB(b);
+      const far = st.storeOn ? this.farPlan() : null, busy = this.realReading(), said = this.storeSaid;
+      vals.storeOn = !!st.storeOn; vals.storeToggle = () => { if (st.storeOn) this.storeSaid = null; this.setState({storeOn:!st.storeOn}); }; vals.storeArrow = st.storeOn ? '▾' : '▴';
+      vals.storeLine = Component.storeLine([{t:'in memory', b:held, of}], fb); vals.storeFg = of && held > of ? '#FFD27A' : '#B8B3AB'; vals.storeBg = st.storeOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)';
+      const btn = (id, t, tip, on, go) => ({id, t, tip, off:!on, op:on ? 1 : 0.45, cur:on ? 'pointer' : 'default', go:on ? go : () => {}});
+      vals.storeRows = st.storeOn ? [{k:'frames', t:'Frames in memory', fig:fb(held) + (of ? ' of ' + fb(of) : ''), figC:of && held > of ? '#FFD27A' : '#B8B3AB',
+        sub:'Frames of the clips you skim. Far ones give theirs up on their own at the limit; frames come back for the clips you go to.',
+        btns:[btn('storage-drop', Component.dumpSay('frames', far.bytes + far.dec, far.n, fb), 'Keeps one cover per clip and the 24 clips around this one. Marks stay.', far.n > 0, this.dropFar),
+          btn('storage-remake', 'Make frames again', busy ? 'After reading finishes.' : 'Reads ' + this.plural(C.filter(c => c._file).length, 'clip') + ' again. Marks stay.', !busy && C.some(c => c._file), this.storeRemake)],
+        saidOn:!!(said && said.k === 'frames'), said:said ? said.t : ''}] : [];
+    }
     // hints
     vals.hints = empty ? [{k:'⌘O', t:'open'}] : st.held ? [{k:'tap', t:Component.VERB[st.held]}, {k:'⏎', t:Component.VERB[st.held]}, {k:'let go', t:'nothing happens'}] : [];
     // strips
