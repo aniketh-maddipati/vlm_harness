@@ -286,14 +286,14 @@ input[type=range]{accent-color:#B8B3AB}
         <div data-lumina="fused-in" ref="{{ fInRef }}" style="position:relative;margin-left:{{ fGut }}px;height:{{ fH }}px;will-change:transform">
           <div data-lumina="time-rod" style="position:absolute;left:{{ fRodX }}px;top:{{ fRodT }}px;width:3px;height:{{ fRodH }}px;border-radius:2px;background:#5B5854;pointer-events:none"></div>
           <sc-for list="{{ fh }}" as="h" hint-placeholder-count="2">
-            <div data-scene="{{ h.s }}" data-nobox="1" onClick="{{ hClick }}" data-lumina="time-mark" title="{{ h.tip }}" style="position:absolute;left:{{ fMarkX }}px;top:{{ h.y }}px;width:{{ fMarkW }}px;display:flex;align-items:flex-start;white-space:nowrap;cursor:pointer;border-radius:6px;background:{{ h.bg }}" style-hover="background:rgba(239,236,230,0.05)">
-              <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end;padding:1px 0 3px;overflow:hidden">
+            <button type="button" data-scene="{{ h.s }}" data-nobox="1" onClick="{{ hClick }}" data-lumina="time-mark" title="{{ h.tip }}" aria-label="{{ h.tip }}" style="position:absolute;left:{{ fMarkX }}px;top:{{ h.y }}px;width:{{ fMarkW }}px;min-height:48px;margin:0;padding:0 0 0 6px;border:0;font:inherit;color:inherit;text-align:right;-webkit-appearance:none;appearance:none;display:flex;align-items:flex-start;white-space:nowrap;cursor:pointer;border-radius:8px;background:{{ h.bg }}" style-hover="background:rgba(239,236,230,0.07)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end;padding:3px 0 5px;overflow:hidden">
                 <sc-if value="{{ h.dateOn }}" hint-placeholder-val="{{ false }}"><span style="color:#FFD27A;font-weight:600;line-height:15px">{{ h.date }}</span></sc-if>
                 <span style="font-size:13px;line-height:18px;color:#EFECE6">{{ h.time }}</span>
                 <span data-lumina="scene-marks" style="color:#9A958D;line-height:15px">{{ h.line }}</span>
-              </div>
-              <div style="flex:none;width:24px;height:22px;display:grid;place-items:center"><span style="width:11px;height:11px;border-radius:50%;background:{{ h.dot }};box-shadow:0 0 0 3px #1E1D1B"></span></div>
-            </div>
+              </span>
+              <span style="flex:none;width:24px;height:28px;display:grid;place-items:center"><span style="width:11px;height:11px;border-radius:50%;background:{{ h.dot }};box-shadow:0 0 0 3px #1E1D1B"></span></span>
+            </button>
           </sc-for>
           <sc-for list="{{ ft }}" as="g" hint-placeholder-count="8">
             <div data-gi="{{ g.i }}" data-fold="{{ g.n }}" data-first="{{ g.first }}" onMouseEnter="{{ fEnter }}" onMouseMove="{{ fMove }}" onMouseLeave="{{ fLeave }}" onClick="{{ fClick }}" onDoubleClick="{{ fDbl }}" style="position:absolute;left:{{ g.x }}px;top:{{ g.y }}px;width:{{ g.w }}px;height:{{ fTh }}px;display:flex;flex-direction:column;gap:6px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;overflow:hidden">

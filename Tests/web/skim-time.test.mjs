@@ -98,4 +98,5 @@ test('the page: the grid groups by time, pinch and − / = move along the interv
   const a = src.indexOf('<sc-if value="{{ lvF }}"'), b = src.indexOf('<sc-if value="{{ lv0 }}"'), tpl = src.slice(a, b);
   for (const part of ['data-lumina="time-rod"', 'data-lumina="time-mark"', 'data-lumina="time-step"', 'margin-left:{{ fGut }}px']) assert.ok(tpl.includes(part), part);
   assert.ok(!tpl.includes('fold-strip') && !tpl.includes('zoom-levels'), 'no size or scene menu');
+  assert.match(tpl, /<button type="button" data-scene="\{\{ h\.s \}\}"[^>]*data-lumina="time-mark"[^>]*min-height:48px/, 'a run’s mark is a real button, 48 px tall at least');
 });
