@@ -1,5 +1,7 @@
 # Skim free space: move cut clips to the Trash (branch video/skim-freespace) — DRAFT
 
+Absorbed by STORAGE.md (video/skim-storage) on 2026-10-12: move cut to Trash is its item 3. Not built here.
+
 Draft written by the orchestration thread from the user's brief on 2026-10-08; the first chat here should correct it.
 Worktree `~/vlm_harness/worktrees/skim-freespace`, cut from `video/skim-mvp`. Read THREADS.md first.
 
