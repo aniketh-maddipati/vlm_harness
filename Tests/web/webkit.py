@@ -276,7 +276,9 @@ t('no ARW: the page\'s note from the native listing', L().state.openNote === 'no
 await C('pick', { path: shoot }); __lumina.openFolder();
 await until(() => L().real && L().real.length && !L().state.realLoad && L().state.realInfo, 30000);
 const ri = L().state.realInfo || {};
-t('read: 12 photos in Cull', L().state.view === 'cull' && ri.n === 12 && ri.bad === 0, ri);
+t('read: 12 photos, a small shoot with nothing decided opens in Edit', L().state.view === 'edit' && ri.n === 12 && ri.bad === 0, { view: L().state.view, ri });
+// The rest of this shoot is exercised from Pick, as before (plumbing-harness.mjs does the same).
+L().setView('cull', true); await W(200);
 const notes = (L().state.notes || []).map(x => x.t).join(' | ');
 t('read: import notes', /1 CR3/.test(notes) && /1 video skipped/.test(notes) && /1 already rated/.test(notes), notes);
 const ins = __lumina.inspect(); t('read: previews by URL, thumbs as blobs', !ins.lgHeld && !ins.srcNotBlob && !ins.dupPaths && !ins.zsrcOff, ins);
@@ -308,6 +310,8 @@ t('close shoot: back to Open with the recent card', L().state.view === 'import' 
 L().libOpen(L().recents()[0]);
 await until(() => L().real && L().real.length && !L().state.realLoad && L().kept().length === 2, 20000);
 t('reopen: 2 keepers restored, nothing unsaved', L().kept().length === 2 && __lumina.unsaved() === 0, [L().kept().length, __lumina.unsaved()]);
+// The folder reopens on the step it was left in (Save); the third keep is made in Pick.
+__lumina.command('stepCull'); await W(400);
 K('ArrowDown'); await W(150); K('ArrowDown'); await W(150); K('p'); await W(150);
 __lumina.command('stepSave'); await W(950); __lumina.command('save'); await W(150); if (L().state.armed === 'save') __lumina.command('save');
 await until(() => L().state.ex && L().state.ex.result, 8000);
