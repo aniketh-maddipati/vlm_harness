@@ -6,7 +6,7 @@ Sony ARW shooters.
 ## The rule
 
 **The design is the product.** Lumina's UI is the Claude Design page in `design/handoff/lumina-cull/`
-(`Lumina Sets v11.dc.html`, with `Lumina Edit v22.dc.html` mounted inside it, + `support.js` + `lumina-core-v4.js` +
+(`Lumina Sets v12.dc.html`, with `Lumina Edit v23.dc.html` mounted inside it, + `support.js` + `lumina-core-v4.js` +
 `lumina-v4-data.js` + `lumina-measure.js` + `lumina-selftest.js`; the names live in `Scripts/page_files.sh`). The app ships those files **byte for byte** inside a native
 window. Nobody edits the UI in this repo.
 
