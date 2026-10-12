@@ -27,6 +27,7 @@ function press(sh, ex, checked = 'passed'){
   const comp = {
     d: { shoot: { name: 'card', rate: 24 }, clips: sh.clips }, state: { marks: sh.marks, ex: { event: 'card', kw: 'maybe', ...ex } },
     buildX, api(){}, plural: (n, w) => n + ' ' + w + (n === 1 ? '' : 's'), setState(s){ said.push(s); },
+    sentKey: () => 'lumina-skim:sent:card', persist(k, v){ said.push({sent:k}); },   // the storage line's note that this shoot went to Final Cut
   };
   // the verdict of the page's own check for the file as it stands: passed, failed, or not in yet
   const now = buildX.call(comp);

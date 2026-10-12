@@ -628,6 +628,25 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             guard let folder = lastOpened else { return (false, nil) }
             let volume = (try? folder.resourceValues(forKeys: [.volumeURLKey]))?.volume ?? URL(fileURLWithPath: "/")
             return (NSWorkspace.shared.open(SkimDrive.trashFolder(volume: volume, home: SkimDrive.realHome(), uid: getuid())), nil)
+        case "skimTrashMove":
+            // Move cut to Trash: the clips named (inside the opened folder) and their sidecars, to the system Trash,
+            // after the page's two clicks. Refused on a card or a read-only drive. Never deletes, never empties (SkimTrash).
+            guard let root = lastOpened, let shoot = body["shoot"] as? String, let rels = body["paths"] as? [String], rels.count <= 5000 else { return ([], nil) }
+            let home = SkimDrive.realHome(), uid = getuid(), log = skimTrashLog
+            return (await Task.detached(priority: .userInitiated) { () -> [SkimTrash.Answer] in
+                let r = SkimDrive.read(folder: root, home: home, uid: uid)
+                return SkimTrash(log: log).move(root: root, rels: rels, shoot: shoot, refusal: r.refusal)
+            }.value.map(\.json), nil)
+        case "skimTrashPutBack":
+            // Put back: this shoot's files Skim moved, from the Trash to where they were, while they are still there.
+            guard let shoot = body["shoot"] as? String else { return ([], nil) }
+            let log = skimTrashLog
+            return (await Task.detached(priority: .userInitiated) { SkimTrash(log: log).putBack(shoot: shoot) }.value.map(\.json), nil)
+        case "skimTrashList":
+            // What this shoot has in the Trash now, from Skim's own note of its moves.
+            guard let shoot = body["shoot"] as? String else { return ([], nil) }
+            let log = skimTrashLog
+            return (await Task.detached(priority: .utility) { SkimTrash(log: log).listed(shoot: shoot) }.value.map(\.json), nil)
         case "skimHealth":
             // Skim's pacing: heat, Low Power Mode, memory pressure, this app's footprint (SkimHealth).
             return (SkimHealth.shared.read(slowdown: (body["slowdown"] as? NSNumber)?.doubleValue ?? 1), nil)
@@ -652,6 +671,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (nil, "unknown op \(op)")
         }
     }
+
+    /// Skim's note of the files it moved to the Trash, in the container.
+    private var skimTrashLog: URL { supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("trash.json") }
 
     /// Skim's saved covers (SkimCovers): every file read and write runs off the main thread.
     private func skimCover(_ op: String, _ body: [String: Any]) async -> Any {
