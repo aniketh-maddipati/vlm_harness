@@ -30,7 +30,9 @@ async function run(quota, host) {
       coverPut: (sh, recs) => { const o = db(), s = o[sh.k] || {k:sh.k, name:sh.name, at:0, recs:{}}; s.at = Date.now(); recs.forEach(r => s.recs[r.k] = {meta:r.meta, cover:r.cover}); o[sh.k] = s; save(o); return ask('saved'); },
       coverTouch: sh => { const o = db(); o[sh.k] = o[sh.k] || {k:sh.k, name:sh.name, recs:{}}; o[sh.k].at = Date.now(); save(o); return ask(true); },
       coverStat: () => { const o = db(); let bytes = 0; const shoots = Object.values(o).map(s => { const b = Object.values(s.recs).reduce((a, r) => a + r.cover.length * 0.75 + r.meta.length, 0); bytes += b; return {k:s.k, name:s.name, at:s.at, bytes:b, n:Object.keys(s.recs).length}; }); return ask({bytes, shoots}); },
-      coverDrop: keys => { const o = db(); keys.forEach(k => delete o[k]); save(o); return ask(true); }}};
+      coverDrop: keys => { const o = db(); keys.forEach(k => delete o[k]); save(o); return ask(true); },
+      drive: () => ask({name:'T7', total:1e12, free:150e9, purgeable:8e9, readOnly:false, card:false, trash:3.5e9}),
+      showTrash: () => { window.__trash = (window.__trash || 0) + 1; return ask(true); }}};
   });
   if (quota) await ctx.addInitScript(() => { const put = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function (v, k) { if (this.name === 'clip') throw new DOMException('full', 'QuotaExceededError'); return put.call(this, v, k); }; });
   const open = async dir => {
@@ -50,6 +52,10 @@ async function run(quota, host) {
     ok(first >= 30 && read <= first - 30, 'through the app\'s store, a reopen reads nothing: ' + first + ' videos the first time, ' + read + ' again');
     await tap(p, '[data-lumina="storage"]'); const r = await rows(p);
     ok(/30 of 30 clips opened from saved covers/.test(r) && !/Kept until Lumina quits/.test(r), 'the row says where they came from, and nothing about a quit');
+    ok(/drive 150\.0 GB free · under 20% free/.test(await line(p)), 'the drive in the line, with the 20 % words: ' + await line(p));
+    ok(/Drive · T7\n150\.0 GB free of 1000\.0 GB · 8\.0 GB purgeable/.test(r) && /Under 20% free on T7: 150\.0 GB left\./.test(r), 'the drive row: free, purgeable, the one plain line');
+    ok(/Trash on T7\n3\.5 GB waiting/.test(r) && /Skim never empties the Trash/.test(r), 'the Trash row');
+    await tap(p, '[data-lumina="storage-trash"]'); ok(await p.evaluate(() => window.__trash) === 1, 'Show in Finder asks the app once');
   } else if (!quota) {
     ok(/^storage · in memory \d+ MB of \d+ MB/.test(await line(p)), 'the line outside debug mode: ' + await line(p));
     await tap(p, '[data-lumina="storage"]'); ok(/Frames in memory/.test(await rows(p)), 'a click opens the rows');

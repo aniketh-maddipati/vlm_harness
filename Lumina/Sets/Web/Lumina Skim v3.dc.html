@@ -589,6 +589,10 @@ class Component extends DCLogic {
     const said = (parts || []).filter(p => p && (p.b != null || p.free != null)).map(p => p.free != null ? p.t + ' ' + fmtB(p.free) + ' free' : p.t + ' ' + fmtB(p.b) + (p.of ? ' of ' + fmtB(p.of) + (p.b > p.of ? ' · over' : '') : ''));
     return said.length ? 'storage · ' + said.join(' · ') : 'storage · nothing held';
   }
+  // Under 20 % free on a drive: one plain line, never a pop-up. Nothing when the drive was not read.
+  static lowSay(dr, fmtB) { if (!dr || dr.free == null || !dr.total) return ''; return dr.free / dr.total < 0.2 ? 'Under 20% free on ' + (dr.name || 'this drive') + ': ' + fmtB(dr.free) + ' left.' : ''; }
+  // The drive's figure, plain free space first, purgeable named so it agrees with Finder (which counts it as available).
+  static driveSay(dr, fmtB) { if (!dr || dr.free == null) return ''; return fmtB(dr.free) + ' free' + (dr.total ? ' of ' + fmtB(dr.total) : '') + (dr.purgeable > 0 ? ' · ' + fmtB(dr.purgeable) + ' purgeable' : ''); }
   // A dump button says what it gives back before the click: 'Drop frames · 180 MB'; nothing to give back says so.
   static dumpSay(kind, bytes, n, fmtB) { const t = {frames:'Drop frames', saved:'Clear for shoots not open'}[kind] || kind; return n && bytes > 0 ? t + ' · ' + fmtB(bytes) : t + ' · nothing to give back'; }
   // What Drop frames gives back: what enforce() does at a limit of zero. Every clip more than 12 from the one you are on
@@ -646,6 +650,10 @@ class Component extends DCLogic {
     this.covers.drop(out.map(s => s.k)).then(ok => { this.storeSaid = {k:'saved', t:ok ? 'Cleared ' + this.fmtB(b) + ' from ' + this.plural(out.length, 'shoot') + '. They read again the next time they are opened.' : 'Could not clear here.'}; this.coverStat(); }); };
   coverRemeasure = () => { if (this.realReading() || !this.d) return; const k = this.storeKey(this.d); this.d.clips.forEach(c => { c._saved = false; });
     this.covers.drop([k]).then(() => { this.storeSaid = {k:'saved', t:'Measuring this shoot again. Keys and marking work meanwhile.'}; this.clearFrames(); this.coverStat(); }); };
+  // The drive the shoot was opened from, in the Mac app (skimDrive, read only): fills d.shoot.free and the storage line.
+  driveRead = () => { const v = window.lumina && window.lumina.video, d = this.d; if (!v || !v.drive || !d || !d.shoot.real) return;
+    Promise.resolve().then(() => v.drive()).then(r => { if (this.d !== d) return; this.drv = r || null; d.shoot.free = r && r.free != null ? r.free : null; this.drvAt = Date.now(); this.setState(s => ({tick:(s.tick || 0) + 1})); }, () => {}); };
+  showTrash = () => { const v = window.lumina && window.lumina.video; if (v && v.showTrash) Promise.resolve().then(() => v.showTrash()).catch(() => {}); };
   // Make frames again, from the storage line: the same as the debug panel's, and says so while reading runs.
   storeRemake = () => { if (this.realReading() || !this.d) return; this.storeSaid = {k:'frames', t:'Making frames again. Keys and marking work meanwhile.'}; this.clearFrames(); };
   // Pause / Go on beside the reading line: pause sets the pace to paused, Go on returns it to auto.
@@ -1587,13 +1595,14 @@ class Component extends DCLogic {
     vals.handOpen = () => this.setStep('export');
     vals.wells = ['keep', 'maybe', 'cut'].map(m => ({m, l:this.W(m), n:markN[m], c:MK[m], bg:'rgba(239,236,230,0.05)', ring:'rgba(239,236,230,0.1)'}));
     vals.cutSoFar = Component.cutLine(markN.cut, markB.cut, b => this.fmtB(b)); vals.cutC = markN.cut ? '#B8B3AB' : '#9A958D';
-    vals.freeTxt = (d.shoot.free == null ? '' : 'card: ' + this.fmtB(d.shoot.free) + ' free');
+    vals.freeTxt = '';
     // storage: the line and its rows (step 1: frames in memory)
     { const ms = this.memStats(), ts = this.thumbs.stats(), B = this.mp.budget, held = ms.frB + ts.bytes, of = B === 'all' || !B ? null : B * 1048576 + this.thumbs.budget, fb = b => this.fmtB(b);
       const far = st.storeOn ? this.farPlan() : null, busy = this.realReading(), said = this.storeSaid;
       vals.storeOn = !!st.storeOn; vals.storeToggle = () => { if (st.storeOn) this.storeSaid = null; this.setState({storeOn:!st.storeOn}); }; vals.storeArrow = st.storeOn ? '▾' : '▴';
       const cs = this.covSt, curK = this.storeKey(d), others = cs ? cs.shoots.filter(s => s.k !== curK) : [], othB = others.reduce((a, s) => a + s.bytes, 0), host = !!this.hostStore();
-      vals.storeLine = Component.storeLine([{t:'in memory', b:held, of}, {t:'saved', b:cs && cs.ok ? cs.bytes : null}], fb); vals.storeFg = of && held > of ? '#FFD27A' : '#B8B3AB'; vals.storeBg = st.storeOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)';
+      const dr = this.drv, low = Component.lowSay(dr, fb);
+      vals.storeLine = Component.storeLine([{t:'in memory', b:held, of}, {t:'saved', b:cs && cs.ok ? cs.bytes : null}, {t:'drive', free:dr ? dr.free : null}], fb) + (low ? ' · under 20% free' : ''); vals.storeFg = (of && held > of) || low ? '#FFD27A' : '#B8B3AB'; vals.storeBg = st.storeOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)';
       const btn = (id, t, tip, on, go) => ({id, t, tip, off:!on, op:on ? 1 : 0.45, cur:on ? 'pointer' : 'default', go:on ? go : () => {}});
       vals.storeRows = st.storeOn ? [{k:'frames', t:'Frames in memory', fig:fb(held) + (of ? ' of ' + fb(of) : ''), figC:of && held > of ? '#FFD27A' : '#B8B3AB',
         sub:'Frames of the clips you skim. Far ones give theirs up on their own at the limit; frames come back for the clips you go to.',
@@ -1603,7 +1612,14 @@ class Component extends DCLogic {
         sub:(this.covers.full ? 'Storage here is full, so covers are not being saved now. Everything else works. ' : '') + (this.covHits && this.covHits.n ? this.covHits.n + ' of ' + this.plural(this.covHits.of, 'clip') + ' opened from saved covers. ' : '') + 'Opening these clips again shows covers and flags at once. Up to ' + fb(this.covers.cap) + '; the shoot opened longest ago goes first.' + (host && !this.covers.host ? ' Kept until Lumina quits.' : ''),
         btns:[btn('storage-clear', Component.dumpSay('saved', othB, others.length, fb), 'Every saved shoot but this one. Marks stay; those clips read again when opened.', others.length > 0, this.coverClearOthers),
           btn('storage-remeasure', 'Re-measure this shoot', busy ? 'After reading finishes.' : 'Forgets this shoot\u2019s saved covers and reads it again. Marks stay.', !busy && C.some(c => c._file), this.coverRemeasure)],
-        saidOn:!!(said && said.k === 'saved'), said:said ? said.t : ''}] : []) : [];
+        saidOn:!!(said && said.k === 'saved'), said:said ? said.t : ''}] : [])
+        .concat(dr ? [{k:'drive', t:'Drive · ' + (dr.name || 'this drive'), fig:Component.driveSay(dr, fb) || 'not read', figC:low ? '#FFD27A' : '#B8B3AB',
+          sub:[low, dr.purgeable > 0 ? 'Purgeable space is what macOS frees on its own when it needs room; Finder counts it as available.' : '', dr.refusal || ''].filter(Boolean).join(' ') || 'Plain free space, as the drive reports it.', btns:[],
+          saidOn:false, said:''},
+          {k:'trash', t:'Trash on ' + (dr.name || 'this drive'), fig:dr.trash == null ? 'size not readable here' : fb(dr.trash) + ' waiting', figC:'#B8B3AB',
+          sub:'Skim never empties the Trash. Empty it in Finder when you are sure; until then that space is not free.',
+          btns:[btn('storage-trash', 'Show in Finder', 'Opens this drive\u2019s Trash in Finder.', true, this.showTrash), btn('storage-reread', 'Re-read size', 'Reads the drive and its Trash again.', true, this.driveRead)],
+          saidOn:!!this.drvAt, said:this.drvAt ? 'Read ' + new Date(this.drvAt).toLocaleTimeString([], {hour:'numeric', minute:'2-digit', second:'2-digit'}) + '.' : ''}] : []) : [];
     }
     // hints
     vals.hints = empty ? [{k:'⌘O', t:'open'}] : st.held ? [{k:'tap', t:Component.VERB[st.held]}, {k:'⏎', t:Component.VERB[st.held]}, {k:'let go', t:'nothing happens'}] : [];
@@ -1844,6 +1860,7 @@ class Component extends DCLogic {
     this.clockStart(d, true); const k = this.clock; k.meta = Math.round(tM - tL); k.metaFrom = from;
     // 'listed' is from the folder being handed over to the clips being drawn with their info; the reading starts after.
     this.setState({impMsg:null, imp:{n:clips.length, done:0}}, () => { if (this.clock !== k || k.listed != null) return; k.listed = Math.round(performance.now() - tL); this.clockSave({name:k.name, n:k.n, bytes:k.bytes, real:true, at:k.at, meta:k.meta, metaFrom:k.metaFrom, listed:k.listed, partial:true}); });
+    this.drv = null; this.driveRead();
     { const tok = this.qTok; this.coverLoad(d).then(() => { if (tok === this.qTok) this.runQueue(clips.slice(), tok); }); }
   }
   // What a Sony clip says about itself (NonRealTimeMeta, from the sidecar or the end of the file): no decode.

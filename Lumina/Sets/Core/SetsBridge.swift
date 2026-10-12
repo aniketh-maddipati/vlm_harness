@@ -618,6 +618,16 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (await skimCover(op, body), nil)
         case "skimCoverDrop":
             return (await skimCover(op, body), nil)
+        case "skimDrive":
+            // The drive the open Skim shoot was opened from: size, plain free, purgeable, card / read only, its Trash's size (SkimDrive). Read only.
+            guard let folder = lastOpened else { return (NSNull(), nil) }
+            let home = SkimDrive.realHome(), uid = getuid()
+            return (await Task.detached(priority: .utility) { SkimDrive.read(folder: folder, home: home, uid: uid) }.value.json, nil)
+        case "skimShowTrash":
+            // Show in Finder: the Trash of the drive the open Skim shoot is on, after his click. Skim never empties it.
+            guard let folder = lastOpened else { return (false, nil) }
+            let volume = (try? folder.resourceValues(forKeys: [.volumeURLKey]))?.volume ?? URL(fileURLWithPath: "/")
+            return (NSWorkspace.shared.open(SkimDrive.trashFolder(volume: volume, home: SkimDrive.realHome(), uid: getuid())), nil)
         case "skimHealth":
             // Skim's pacing: heat, Low Power Mode, memory pressure, this app's footprint (SkimHealth).
             return (SkimHealth.shared.read(slowdown: (body["slowdown"] as? NSNumber)?.doubleValue ?? 1), nil)

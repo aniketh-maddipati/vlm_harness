@@ -124,6 +124,8 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `skimCoverTouch` | — | when a shoot was last opened, in its `skim/covers/<hash>/shoot.json` (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimCoverStat` | the sizes of `skim/covers/` per shoot (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimCoverDrop` | — | deletes `skim/covers/<hash>/` for the shoots named, nothing outside it (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimDrive` | the drive the open Skim shoot was opened from: name, size, free and purgeable space, read only or a card, and its Trash's size when the sandbox lets it be read (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimShowTrash` | — | — (opens that drive's Trash in Finder after a click; never empties it; Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimHealth` | the Mac's thermal state, Low Power Mode, memory pressure and Lumina's own memory footprint (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `openSettings` | — | — (opens System Settings ▸ Privacy & Security ▸ Files and Folders) |
 | `checkAccess` | whether a refused folder is readable now | — |
@@ -147,7 +149,7 @@ Every `NSWorkspace.shared.open` call site. Each hands a URL to another app, afte
 |---|---|
 | `Lumina/LuminaApp.swift` | Help ▸ Report a Bug…, through `SetsExternalLinks` |
 | `Lumina/Sets/SetsRootView.swift` | a link clicked in the page, through `SetsExternalLinks` (LinkedIn, X, the bug-report mail) |
-| `Lumina/Sets/Core/SetsBridge.swift` | System Settings' Files and Folders pane (`openSettings`) |
+| `Lumina/Sets/Core/SetsBridge.swift` | System Settings' Files and Folders pane (`openSettings`); the Trash of the drive Skim's shoot is on, in Finder (`skimShowTrash`) |
 
 ### URLs in the app's code
 

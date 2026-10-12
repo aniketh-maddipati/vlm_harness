@@ -16,6 +16,8 @@ const farFrames = stat('farFrames', 'static farFrames(clips, at, cover) {');
 const evictOrder = stat('evictOrder', 'static evictOrder(shoots, cur, bytes, cap) {');
 const recBytes = stat('recBytes', 'static recBytes(r) {');
 const coverKey = stat('coverKey', 'static coverKey(name, t, bytes) {');
+const lowSay = stat('lowSay', 'static lowSay(dr, fmtB) {');
+const driveSay = stat('driveSay', 'static driveSay(dr, fmtB) {');
 const fmtB = new Function('return function ' + extractMethod(src, 'fmtB', 'fmtB(b) {'))();
 const template = src.slice(0, src.indexOf('class Component'));
 const MB = 1048576;
@@ -119,4 +121,22 @@ test('the cache hooks: saved covers before the first pass, a new cover saved aft
   assert.match(load, /for \(let a = 0; a < C\.length; a \+= 60\)/);                 // 60 clips at a time
   assert.match(load, /this\.bump\(\); await new Promise\(res => setTimeout\(res, 0\)\);/);   // with a breath between
   assert.ok(!/marks/.test(load) && !/marks/.test(src.slice(src.indexOf('  async coverFlush()'), src.indexOf('  coverStat()'))));
+});
+
+test('the 20 % line: one plain line under it, nothing at or over it, nothing when the drive was not read', () => {
+  assert.equal(lowSay({name:'T7', free:150e9, total:1e12}, fmtB), 'Under 20% free on T7: 150.0 GB left.');
+  assert.equal(lowSay({name:'T7', free:200e9, total:1e12}, fmtB), '');
+  assert.equal(lowSay({name:'T7', free:500e9, total:1e12}, fmtB), '');
+  assert.equal(lowSay({free:1e9, total:1e12}, fmtB), 'Under 20% free on this drive: 1.0 GB left.');
+  assert.equal(lowSay(null, fmtB), '');
+  assert.equal(lowSay({name:'T7', free:null, total:1e12}, fmtB), '');
+  assert.equal(lowSay({name:'T7', free:1e9}, fmtB), '');                 // no size, no share
+});
+
+test('the drive\'s figure: plain free space first, purgeable named so it agrees with Finder', () => {
+  assert.equal(driveSay({free:52e9, total:1e12, purgeable:8e9}, fmtB), '52.0 GB free of 1000.0 GB · 8.0 GB purgeable');
+  assert.equal(driveSay({free:52e9, total:1e12, purgeable:0}, fmtB), '52.0 GB free of 1000.0 GB');
+  assert.equal(driveSay({free:52e9}, fmtB), '52.0 GB free');
+  assert.equal(driveSay({free:null, total:1e12}, fmtB), '');
+  assert.equal(driveSay(null, fmtB), '');
 });
