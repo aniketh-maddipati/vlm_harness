@@ -73,3 +73,9 @@ The one grid is one canvas on capture time (LOCAL-CHANGES 150): runs of clips pe
 and − / = move along the intervals (`Component.TI`, 5 s to a day, default a minute) and regroup, no size or scene strip,
 no scene headers. Checked in headless Chromium with the 150-clip test load (made-up clips): the rod and its marks, the
 regroup on a ⌃-wheel pinch and on − / =, no page errors. Not yet tried in Safari, the app or on a real card.
+
+## Status (2026-10-12, the dock, branch video/skim-dock on video/skim-canvas)
+2.1 in a first form (LOCAL-CHANGES 170 to 172): every selected clip in one sticky row above the key bar, each a
+button, double-click to open in the Viewer, ↓ / ⇧↓ ← → ↑ between the dock and the time canvas or the Viewer. Not done
+from 2.1–2.2: elastic sizing, drag out to remove, totals per run. It touches the grid only through `cvGrid`, `cvG`,
+`cvGeo`, `cvSecs`, `laySecNav`, `scOf` / `gOfAll` and `wantScroll = ['@cur']`.
