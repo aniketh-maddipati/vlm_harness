@@ -119,6 +119,11 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `setPrefs` | — | the page's preferences in the app's defaults |
 | `skimStore` | Skim's saved shoots, `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimSave` | — | one Skim shoot's marks, name and counts in `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimCoverGet` | Skim's saved covers and first measures for the clips asked for, `skim/covers/` in the container (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimCoverPut` | — | covers (the page's own JPEGs) and first measures for one shoot in `skim/covers/<hash>/` in the container, capped at 200 MB, the shoot opened longest ago removed first (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimCoverTouch` | — | when a shoot was last opened, in its `skim/covers/<hash>/shoot.json` (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimCoverStat` | the sizes of `skim/covers/` per shoot (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimCoverDrop` | — | deletes `skim/covers/<hash>/` for the shoots named, nothing outside it (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimHealth` | the Mac's thermal state, Low Power Mode, memory pressure and Lumina's own memory footprint (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `openSettings` | — | — (opens System Settings ▸ Privacy & Security ▸ Files and Folders) |
 | `checkAccess` | whether a refused folder is readable now | — |
@@ -185,6 +190,7 @@ Not checked by the script; keep it current by hand.
 | Container `shoots/index.json` | recent shoots: name, path, volume UUID, counts, first capture time, last photo's name, bookmark | Remove Working Files (per shoot) |
 | Container `shoots/<id>/session.json`, `Lumina.json` | decisions and looks; decoder facts | Remove Working Files |
 | Container `skim/store.json` (Debug builds' Skim only) | Skim's marks per shoot, with the folder's name, clip count, size and days | Forget marks in Skim's Working memory |
+| Container `skim/covers/` (Debug builds' Skim only) | Skim's covers (the page's JPEGs of the clips' first frame) and first measures per shoot, capped at 200 MB | Clear for shoots not open, Re-measure this shoot, and the cap |
 | Container `exports/` | one journal per export | after recovery |
 | Container preferences | the page's preferences | deleting the app's container |
 | Opened folder | `.xmp` sidecars, `.lumina-bak` | the user |

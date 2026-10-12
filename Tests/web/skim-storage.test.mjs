@@ -116,6 +116,7 @@ test('the cache hooks: saved covers before the first pass, a new cover saved aft
   assert.match(src, /this\.coverLoad\(d\)\.then\(\(\) => \{ if \(tok === this\.qTok\) this\.runQueue\(clips\.slice\(\), tok\); \}\)/);
   assert.match(src, /if \(pass !== 2 && idx\.length && !c\.why\) this\.coverNote\(c\);/);
   const load = src.slice(src.indexOf('  async coverLoad(d) {'), src.indexOf('  // coverNote:'));
-  assert.match(load, /if \(i % 60 === 59\) \{ this\.bump\(\); await new Promise/);   // gives the page a breath every 60 clips
+  assert.match(load, /for \(let a = 0; a < C\.length; a \+= 60\)/);                 // 60 clips at a time
+  assert.match(load, /this\.bump\(\); await new Promise\(res => setTimeout\(res, 0\)\);/);   // with a breath between
   assert.ok(!/marks/.test(load) && !/marks/.test(src.slice(src.indexOf('  async coverFlush()'), src.indexOf('  coverStat()'))));
 });
