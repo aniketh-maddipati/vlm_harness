@@ -12,9 +12,7 @@
 <style>
 body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
 a{color:#EFECE6}a:hover{color:#B8B3AB}
-@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@keyframes fade{from{opacity:0}to{opacity:1}}
-@keyframes unfurl{from{opacity:0;transform:scale(0.965)}to{opacity:1;transform:none}}
+*,*::before,*::after{transition:none!important}
 @keyframes breathe{0%,100%{opacity:0.4}50%{opacity:0.9}}
 input[type=range]{accent-color:#B8B3AB}
 </style>
@@ -1259,6 +1257,21 @@ class Component extends DCLogic {
   // clipAt: the clip d places from cur in reading order (capture order, straight across scene boundaries);
   // null past the first or the last clip (no wrap) and for a clip that is not listed.
   static clipAt(flat, cur, d) { const i = flat.indexOf(cur); return i < 0 ? null : flat[i + d] || null; }
+  // Preview is the Viewer on the clip under the cursor. Hold Space to look and let go to come back; a tap (under
+  // 230 ms, as a quick mark) keeps it open, and the next Space closes it, back where it was opened from.
+  spaceDown(e) {
+    const st = this.state; if (!this.d.clips.length) return;
+    if (st.lv >= 2) { const from = this.pvFrom ?? (st.cv ? 0 : 1); this.pvPeek = null; this.pvFrom = null; return this.setLv(from); }
+    let cur = st.cur;
+    if (!st.cv && st.lv === 0) { const first = this.firstVis(st.gi); cur = this.gOf[st.cur] === st.gi ? st.cur : first; }
+    if (!cur || !this.byId[cur]) return;
+    this.pvPeek = {at:e.timeStamp}; this.pvFrom = st.lv;
+    this.setState({lv:2, cur, fx:0, sel:[], box:null, pan:[0.5, 0.5]});
+  }
+  spaceUp(e) {
+    const p = this.pvPeek; this.pvPeek = null; if (!p || e.timeStamp - p.at < 230 || this.state.lv < 2) return;
+    const from = this.pvFrom ?? 0; this.pvFrom = null; this.setLv(from);
+  }
   takeStep(d) { const n = Component.clipAt(this.flat, this.state.cur, d); if (n) this.setState({cur:n, fx:0, hv:null}); }
   chapJump(d) {
     const st = this.state;
@@ -1324,6 +1337,7 @@ class Component extends DCLogic {
     if (meta) return;
     if (t && t.tagName === 'INPUT' && k.startsWith('Arrow')) return;
     if (this.mk[kl] && !e.altKey) { e.preventDefault(); if (e.repeat) return; this.heldAt = e.timeStamp; this.heldTapped = false; return this.setState({held:this.mk[kl]}); }
+    if (k === ' ' && !st.held && !(this.isCtl(t) && this.tabFocus)) { e.preventDefault(); if (!e.repeat) this.spaceDown(e); return; }
     if (k === 'Enter' || k === ' ') {
       if (st.held) { e.preventDefault(); return this.decide(); }
       // Viewer: ⏎ is the next clip, ⇧⏎ the one before. A control a click left focused (a mark button, the preview
@@ -1356,6 +1370,8 @@ class Component extends DCLogic {
   ku(e) {
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, st = this.state;
     if (k === 'Shift' || k === 'Meta' || k === 'Alt' || k === 'Control') return;
+    // A button a click left focused would take the Space on its release (a click); the preview has it instead.
+    if (k === ' ') { if (!(this.isCtl(e.target) && this.tabFocus)) e.preventDefault(); return this.spaceUp(e); }
     if (this.mk[k] && st.held === this.mk[k]) { const quick = !this.heldTapped && !this.boxS && e.timeStamp - this.heldAt < 230; const m = st.held; this.setState({held:null}); if (quick) this.quick(m); }
   }
   pt(e) { const r = this.sc.getBoundingClientRect(); return {x:e.clientX - r.left + this.sc.scrollLeft, y:e.clientY - r.top + this.sc.scrollTop}; }
