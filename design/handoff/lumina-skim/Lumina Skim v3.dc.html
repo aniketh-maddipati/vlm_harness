@@ -17,42 +17,95 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
 @keyframes unfurl{from{opacity:0;transform:scale(0.965)}to{opacity:1;transform:none}}
 @keyframes breathe{0%,100%{opacity:0.4}50%{opacity:0.9}}
 input[type=range]{accent-color:#B8B3AB}
+/* Every clickable is a button element (Scripts/skim-buttons.py): it looks exactly like the div or span it was. */
+button{font:inherit;color:inherit;letter-spacing:inherit;line-height:inherit;text-align:inherit;text-transform:none;background:none;border:0;border-radius:0;margin:0;padding:0;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent}
+button:focus:not(:focus-visible){outline:none}
+[data-screen-label=Skim]{height:100vh}
+@supports (height:100dvh){[data-screen-label=Skim]{height:100dvh!important}}
+/* Touch (a phone, a tablet): every control is at least 44 px, key hints go (there are no keys), a finger sideways over a
+   tile skims it and over the Viewer's picture scrubs it, two fingers pinch (the page's own pinch, not the browser's zoom). */
+@media (hover:none) and (pointer:coarse){
+  button{min-height:44px;touch-action:manipulation}
+  button[data-strip]{min-width:56px}
+  [data-lumina=fold-less],[data-lumina=fold-more],[data-lumina=nav] button{min-width:44px}
+  [data-kbd],[data-lumina=hints]{display:none!important}
+  [data-lumina=fused],[data-screen-label=Chapters],[data-screen-label=Takes],[data-screen-label=Clip]{touch-action:pan-y}
+  [data-gi],[data-clip],[data-pic]{touch-action:pan-y;-webkit-touch-callout:none}
+  [data-lumina=keybar]{height:48px!important;gap:10px!important}
+  [data-lumina=footer]{height:58px!important}
+  [data-lumina=footer] [data-well]{height:44px!important}
+  [data-lumina=drop]{min-height:160px!important}
+  input[type=range]{height:44px}
+  input[type=text]{height:44px!important;font-size:16px!important}
+}
+/* Narrow (a phone upright, a split screen): one column, bars that wrap, the marks across the bottom. */
+@media (max-width:640px){
+  [data-lumina=topbar]{padding:0 10px!important;gap:10px!important}
+  [data-lumina=brand]{display:none}
+  [data-lumina=shoot-line]{display:none}
+  [data-lumina=skim-bar]{height:auto!important;min-height:44px;padding:4px 10px!important;flex-wrap:wrap;gap:4px 10px!important}
+  [data-lumina=skim-bar]>div{flex:1 1 100%!important;max-width:none!important;min-width:0!important}
+  [data-lumina=skim-bar]>div:nth-child(2){flex-direction:row!important;align-items:center!important;gap:10px!important;overflow-x:auto;scrollbar-width:none}
+  [data-lumina=skim-bar]>div:nth-child(2)>div{flex:none!important;max-width:none!important}
+  [data-lumina=keybar]{padding:0 10px!important;overflow-x:auto!important;scrollbar-width:none}
+  [data-lumina=footer]{height:auto!important;grid-template-columns:minmax(0,1fr) auto!important;gap:4px 10px!important;padding:6px 10px 8px!important}
+  [data-lumina=footer]>:nth-child(2){grid-column:1 / -1;grid-row:1}
+  [data-lumina=footer] [data-well]{flex:1 1 0;min-width:0!important}
+  [data-screen-label=Clip]{grid-template-columns:minmax(0,1fr)!important;gap:16px!important;padding:12px 10px 20px!important}
+  [data-screen-label=Open]>div,[data-screen-label=Export]>div{padding-left:12px!important;padding-right:12px!important}
+  [data-lumina=memory]{position:fixed!important;left:10px!important;right:10px!important;top:56px!important;width:auto!important}
+  [data-lumina=profile-card]{position:fixed!important;left:10px!important;right:10px!important;width:auto!important}
+}
+/* A phone on its side: less height for the bars, more for the clips. */
+@media (max-height:500px) and (orientation:landscape){
+  [data-lumina=topbar]{height:44px!important}
+  [data-lumina=shoot-line]{display:none}
+  [data-lumina=skim-bar]{height:auto!important;min-height:0;padding:0 16px!important}
+  [data-lumina=skim-bar]>div:nth-child(2){flex-direction:row!important;align-items:center!important;gap:10px!important}
+  [data-lumina=skim-bar]>div:nth-child(2)>div:nth-child(2){display:none!important}
+  [data-lumina=furled-chapters],[data-lumina=furled-takes]{display:none!important}
+  [data-lumina=keybar]{height:44px!important}
+  [data-lumina=footer]{height:50px!important}
+  [data-lumina=footer]>:first-child{display:none!important}
+  [data-lumina=footer]{grid-template-columns:auto minmax(0,1fr)!important}
+  [data-screen-label=Clip]{padding-top:8px!important;padding-bottom:8px!important}
+}
 </style>
 </helmet>
 <div data-screen-label="Skim" style="position:relative;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-variant-numeric:tabular-nums;font-size:12px;user-select:none;-webkit-user-select:none">
 
-  <div style="flex:none;height:52px;padding:0 20px;display:flex;align-items:center;gap:18px;background:#262523;border-bottom:1px solid rgba(239,236,230,0.08)">
-    <div style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-weight:400;font-size:21px">Lumina</div>
+  <div data-lumina="topbar" style="flex:none;height:52px;padding:0 20px;display:flex;align-items:center;gap:18px;background:#262523;border-bottom:1px solid rgba(239,236,230,0.08)">
+    <div data-lumina="brand" style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-weight:400;font-size:21px">Lumina</div>
     <div data-lumina="steps" role="tablist" aria-label="steps" style="flex:none;position:relative;display:grid;grid-template-columns:repeat(3,64px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)">
       <div style="position:absolute;left:2px;top:2px;bottom:2px;width:64px;border-radius:5px;background:#5B5854;box-shadow:0 0.5px 1px rgba(0,0,0,0.4);transform:translateX({{ stX }}px);transition:transform 180ms ease-out"></div>
-      <sc-for list="{{ stepTabs }}" as="sp" hint-placeholder-count="3"><div role="tab" tabIndex="0" aria-selected="{{ sp.on }}" onClick="{{ sp.go }}" style="position:relative;height:24px;display:grid;place-items:center;font-size:12px;color:{{ sp.fg }};cursor:pointer;border-radius:5px" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sp.t }}</div></sc-for>
+      <sc-for list="{{ stepTabs }}" as="sp" hint-placeholder-count="3"><button type="button" role="tab" aria-selected="{{ sp.on }}" onClick="{{ sp.go }}" style="box-sizing:content-box;position:relative;height:24px;display:grid;place-items:center;font-size:12px;color:{{ sp.fg }};cursor:pointer;border-radius:5px" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sp.t }}</button></sc-for>
     </div>
     <div style="flex:1 1 0;min-width:110px;display:flex;align-items:center;gap:10px;overflow:hidden;white-space:nowrap">
       <span style="flex:0 1 auto;min-width:0;font-size:13px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis">{{ shootName }}</span>
-      <span style="flex:0 1000 auto;min-width:0;color:#9A958D;overflow:hidden;text-overflow:ellipsis">{{ shootLine }}</span>
-      <sc-if value="{{ hasShoot }}" hint-placeholder-val="{{ false }}"><span data-lumina="shoot-close" role="button" tabIndex="0" onClick="{{ closeGo }}" title="{{ closeTip }}" style="flex:none;padding:1px 7px;border-radius:5px;background:{{ closeBg }};color:{{ closeFg }};cursor:pointer" style-hover="filter:brightness(1.3)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ closeT }}</span></sc-if>
-      <sc-if value="{{ forgetOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="shoot-forget" role="button" tabIndex="0" onClick="{{ forgetGo }}" title="Deletes this shoot’s marks for good. Clips are not touched." style="flex:none;padding:1px 7px;border-radius:5px;background:{{ forgetBg }};color:{{ forgetFg }};cursor:pointer" style-hover="filter:brightness(1.3)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ forgetT }}</span></sc-if>
+      <span data-lumina="shoot-line" style="flex:0 1000 auto;min-width:0;color:#9A958D;overflow:hidden;text-overflow:ellipsis">{{ shootLine }}</span>
+      <sc-if value="{{ hasShoot }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="shoot-close" onClick="{{ closeGo }}" title="{{ closeTip }}" style="box-sizing:content-box;flex:none;padding:1px 7px;border-radius:5px;background:{{ closeBg }};color:{{ closeFg }};cursor:pointer" style-hover="filter:brightness(1.3)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ closeT }}</button></sc-if>
+      <sc-if value="{{ forgetOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="shoot-forget" onClick="{{ forgetGo }}" title="Deletes this shoot’s marks for good. Clips are not touched." style="box-sizing:content-box;flex:none;padding:1px 7px;border-radius:5px;background:{{ forgetBg }};color:{{ forgetFg }};cursor:pointer" style-hover="filter:brightness(1.3)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ forgetT }}</button></sc-if>
     </div>
     <sc-if value="{{ dbgOn }}" hint-placeholder-val="{{ false }}">
-    <div data-lumina="canvas-toggle" role="switch" tabIndex="0" aria-checked="{{ cvA }}" aria-label="One grid" onClick="{{ cvToggle }}" title="One grid: Scenes and Clips as one, folded and unfolded (?canvas=1). Off: Scenes, Clips, Viewer." style="flex:none;height:26px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:7px;color:{{ cvFg }};cursor:pointer;background:{{ cvBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ cvT }}</div>
+    <button type="button" data-lumina="canvas-toggle" role="switch" aria-checked="{{ cvA }}" aria-label="One grid" onClick="{{ cvToggle }}" title="One grid: Scenes and Clips as one, folded and unfolded (?canvas=1). Off: Scenes, Clips, Viewer." style="box-sizing:content-box;flex:none;height:26px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:7px;color:{{ cvFg }};cursor:pointer;background:{{ cvBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ cvT }}</button>
     <div style="position:relative;flex:none">
-      <div data-lumina="memory-pill" role="button" tabIndex="0" aria-label="Working memory" aria-expanded="{{ memOn }}" onClick="{{ memToggle }}" style="height:26px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:7px;color:#B8B3AB;cursor:pointer;background:{{ memBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:grid;grid-template-columns:repeat(2,4px);gap:2px"><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:rgba(239,236,230,0.3)"></span></span>{{ memPill }}</div>
+      <button type="button" data-lumina="memory-pill" aria-label="Working memory" aria-expanded="{{ memOn }}" onClick="{{ memToggle }}" style="box-sizing:content-box;height:26px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:7px;color:#B8B3AB;cursor:pointer;background:{{ memBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:grid;grid-template-columns:repeat(2,4px);gap:2px"><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:rgba(239,236,230,0.3)"></span></span>{{ memPill }}</button>
       <sc-if value="{{ memOn }}" hint-placeholder-val="{{ false }}">
         <div data-lumina="memory" role="dialog" aria-label="Working memory" style="position:absolute;right:0;top:32px;z-index:35;width:360px;max-height:calc(100vh - 90px);overflow-y:auto;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:12px;animation:fade 100ms ease-out;white-space:normal;line-height:1.45">
           <span style="font-size:13px;font-weight:600;color:#EFECE6">Working memory</span>
           <div style="display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A;font-weight:700">In this tab</span><sc-for list="{{ memTab }}" as="mr" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ mr.k }}</span><span style="color:#EFECE6">{{ mr.v }}</span></div></sc-for></div>
           <div style="display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A;font-weight:700">{{ memSavedH }}</span><sc-for list="{{ memSaved }}" as="mr" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ mr.k }}</span><span style="color:#EFECE6">{{ mr.v }}</span></div></sc-for></div>
           <div data-lumina="memory-controls" style="display:flex;flex-direction:column;gap:7px"><span style="color:#FFD27A;font-weight:700">Controls</span>
-            <sc-for list="{{ memCtl }}" as="mc" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start"><span style="color:#9A958D;padding-top:2px">{{ mc.k }}</span><div style="display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ mc.opts }}" as="o" hint-placeholder-count="4"><span role="button" tabIndex="0" aria-pressed="{{ o.on }}" onClick="{{ o.go }}" title="{{ o.tip }}" style="padding:2px 7px;border-radius:5px;background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ o.t }}</span></sc-for></div></div></sc-for>
+            <sc-for list="{{ memCtl }}" as="mc" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start"><span style="color:#9A958D;padding-top:2px">{{ mc.k }}</span><div style="display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ mc.opts }}" as="o" hint-placeholder-count="4"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.go }}" title="{{ o.tip }}" style="box-sizing:content-box;padding:2px 7px;border-radius:5px;background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ o.t }}</button></sc-for></div></div></sc-for>
             <sc-if value="{{ memMore }}" hint-placeholder-val="{{ false }}"><span style="color:#9A958D">{{ memCtlNote }}</span></sc-if>
           </div>
           <sc-if value="{{ memMore }}" hint-placeholder-val="{{ false }}"><div data-lumina="test-load" style="display:flex;flex-direction:column;gap:7px"><span style="color:#FFD27A;font-weight:700">Test load</span>
-            <sc-for list="{{ memTest }}" as="mc" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start"><span style="color:#9A958D;padding-top:2px">{{ mc.k }}</span><div style="display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ mc.opts }}" as="o" hint-placeholder-count="4"><span role="button" tabIndex="0" aria-pressed="{{ o.on }}" onClick="{{ o.go }}" title="{{ o.tip }}" style="padding:2px 7px;border-radius:5px;background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ o.t }}</span></sc-for></div></div></sc-for>
+            <sc-for list="{{ memTest }}" as="mc" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start"><span style="color:#9A958D;padding-top:2px">{{ mc.k }}</span><div style="display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ mc.opts }}" as="o" hint-placeholder-count="4"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.go }}" title="{{ o.tip }}" style="box-sizing:content-box;padding:2px 7px;border-radius:5px;background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ o.t }}</button></sc-for></div></div></sc-for>
             <span style="color:#9A958D">In memory only. Nothing on disk.</span>
           </div></sc-if>
-          <div style="display:flex;align-items:center;gap:10px"><span style="flex:1;color:#9A958D">{{ memNote }}</span><sc-if value="{{ memMoreOn }}" hint-placeholder-val="{{ true }}"><span data-lumina="memory-more" role="button" tabIndex="0" onClick="{{ memMoreGo }}" style="padding:2px 8px;border-radius:5px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ memMoreT }}</span></sc-if></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="flex:1;color:#9A958D">{{ memNote }}</span><sc-if value="{{ memMoreOn }}" hint-placeholder-val="{{ true }}"><button type="button" data-lumina="memory-more" onClick="{{ memMoreGo }}" style="box-sizing:content-box;padding:2px 8px;border-radius:5px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ memMoreT }}</button></sc-if></div>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <sc-for list="{{ memBtns }}" as="mb" hint-placeholder-count="3"><div role="button" tabIndex="0" onClick="{{ mb.go }}" style="padding:8px 10px;border-radius:9px;background:{{ mb.bg }};opacity:{{ mb.op }};cursor:pointer;display:flex;flex-direction:column;gap:2px" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="color:{{ mb.fg }};font-weight:600">{{ mb.t }}</span><span style="color:{{ mb.subC }}">{{ mb.sub }}</span></div></sc-for>
+            <sc-for list="{{ memBtns }}" as="mb" hint-placeholder-count="3"><button type="button" onClick="{{ mb.go }}" style="box-sizing:content-box;padding:8px 10px;border-radius:9px;background:{{ mb.bg }};opacity:{{ mb.op }};cursor:pointer;display:flex;flex-direction:column;gap:2px" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="color:{{ mb.fg }};font-weight:600">{{ mb.t }}</span><span style="color:{{ mb.subC }}">{{ mb.sub }}</span></button></sc-for>
           </div>
         </div>
       </sc-if>
@@ -66,23 +119,23 @@ input[type=range]{accent-color:#B8B3AB}
       <div data-lumina="levels" role="tablist" aria-label="levels" style="position:relative;display:grid;grid-template-columns:repeat({{ lvN }},68px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)">
         <div style="position:absolute;left:2px;top:2px;bottom:2px;width:68px;border-radius:5px;background:#5B5854;box-shadow:0 0.5px 1px rgba(0,0,0,0.4);transform:translateX({{ lvX }}px);transition:transform 180ms ease-out"></div>
         <sc-for list="{{ lvTabs }}" as="lt" hint-placeholder-count="4">
-          <div role="tab" tabIndex="0" aria-selected="{{ lt.on }}" onClick="{{ lt.go }}" style="position:relative;height:24px;display:grid;place-items:center;font-size:12px;color:{{ lt.fg }};cursor:pointer;border-radius:5px" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ lt.t }}</div>
+          <button type="button" role="tab" aria-selected="{{ lt.on }}" onClick="{{ lt.go }}" style="box-sizing:content-box;position:relative;height:24px;display:grid;place-items:center;font-size:12px;color:{{ lt.fg }};cursor:pointer;border-radius:5px" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ lt.t }}</button>
         </sc-for>
       </div>
       </sc-if>
       <sc-if value="{{ unsupOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="unsupported" role="status" style="margin-left:16px;flex:none;color:#FFD27A;white-space:nowrap">{{ unsupLine }}</div></sc-if>
       <sc-if value="{{ recNoteOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="marks-back" role="status" style="margin-left:16px;flex:none;color:#A9D18E;white-space:nowrap;animation:fade 160ms ease-out">{{ recNote }}</div></sc-if>
       <sc-if value="{{ loadOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="load-status" role="status" aria-live="polite" onClick="{{ progToggle }}" title="P" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;cursor:pointer;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:{{ loadDot }};animation:{{ loadAnim }}"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ loadLine }}</span><span data-lumina="fill-note" style="flex:none;color:#9A958D">{{ fillNote }}</span></div></sc-if>
-      <sc-if value="{{ pauseOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="read-pause" role="button" tabIndex="0" aria-pressed="{{ pauseA }}" onClick="{{ pauseGo }}" style="margin-left:10px;flex:none;height:24px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:{{ pauseBg }};color:{{ pauseFg }};font-weight:{{ pauseFw }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pauseT }}</div></sc-if>
-      <sc-if value="{{ haltOn }}" hint-placeholder-val="{{ false }}"><div role="button" tabIndex="0" onClick="{{ resumeRead }}" style="margin-left:10px;flex:none;height:24px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Go on</div></sc-if>
+      <sc-if value="{{ pauseOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-pause" aria-pressed="{{ pauseA }}" onClick="{{ pauseGo }}" style="box-sizing:content-box;margin-left:10px;flex:none;height:24px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:{{ pauseBg }};color:{{ pauseFg }};font-weight:{{ pauseFw }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pauseT }}</button></sc-if>
+      <sc-if value="{{ haltOn }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ resumeRead }}" style="box-sizing:content-box;margin-left:10px;flex:none;height:24px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Go on</button></sc-if>
     </div>
     <div style="flex:0 1 auto;min-width:120px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;max-width:380px">
-      <div data-lumina="preview" role="switch" tabIndex="0" aria-checked="{{ pvA }}" aria-disabled="{{ pvDis }}" onClick="{{ pvToggle }}" style="display:flex;align-items:center;gap:8px;cursor:pointer;opacity:{{ pvOp }}" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:12px;color:#EFECE6">Rec.709 preview</span><span style="position:relative;width:28px;height:16px;border-radius:8px;background:{{ pvTrack }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ pvKnob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span></div>
-      <div style="display:flex;align-items:center;gap:4px;max-width:100%;white-space:nowrap"><span data-lumina="preview-line" style="font-size:10.5px;color:#9A958D;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pvLine }}</span><sc-for list="{{ askOpts }}" as="ao" hint-placeholder-count="4"><span data-lumina="profile-answer" role="button" tabIndex="0" aria-pressed="{{ ao.on }}" onClick="{{ ao.go }}" style="flex:none;font-size:10.5px;padding:1px 6px;border-radius:4px;background:{{ ao.bg }};color:{{ ao.fg }};font-weight:{{ ao.fw }};cursor:pointer" style-hover="background:rgba(239,236,230,0.18)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ ao.t }}</span></sc-for><span data-lumina="profiles" role="button" tabIndex="0" aria-expanded="{{ pfOn }}" onClick="{{ pfToggle }}" title="What the preview does for each kind of clip" style="flex:none;font-size:10.5px;padding:1px 6px;border-radius:4px;background:{{ pfBg }};color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">profiles</span></div>
+      <button type="button" data-lumina="preview" role="switch" aria-checked="{{ pvA }}" aria-disabled="{{ pvDis }}" onClick="{{ pvToggle }}" style="box-sizing:content-box;display:flex;align-items:center;gap:8px;cursor:pointer;opacity:{{ pvOp }}" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:12px;color:#EFECE6">Rec.709 preview</span><span style="position:relative;width:28px;height:16px;border-radius:8px;background:{{ pvTrack }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ pvKnob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span></button>
+      <div style="display:flex;align-items:center;gap:4px;max-width:100%;white-space:nowrap"><span data-lumina="preview-line" style="font-size:10.5px;color:#9A958D;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pvLine }}</span><sc-for list="{{ askOpts }}" as="ao" hint-placeholder-count="4"><button type="button" data-lumina="profile-answer" aria-pressed="{{ ao.on }}" onClick="{{ ao.go }}" style="box-sizing:content-box;flex:none;font-size:10.5px;padding:1px 6px;border-radius:4px;background:{{ ao.bg }};color:{{ ao.fg }};font-weight:{{ ao.fw }};cursor:pointer" style-hover="background:rgba(239,236,230,0.18)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ ao.t }}</button></sc-for><button type="button" data-lumina="profiles" aria-expanded="{{ pfOn }}" onClick="{{ pfToggle }}" title="What the preview does for each kind of clip" style="box-sizing:content-box;flex:none;font-size:10.5px;padding:1px 6px;border-radius:4px;background:{{ pfBg }};color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">profiles</button></div>
       <sc-if value="{{ pfOn }}" hint-placeholder-val="{{ false }}">
         <div data-lumina="profile-card" role="dialog" aria-label="Picture profiles" style="position:absolute;right:20px;top:96px;z-index:36;width:min(420px,calc(100vw - 40px));box-sizing:border-box;padding:12px 14px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:8px;animation:fade 100ms ease-out;white-space:normal;line-height:1.45">
           <span style="font-size:13px;font-weight:600;color:#EFECE6">Picture profiles in this shoot</span>
-          <sc-for list="{{ pfRows }}" as="pf" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px"><span style="color:#EFECE6">{{ pf.what }}</span><span style="color:#B8B3AB;white-space:nowrap">{{ pf.n }}</span><span style="grid-column:1 / -1;color:{{ pf.c }}">{{ pf.does }}</span><div style="grid-column:1 / -1;display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ pf.asks }}" as="ao" hint-placeholder-count="0"><span role="button" tabIndex="0" aria-pressed="{{ ao.on }}" onClick="{{ ao.go }}" style="padding:1px 7px;border-radius:4px;background:{{ ao.bg }};color:{{ ao.fg }};cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ ao.t }}</span></sc-for></div></div></sc-for>
+          <sc-for list="{{ pfRows }}" as="pf" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px"><span style="color:#EFECE6">{{ pf.what }}</span><span style="color:#B8B3AB;white-space:nowrap">{{ pf.n }}</span><span style="grid-column:1 / -1;color:{{ pf.c }}">{{ pf.does }}</span><div style="grid-column:1 / -1;display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ pf.asks }}" as="ao" hint-placeholder-count="0"><button type="button" aria-pressed="{{ ao.on }}" onClick="{{ ao.go }}" style="box-sizing:content-box;padding:1px 7px;border-radius:4px;background:{{ ao.bg }};color:{{ ao.fg }};cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ ao.t }}</button></sc-for></div></div></sc-for>
         </div>
       </sc-if>
     </div>
@@ -95,17 +148,17 @@ input[type=range]{accent-color:#B8B3AB}
     <sc-if value="{{ progOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="progress" role="dialog" aria-label="Clips added" style="position:absolute;right:12px;top:10px;bottom:10px;z-index:30;width:min(360px,calc(100% - 24px));box-sizing:border-box;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;animation:fade 100ms ease-out">
         <div style="flex:none;padding:12px 14px 8px;display:flex;flex-direction:column;gap:4px;border-bottom:1px solid rgba(239,236,230,0.08)">
-          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:13px;font-weight:600;color:#EFECE6">{{ progH }}</span><span style="flex:1"></span><span role="button" tabIndex="0" onClick="{{ progToggle }}" style="min-width:20px;height:20px;padding:0 6px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">P</span></div>
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:13px;font-weight:600;color:#EFECE6">{{ progH }}</span><span style="flex:1"></span><button type="button" onClick="{{ progToggle }}" style="box-sizing:content-box;min-width:20px;height:20px;padding:0 6px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">P</button></div>
           <span style="color:#B8B3AB">{{ progSum }}</span>
           <sc-if value="{{ paceOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="pace" style="color:#FFD27A">{{ paceLine }}</span></sc-if>
         </div>
         <div style="flex:1;min-height:0;overflow-y:auto;padding:6px 6px 10px">
           <sc-for list="{{ progRows }}" as="pr" hint-placeholder-count="6">
-            <div data-prog="{{ pr.id }}" role="button" tabIndex="0" onClick="{{ progGo }}" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:6px 8px;border-radius:7px;background:{{ pr.bg }};cursor:pointer" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
+            <button type="button" data-prog="{{ pr.id }}" onClick="{{ progGo }}" style="box-sizing:content-box;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:6px 8px;border-radius:7px;background:{{ pr.bg }};cursor:pointer" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
               <span style="color:{{ pr.nameC }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pr.name }}</span><span style="color:{{ pr.stC }};white-space:nowrap">{{ pr.st }}</span>
               <span style="color:#9A958D;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pr.sub }}</span>
               <span style="display:flex;gap:2px;align-items:center"><sc-for list="{{ pr.segs }}" as="sg" hint-placeholder-count="8"><span style="width:6px;height:6px;border-radius:1px;background:{{ sg.c }}"></span></sc-for></span>
-            </div>
+            </button>
           </sc-for>
         </div>
       </div>
@@ -114,20 +167,22 @@ input[type=range]{accent-color:#B8B3AB}
       <div data-screen-label="Open" onDragOver="{{ dropOver }}" onDragLeave="{{ dropLeave }}" onDrop="{{ dropIn }}" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
         <div style="max-width:min(1000px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,5vh,56px) clamp(16px,4vw,48px) 40px;display:flex;flex-direction:column;gap:24px">
           <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · M4V</span></div>
-          <sc-if value="{{ webPrev }}" hint-placeholder-val="{{ false }}"><div data-lumina="web-preview" style="color:#B8B3AB;line-height:1.5">Web preview: your clips are read on this Mac; nothing is uploaded. Use Safari: it plays every Sony format, the same as the Lumina app. Open one shoot at a time and keep each clip’s .XML beside it.</div></sc-if>
+          <sc-if value="{{ webPrev }}" hint-placeholder-val="{{ false }}"><div data-lumina="web-preview" style="color:#B8B3AB;line-height:1.5">{{ webPrevT }}</div></sc-if>
           <sc-if value="{{ notSafari }}" hint-placeholder-val="{{ false }}"><div data-lumina="use-safari" role="note" style="color:#FFD27A;line-height:1.5">This browser can’t play 10-bit H.264 (XAVC S-I, XAVC S 10-bit), the a7S III’s main formats. Open this page in Safari for those; XAVC HS and 8-bit clips work here.</div></sc-if>
           <sc-if value="{{ nowOn }}" hint-placeholder-val="{{ false }}">
             <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1)">
               <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px"><span style="color:#9A958D">Open now</span><span style="font-size:14px;color:#EFECE6">{{ nowName }}</span><span style="color:#B8B3AB">{{ nowLine }}</span></div>
-              <div role="button" tabIndex="0" onClick="{{ goSkim }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">⌘2</span>Skim</div>
+              <button type="button" onClick="{{ goSkim }}" style="box-sizing:content-box;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">⌘2</span>Skim</button>
             </div>
           </sc-if>
-          <div data-lumina="drop" role="button" tabIndex="0" onClick="{{ pickFolder }}" style="min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
-            <span style="font-size:16px;color:#EFECE6">Drop a card, a folder or clips</span>
-            <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>Choose…</span>
+          <button type="button" data-lumina="drop" onClick="{{ pickFolder }}" style="min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
+            <span style="font-size:16px;color:#EFECE6">{{ dropT }}</span>
+            <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>{{ pickT }}</span>
             <span data-lumina="drop-note" style="color:#9A958D">{{ dropNote }}</span>
-          </div>
+          </button>
+          <sc-if value="{{ pickAltOn }}" hint-placeholder-val="{{ true }}"><button type="button" data-lumina="pick-alt" onClick="{{ pickAlt }}" style="box-sizing:content-box;align-self:center;padding:9px 16px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pickAltT }}</button></sc-if>
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
+          <input ref="{{ clipRef }}" type="file" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#FFD27A">{{ impMsg }}</div></sc-if>
           <sc-if value="{{ impLineOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#B8B3AB">{{ impLine }}</div></sc-if>
           <sc-if value="{{ recOn }}" hint-placeholder-val="{{ false }}">
@@ -135,12 +190,12 @@ input[type=range]{accent-color:#B8B3AB}
               <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;font-weight:600;color:#EFECE6">Your marks</span><span style="color:#9A958D">Lumina saves your marks, not your clips. Open the clips again, all or some, and their marks come back.</span></div>
               <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:14px">
                 <sc-for list="{{ recents }}" as="rc" hint-placeholder-count="2">
-                  <div data-lumina="recent" role="button" tabIndex="0" onClick="{{ rc.go }}" style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px {{ rc.ring }};cursor:pointer" style-hover="background:#2E2C29">
+                  <button type="button" data-lumina="recent" onClick="{{ rc.go }}" style="box-sizing:content-box;display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px {{ rc.ring }};cursor:pointer" style-hover="background:#2E2C29">
                     <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6">{{ rc.name }}</span>
                     <span style="color:#B8B3AB">{{ rc.line }}</span>
                     <span style="display:flex;align-items:center;gap:7px;color:{{ rc.stC }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ rc.dot }};animation:{{ rc.anim }}"></span>{{ rc.st }}</span>
                     <span style="color:#9A958D">{{ rc.act }}</span>
-                  </div>
+                  </button>
                 </sc-for>
               </div>
             </div>
@@ -149,7 +204,7 @@ input[type=range]{accent-color:#B8B3AB}
             <span style="font-size:13px;font-weight:600;color:#EFECE6">Sample cards</span>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:14px">
               <sc-for list="{{ cards }}" as="cd" hint-placeholder-count="4">
-                <div data-lumina="card" role="button" tabIndex="0" onClick="{{ cd.open }}" style="display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08);cursor:pointer;transition:background 120ms ease-out" style-hover="background:#2E2C29" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6">{{ cd.name }}</span><span style="color:#EFECE6">{{ cd.l1 }}</span><span style="color:#9A958D">{{ cd.l2 }}</span></div>
+                <button type="button" data-lumina="card" onClick="{{ cd.open }}" style="box-sizing:content-box;display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08);cursor:pointer;transition:background 120ms ease-out" style-hover="background:#2E2C29" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6">{{ cd.name }}</span><span style="color:#EFECE6">{{ cd.l1 }}</span><span style="color:#9A958D">{{ cd.l2 }}</span></button>
               </sc-for>
             </div>
           </div></sc-if>
@@ -164,8 +219,8 @@ input[type=range]{accent-color:#B8B3AB}
             <sc-if value="{{ exUndOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="undecided" role="status" style="display:flex;align-items:center;gap:8px;color:#B8B3AB"><span style="width:8px;height:8px;border-radius:50%;background:#FFD27A"></span>{{ exUnd }}</span></sc-if>
             <div style="display:flex;flex-direction:column;gap:10px">
               <div style="display:flex;gap:10px;flex-wrap:wrap">
-                <div role="button" tabIndex="0" onClick="{{ backSkim }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">esc</span>Back to Skim</div>
-                <div data-lumina="download" role="button" tabIndex="0" aria-disabled="{{ exBtnOff }}" onClick="{{ download }}" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:{{ exBtnCur }};display:flex;align-items:center;gap:6px;opacity:{{ exBtnOp }}" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘⏎</span>{{ exBtn }}</div>
+                <button type="button" onClick="{{ backSkim }}" style="box-sizing:content-box;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">esc</span>Back to Skim</button>
+                <button type="button" data-lumina="download" aria-disabled="{{ exBtnOff }}" onClick="{{ download }}" style="box-sizing:content-box;padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:{{ exBtnCur }};display:flex;align-items:center;gap:6px;opacity:{{ exBtnOp }}" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘⏎</span>{{ exBtn }}</button>
                 <sc-if value="{{ exWhyOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="export-why" role="status" style="align-self:center;color:{{ exWhyC }}">{{ exWhy }}</span></sc-if>
               </div>
               <span data-lumina="export-sub" style="color:#B8B3AB">{{ exSub }}</span>
@@ -201,8 +256,8 @@ input[type=range]{accent-color:#B8B3AB}
               <sc-if value="{{ cutOn }}" hint-placeholder-val="{{ false }}">
                 <div style="display:flex;flex-direction:column;gap:10px">
                   <div style="display:flex;gap:10px;flex-wrap:wrap">
-                    <div data-lumina="cut-copy" role="button" tabIndex="0" onClick="{{ cutCopy }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Copy list</div>
-                    <div data-lumina="cut-save" role="button" tabIndex="0" onClick="{{ cutSave }}" style="padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Download list</div>
+                    <button type="button" data-lumina="cut-copy" onClick="{{ cutCopy }}" style="box-sizing:content-box;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Copy list</button>
+                    <button type="button" data-lumina="cut-save" onClick="{{ cutSave }}" style="box-sizing:content-box;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Download list</button>
                   </div>
                   <span style="color:#9A958D">The page cannot delete files; delete these in Finder.</span>
                 </div>
@@ -213,7 +268,7 @@ input[type=range]{accent-color:#B8B3AB}
 
           </div>
           <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
-            <div data-lumina="details" role="button" tabIndex="0" aria-expanded="{{ exMore }}" onClick="{{ exMoreGo }}" style="align-self:flex-start;display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:8px;color:#9A958D;cursor:pointer" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:inline-block;width:12px;text-align:center;transform:rotate({{ exMoreRot }});transition:transform 120ms ease-out">›</span>Details</div>
+            <button type="button" data-lumina="details" aria-expanded="{{ exMore }}" onClick="{{ exMoreGo }}" style="box-sizing:content-box;align-self:flex-start;display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:8px;color:#9A958D;cursor:pointer" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:inline-block;width:12px;text-align:center;transform:rotate({{ exMoreRot }});transition:transform 120ms ease-out">›</span>Details</button>
             <sc-if value="{{ exMore }}" hint-placeholder-val="{{ false }}">
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:32px;align-items:start">
                 <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
@@ -231,7 +286,7 @@ input[type=range]{accent-color:#B8B3AB}
                 </div>
                 <div style="display:flex;flex-direction:column;gap:10px">
                   <sc-for list="{{ exOpts }}" as="eo" hint-placeholder-count="4">
-                    <div role="switch" tabIndex="0" aria-checked="{{ eo.on }}" onClick="{{ eo.go }}" style="display:flex;align-items:center;gap:10px;cursor:pointer;opacity:{{ eo.op }}" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="flex:none;position:relative;width:28px;height:16px;border-radius:8px;background:{{ eo.track }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ eo.knob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span><span style="font-size:13px;color:#EFECE6">{{ eo.t }}</span><span style="color:#9A958D">{{ eo.sub }}</span></div>
+                    <button type="button" role="switch" aria-checked="{{ eo.on }}" onClick="{{ eo.go }}" style="box-sizing:content-box;display:flex;align-items:center;gap:10px;cursor:pointer;opacity:{{ eo.op }}" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="flex:none;position:relative;width:28px;height:16px;border-radius:8px;background:{{ eo.track }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ eo.knob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span><span style="font-size:13px;color:#EFECE6">{{ eo.t }}</span><span style="color:#9A958D">{{ eo.sub }}</span></button>
                   </sc-for>
                 </div>
                 </div>
@@ -268,14 +323,14 @@ input[type=range]{accent-color:#B8B3AB}
     <sc-if value="{{ stripOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="furled-chapters" style="flex:none;height:40px;display:flex;align-items:center;gap:6px;padding:0 20px;border-bottom:1px solid rgba(239,236,230,0.06);overflow-x:auto;scrollbar-width:none">
         <sc-for list="{{ strip }}" as="g" hint-placeholder-count="5">
-          <div role="button" tabIndex="0" onClick="{{ g.go }}" style="flex:none;height:26px;padding:0 10px;border-radius:6px;display:flex;align-items:center;gap:8px;background:{{ g.bg }};color:{{ g.fg }};cursor:pointer" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span>{{ g.title }}</span><span style="color:#9A958D">{{ g.n }}</span><span style="width:28px;height:3px;border-radius:2px;background:rgba(239,236,230,0.14);overflow:hidden"><span style="display:block;height:100%;width:{{ g.pct }};background:#B8B3AB"></span></span></div>
+          <button type="button" onClick="{{ g.go }}" style="box-sizing:content-box;flex:none;height:26px;padding:0 10px;border-radius:6px;display:flex;align-items:center;gap:8px;background:{{ g.bg }};color:{{ g.fg }};cursor:pointer" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span>{{ g.title }}</span><span style="color:#9A958D">{{ g.n }}</span><span style="width:28px;height:3px;border-radius:2px;background:rgba(239,236,230,0.14);overflow:hidden"><span style="display:block;height:100%;width:{{ g.pct }};background:#B8B3AB"></span></span></button>
         </sc-for>
       </div>
     </sc-if>
     <sc-if value="{{ takeStripOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="furled-takes" style="flex:none;height:46px;display:flex;align-items:center;gap:4px;padding:0 20px;border-bottom:1px solid rgba(239,236,230,0.06);overflow-x:auto;scrollbar-width:none">
         <sc-for list="{{ tstrip }}" as="ts" hint-placeholder-count="8">
-          <div data-strip="{{ ts.id }}" role="button" tabIndex="0" aria-label="{{ ts.id }}" onClick="{{ sClick }}" style="flex:none;width:56px;height:32px;border-radius:3px;background:{{ ts.bg }};filter:{{ ts.flt }};animation:{{ ts.anim }};box-shadow:{{ ts.edge }};outline:{{ ts.out }};outline-offset:2px;cursor:pointer"></div>
+          <button type="button" data-strip="{{ ts.id }}" aria-label="{{ ts.id }}" onClick="{{ sClick }}" style="box-sizing:content-box;flex:none;width:56px;height:32px;border-radius:3px;background:{{ ts.bg }};filter:{{ ts.flt }};animation:{{ ts.anim }};box-shadow:{{ ts.edge }};outline:{{ ts.out }};outline-offset:2px;cursor:pointer"></button>
         </sc-for>
       </div>
     </sc-if>
@@ -422,8 +477,8 @@ input[type=range]{accent-color:#B8B3AB}
           <sc-if value="{{ noKeepOn }}" hint-placeholder-val="{{ false }}">
             <div data-lumina="no-keep" role="alertdialog" aria-label="Nothing selected yet" style="align-self:flex-start;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:#2A2927;box-shadow:0 0 0 1px rgba(255,210,122,0.4);animation:fade 100ms ease-out">
               <span style="color:#FFD27A;font-weight:600">Nothing selected yet</span><span style="color:#B8B3AB">Export would be empty.</span>
-              <div role="button" tabIndex="0" onClick="{{ noKeepBack }}" style="height:26px;padding:0 10px;border-radius:7px;display:flex;align-items:center;gap:7px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:18px;height:18px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-size:11px">⏎</span>Back to Clips</div>
-              <div role="button" tabIndex="0" onClick="{{ noKeepStay }}" style="height:26px;padding:0 10px;border-radius:7px;display:flex;align-items:center;gap:7px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:18px;height:18px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-size:11px">esc</span>Stay</div>
+              <button type="button" onClick="{{ noKeepBack }}" style="box-sizing:content-box;height:26px;padding:0 10px;border-radius:7px;display:flex;align-items:center;gap:7px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:18px;height:18px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-size:11px">⏎</span>Back to Clips</button>
+              <button type="button" onClick="{{ noKeepStay }}" style="box-sizing:content-box;height:26px;padding:0 10px;border-radius:7px;display:flex;align-items:center;gap:7px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:18px;height:18px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-size:11px">esc</span>Stay</button>
             </div>
           </sc-if>
           
@@ -432,7 +487,7 @@ input[type=range]{accent-color:#B8B3AB}
           <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:22px">{{ cv.name }}</span><span style="color:#9A958D">{{ cv.when }}</span></div>
           <div data-lumina="viewer-mark" style="display:flex;flex-direction:column;gap:7px">
             <div style="display:flex;gap:5px">
-              <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><div data-well="{{ pk.m }}" role="button" tabIndex="0" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · on / off" onClick="{{ wClick }}" style="flex:1 1 0;min-width:0;height:30px;box-sizing:border-box;padding:0 7px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="filter:brightness(1.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:18px;height:18px;box-sizing:border-box;padding:0 4px;border-radius:5px;background:{{ pk.capBg }};display:grid;place-items:center;font-weight:700;color:{{ pk.capFg }}">{{ pk.k }}</span><span style="color:{{ pk.fg }};font-weight:{{ pk.fw }}">{{ pk.l }}</span></div></sc-for>
+              <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><button type="button" data-well="{{ pk.m }}" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · on / off" onClick="{{ wClick }}" style="flex:1 1 0;min-width:0;height:30px;box-sizing:border-box;padding:0 7px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="filter:brightness(1.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:18px;height:18px;box-sizing:border-box;padding:0 4px;border-radius:5px;background:{{ pk.capBg }};display:grid;place-items:center;font-weight:700;color:{{ pk.capFg }}">{{ pk.k }}</span><span style="color:{{ pk.fg }};font-weight:{{ pk.fw }}">{{ pk.l }}</span></button></sc-for>
             </div>
             <div style="display:flex;justify-content:space-between;gap:10px;white-space:nowrap"><span data-lumina="viewer-mark-now" style="color:{{ cv.markNowC }};font-weight:600">{{ cv.markNow }}</span><span data-lumina="viewer-cut" style="color:{{ cutC }}">{{ cutSoFar }}</span></div>
           </div>
@@ -450,28 +505,33 @@ input[type=range]{accent-color:#B8B3AB}
 
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
   <div data-lumina="keybar" style="flex:none;height:30px;display:flex;align-items:center;gap:16px;padding:0 20px;border-top:1px solid rgba(239,236,230,0.06);color:#B8B3AB;white-space:nowrap;overflow:hidden">
-    <div style="flex:1;min-width:0;display:flex;align-items:center;gap:16px;overflow:hidden">
+    <sc-if value="{{ navOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="nav" style="flex:none;display:flex;align-items:center;gap:6px">
+      <button type="button" data-lumina="nav-grid" onClick="{{ navGrid }}" style="box-sizing:content-box;height:26px;padding:0 12px;border-radius:7px;display:flex;align-items:center;gap:6px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;white-space:nowrap">‹ Clips</button>
+      <button type="button" data-lumina="nav-prev" aria-label="previous clip" onClick="{{ navPrev }}" style="box-sizing:content-box;height:26px;padding:0 12px;border-radius:7px;display:grid;place-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;opacity:{{ navPrevOp }};font-size:16px">‹</button>
+      <button type="button" data-lumina="nav-next" aria-label="next clip" onClick="{{ navNext }}" style="box-sizing:content-box;height:26px;padding:0 12px;border-radius:7px;display:grid;place-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;opacity:{{ navNextOp }};font-size:16px">›</button>
+    </div></sc-if>
+    <div data-lumina="hints" style="flex:1;min-width:0;display:flex;align-items:center;gap:16px;overflow:hidden">
       <span data-lumina="where" style="flex:none;color:#EFECE6;font-weight:600">{{ hintLead }}</span>
       <sc-for list="{{ hints }}" as="hk" hint-placeholder-count="6">
-        <span style="flex:none;display:flex;align-items:center;gap:6px"><span style="min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">{{ hk.k }}</span>{{ hk.t }}</span>
+        <span style="flex:none;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">{{ hk.k }}</span>{{ hk.t }}</span>
       </sc-for>
     </div>
-    <div data-lumina="progress-pill" role="button" tabIndex="0" aria-expanded="{{ progOn }}" onClick="{{ progToggle }}" title="Clips added · P" style="flex:none;height:22px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:{{ progPillC }};cursor:pointer;background:{{ progPillBg }}" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span style="width:6px;height:6px;border-radius:50%;background:{{ progDot }};animation:{{ progAnim }}"></span><span>{{ progPill }}</span><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">P</span></div>
+    <button type="button" data-lumina="progress-pill" aria-expanded="{{ progOn }}" onClick="{{ progToggle }}" title="Clips added · P" style="box-sizing:content-box;flex:none;height:22px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:{{ progPillC }};cursor:pointer;background:{{ progPillBg }}" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span style="width:6px;height:6px;border-radius:50%;background:{{ progDot }};animation:{{ progAnim }}"></span><span>{{ progPill }}</span><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">P</span></button>
     <div style="flex:none;display:flex;align-items:center;gap:4px;padding-left:14px;border-left:1px solid rgba(239,236,230,0.1)">
-      <div role="button" tabIndex="0" onClick="{{ undoGo }}" title="Undo · ⌘Z" style="height:22px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:{{ undoC }};cursor:pointer" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span style="font-size:13px">↶</span><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700">⌘Z</span><span>{{ undoN }}</span></div>
-      <div role="button" tabIndex="0" onClick="{{ redoGo }}" title="Redo · ⇧⌘Z" style="height:22px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:{{ redoC }};cursor:pointer" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span style="font-size:13px">↷</span><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700">⇧⌘Z</span><span>{{ redoN }}</span></div>
+      <button type="button" onClick="{{ undoGo }}" title="Undo · ⌘Z" style="box-sizing:content-box;height:22px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:{{ undoC }};cursor:pointer" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span style="font-size:13px">↶</span><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700">⌘Z</span><span>{{ undoN }}</span></button>
+      <button type="button" onClick="{{ redoGo }}" title="Redo · ⇧⌘Z" style="box-sizing:content-box;height:22px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:{{ redoC }};cursor:pointer" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span style="font-size:13px">↷</span><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700">⇧⌘Z</span><span>{{ redoN }}</span></button>
     </div>
   </div>
 
   <div data-lumina="footer" style="flex:none;height:48px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:16px;padding:0 20px;background:#262523;border-top:1px solid rgba(239,236,230,0.08);white-space:nowrap">
     <div role="status" aria-live="polite" style="min-width:0;display:flex;align-items:center;gap:10px;overflow:hidden">
-      <sc-if value="{{ propOn }}" hint-placeholder-val="{{ false }}"><span style="color:#FFD27A;font-weight:600;animation:fade 100ms ease-out">{{ prop }}</span><span style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700">esc</span></sc-if>
+      <sc-if value="{{ propOn }}" hint-placeholder-val="{{ false }}"><span style="color:#FFD27A;font-weight:600;animation:fade 100ms ease-out">{{ prop }}</span><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700">esc</span></sc-if>
       <sc-if value="{{ countsOn }}" hint-placeholder-val="{{ true }}"><span data-lumina="counts" style="color:#EFECE6">{{ counts }}</span></sc-if>
-      <sc-if value="{{ handOffer }}" hint-placeholder-val="{{ false }}"><div role="button" tabIndex="0" onClick="{{ handOpen }}" style="height:26px;padding:0 10px;border-radius:7px;display:flex;align-items:center;gap:7px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:20px;height:18px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:11px">⌘⏎</span>Export</div></sc-if>
+      <sc-if value="{{ handOffer }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ handOpen }}" style="box-sizing:content-box;height:26px;padding:0 10px;border-radius:7px;display:flex;align-items:center;gap:7px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:20px;height:18px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:11px">⌘⏎</span>Export</button></sc-if>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <sc-for list="{{ wells }}" as="w" hint-placeholder-count="3">
-        <div data-well="{{ w.m }}" role="button" tabIndex="0" aria-label="{{ w.l }} {{ w.n }}" onClick="{{ wClick }}" style="height:30px;min-width:92px;box-sizing:border-box;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;background:{{ w.bg }};box-shadow:inset 0 0 0 1px {{ w.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="background:rgba(239,236,230,0.1)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:8px;height:8px;border-radius:50%;background:{{ w.c }}"></span><span style="color:#EFECE6">{{ w.l }}</span><span style="flex:1"></span><span style="color:#B8B3AB">{{ w.n }}</span></div>
+        <button type="button" data-well="{{ w.m }}" aria-label="{{ w.l }} {{ w.n }}" onClick="{{ wClick }}" style="height:30px;min-width:92px;box-sizing:border-box;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;background:{{ w.bg }};box-shadow:inset 0 0 0 1px {{ w.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="background:rgba(239,236,230,0.1)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:8px;height:8px;border-radius:50%;background:{{ w.c }}"></span><span style="color:#EFECE6">{{ w.l }}</span><span style="flex:1"></span><span style="color:#B8B3AB">{{ w.n }}</span></button>
       </sc-for>
     </div>
     <div style="min-width:0;display:flex;justify-content:flex-end;gap:14px;color:#B8B3AB;overflow:hidden"><span data-lumina="footer-cut" style="color:{{ cutC }}">{{ cutSoFar }}</span><span style="color:#9A958D">{{ freeTxt }}</span></div>
@@ -597,6 +657,7 @@ class Component extends DCLogic {
     this.dropSavedMarks(); this.dedupeNames(); this.syncStore(); this.calibrate();
     // nothing is saved, so leaving with marks that were not downloaded asks first (the browser's own question)
     this._bu = e => { const st = this.state; if (Component.KEEP_MARKS || !this.hasShoot() || !Object.keys(st.marks).length || st.exAt === st.marks) return; e.preventDefault(); e.returnValue = ''; return ''; }; window.addEventListener('beforeunload', this._bu);
+    this.touchOn();
     this._kw = e => { if ((e.metaKey || e.ctrlKey) && (e.key === 'w' || e.key === 'W')) { e.preventDefault(); this.closeShoot(); } }; window.addEventListener('keydown', this._kw);
     if (!document.getElementById('lumina-pv-filters')) document.body.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" id="lumina-pv-filters" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><filter id="lumina-slog3" color-interpolation-filters="sRGB" x="0" y="0" width="1" height="1"><feComponentTransfer><feFuncR type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncG type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncB type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/></feComponentTransfer><feColorMatrix type="matrix" values="1.9014 -0.8790 -0.0434 0.0000 0.0067 -0.1553 1.3955 -0.2447 0.0000 0.0003 0.0021 -0.3185 1.3129 0.0000 -0.0011 0 0 0 1 0"/></filter></svg>');
   }
@@ -604,8 +665,78 @@ class Component extends DCLogic {
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
     window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); window.removeEventListener('beforeunload', this._bu); this.dropVid();
-    clearTimeout(this.propT); clearTimeout(this.flT);
+    clearTimeout(this.propT); clearTimeout(this.flT); this.touchOff();
   }
+  // Touch. A phone or a tablet has no hover, no keys and no trackpad, so the same actions come from fingers:
+  //  - a finger sideways over a tile skims it (as the pointer does across it), over the Viewer's picture scrubs it and,
+  //    zoomed in, moves it; up and down still scroll (touch-action: pan-y in the page's style);
+  //  - a tap makes a tile the current one (a click), a tap on the current tile opens it (a double-click);
+  //  - two fingers pinch the page's own pinch where the browser sends no gesture events (Chrome on Android; WebKit sends
+  //    gesturestart / gesturechange, handled as for a trackpad).
+  isTouch() { return !!this.touch; }
+  touchOn() {
+    const mq = window.matchMedia ? window.matchMedia('(hover: none) and (pointer: coarse)') : null;
+    this.touch = !!(mq && mq.matches); this._tq = () => { this.touch = !!(mq && mq.matches); this.setState(s => ({tick:(s.tick || 0) + 1})); };
+    if (mq && mq.addEventListener) mq.addEventListener('change', this._tq); this._tqm = mq;
+    this._ts = e => this.tStart(e); this._tm = e => this.tMove(e); this._te = e => this.tEnd(e);
+    document.addEventListener('touchstart', this._ts, {passive:true}); document.addEventListener('touchmove', this._tm, {passive:false});
+    document.addEventListener('touchend', this._te, {passive:false}); document.addEventListener('touchcancel', this._te, {passive:false});
+    if (this.touch) this.setState(s => ({tick:(s.tick || 0) + 1}));
+  }
+  touchOff() {
+    if (this._tqm && this._tqm.removeEventListener) this._tqm.removeEventListener('change', this._tq);
+    document.removeEventListener('touchstart', this._ts); document.removeEventListener('touchmove', this._tm); document.removeEventListener('touchend', this._te); document.removeEventListener('touchcancel', this._te);
+  }
+  static tMid(ts) { const a = ts[0], b = ts[1]; return {x:(a.clientX + b.clientX) / 2, y:(a.clientY + b.clientY) / 2, d:Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)}; }
+  // Which way a finger that has moved (dx, dy) from where it went down is going: null until it is 8 px out, then 'x' or 'y'.
+  static tAxis(dx, dy) { return Math.abs(dx) < 8 && Math.abs(dy) < 8 ? null : Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; }
+  tStart(e) {
+    const st = this.state; if (!st.ready || st.step !== 'skim' || !this.d || !this.d.clips.length) { this.tch = null; return; }
+    if (e.touches.length === 2) {
+      if (typeof window.GestureEvent !== 'undefined') { this.tch = null; return; }
+      const m = Component.tMid(e.touches); if (!m.d) return; this.tch = {pinch:true, d0:m.d}; this.gsc = 1; return;
+    }
+    if (e.touches.length !== 1) { this.tch = null; return; }
+    const t = e.touches[0], el = e.target && e.target.closest ? e.target.closest('[data-gi],[data-pic]') : null;
+    const gi = el && el.hasAttribute('data-gi') ? +el.getAttribute('data-gi') : null;
+    this.tch = {x:t.clientX, y:t.clientY, at:Date.now(), el, gi, axis:null, wasCur:gi != null && this.gOfAll && this.gOfAll[st.cur] === gi};
+  }
+  tMove(e) {
+    const T = this.tch; if (!T) return;
+    if (T.pinch) {
+      if (e.touches.length < 2) return; e.preventDefault(); const m = Component.tMid(e.touches), tg = document.elementFromPoint(m.x, m.y);
+      return this._gc({scale:m.d / T.d0, clientX:m.x, clientY:m.y, target:tg, preventDefault() {}});
+    }
+    const t = e.touches[0]; if (!t || !T.el || e.touches.length !== 1) return;
+    if (!T.axis) T.axis = Component.tAxis(t.clientX - T.x, t.clientY - T.y);
+    if (T.axis !== 'x') return;
+    e.preventDefault(); T.lx = t.clientX; T.ly = t.clientY;
+    const ev = {currentTarget:T.el, target:T.el, clientX:t.clientX, clientY:t.clientY, button:0, preventDefault() {}};
+    if (T.gi != null) { const pic = T.el.firstElementChild; if (this.hoverGi !== T.gi) this.fEnter(ev); if (pic) ev.clientY = pic.getBoundingClientRect().top + 1; return this.fMove(ev); }
+    if (!Component.pointerScrubs(this.state.zc, T.el.getAttribute('data-clip') === this.state.cur)) { if (!T.pan) { T.pan = true; this.picDown({...ev, clientX:T.x, clientY:T.y}); } return this.mm(ev); }
+    this.picMove(ev);
+  }
+  tEnd(e) {
+    const T = this.tch; if (!T) return;
+    if (T.pinch) { if (e.touches.length) return; this.tch = null; return this._ge({preventDefault() {}}); }
+    this.tch = null;
+    if (T.axis === 'x') {
+      if (e.cancelable) e.preventDefault();
+      if (T.pan) return this.mu();
+      if (T.gi == null && T.lx != null) this.picClick({currentTarget:T.el, clientX:T.lx, clientY:T.ly});
+      return;
+    }
+    if (!T.axis && T.wasCur && T.gi != null && Date.now() - T.at < 500 && !this.state.held && e.type === 'touchend') { if (e.cancelable) e.preventDefault(); this.fDbl({currentTarget:T.el}); }
+  }
+  // The device the page runs on, in words: what is read and where.
+  devName() {
+    const u = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    if (/iPhone|iPod/.test(u)) return 'this iPhone'; if (/iPad/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1)) return 'this iPad';
+    if (/Android/.test(u)) return /Mobile/.test(u) ? 'this phone' : 'this tablet'; if (/Macintosh/.test(u)) return 'this Mac'; return 'this computer';
+  }
+  navGrid = () => this.furl();
+  navPrev = () => this.takeStep(-1);
+  navNext = () => this.takeStep(1);
   componentDidUpdate(pp, ps) {
     if (pp.sample !== this.props.sample || pp.startLevel !== this.props.startLevel || pp.startStep !== this.props.startStep) this.load();
     const s0 = this.state, L = this._ls || {};
@@ -1555,7 +1686,8 @@ class Component extends DCLogic {
   }
   viewTap = () => { const st = this.state; if (st.held && st.cur) { this.heldTapped = true; this.doMark([st.cur], st.held); } };
   // Double-click in the Viewer goes to Export; nothing has to be selected first.
-  viewDbl = () => { const st = this.state; if (st.held) return; if (st.zc > 1.01) return this.setState({zc:1}); this.setStep('export'); };
+  viewDbl = () => { const st = this.state; if (st.held || this.isTouch()) return;   // on a phone a double tap is not a wish to leave for Export
+    if (st.zc > 1.01) return this.setState({zc:1}); this.setStep('export'); };
   noKeepBack = () => { this.setState({noKeep:false}); this.furl(); };
   noKeepStay = () => this.setState({noKeep:false});
   pvToggle = () => { const st = this.state; if (this.pvDisabled()) return; this.setState({pv:!st.pv}); this.api('preview', !st.pv); };
@@ -1734,7 +1866,7 @@ class Component extends DCLogic {
       vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
       // the row: this clip and as many of its chapter as fit, joined by a bracket
       const gq = G[curGi], list = gq ? (gq.vis.length ? gq.vis : gq.clips) : [c], ci = Math.max(0, list.findIndex(x => x.id === c.id));
-      const padX = Math.min(40, Math.max(16, st.vw * 0.022)), W = Math.max(280, st.vw - 2 * padX - 28 - 300), Hh = st.vh - 380;
+      const narrow = st.vw <= 640, padX = narrow ? 10 : Math.min(40, Math.max(16, st.vw * 0.022)), W = narrow ? st.vw - 2 * padX : Math.max(280, st.vw - 2 * padX - 28 - 300), Hh = narrow ? Math.max(160, st.vh * 0.42) : Math.max(st.vh <= 500 ? 130 : 0, st.vh - 380);
       const fit = this.rowFit(list.length, W, Hh), k = fit.k, s0 = Math.max(0, Math.min(list.length - k, ci - Math.floor((k - 1) / 2)));
       const shown = list.slice(s0, s0 + k);
       let x = 0; const centers = [];
@@ -1851,7 +1983,12 @@ class Component extends DCLogic {
   setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const ex = this.state.ex, nm = this.d ? this.d.shoot.name : ''; this.setState({step:s, memOn:false, exDone:null, cutSay:null, ex:{...ex, event:ex.event || nm, ...(ex.rootFor === nm ? {} : {root:this.rootSaved(nm), rootFor:nm})}}); }
   // The template's multiple="" doesn't survive the render: several clips picked at once must all come through.
   fileRef = el => { this.fileEl = el; if (el) el.multiple = true; };
-  pickFolder = () => { if (this.fileEl) this.fileEl.click(); };
+  clipRef = el => { this.clipEl = el; if (el) el.multiple = true; };
+  // A phone or a tablet picks clips (iPhone: Photos or Files; Android: its photo picker), a computer a folder; the other is
+  // one button below. Neither shows a folder picker where the browser has none (iOS Safari before 18.4).
+  canFolder() { return typeof document !== 'undefined' && 'webkitdirectory' in document.createElement('input') && !/iPhone|iPod/.test(navigator.userAgent); }
+  pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) el.click(); };
+  pickAlt = () => { const el = this.isTouch() || !this.canFolder() ? this.fileEl : this.clipEl; if (el) el.click(); };
   filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.importFiles(fs); };
   dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
   dropLeave = () => this.setState({dropHot:false});
@@ -1871,7 +2008,7 @@ class Component extends DCLogic {
   primName(p) { return /gamut3.?cine/i.test(p) ? 'S-Gamut3.Cine' : /gamut3/i.test(p) ? 'S-Gamut3' : /gamut/i.test(p) ? 'S-Gamut' : /2020/.test(p) ? 'Rec.2020' : /709/.test(p) ? 'Rec.709' : p; }
   async importFiles(files) {
     const rel = f => (this.rel && this.rel.get(f)) || f.webkitRelativePath || f.name;
-    const vids = files.filter(f => /\.(mp4|mov|mxf|m4v)$/i.test(f.name) && !/^\._/.test(f.name));
+    const vids = files.filter(f => Component.isClip(f));
     const photos = files.filter(f => /\.(arw|dng|cr3|cr2|nef|raf|orf|rw2|jpe?g|heic)$/i.test(f.name)).length;
     if (!vids.length) { this.setState({impMsg:photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
     const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
@@ -1883,7 +2020,7 @@ class Component extends DCLogic {
     if (lt !== this.listTok) return;
     const tM = performance.now(), from = {file:0, sidecar:0, none:0};
     const clips = vids.map((f, i) => { const m = metas[i]; from[m.prof.source] = (from[m.prof.source] || 0) + 1;
-      return {id:'F' + String(i + 1).padStart(4, '0'), name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, path:rel(f), t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, fd:m.fd || null, nf:m.nf || 0, w:0, h:0, bytes:f.size, codec:f.name.split('.').pop().toUpperCase(), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; });
+      return {id:'F' + String(i + 1).padStart(4, '0'), name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, path:rel(f), t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, fd:m.fd || null, nf:m.nf || 0, w:0, h:0, bytes:f.size, codec:Component.extOf(f), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; });
     clips.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
     const rates = {}; clips.forEach(c => { if (c.fps) rates[c.fps] = (rates[c.fps] || 0) + 1; });
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
@@ -1906,17 +2043,45 @@ class Component extends DCLogic {
   }
   // Sony writes the same NonRealTimeMeta XML into the end of every XAVC file (the last ~2 KB), so a clip
   // copied without its M01.XML sidecar still says its camera, profile, length and timecode. Reads 16 KB at most.
+  // A clip is a video by its name or, for what a phone's photo picker hands over (names like 1000012345 or trim.4F2A…), by its type.
+  static isClip(f) { return !/^\._/.test(f.name || '') && (/\.(mp4|mov|mxf|m4v|3gp)$/i.test(f.name || '') || /^video\//.test(f.type || '')); }
+  static extOf(f) { const m = /\.(\w+)$/.exec(f.name || ''); return (m ? m[1] : ((f.type || '').split('/')[1] || 'video').replace(/^quicktime$/, 'mov')).toUpperCase(); }
   async tailMeta(f, sc) {
     let tx = null, src = 'sidecar'; if (sc) { try { tx = await sc.text(); } catch (x) {} }
     if (!tx || !/NonRealTimeMeta/i.test(tx)) { try { const tl = await f.slice(Math.max(0, f.size - 16384)).text(), at = tl.lastIndexOf('<NonRealTimeMeta'); if (at >= 0) { tx = tl.slice(at); src = 'file'; } } catch (x) {} }
     const o = this.sonyMeta(tx, src);
-    if (!o.fd) { try { const r = await this.fileRate(f); if (r) { o.fd = r; if (!o.fps) o.fps = Math.round(r[1] / r[0]); } } catch (x) {} }
+    // No Sony metadata: the rate and the capture time from the file's own header. A clip picked from Photos on an iPhone or
+    // from Android's picker carries the time it was picked as its date, not the time it was shot.
+    if (!o.fd || !o.t) { try { const mv = await this.fileMoov(f); if (mv) { const r = !o.fd && Component.moovRate(mv); if (r) { o.fd = r; if (!o.fps) o.fps = Math.round(r[1] / r[0]); } if (!o.t) { const w = Component.moovTime(mv); if (w) o.t = w.local || this.iso(w.utc); } } } catch (x) {} }
     return o;
   }
   // A clip with no camera metadata says its rate in its own header. 24 is not 23.98: a 24.000 clip described as 23.98
   // comes out longer than its file, and Final Cut will not relink it.
   // The frame length a QuickTime or MP4 file states for its video track: the sample length that most frames have (stts)
   // over the track's time scale (mdhd). u8 is the moov box. Null when it cannot be read.
+  // When a QuickTime or MP4 file says it was shot. An iPhone writes the camera's local time with its offset
+  // (com.apple.quicktime.creationdate in moov/meta), some phones ©day in moov/udta; every file has mvhd's creation time
+  // (UTC, seconds from 1904), which a phone sets and a re-export may leave at 0. {local:'YYYY-MM-DDTHH:MM:SS'} for a
+  // wall-clock time, {utc:ms} for an instant, null when the file says nothing believable.
+  static moovTime(u8) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), ty = o => String.fromCharCode(u8[o + 4], u8[o + 5], u8[o + 6], u8[o + 7]);
+    const kids = (a, b) => { const out = []; for (let o = a; o + 8 <= b;) { let n = dv.getUint32(o), h = 8; if (n === 1) { if (o + 16 > b) break; n = dv.getUint32(o + 8) * 4294967296 + dv.getUint32(o + 12); h = 16; } else if (n === 0) n = b - o; if (n < h || o + n > b) break; out.push({t:ty(o), a:o + h, b:o + n}); o += n; } return out; };
+    const one = (list, t) => list.filter(k => k.t === t)[0], txt = (a, b) => { let s = ''; for (let i = a; i < b; i++) s += String.fromCharCode(u8[i]); try { return decodeURIComponent(escape(s)); } catch (x) { return s; } };
+    const wall = s => { const m = /^(\d{4})[-:](\d\d)[-:](\d\d)[T ](\d\d):(\d\d):(\d\d)/.exec((s || '').trim()); return m && +m[1] > 1990 ? m[1] + '-' + m[2] + '-' + m[3] + 'T' + m[4] + ':' + m[5] + ':' + m[6] : null; };
+    try {
+      const top = kids(0, u8.length), moov = one(top, 'moov') || {a:0, b:u8.length}, mk = kids(moov.a, moov.b), meta = one(mk, 'meta');
+      if (meta) {
+        const ma = ty(meta.a) === 'hdlr' || ty(meta.a) === 'keys' ? meta.a : meta.a + 4, mm = kids(ma, meta.b), keys = one(mm, 'keys'), ilst = one(mm, 'ilst');
+        if (keys && ilst) {
+          const names = []; for (let o = keys.a + 8, i = 0, n = dv.getUint32(keys.a + 4); i < n && o + 8 <= keys.b; i++) { const sz = dv.getUint32(o); if (sz < 8) break; names.push(txt(o + 8, o + sz)); o += sz; }
+          for (const it of kids(ilst.a, ilst.b)) { const k = names[dv.getUint32(it.a - 4) - 1]; if (k !== 'com.apple.quicktime.creationdate') continue; const da = one(kids(it.a, it.b), 'data'); const w = da && wall(txt(da.a + 8, da.b)); if (w) return {local:w}; }
+        }
+      }
+      const ud = one(mk, 'udta'); if (ud) { const day = kids(ud.a, ud.b).filter(k => k.t === '\u00a9day')[0]; if (day) { const w = wall(txt(day.a + 4, day.b)) || wall(txt(day.a, day.b)); if (w) return {local:w}; } }
+      const mh = one(mk, 'mvhd'); if (mh) { const v = u8[mh.a], s = v === 1 ? dv.getUint32(mh.a + 4) * 4294967296 + dv.getUint32(mh.a + 8) : dv.getUint32(mh.a + 4), ms = (s - 2082844800) * 1000; if (ms > Date.UTC(2000, 0, 1) && ms < Date.now() + 864e5 * 2) return {utc:ms}; }
+    } catch (x) {}
+    return null;
+  }
   static moovRate(u8) {
     const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), ty = o => String.fromCharCode(u8[o + 4], u8[o + 5], u8[o + 6], u8[o + 7]);
     const kids = (a, b) => { const out = []; for (let o = a; o + 8 <= b;) { let n = dv.getUint32(o), h = 8; if (n === 1) { if (o + 16 > b) break; n = dv.getUint32(o + 8) * 4294967296 + dv.getUint32(o + 12); h = 16; } else if (n === 0) n = b - o; if (n < h || o + n > b) break; out.push({t:ty(o), a:o + h, b:o + n}); o += n; } return out; };
@@ -1934,13 +2099,14 @@ class Component extends DCLogic {
     return null;
   }
   // Finds the moov box by its headers (16 bytes read per box, the picture data is skipped) and reads it, 8 MB at most.
-  async fileRate(f) {
+  async fileRate(f) { const mv = await this.fileMoov(f); return mv ? Component.moovRate(mv) : null; }
+  async fileMoov(f) {
     for (let o = 0, k = 0; o + 8 <= f.size && k < 64; k++) {
       const h = new DataView(await f.slice(o, o + 16).arrayBuffer()); if (h.byteLength < 8) return null;
       let n = h.getUint32(0); const t = String.fromCharCode(h.getUint8(4), h.getUint8(5), h.getUint8(6), h.getUint8(7));
       if (n === 1) { if (h.byteLength < 16) return null; n = h.getUint32(8) * 4294967296 + h.getUint32(12); } else if (n === 0) n = f.size - o;
       if (n < 8) return null;
-      if (t === 'moov') return n > 8388608 ? null : Component.moovRate(new Uint8Array(await f.slice(o, o + n).arrayBuffer()));
+      if (t === 'moov') return n > 8388608 ? null : new Uint8Array(await f.slice(o, o + n).arrayBuffer());
       o += n;
     }
     return null;
@@ -2645,7 +2811,18 @@ class Component extends DCLogic {
   };
   static CARDS = [['fx5', 'FX5 Sample Pack', 'SONY FX5 · Visual Park, free']];
   // Chromium (Chrome, Comet, Arc, Brave, Edge) has no 10-bit H.264; Safari and the Lumina app (WebKit) play it.
-  notSafari() { const u = navigator.userAgent; return /Chrome\/|Chromium\/|CriOS\/|Firefox\//.test(u); }
+  // Every browser on an iPhone or iPad is WebKit (Chrome there is CriOS, Firefox FxiOS): it plays what Safari plays.
+  notSafari() { const u = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1), other = /Chrome\/|Chromium\/|Firefox\//.test(u); return !ios && other; }
+  // What the Open screen and the key bar say and offer on this device (touchOn).
+  touchVals() {
+    const st = this.state, t = this.isTouch(), dev = this.devName(), folder = this.canFolder(), mob = /this (iPhone|phone)/.test(dev), clipsFirst = t || !folder;
+    const flat = this.flat || [], i = flat.indexOf(st.cur);
+    return {
+      webPrevT:'Web preview: your clips are read on ' + dev + '; nothing is uploaded. ' + (mob ? 'Pick any number of clips from ' + (/iPhone/.test(dev) ? 'Photos or Files' : 'your gallery or Files') + '; they are listed by when they were shot.' : 'Use Safari: it plays every Sony format, the same as the Lumina app. Open one shoot at a time and keep each clip\u2019s .XML beside it.'),
+      dropT:clipsFirst ? (t ? 'Choose clips' : 'Drop clips') : 'Drop a card, a folder or clips', pickT:clipsFirst ? (/iPhone/.test(dev) ? 'Photos or Files…' : 'Choose clips…') : 'Choose…',
+      pickAltOn:folder, pickAltT:clipsFirst ? 'Choose a folder…' : 'Choose clips…',
+      navOn:t && st.step === 'skim' && st.lv >= 2, navPrevOp:i > 0 ? 1 : 0.4, navNextOp:i >= 0 && i < flat.length - 1 ? 1 : 0.4};
+  }
   cardList() {
     if (window.luminaPreview) return [];
     if (this._cards) return this._cards; const S = window.LuminaVideoSamples; if (!S) return [];
@@ -2683,7 +2860,7 @@ class Component extends DCLogic {
     const sheet = !!st.cv && st.step === 'export' && has;
     const v = {isSkim:st.step === 'skim' || sheet, isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
       stepTabs:steps.map((s, i) => ({t:s[1], on:i === si, fg:i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), go:() => this.setStep(s[0])})),
-      dbgOn:!!st.dbg, cvA:!!st.cv, cvT:'one grid · ' + (st.cv ? 'on' : 'off'), cvFg:st.cv ? '#1E1D1B' : '#B8B3AB', cvBg:st.cv ? '#B8B3AB' : 'rgba(239,236,230,0.06)', cvToggle:this.cvToggle, dropNote:(window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves this Mac.') + ' Marks stay in this tab and are gone when it closes.',
+      dbgOn:!!st.dbg, cvA:!!st.cv, cvT:'one grid · ' + (st.cv ? 'on' : 'off'), cvFg:st.cv ? '#1E1D1B' : '#B8B3AB', cvBg:st.cv ? '#B8B3AB' : 'rgba(239,236,230,0.06)', cvToggle:this.cvToggle, dropNote:(window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves ' + this.devName() + '.') + ' Marks stay in this tab and are gone when it closes.',
       closeGo:this.closeShoot, closeT:st.closeConfirm ? 'Close? Click again' : 'Close', closeFg:st.closeConfirm ? '#FFD27A' : '#9A958D', closeBg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.06)',
       closeTip:'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open. Marks are not saved: ' + (Object.keys(st.marks).length ? 'its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' go with it. Download for Final Cut first.' : 'nothing to lose.') + ' ⌘W',
       forgetOn:Component.KEEP_MARKS && has && (Object.keys(st.marks).length > 0 || !!st.memConfirm), forgetGo:this.forgetMarks, forgetT:'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + (st.memConfirm ? '? Click again' : ''), forgetFg:st.memConfirm ? '#FF8A7A' : '#9A958D', forgetBg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.06)',
@@ -2699,7 +2876,7 @@ class Component extends DCLogic {
         return rows; })(),
       memSaved:[{k:'this shoot', v:has ? this.plural(Object.keys(st.marks).length, 'mark') : '—'}, {k:'all shoots', v:this.plural(ms.saved, 'shoot') + ' · ' + (ms.savedB < 1e6 ? Math.max(1, Math.round(ms.savedB / 1024)) + ' KB' : this.fmtB(ms.savedB))}],
       memSavedH:this.hostStore() ? 'Saved on this Mac' : 'Saved in this browser',
-      webPrev:!!window.luminaPreview, notSafari:this.notSafari(), memNote:'Nothing leaves this Mac.', memMore:!!st.memMore && !window.luminaPreview, memMoreOn:!window.luminaPreview, memMoreT:st.memMore ? 'Less' : 'More', memMoreGo:() => this.setState(s => ({memMore:!s.memMore})),
+      webPrev:!!window.luminaPreview, notSafari:this.notSafari(), memNote:'Nothing leaves ' + this.devName() + '.', memMore:!!st.memMore && !window.luminaPreview, memMoreOn:!window.luminaPreview, memMoreT:st.memMore ? 'Less' : 'More', memMoreGo:() => this.setState(s => ({memMore:!s.memMore})),
       memCtl:(() => { const mp = this.mp, opt = (k, val, t, tip) => ({t, tip:tip || '', on:mp[k] === val, bg:mp[k] === val ? '#EFECE6' : 'rgba(239,236,230,0.08)', fg:mp[k] === val ? '#1E1D1B' : '#EFECE6', go:() => this.setMp(k, val)});
         const perClip = ms.fr && ms.n ? ms.frB / Math.max(1, ms.fr) * (mp.per || 8) : 21000 * (mp.per || 8) * Math.pow((mp.size || 320) / 320, 2);
         const holds = b => b === 'all' ? 'every clip' : '≈ ' + Math.floor(b * 1048576 / Math.max(1, perClip)).toLocaleString() + ' clips';
@@ -2720,7 +2897,7 @@ class Component extends DCLogic {
         {t:st.closeConfirm ? 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + '? Click again to close' : 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open', sub:'Frees ' + this.fmtB(ms.frB) + ' of frames and measurements. Marks are not saved: ' + (Object.keys(st.marks).length ? 'its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' go with it.' : 'nothing to lose.') + ' ⌘W', subC:st.closeConfirm ? '#FFD27A' : '#B8B3AB', go:this.closeShoot, op:has ? 1 : 0.45, bg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.08)', fg:st.closeConfirm ? '#FFD27A' : '#EFECE6'},
         {t:this.ccFile ? 'Save the colour check' : 'Colour check frames', sub:this.ccSay || 'One picture of the S-Log3 clips at 2, 5 and 8 s, as read and as shown, with the table used. For comparing with Final Cut.', subC:'#B8B3AB', go:this.colourCheck, op:d && d.clips.some(c => c._file && (this.prof(c) || {}).g === 'S-Log3') && !this.ccBusy ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'}],
       impOn:!!(st.imp && st.imp.done < st.imp.n), impW:st.imp ? Math.round(st.imp.done / Math.max(1, st.imp.n) * 100) + '%' : '0%',
-      fileRef:this.fileRef, pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
+      fileRef:this.fileRef, clipRef:this.clipRef, pickAlt:this.pickAlt, navGrid:this.navGrid, navPrev:this.navPrev, navNext:this.navNext, ...this.touchVals(), pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
       dropRing:st.dropHot ? '#FFD27A' : 'rgba(239,236,230,0.18)', dropBg:st.dropHot ? 'rgba(255,210,122,0.06)' : '#232220',
       impMsg:st.impMsg || '', impMsgOn:!!st.impMsg,
       impLineOn:!!(st.imp && st.imp.done < st.imp.n), impLine:st.imp ? 'measuring ' + st.imp.done + ' of ' + this.plural(st.imp.n, 'clip') : '',

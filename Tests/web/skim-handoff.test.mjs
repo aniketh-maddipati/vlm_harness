@@ -14,7 +14,8 @@ const src = fs.readFileSync(PAGE, 'utf8');
 const stat = (name, head) => new Function('return function ' + extractMethod(src, name, head).replace(/^static /, ''))();
 const moovRate = stat('moovRate', 'static moovRate(u8) {'), rootSay = stat('rootSay', 'static rootSay(root, tops) {'), checkX = stat('checkX', 'static checkX(text, n, P) {');
 const Meta = new Function('return class Component {\n' + [extractMethod(src, 'gammaName', 'gammaName(g) {'), extractMethod(src, 'primName', 'primName(p) {'), extractMethod(src, 'sonyMeta', 'sonyMeta(tx, src) {'),
-  extractMethod(src, 'tailMeta', 'async tailMeta(f, sc) {'), extractMethod(src, 'moovRate', 'static moovRate(u8) {'), extractMethod(src, 'fileRate', 'async fileRate(f) {')].join('\n') + '\n}')();
+  extractMethod(src, 'tailMeta', 'async tailMeta(f, sc) {'), extractMethod(src, 'moovRate', 'static moovRate(u8) {'), extractMethod(src, 'fileRate', 'async fileRate(f) {'),
+  extractMethod(src, 'fileMoov', 'async fileMoov(f) {'), extractMethod(src, 'moovTime', 'static moovTime(u8) {'), extractMethod(src, 'iso', 'iso(ms) {')].join('\n') + '\n}')();
 const buildX = loadBuildX().fn;
 const SL3 = { gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'file' };
 const build = (clips, ex = {}, marks = {}) => buildX.call({ d:{ shoot:{ name:'trip', rate:24 }, clips }, state:{ marks, ex:{ event:'', kw:'maybe', maybes:true, all:true, root:'', ...ex } } });
