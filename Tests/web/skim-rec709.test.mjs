@@ -23,7 +23,7 @@ function method(name){
   throw new Error('unbalanced braces in ' + name);
 }
 
-const names = ['prof', 'needsPv', 'pvFlt', 'pvOn', 'pvVia', 'pvDisabled', 'gammaName'];
+const names = ['prof', 'needsPv', 'pvFlt', 'pvOn', 'pvVia', 'pvDisabled', 'gammaName', 'vidShow', 'vidHas'];
 const Skim = new Function('return class {\n' + names.map(method).join('\n') + '\n}')();
 const page = (pv, clips = []) => Object.assign(new Skim(), { state:{pv}, d:{clips} });
 const clip = (gamma, source = 'sidecar') => ({ profile:{gamma, primaries:'', source} });
@@ -92,6 +92,55 @@ test('the Viewer\'s canvas and video take the clip\'s filter, and are wired up',
   assert.match(src, /vflt:this\.pvOn\(cc\) \? this\.pvFlt\(cc\) : 'none'/);
   assert.match(src, /pvCvRef:this\.pvCvRef/);
   assert.match(src, /this\.syncVid\(\); this\.paintVid\(\);/);
+});
+
+// The video under the canvas: WebKit does not convert it, so it may only be seen when nothing needs converting.
+const viewer = (pv, c, up = true) => { const v = { style:{opacity:'0'} }; return Object.assign(page(pv, [c]), { vidEl:v, vidFor:'a', byId:{a:c}, vidUp:up ? v : null }); };
+
+test('S-Log3 with the switch on: the video stays hidden and the canvas is the picture', () => {
+  const p = viewer(true, SL3);
+  assert.equal(p.vidShow(), true);
+  assert.equal(p.vidEl.style.opacity, '0');
+});
+
+test('switch off, a clip that is not log, or a filter the video takes: the video itself is on show', () => {
+  for (const p of [viewer(false, SL3), viewer(true, REC), viewer(true, SL2), viewer(true, UNKNOWN)]) {
+    assert.equal(p.vidShow(), false);
+    assert.equal(p.vidEl.style.opacity, '1');
+  }
+});
+
+test('a video that has not answered a seek yet is not shown, switch on or off', () => {
+  for (const p of [viewer(true, SL3, false), viewer(false, SL3, false), viewer(true, REC, false)]) {
+    assert.equal(p.vidShow(), false);
+    assert.equal(p.vidEl.style.opacity, '0');
+  }
+});
+
+test('a frame the video has not got yet is told from one it has', () => {
+  const real = globalThis.document;
+  const probe = alpha => ({ getContext:() => ({ clearRect(){}, drawImage(){}, getImageData:() => ({ data:[0, 0, 0, alpha] }) }) });
+  try {
+    for (const [alpha, has] of [[0, false], [255, true]]) {
+      globalThis.document = { createElement:() => probe(alpha) };
+      assert.equal(new Skim().vidHas({}), has);
+    }
+  } finally { globalThis.document = real; }
+});
+
+test('the canvas draws only a frame that is there, shows nothing of another clip, and the video is shown through vidShow alone', () => {
+  const paint = method('paintVid');
+  assert.match(paint, /const has = this\.vidHas\(v\);\s*if \(has\) \{/);
+  assert.match(paint, /cv\.style\.opacity = this\.pvCvFor === c\.id \? '1' : '0'/);
+  assert.doesNotMatch(paint, /\bv\.style\.opacity/);
+  assert.doesNotMatch(src, /el\.style\.opacity = '1'/);
+});
+
+test('the switch fades the pictures it changes, and the canvas fades like the video', () => {
+  assert.match(src, /@keyframes pvA\{from\{opacity:0\.6\}to\{opacity:1\}\}/);
+  assert.match(src, /@keyframes pvB\{from\{opacity:0\.6\}to\{opacity:1\}\}/);
+  assert.match(src, /anim:this\.pvAn && this\.needsPv\(c\) \? this\.pvAn : 'none'/);
+  assert.match(src.match(/<canvas ref="\{\{ pvCvRef \}\}"[^>]*>/)[0], /transition:opacity 120ms/);
 });
 
 test('the filter the canvas points at exists once in the page', () => {
