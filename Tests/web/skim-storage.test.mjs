@@ -13,6 +13,9 @@ const stat = (name, head) => new Function('return function ' + extractMethod(src
 const storeLine = stat('storeLine', 'static storeLine(parts, fmtB) {');
 const dumpSay = stat('dumpSay', 'static dumpSay(kind, bytes, n, fmtB) {');
 const farFrames = stat('farFrames', 'static farFrames(clips, at, cover) {');
+const evictOrder = stat('evictOrder', 'static evictOrder(shoots, cur, bytes, cap) {');
+const recBytes = stat('recBytes', 'static recBytes(r) {');
+const coverKey = stat('coverKey', 'static coverKey(name, t, bytes) {');
 const fmtB = new Function('return function ' + extractMethod(src, 'fmtB', 'fmtB(b) {'))();
 const template = src.slice(0, src.indexOf('class Component'));
 const MB = 1048576;
@@ -40,6 +43,8 @@ test('a button says what it gives back before the click', () => {
   assert.equal(dumpSay('frames', 1.4e9, 300, fmtB), 'Drop frames · 1.4 GB');
   assert.equal(dumpSay('frames', 0, 0, fmtB), 'Drop frames · nothing to give back');
   assert.equal(dumpSay('frames', 5e6, 0, fmtB), 'Drop frames · nothing to give back');
+  assert.equal(dumpSay('saved', 120e6, 3, fmtB), 'Clear for shoots not open · 120 MB');
+  assert.equal(dumpSay('saved', 0, 0, fmtB), 'Clear for shoots not open · nothing to give back');
 });
 
 test('Drop frames keeps one cover per clip and the 24 around the current clip', () => {
@@ -88,4 +93,29 @@ test('the line sits in the footer outside debug mode, with its rows behind it', 
 test('neutral words only', () => {
   const words = src.slice(src.indexOf('  static storeLine('), src.indexOf('  storeRemake = ')) + src.slice(src.indexOf('    // storage: the line and its rows'), src.indexOf('saidOn:!!(said'));
   assert.ok(!/reject|keeper|delete/i.test(words));
+});
+
+test('saved covers are keyed by what the clip is: name, capture time and size', () => {
+  assert.equal(coverKey('c0001.mp4', '2026-10-01T10:00:00.123Z', 123456), 'C0001.MP4@2026-10-01T10:00:00#123456');
+  assert.notEqual(coverKey('C0001.MP4', '2026-10-01T10:00:00', 1), coverKey('C0001.MP4', '2026-10-01T10:00:00', 2));
+  assert.notEqual(coverKey('C0001.MP4', '2026-10-01T10:00:00', 1), coverKey('C0001.MP4', '2026-10-02T10:00:00', 1));
+  assert.equal(recBytes({cover:{size:20000}}), 20512);
+  assert.equal(recBytes({}), 512);
+});
+
+test('over the cap, the shoot opened longest ago goes first, never the one open', () => {
+  const S = [{k:'a', at:3, bytes:50}, {k:'b', at:1, bytes:40}, {k:'cur', at:0, bytes:100}, {k:'c', at:2, bytes:30}];
+  assert.deepEqual(evictOrder(S, 'cur', 220, 200), ['b']);
+  assert.deepEqual(evictOrder(S, 'cur', 220, 160), ['b', 'c']);
+  assert.deepEqual(evictOrder(S, 'cur', 220, 0), ['b', 'c', 'a']);       // only the open one is left
+  assert.deepEqual(evictOrder(S, 'cur', 150, 200), []);
+  assert.deepEqual(evictOrder([], 'cur', 1e9, 0), []);
+});
+
+test('the cache hooks: saved covers before the first pass, a new cover saved after it, never in the fill', () => {
+  assert.match(src, /this\.coverLoad\(d\)\.then\(\(\) => \{ if \(tok === this\.qTok\) this\.runQueue\(clips\.slice\(\), tok\); \}\)/);
+  assert.match(src, /if \(pass !== 2 && idx\.length && !c\.why\) this\.coverNote\(c\);/);
+  const load = src.slice(src.indexOf('  async coverLoad(d) {'), src.indexOf('  // coverNote:'));
+  assert.match(load, /if \(i % 60 === 59\) \{ this\.bump\(\); await new Promise/);   // gives the page a breath every 60 clips
+  assert.ok(!/marks/.test(load) && !/marks/.test(src.slice(src.indexOf('  async coverFlush()'), src.indexOf('  coverStat()'))));
 });

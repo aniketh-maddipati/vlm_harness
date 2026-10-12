@@ -78,7 +78,7 @@ the Folder field tried by hand in Safari; a switch for the LUT; other log profil
 Evidence: ~/LuminaEvidence/skim-rec709/ (2026-10-08-fcp-stills, 2026-10-09-fcp-stills-5clips, -safari-check, -flags).
 2026-10-12: main merged into video/skim-mvp (2fecc42d; Sets v12, Edit v23), pushed, and opened against main as
 pull request 235. Pull request 236 merged into it (21230272): the Viewer keeps Rec.709 when the clip's video
-arrives and the switch fades (LOCAL-CHANGES 146 to 148), the probe compiles Lumina/Sets/Video, video-budget names
+arrives and the switch fades (LOCAL-CHANGES 190 to 192), the probe compiles Lumina/Sets/Video, video-budget names
 Sets v12, and the WebKit flow goes to Pick before it keeps; lumina-render compiles SetsNumber (from pull request
 232's branch). Deployed 21230272 (2026-10-12 21:42 UTC), checked on the live page: build stamp, the Viewer fix,
 the Folder field, the Sony LUT, the curve. Not seen on screen in Safari with real S-Log3 clips: the Viewer fix.

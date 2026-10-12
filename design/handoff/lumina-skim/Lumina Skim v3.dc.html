@@ -606,6 +606,53 @@ class Component extends DCLogic {
     stats() { let pinned = 0; for (const e of this.m.values()) if (e.pin) pinned++; return {images:this.m.size, pinned, bytes:this.bytes, decodes:this.decodes}; }
   };
   static THUMB = {g:[160, 90], f:[320, 180]};
+  // Saved covers and first measures (STORAGE.md item 2), so opening the same clips again reads nothing. One record
+  // per clip, keyed by what the clip is (name, capture time and size: INGEST.md item 4), holding its cover (the JPEG
+  // the page made), length, picture size and the measures from that frame; one record per shoot (name, last opened).
+  // IndexedDB in a browser. Over the cap, the shoot opened longest ago goes first, never the one open. A full quota
+  // makes room once, then stops saving for the session and says so; nothing else waits on it.
+  static CoverCache = class {
+    constructor(name, cap) { this.name = name; this.cap = cap; this.db = null; this.full = false; this.off = typeof indexedDB === 'undefined'; }
+    open() {
+      if (!this.db) { this.db = new Promise((res, rej) => { if (this.off) return rej('none'); const q = indexedDB.open(this.name, 1);
+        q.onupgradeneeded = () => { const db = q.result; db.createObjectStore('clip', {keyPath:'k'}).createIndex('shoot', 'shoot'); db.createObjectStore('shoot', {keyPath:'k'}); };
+        q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); q.onblocked = () => rej('blocked'); }); this.db.catch(() => { this.off = true; }); }
+      return this.db;
+    }
+    async tx(stores, mode, fn) { const db = await this.open(); return new Promise((res, rej) => { const t = db.transaction(stores, mode); t.oncomplete = () => res(); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || 'abort'); fn(t); }); }
+    async get(keys) { const m = new Map(); try { await this.tx(['clip'], 'readonly', t => { const s = t.objectStore('clip'); keys.forEach(k => { const r = s.get(k); r.onsuccess = () => { if (r.result) m.set(k, r.result); }; }); }); } catch (x) {} return m; }
+    touch(shoot) { return this.tx(['shoot'], 'readwrite', t => t.objectStore('shoot').put({...shoot, at:Date.now()})).catch(() => {}); }
+    async put(shoot, recs) {
+      if (this.full || this.off || !recs.length) return false;
+      const go = () => this.tx(['clip', 'shoot'], 'readwrite', t => { const cs = t.objectStore('clip'); recs.forEach(r => cs.put(r)); t.objectStore('shoot').put({...shoot, at:Date.now()}); });
+      try { await go(); } catch (e) {
+        if (!/quota/i.test(String(e && (e.name || e.message || e)))) return false;
+        const st = await this.stat(), out = Component.evictOrder(st.shoots, shoot.k, Infinity, 0)[0];
+        try { if (!out) throw e; await this.drop([out]); await go(); } catch (x) { this.full = true; return false; }
+      }
+      const st = await this.stat(); const out = Component.evictOrder(st.shoots, shoot.k, st.bytes, this.cap); if (out.length) await this.drop(out);
+      return true;
+    }
+    // Every shoot held, with the bytes and clips it holds, from the records themselves (no running count to drift).
+    async stat() {
+      const by = new Map(), meta = new Map(); let bytes = 0;
+      try { await this.tx(['clip', 'shoot'], 'readonly', t => {
+        const c = t.objectStore('clip').openCursor(); c.onsuccess = () => { const cu = c.result; if (!cu) return; const r = cu.value, b = Component.recBytes(r), o = by.get(r.shoot) || {bytes:0, n:0}; o.bytes += b; o.n++; by.set(r.shoot, o); bytes += b; cu.continue(); };
+        const g = t.objectStore('shoot').getAll(); g.onsuccess = () => g.result.forEach(o => meta.set(o.k, o)); }); } catch (x) { return {bytes:0, shoots:[], ok:false}; }
+      const shoots = [...new Set([...by.keys(), ...meta.keys()])].map(k => ({k, name:(meta.get(k) || {}).name || '', at:(meta.get(k) || {}).at || 0, ...(by.get(k) || {bytes:0, n:0})}));
+      return {bytes, shoots, ok:true};
+    }
+    async drop(keys) {
+      try { await this.tx(['clip', 'shoot'], 'readwrite', t => { const ix = t.objectStore('clip').index('shoot'), ss = t.objectStore('shoot');
+        keys.forEach(k => { ss.delete(k); const c = ix.openCursor(IDBKeyRange.only(k)); c.onsuccess = () => { const cu = c.result; if (cu) { cu.delete(); cu.continue(); } }; }); }); return true; } catch (x) { return false; }
+    }
+  };
+  // Which shoots give way, oldest opened first, never the one open, until what is held fits the cap.
+  static evictOrder(shoots, cur, bytes, cap) { const out = []; let left = bytes; for (const s of (shoots || []).filter(s => s.k !== cur).sort((a, b) => (a.at || 0) - (b.at || 0))) { if (left <= cap) break; out.push(s.k); left -= s.bytes || 0; } return out; }
+  // A saved record's size: its cover plus the few hundred bytes of numbers beside it.
+  static recBytes(r) { return (r && r.cover && r.cover.size || 0) + 512; }
+  // What a clip is, for the saved covers: its name and capture time (clipKey) and its size in bytes.
+  static coverKey(name, t, bytes) { return (name || '').toUpperCase() + '@' + (t || '').slice(0, 19) + '#' + (bytes || 0); }
   // A blob (just made) or a blob: URL (made earlier) → a bitmap at the size asked, scaled by the browser where it can.
   async makeBmp(src, s) {
     const [w, h] = Component.THUMB[s] || Component.THUMB.g, b = src instanceof Blob ? src : await (await fetch(src)).blob();
@@ -620,6 +667,7 @@ class Component extends DCLogic {
   state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:''},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
+  covers = new Component.CoverCache('lumina-skim-covers', 200e6);
   reading = new Set();
   // Memory controls, per viewer: how many MB of frames stay in memory, frames per clip, their size, and the reading pace.
   static MEMDEF = {budget:256, per:8, size:320, pace:'auto'};
@@ -635,7 +683,7 @@ class Component extends DCLogic {
     return said.length ? 'storage · ' + said.join(' · ') : 'storage · nothing held';
   }
   // A dump button says what it gives back before the click: 'Drop frames · 180 MB'; nothing to give back says so.
-  static dumpSay(kind, bytes, n, fmtB) { const t = {frames:'Drop frames'}[kind] || kind; return n && bytes > 0 ? t + ' · ' + fmtB(bytes) : t + ' · nothing to give back'; }
+  static dumpSay(kind, bytes, n, fmtB) { const t = {frames:'Drop frames', saved:'Clear for shoots not open'}[kind] || kind; return n && bytes > 0 ? t + ' · ' + fmtB(bytes) : t + ' · nothing to give back'; }
   // What Drop frames gives back: what enforce() does at a limit of zero. Every clip more than 12 from the one you are on
   // keeps one frame, its cover (or the frame nearest it); the 24 around you are not touched. Only frames this tab made
   // (blob: URLs) are dropped, since only those can be made again. Marks are not part of it.
@@ -658,6 +706,37 @@ class Component extends DCLogic {
     this.dropped = (this.dropped || 0) + p.n; this.storeSaid = {k:'frames', t:'Gave back ' + this.fmtB(p.bytes + p.dec) + ' from ' + this.plural(p.n, 'clip') + '. Covers and marks stay.'};
     this.setState(s => ({tick:(s.tick || 0) + 1})); return p;
   };
+  // Saved covers, the page's side. coverLoad: before the first pass, every clip found saved gets its cover, length and
+  // measures back, so the pass has nothing to read for it. In batches with a breath between, so no task runs long.
+  coverVer() { return this.covVer || (this.covVer = 'v1-' + this.frameIdx().length + '-' + Component.SL3T.length + '-' + Component.SL3T.reduce((s, x, i) => s + x * (i + 1), 0).toFixed(4)); }
+  async coverLoad(d) {
+    if (!d || d.__mock || d.__sample || this.covers.off) return; const C = d.clips, f = this.firstIdx(), ver = this.coverVer(), t0 = performance.now();
+    const m = await this.covers.get(C.map(c => Component.coverKey(c.name, c.t, c.bytes))); let hits = 0;
+    for (let i = 0; i < C.length; i++) {
+      const c = C[i], r = m.get(Component.coverKey(c.name, c.t, c.bytes)); if (r && r.ver === ver && r.f === f && r.cover && !c.frames[f]) {
+        c.dur = r.dur; c.w = r.w; c.h = r.h; c.short = !!r.short; c.col = r.col; c._px = {[f]:r.px}; c.facts = r.facts; c.first = !!r.first; c._saved = true; this.setFrame(c, f, r.cover); hits++; }
+      if (i % 60 === 59) { this.bump(); await new Promise(res => setTimeout(res, 0)); }
+    }
+    this.covHits = {n:hits, of:C.length, ms:Math.round(performance.now() - t0)}; if (this.clock) { this.clock.saved = hits; }
+    this.covers.touch({k:this.storeKey(d), name:d.shoot.name, n:C.length}); this.coverStat(); this.bump();
+  }
+  // coverNote: a clip read in the first pass is saved with the next batch (every 1.5 s), off the reading's path.
+  coverNote(c) {
+    if (!this.d || this.d.__mock || this.d.__sample || c._saved || c._mock || this.covers.off || this.covers.full) return;
+    (this.covQ || (this.covQ = new Map())).set(c, {k:this.storeKey(this.d), name:this.d.shoot.name, n:this.d.clips.length}); if (!this.covT) this.covT = setTimeout(() => this.coverFlush(), 1500);
+  }
+  async coverFlush() {
+    this.covT = null; const q = [...(this.covQ || new Map())], f = this.firstIdx(), ver = this.coverVer(), by = new Map(); this.covQ = new Map(); if (!q.length) return;
+    for (const [c, sh] of q) { const u = c.frames[f]; if (!u || !c.facts || c.facts.state === 'pending' || !c._px || !c._px[f]) continue;
+      try { const cover = await (await fetch(u)).blob(), g = by.get(sh.k) || {sh, recs:[]}; g.recs.push({k:Component.coverKey(c.name, c.t, c.bytes), shoot:sh.k, ver, f, cover, dur:c.dur, w:c.w, h:c.h, short:!!c.short, col:c.col, px:c._px[f], facts:c.facts, first:!!c.first}); by.set(sh.k, g); c._saved = true; } catch (x) {} }
+    for (const g of by.values()) await this.covers.put(g.sh, g.recs); this.coverStat();
+  }
+  coverStat() { if (this.covers.off) return; clearTimeout(this.covStatT); this.covStatT = setTimeout(() => this.covers.stat().then(st => { this.covSt = st; this.setState(s => ({tick:(s.tick || 0) + 1})); }), 250); }
+  // Clear for shoots not open: every saved shoot but this one. Re-measure this shoot: its saved covers go, and it is read again.
+  coverClearOthers = () => { const st = this.covSt, cur = this.d ? this.storeKey(this.d) : null; if (!st) return; const out = st.shoots.filter(s => s.k !== cur), b = out.reduce((a, s) => a + s.bytes, 0);
+    this.covers.drop(out.map(s => s.k)).then(ok => { this.storeSaid = {k:'saved', t:ok ? 'Cleared ' + this.fmtB(b) + ' from ' + this.plural(out.length, 'shoot') + '. They read again the next time they are opened.' : 'Could not clear here.'}; this.coverStat(); }); };
+  coverRemeasure = () => { if (this.realReading() || !this.d) return; const k = this.storeKey(this.d); this.d.clips.forEach(c => { c._saved = false; });
+    this.covers.drop([k]).then(() => { this.storeSaid = {k:'saved', t:'Measuring this shoot again. Keys and marking work meanwhile.'}; this.clearFrames(); this.coverStat(); }); };
   // Make frames again, from the storage line: the same as the debug panel's, and says so while reading runs.
   storeRemake = () => { if (this.realReading() || !this.d) return; this.storeSaid = {k:'frames', t:'Making frames again. Keys and marking work meanwhile.'}; this.clearFrames(); };
   // Pause / Go on beside the reading line: pause sets the pace to paused, Go on returns it to auto.
@@ -1899,13 +1978,18 @@ class Component extends DCLogic {
     { const ms = this.memStats(), ts = this.thumbs.stats(), B = this.mp.budget, held = ms.frB + ts.bytes, of = B === 'all' || !B ? null : B * 1048576 + this.thumbs.budget, fb = b => this.fmtB(b);
       const far = st.storeOn ? this.farPlan() : null, busy = this.realReading(), said = this.storeSaid;
       vals.storeOn = !!st.storeOn; vals.storeToggle = () => { if (st.storeOn) this.storeSaid = null; this.setState({storeOn:!st.storeOn}); }; vals.storeArrow = st.storeOn ? '▾' : '▴';
-      vals.storeLine = Component.storeLine([{t:'in memory', b:held, of}], fb); vals.storeFg = of && held > of ? '#FFD27A' : '#B8B3AB'; vals.storeBg = st.storeOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)';
+      const cs = this.covSt, curK = this.storeKey(d), others = cs ? cs.shoots.filter(s => s.k !== curK) : [], othB = others.reduce((a, s) => a + s.bytes, 0), host = !!this.hostStore();
+      vals.storeLine = Component.storeLine([{t:'in memory', b:held, of}, {t:'saved', b:cs && cs.ok ? cs.bytes : null}], fb); vals.storeFg = of && held > of ? '#FFD27A' : '#B8B3AB'; vals.storeBg = st.storeOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)';
       const btn = (id, t, tip, on, go) => ({id, t, tip, off:!on, op:on ? 1 : 0.45, cur:on ? 'pointer' : 'default', go:on ? go : () => {}});
       vals.storeRows = st.storeOn ? [{k:'frames', t:'Frames in memory', fig:fb(held) + (of ? ' of ' + fb(of) : ''), figC:of && held > of ? '#FFD27A' : '#B8B3AB',
         sub:'Frames of the clips you skim. Far ones give theirs up on their own at the limit; frames come back for the clips you go to.',
         btns:[btn('storage-drop', Component.dumpSay('frames', far.bytes + far.dec, far.n, fb), 'Keeps one cover per clip and the 24 clips around this one. Marks stay.', far.n > 0, this.dropFar),
           btn('storage-remake', 'Make frames again', busy ? 'After reading finishes.' : 'Reads ' + this.plural(C.filter(c => c._file).length, 'clip') + ' again. Marks stay.', !busy && C.some(c => c._file), this.storeRemake)],
-        saidOn:!!(said && said.k === 'frames'), said:said ? said.t : ''}] : [];
+        saidOn:!!(said && said.k === 'frames'), said:said ? said.t : ''}].concat(cs && cs.ok ? [{k:'saved', t:'Saved covers and measures', fig:fb(cs.bytes) + ' · ' + this.plural(cs.shoots.length, 'shoot'), figC:'#B8B3AB',
+        sub:(this.covers.full ? 'Storage here is full, so covers are not being saved now. Everything else works. ' : '') + (this.covHits && this.covHits.n ? this.covHits.n + ' of ' + this.plural(this.covHits.of, 'clip') + ' opened from saved covers. ' : '') + 'Opening these clips again shows covers and flags at once. Up to ' + fb(this.covers.cap) + '; the shoot opened longest ago goes first.' + (host ? ' Kept until Lumina quits.' : ''),
+        btns:[btn('storage-clear', Component.dumpSay('saved', othB, others.length, fb), 'Every saved shoot but this one. Marks stay; those clips read again when opened.', others.length > 0, this.coverClearOthers),
+          btn('storage-remeasure', 'Re-measure this shoot', busy ? 'After reading finishes.' : 'Forgets this shoot\u2019s saved covers and reads it again. Marks stay.', !busy && C.some(c => c._file), this.coverRemeasure)],
+        saidOn:!!(said && said.k === 'saved'), said:said ? said.t : ''}] : []) : [];
     }
     // hints
     vals.hints = empty ? [{k:'⌘O', t:'open'}] : st.held ? [{k:'tap', t:Component.VERB[st.held]}, {k:'⏎', t:Component.VERB[st.held]}, {k:'let go', t:'nothing happens'}] : [];
@@ -2251,7 +2335,7 @@ class Component extends DCLogic {
     this.clockStart(d, true); const k = this.clock; k.meta = Math.round(tM - tL); k.metaFrom = from;
     // 'listed' is from the folder being handed over to the clips being drawn with their info; the reading starts after.
     this.setState({impMsg:null, imp:{n:clips.length, done:0}}, () => { if (this.clock !== k || k.listed != null) return; k.listed = Math.round(performance.now() - tL); this.clockSave({name:k.name, n:k.n, bytes:k.bytes, real:true, at:k.at, meta:k.meta, metaFrom:k.metaFrom, listed:k.listed, partial:true}); });
-    this.runQueue(clips.slice(), this.qTok);
+    { const tok = this.qTok; this.coverLoad(d).then(() => { if (tok === this.qTok) this.runQueue(clips.slice(), tok); }); }
   }
   // What a Sony clip says about itself (NonRealTimeMeta, from the sidecar or the end of the file): no decode.
   // fd is the length of one frame as [n, d] for n/d seconds: 23.98 is 1001/24000, 24 is 100/2400. nf is the camera's frame count.
@@ -2491,6 +2575,7 @@ class Component extends DCLogic {
         while (this.halt && tok === this.qTok) await new Promise(r => setTimeout(r, 400));
         if (tok !== this.qTok) return;
         if (pass === 1) this.regap();
+        if (pass !== 2 && idx.length && !c.why) this.coverNote(c);
         this.setState(s => ({imp:{n:list.length, done:(s.imp && s.imp.pass === pass ? s.imp.done : 0) + 1, pass}}));
       }
     };
