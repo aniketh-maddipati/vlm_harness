@@ -91,6 +91,12 @@ test('layout: runs are TI_GAP apart, closer than a header, each starting its own
   assert.ok(g0.W + C.TI_GUT <= 1440, 'the rod’s gutter comes out of the width');
 });
 
+test('no transitions: a regroup lands at once and a pinch let go snaps back', () => {
+  assert.match(src, /\n  static MOTION = false;/);
+  assert.match(src, /if \(!Component\.MOTION\) return;\n      if \(flip && flip\.size\)/);
+  assert.match(src, /if \(Component\.MOTION && !now && Math\.abs\(s - 1\) > 0\.004\)/);
+});
+
 test('the page: the grid groups by time, pinch and − / = move along the intervals, no strip over the grid', () => {
   assert.match(src, /this\.SC = this\.buildGroups\(new Set\(Component\.tiCuts\(ts, Component\.TI\[this\.cvTi\(\)\]\[0\]\)\.map\(i => C\[i\]\.id\)\)\)/);
   assert.match(src, /const t = Component\.tiPinch\(this\.cvTi\(\), this\.pz\);/);
@@ -99,4 +105,11 @@ test('the page: the grid groups by time, pinch and − / = move along the interv
   for (const part of ['data-lumina="time-rod"', 'data-lumina="time-mark"', 'data-lumina="time-step"', 'margin-left:{{ fGut }}px']) assert.ok(tpl.includes(part), part);
   assert.ok(!tpl.includes('fold-strip') && !tpl.includes('zoom-levels'), 'no size or scene menu');
   assert.match(tpl, /<button type="button" data-scene="\{\{ h\.s \}\}"[^>]*data-lumina="time-mark"[^>]*min-height:48px/, 'a run’s mark is a real button, 48 px tall at least');
+  const pf = src.slice(src.indexOf('data-lumina="profile-card"'), src.indexOf('data-lumina="memory-pill"'));
+  assert.match(pf, /<\/sc-if>\s*<\/div>\s*<sc-if value="\{\{ dbgOn \}\}"/, 'the profile card’s sc-if closes before the debug controls, so the memory pill shows');
+  assert.doesNotMatch(src, /role="button"/, 'every clickable is a real <button>, not a div or span with a role');
+  for (const m of src.matchAll(/<button type="button"[^>]*style="([^"]*)"/g)) {
+    const h = /(?:^|;)(?:min-)?height:(\d+)px/.exec(m[1]);
+    if (h && !/\{\{/.test(h[1])) assert.ok(+h[1] >= 28, 'a button at least 28 px tall: ' + m[0].slice(0, 80));
+  }
 });
