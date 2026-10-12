@@ -448,6 +448,26 @@ input[type=range]{accent-color:#B8B3AB}
 
   </div>
 
+  <sc-if value="{{ dockOn }}" hint-placeholder-val="{{ false }}">
+  <div data-lumina="dock" aria-label="selected clips" style="flex:none;display:flex;flex-direction:column;gap:6px;padding:8px 20px 10px;background:#232220;border-top:1px solid {{ dockLine }}">
+    <div style="display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden"><span style="flex:none;color:{{ dockHeadC }};font-weight:600">Selected</span><span data-lumina="dock-sum" style="min-width:0;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ dockSum }}</span></div>
+    <sc-if value="{{ dockFull }}" hint-placeholder-val="{{ true }}">
+    <div data-lumina="dock-row" style="display:flex;align-items:flex-start;overflow-x:auto;overflow-y:hidden;padding:3px 3px 4px;margin:-3px">
+      <sc-for list="{{ dock }}" as="dt" hint-placeholder-count="6">
+        <button type="button" data-dock="{{ dt.id }}" tabIndex="-1" aria-label="{{ dt.tip }}" title="{{ dt.tip }}" onClick="{{ dockClick }}" onDoubleClick="{{ dockDbl }}" style="flex:none;width:{{ dockW }}px;min-height:44px;margin:0 0 0 {{ dt.ml }}px;display:flex;flex-direction:column;gap:4px;padding:4px;border:none;border-radius:7px;outline:{{ dt.out }};outline-offset:0;background:{{ dt.bg }};color:inherit;font:inherit;text-align:left;cursor:pointer;-webkit-appearance:none;appearance:none" style-hover="background:rgba(239,236,230,0.06)">
+          <div style="position:relative;height:{{ dockPh }}px;border-radius:3px;overflow:hidden;background:#2A2826">
+            <div style="position:absolute;inset:0;background:{{ dt.pic }};filter:{{ dt.flt }}"></div>
+            <sc-if value="{{ dt.phOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;display:grid;place-items:center;color:#9A958D;white-space:nowrap;overflow:hidden">{{ dt.name }}</div></sc-if>
+            <div style="position:absolute;inset:0;border-radius:3px;box-shadow:inset 0 0 0 2px #A9D18E;pointer-events:none"></div>
+          </div>
+          <div style="display:flex;gap:6px;white-space:nowrap;overflow:hidden"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;color:{{ dt.nameC }}">{{ dt.name }}</span><span style="flex:none;margin-left:auto;color:#9A958D">{{ dt.sub }}</span></div>
+        </button>
+      </sc-for>
+    </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
   <div data-lumina="keybar" style="flex:none;height:30px;display:flex;align-items:center;gap:16px;padding:0 20px;border-top:1px solid rgba(239,236,230,0.06);color:#B8B3AB;white-space:nowrap;overflow:hidden">
     <div style="flex:1;min-width:0;display:flex;align-items:center;gap:16px;overflow:hidden">
@@ -522,7 +542,7 @@ class Component extends DCLogic {
   static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
   W(m) { return m ? Component.WORD[m] || m : ''; }
   static LV = ['Scenes','Clips','Viewer'];
-  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:''},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
+  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:''},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
   reading = new Set();
@@ -589,7 +609,7 @@ class Component extends DCLogic {
     // WebKit (the app, Safari) sends a trackpad pinch as gesture events, Chromium as ⌃-wheel.
     this._gs = e => { e.preventDefault(); this.gsc = 1; }; this._gc = e => { e.preventDefault(); const r = e.scale / (this.gsc || 1); this.gsc = e.scale; if (this.cvGrid() && this.state.step === 'skim' && !this.pinchHold) return this.cvPinch(Math.log(r), e); this.zoomBy(Math.log(r) * 1.6, e); }; this._ge = e => { e.preventDefault(); this.gsc = 1; this.pinchHold = false; if (this.pzOn) this.cvPinchEnd(); const zc = this.state.zc; if (Component.zoomSettle(zc) !== zc) this.setState({zc:1}); };
     window.addEventListener('gesturestart', this._gs, {passive:false}); window.addEventListener('gesturechange', this._gc, {passive:false}); window.addEventListener('gestureend', this._ge, {passive:false});
-    this.healthTick();
+    this.healthTick(); this.dockMount();
     // luminaSkimDebug() reports; luminaSkimDebug('panel') also opens the Working memory panel, luminaSkimDebug('off') hides it again, luminaSkimDebug('colour') saves the colour check frames.
     window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); else if (what === 'colour') this.colourCheck(); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
     this._rs = () => { clearTimeout(this.rsT); this.rsT = setTimeout(() => this.setState({vw:window.innerWidth, vh:window.innerHeight}), 80); }; window.addEventListener('resize', this._rs);
@@ -604,7 +624,7 @@ class Component extends DCLogic {
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
     window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); window.removeEventListener('beforeunload', this._bu); this.dropVid();
-    clearTimeout(this.propT); clearTimeout(this.flT);
+    clearTimeout(this.propT); clearTimeout(this.flT); this.dockUnmount();
   }
   componentDidUpdate(pp, ps) {
     if (pp.sample !== this.props.sample || pp.startLevel !== this.props.startLevel || pp.startStep !== this.props.startStep) this.load();
@@ -1278,11 +1298,13 @@ class Component extends DCLogic {
   targets() { const st = this.state; if (st.sel.length) return st.sel; if (this.cvGrid()) { const g = this.cvG(); return g ? g.clips.map(c => c.id) : []; } if (st.lv === 0) return this.G[st.gi] ? this.G[st.gi].vis.map(c => c.id) : []; return st.cur ? [st.cur] : []; }
   decide() {
     const st = this.state, m = st.held; if (!m) return; this.heldTapped = true;
+    if (this.dockMark(m)) return;
     if (this.cvGrid() && !st.sel.length) return this.cvMark(m);
     if (st.sel.length || st.lv === 0) this.areaMark(this.targets(), m); else if (st.cur) this.doMark([st.cur], Component.markToggle(st.marks[st.cur] || null, m));
   }
   quick(m) {
     const st = this.state;
+    if (this.dockMark(m)) return;
     if (st.sel.length) return this.areaMark(st.sel, m);
     if (this.cvGrid()) return this.cvMark(m);
     if (st.lv === 0 || !st.cur) return;
@@ -1294,6 +1316,7 @@ class Component extends DCLogic {
     if (st.progOn) return this.setState({progOn:false});
     if (st.lv >= 2 && st.zc > 1.01) return this.setState({zc:1});
     if (st.prop) { clearTimeout(this.propT); this.propFn = null; return this.setState({prop:null}); }
+    if (this.dockFoc()) return this.dockLeave();
     if (st.sel.length || st.box) { this.anchor = null; return this.setState({sel:[], box:null}); }
     const lm = this.lastMark, top = st.undo[st.undo.length - 1];
     if (lm && top === lm.step && Date.now() - lm.at < 8000 && (lm.step.ids.includes(st.cur) || st.lv === 0)) { this.lastMark = null; return this.undo(); }
@@ -1321,6 +1344,7 @@ class Component extends DCLogic {
     if (meta && kl === 'z') { e.preventDefault(); return e.shiftKey ? this.redo() : this.undo(); }
     if (meta) return;
     if (t && t.tagName === 'INPUT' && k.startsWith('Arrow')) return;
+    if (this.dockKey(e)) return;
     if (this.mk[kl] && !e.altKey) { e.preventDefault(); if (e.repeat) return; this.heldAt = e.timeStamp; this.heldTapped = false; return this.setState({held:this.mk[kl]}); }
     if (k === 'Enter' || k === ' ') {
       if (st.held) { e.preventDefault(); return this.decide(); }
@@ -1580,7 +1604,7 @@ class Component extends DCLogic {
   // As many scenes as fit the window without scrolling: every gap cut when all the clips fit.
   sceneGrid() { return Component.laySceneGeo({vw:this.state.vw}); }
   fitCut(n) {
-    const gs = this.gapsSorted || [], {cols, tw} = this.sceneGrid(), th = tw * 9 / 16 + 74 + 26, avail = this.state.vh - 52 - 44 - 30 - 48 - 120;
+    const gs = this.gapsSorted || [], {cols, tw} = this.sceneGrid(), th = tw * 9 / 16 + 74 + 26, avail = this.state.vh - 52 - 44 - 30 - 48 - 120 - this.dockH();
     const fit = cols * Math.max(1, Math.floor(avail / th));
     const nat = gs.filter(g => (g.sc || 0) >= 0.75).length;
     return Math.max(0, Math.min(gs.length, n <= fit ? gs.length : Math.max(fit - 1, Math.min(nat, 2 * fit - 1))));
@@ -1734,7 +1758,7 @@ class Component extends DCLogic {
       vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
       // the row: this clip and as many of its chapter as fit, joined by a bracket
       const gq = G[curGi], list = gq ? (gq.vis.length ? gq.vis : gq.clips) : [c], ci = Math.max(0, list.findIndex(x => x.id === c.id));
-      const padX = Math.min(40, Math.max(16, st.vw * 0.022)), W = Math.max(280, st.vw - 2 * padX - 28 - 300), Hh = st.vh - 380;
+      const padX = Math.min(40, Math.max(16, st.vw * 0.022)), W = Math.max(280, st.vw - 2 * padX - 28 - 300), Hh = st.vh - 380 - this.dockH();
       const fit = this.rowFit(list.length, W, Hh), k = fit.k, s0 = Math.max(0, Math.min(list.length - k, ci - Math.floor((k - 1) / 2)));
       const shown = list.slice(s0, s0 + k);
       let x = 0; const centers = [];
@@ -1754,11 +1778,96 @@ class Component extends DCLogic {
         oneOn:k < 2 && list.length > 1, one:'1 of ' + list.length + ' clips in ' + span + (more ? ' · ' + extra.replace(/ · $/, '') : '') + ' · ⇧← ⇧→ to move'};
     }
     Object.assign(vals, this.extraVals(markN, markB, und));
+    Object.assign(vals, this.dockVals(vals));
     return vals;
   }
   // A stored entry that holds marks: a shoot's entry ('lumina-skim:<shoot>'), not the read clock or the folder locations.
   static isMarkKey(k) { return typeof k === 'string' && k.indexOf('lumina-skim:') === 0 && k !== 'lumina-skim:clock'; }
   dropSavedMarks() { if (Component.KEEP_MARKS) return; const drop = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (Component.isMarkKey(k)) drop.push(k); } } catch (x) {} drop.forEach(k => this.persist(k, null)); }
+  // The dock: every selected clip, in capture order, in one sticky row above the key bar (a small gap where the
+  // time run, or the scene, changes). A click puts you on the clip, a double-click opens it in the Viewer, as in the grid. The arrows
+  // move through it: ↓ from the grid's last row (⇧↓ from any row) or from the Viewer enters it, ← → step along it, ↑ goes back,
+  // ⏎ opens, K takes the clip out of it. `state.dk` is the clip the dock has focus on (null: it has none).
+  // The plain functions are read out of the page by Tests/web/skim-dock.test.mjs.
+  static dockList(clips, marks) { const out = []; let g = null; clips.forEach(c => { if (marks[c.id] !== 'keep') return; out.push({id:c.id, g:c.g, brk:out.length > 0 && c.g !== g}); g = c.g; }); return out; }
+  static dockStep(ids, id, d) { const i = ids.indexOf(id); if (i < 0) return ids[0] ?? null; return ids[Math.max(0, Math.min(ids.length - 1, i + d))]; }
+  static dockNear(order, ids, cur) { if (!ids.length) return null; if (ids.includes(cur)) return cur; const at = order.indexOf(cur), set = new Set(ids); if (at >= 0) for (let i = at + 1; i < order.length; i++) if (set.has(order[i])) return order[i]; return ids[ids.length - 1]; }
+  static dockOut(ids, id) { const i = ids.indexOf(id); return i < 0 ? null : ids[i + 1] ?? ids[i - 1] ?? null; }
+  dockPh() { const vh = this.state.vh; return vh >= 860 ? 104 : vh >= 700 ? 80 : 60; }
+  // The height the dock takes from the window (the Viewer and the scene fit leave it room).
+  dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; return this.dockIds().length ? this.dockPh() + 68 : 35; }
+  dockIds() { const C = this.d ? this.d.clips : [], m = this.state.marks; return C.filter(c => m[c.id] === 'keep').map(c => c.id); }
+  // While the dock has focus it follows the clip you are on when that clip is selected (an undo can move you).
+  dockFoc() { const st = this.state, ok = id => id && this.byId && this.byId[id] && st.marks[id] === 'keep'; return st.step === 'skim' && ok(st.dk) ? (ok(st.cur) ? st.cur : st.dk) : null; }
+  dockMount() { this._dmd = e => { if (!this.state.dk) return; const t = e.target; if (t && t.closest && t.closest('[data-lumina="dock"],[data-well],[data-lumina="keybar"]')) return; this.setState({dk:null}); }; window.addEventListener('mousedown', this._dmd); }
+  dockUnmount() { window.removeEventListener('mousedown', this._dmd); }
+  dockReveal() { const id = this.state.dk; if (!id || typeof document === 'undefined') return; const el = document.querySelector('[data-dock="' + id + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({block:'nearest', inline:'nearest'}); }
+  // Put the grid (or the Viewer) on a clip of the dock, and the dock's focus with it.
+  dockGo(id) {
+    const st = this.state; if (!id || !this.byId[id]) return; const p = {dk:id, cur:id, sel:[], box:null};
+    if (this.cvGrid()) this.wantScroll = ['@cur'];
+    else if (st.lv === 0) { p.gi = this.gOfAll[id] ?? st.gi; this.wantScroll = ['[data-gi="' + p.gi + '"]']; }
+    else if (st.lv === 1) { this.wantScroll = ['[data-clip="' + id + '"]']; this.anchor = null; }
+    else { p.fx = 0; p.hv = null; }
+    this.kbAt = Date.now(); this.setState(p, () => this.dockReveal());
+  }
+  dockOpen(id) { if (!id || !this.byId[id]) return; this.kbAt = Date.now(); this.setState({dk:id, cur:id, lv:2, fx:0, hv:null, sel:[], box:null, pan:[0.5, 0.5]}, () => this.dockReveal()); }
+  dockLeave() { if (this.cvGrid()) this.wantScroll = ['@cur']; this.setState({dk:null}); }
+  // ↓ on the grid's last row goes on into the dock; ⇧↓ goes there from any row.
+  dockLastRow() { const g = this.cvG(); return !!g && Component.laySecNav(this.fGeo || this.cvGeo(), this.fSecs || this.cvSecs(), g.i, 1) === g.i; }
+  dockId(e) { return e.currentTarget.getAttribute('data-dock'); }
+  dockClick = e => { const id = this.dockId(e), st = this.state; if (st.held) { this.heldTapped = true; this.setState({dk:id, cur:id}); return this.doMark([id], Component.markToggle(st.marks[id] || null, st.held)); } this.dockGo(id); };
+  dockDbl = e => { if (!this.state.held) this.dockOpen(this.dockId(e)); };
+  // K M C with the dock's focus mark that clip only (never a folded tile). A clip that stops being selected leaves
+  // the dock, and the focus goes to its neighbour (none left: the focus goes back to the grid).
+  dockMark(m) {
+    const st = this.state, id = this.dockFoc(); if (!id) return false;
+    const to = Component.markToggle(st.marks[id] || null, m);
+    if (to !== 'keep') { const n = Component.dockOut(this.dockIds(), id); if (n) this.dockGo(n); else this.dockLeave(); }
+    this.doMark([id], to); return true;
+  }
+  // The arrows and ⏎ for the dock. Returns true when the dock took the key.
+  dockKey(e) {
+    const st = this.state, k = e.key, foc = this.dockFoc(); if (e.altKey || st.held) return false;
+    if (!foc) {
+      if (k !== 'ArrowDown' || st.prop) return false;
+      const ids = this.dockIds(); if (!ids.length) return false;
+      if (this.cvGrid()) { if (!e.shiftKey && !this.dockLastRow()) return false; }
+      else if (st.lv !== 2 || e.shiftKey) return false;
+      e.preventDefault(); this.dockGo(Component.dockNear(this.d.clips.map(c => c.id), ids, st.cur)); return true;
+    }
+    if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); this.dockGo(Component.dockStep(this.dockIds(), foc, k === 'ArrowRight' ? 1 : -1)); return true; }
+    if (k === 'ArrowUp') { e.preventDefault(); this.dockLeave(); return true; }
+    if (k === 'ArrowDown') { e.preventDefault(); return true; }
+    if (k === 'Enter' && !e.shiftKey && !st.prop) { e.preventDefault(); this.dockOpen(foc); return true; }
+    return false;
+  }
+  dockVals(v) {
+    const st = this.state, d = this.d, MK = Component.MK, out = {dockOn:false, dockFull:false, dock:[], dockSum:'', dockLine:'rgba(239,236,230,0.08)', dockHeadC:'#B8B3AB', dockW:0, dockPh:0, dockClick:this.dockClick, dockDbl:this.dockDbl};
+    if (!v.isSkim || !d || !d.clips.length) return out;
+    const L = Component.dockList(d.clips.map(c => ({id:c.id, g:st.cv && this.scOf && this.scOf[c.id] != null ? this.scOf[c.id] : this.gOfAll[c.id]})), st.marks), foc = this.dockFoc();
+    const ph = this.dockPh(), slot = this.dockSl || (this.dockSl = {}), nm = c => c.name.replace(/\.\w+$/, '');
+    const ids = L.map(x => x.id), dur = ids.reduce((a, id) => a + (this.byId[id].dur || 0), 0);
+    out.dockOn = true; out.dockFull = L.length > 0; out.dockPh = ph; out.dockW = Math.round(ph * 16 / 9) + 8;
+    out.dockSum = L.length ? this.plural(L.length, 'clip') + ' · ' + this.fmtDur(dur) + ' · ' + this.fmtB(this.bytesOf(ids)) : 'nothing yet · K selects the clip you are on';
+    out.dockLine = foc ? 'rgba(255,210,122,0.5)' : 'rgba(239,236,230,0.08)'; out.dockHeadC = foc ? '#FFD27A' : L.length ? '#EFECE6' : '#9A958D';
+    out.dock = L.map(x => {
+      const c = this.byId[x.id], t = this.tone(c, this.firstIdx(), false, slot[x.id] || (slot[x.id] = {})), isF = foc === x.id, isC = st.cur === x.id;
+      return {id:x.id, ml:x.brk ? 18 : 0, pic:t.bg, flt:t.flt, phOn:this.waiting(c), name:nm(c), nameC:isF || isC ? '#EFECE6' : '#B8B3AB', sub:[c.t ? this.hm(c.t) : '', c.dur ? this.fmtDur(c.dur) : ''].filter(Boolean).join(' · '),
+        out:isF ? '2px solid #FFD27A' : isC ? '1.5px solid rgba(239,236,230,0.65)' : 'none', bg:isF ? 'rgba(255,210,122,0.07)' : 'transparent', tip:nm(c) + ' · double-click to view large'};
+    });
+    for (const id in slot) if (!ids.includes(id)) delete slot[id];
+    if (foc && !st.held) {
+      const n = Component.dockStep(ids, foc, 1), p = Component.dockStep(ids, foc, -1), list = [], add = (k, t) => { if (t) list.push({k, t}); };
+      add('← →', ids.length > 1 && 'move'); add('↑', st.lv >= 2 ? 'back to the Viewer' : 'back to the clips'); add('⏎', st.lv >= 2 ? '' : 'view large'); add('2×click', 'view large');
+      add('K', 'take out'); add('M C', 'mark'); add('esc', 'leave');
+      out.hints = list; out.hintLead = 'Selected · ' + nm(this.byId[foc]) + ' · ' + (ids.indexOf(foc) + 1) + ' of ' + ids.length;
+      if (n === foc && p === foc) out.hints = list.filter(h => h.k !== '← →');
+    } else if (!foc && L.length && !st.held && v.hints && (this.cvGrid() || st.lv === 2)) {
+      out.hints = [...v.hints, {k:this.cvGrid() && !this.dockLastRow() ? '⇧↓' : '↓', t:'selected'}];
+    }
+    return out;
+  }
   clipKey(c) { return (c.name || '').toUpperCase() + '@' + (c.t || '').slice(0, 19); }
   storeKey(d) { d = d || this.d; if (d.shoot && d.shoot.key) return d.shoot.key; return 'lumina-skim:' + (d.__sample ? 'sample-' + (this.sampleKey || 'host') : d.shoot.fp ? (d.shoot.base || d.shoot.name) + '-' + d.clips.length + '-' + d.shoot.fp : d.shoot.name + '-' + d.clips.length); }
   // Which clips a shoot is: the first and last clip's names and times, so two shoots with the same folder name stay apart.
