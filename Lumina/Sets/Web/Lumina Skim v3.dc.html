@@ -395,7 +395,7 @@ input[type=range]{accent-color:#B8B3AB}
                 <div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;cursor:{{ it.cur }};background:#161514">
                   <div style="position:absolute;inset:0;background:{{ it.bg }};filter:{{ it.flt }};animation:{{ it.anim }};transform:{{ it.zt }};transform-origin:{{ it.zo }}"></div>
                   <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><video ref="{{ vidRef }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transition:opacity 120ms;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></video></sc-if>
-                  <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ pvCvRef }}" data-lumina="viewer-preview" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></canvas></sc-if>
+                  <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ pvCvRef }}" data-lumina="viewer-preview" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transition:opacity 120ms ease-out;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></canvas></sc-if>
                   <sc-if value="{{ it.zOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="zoom" style="position:absolute;left:8px;bottom:8px;padding:2px 8px;border-radius:5px;background:rgba(22,21,20,0.82);color:#EFECE6;pointer-events:none">{{ it.zT }}</div></sc-if>
                   <sc-if value="{{ it.hvOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:0;bottom:0;left:{{ it.hx }};width:1px;background:rgba(239,236,230,0.6);pointer-events:none"></div></sc-if>
                   <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ it.edge }};pointer-events:none"></div>
@@ -624,7 +624,7 @@ class Component extends DCLogic {
     window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
     window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); window.removeEventListener('beforeunload', this._bu); this.dropVid();
-    clearTimeout(this.propT); clearTimeout(this.flT); this.dockUnmount();
+    clearTimeout(this.propT); clearTimeout(this.flT); clearTimeout(this.pvCvT); this.dockUnmount();
   }
   componentDidUpdate(pp, ps) {
     if (pp.sample !== this.props.sample || pp.startLevel !== this.props.startLevel || pp.startStep !== this.props.startStep) this.load();
@@ -688,22 +688,41 @@ class Component extends DCLogic {
   // beside it changed. When the preview is such a filter, the frame the video is on is drawn into a canvas
   // over it, and the canvas takes the same filter as the stills. Filters written as functions reach the video.
   pvVia(flt) { return typeof flt === 'string' && flt.indexOf('url(') === 0 ? 'canvas' : 'video'; }
-  pvCvRef = el => { this.pvCv = el || null; this.pvCvKey = null; this.pvCvFor = null; if (el) this.paintVid(); };
+  pvCvRef = el => { this.pvCv = el || null; this.pvCvKey = null; this.pvCvFor = null; clearTimeout(this.pvCvT); if (el) this.paintVid(); };
+  // The video itself is on show only when its picture needs no canvas. While the preview goes through the canvas
+  // the video stays hidden under it: until the canvas has a frame of this clip the converted still shows, never
+  // the file as shot. Says whether the canvas is the picture.
+  vidShow() {
+    const v = this.vidEl, c = this.vidFor && this.byId ? this.byId[this.vidFor] : null; if (!v) return false;
+    const up = !!c && this.vidUp === v, via = up && this.pvOn(c) && this.pvVia(this.pvFlt(c)) === 'canvas';
+    v.style.opacity = up && !via ? '1' : '0';
+    return via;
+  }
+  // WebKit says a seek is over, and readyState 4, before it has a frame to hand a canvas: drawImage then draws
+  // nothing and says so nowhere. One pixel of the frame is looked at first; an empty one is not drawn.
+  vidHas(v) {
+    try {
+      const p = this.pvPr || (this.pvPr = Object.assign(document.createElement('canvas'), {width:2, height:2})), x = p.getContext('2d', {willReadFrequently:true});
+      x.clearRect(0, 0, 2, 2); x.drawImage(v, 0, 0, 2, 2); return x.getImageData(0, 0, 1, 1).data[3] > 0;
+    } catch (e) { return true; }
+  }
   paintVid(again) {
-    const cv = this.pvCv, v = this.vidEl, st = this.state; if (!cv) return;
+    const cv = this.pvCv, v = this.vidEl, st = this.state, via = this.vidShow(); if (!cv) return;
     const c = st.step === 'skim' && st.lv >= 2 ? this.byId[st.cur] : null;
     if (v && this.pvCvVid !== v) { this.pvCvVid = v; v.addEventListener('seeked', () => this.paintVid()); v.addEventListener('error', () => this.paintVid()); }
-    const on = !!c && !!v && this.vidFor === c.id && v.style.opacity === '1' && this.pvOn(c) && this.pvVia(this.pvFlt(c)) === 'canvas';
-    if (!on) { cv.style.opacity = '0'; return; }
+    const on = !!c && !!v && this.vidFor === c.id && via;
+    if (!on) { clearTimeout(this.pvCvT); cv.style.opacity = '0'; return; }
     if (v.readyState >= 2 && v.videoWidth > 0 && (!v.seeking || this.pvCvFor !== c.id)) {   // mid-seek only when nothing of this clip is drawn yet
       const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
       const w = Math.max(2, Math.min(v.videoWidth, Math.round((cv.clientWidth || 320) * dpr * Math.max(1, st.zc || 1)))), h = Math.max(2, Math.round(w * v.videoHeight / v.videoWidth));
       const key = c.id + '|' + v.currentTime + '|' + w;
       if (again || key !== this.pvCvKey) {
-        if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-        try { cv.getContext('2d').drawImage(v, 0, 0, w, h); this.pvCvKey = v.seeking ? null : key; this.pvCvFor = c.id; } catch (x) {}
-        // the frame WebKit hands a canvas right after a seek can be the one before; draw once more when it is shown
-        if (!again) { if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => this.paintVid(true)); else setTimeout(() => this.paintVid(true), 120); }
+        const has = this.vidHas(v);
+        if (has) { if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } try { cv.getContext('2d').drawImage(v, 0, 0, w, h); this.pvCvKey = v.seeking ? null : key; this.pvCvFor = c.id; } catch (x) {} }
+        // No frame yet: look again shortly, for 2 s. A frame: the one WebKit hands a canvas right after a seek can be
+        // the one before, so it is drawn once more when it is shown, and once on a timer (a paused video may not say).
+        if (!again) { this.pvCvN = 0; if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => this.paintVid(true)); }
+        if (!again || !has) { clearTimeout(this.pvCvT); if (has || ++this.pvCvN <= 40) this.pvCvT = setTimeout(() => this.paintVid(true), has ? 120 : 50); }
       }
     }
     cv.style.opacity = this.pvCvFor === c.id ? '1' : '0';
@@ -757,7 +776,7 @@ class Component extends DCLogic {
     const h = c.look ? c.look.hue : 40, ev = this.frameEv(c), pv = this.pvOn(c);
     const sl = slot || ((c._sl || (c._sl = {}))[i] || (c._sl[i] = {}));
     if (c.frames && !c.frames[i]) { let j = -1; for (let k = 1; k < 8 && j < 0; k++) { if (c.frames[i - k]) j = i - k; else if (c.frames[i + k]) j = i + k; } if (j >= 0) i = j; }
-    if (c.frames && c.frames[i]) return {bg:this.pic(sl, c, i), flt:pv ? this.pvFlt(c) : 'none', anim:'none'};
+    if (c.frames && c.frames[i]) return {bg:this.pic(sl, c, i), flt:pv ? this.pvFlt(c) : 'none', anim:this.pvAn && this.needsPv(c) ? this.pvAn : 'none'};
     if (c._file || c._mock) { sl.url = null; sl.pu = null; return {bg:Component.PH, flt:'none', anim:'none'}; }
     let L = 0.5 + ev * 0.085 + Math.sin((i + 1) * 1.7 + c._i) * 0.035 + (f.clip || 0) / 40;
     if (f.bump === i) L += 0.28;
@@ -1550,9 +1569,9 @@ class Component extends DCLogic {
     if (!el) { this.dropVid(); this.vidEl = null; return; }
     if (el === this.vidEl) return;
     this.dropVid(); this.vidEl = el; el.muted = true; el.playsInline = true; el.preload = 'auto';
-    el.addEventListener('seeked', () => { if (el !== this.vidEl) return; el.style.opacity = '1'; this.vidAsk = 0; if (this.vidWant != null && Math.abs(el.currentTime - this.vidWant) > 0.02) { el.currentTime = this.vidWant; this.vidArm(); } else this.vidTry = 0; });
+    el.addEventListener('seeked', () => { if (el !== this.vidEl) return; this.vidUp = el; this.vidShow(); this.vidAsk = 0; if (this.vidWant != null && Math.abs(el.currentTime - this.vidWant) > 0.02) { el.currentTime = this.vidWant; this.vidArm(); } else this.vidTry = 0; });
     el.addEventListener('loadeddata', () => { if (el === this.vidEl && this.vidWant != null && !el.seeking) el.currentTime = this.vidWant; });
-    el.addEventListener('error', () => { if (el === this.vidEl) { el.style.opacity = '0'; this.vidCheck(true); } });
+    el.addEventListener('error', () => { if (el === this.vidEl) { this.vidUp = null; el.style.opacity = '0'; this.vidCheck(true); } });
   };
   // No seek in the Viewer waits forever. What to do about the video, from what it says of itself:
   // 'ok' it is where it was asked to be · 'wait' still inside its time · 'again' open the file afresh · 'off' leave it, the sampled frames show.
@@ -1579,7 +1598,7 @@ class Component extends DCLogic {
     if (r === 'off') this.vidOff = c.id; else this.vidNew = true;   // a fresh <video>: one that stopped answering may not answer a new file either
     this.paintVid(); this.setState(s => ({tick:(s.tick || 0) + 1}));
   }
-  dropVid() { const v = this.vidEl; if (this.vidUrl) URL.revokeObjectURL(this.vidUrl); if (this.vidFor) this.vOpen = Math.max(0, (this.vOpen || 0) - 1); this.vidUrl = null; this.vidFor = null; this.vidWant = null; clearTimeout(this.vidT); this.vidT = 0; this.vidAsk = 0; if (v) { v.style.opacity = '0'; v.removeAttribute('src'); try { v.load(); } catch (x) {} } }
+  dropVid() { const v = this.vidEl; if (this.vidUrl) URL.revokeObjectURL(this.vidUrl); if (this.vidFor) this.vOpen = Math.max(0, (this.vOpen || 0) - 1); this.vidUrl = null; this.vidFor = null; this.vidWant = null; clearTimeout(this.vidT); this.vidT = 0; this.vidAsk = 0; this.vidUp = null; if (v) { v.style.opacity = '0'; v.removeAttribute('src'); try { v.load(); } catch (x) {} } }
   skimF(c) { const st = this.state; return st.hv && st.hv.id === c.id ? st.hv.f : c.id === st.cur ? (st.fx + 0.5) / 8 : 0.5; }
   syncVid() {
     const v = this.vidEl, st = this.state; if (!v) return;
