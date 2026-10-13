@@ -100,6 +100,11 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                         guard let self, let last = self.bridge.shoots.index().first else { return }
                         self.reopen(last.id)
                     }
+                    // Skim reloads in place: the open shoot comes back after the page does.
+                    if page == .skim {
+                        hotReload?.reloadPage = { [weak self] in self?.reloadSkimKeeping(note: "Updated to the latest") }
+                        keepSkimAcrossRelaunch()
+                    }
                 }
                 #endif
             } catch {
@@ -122,15 +127,226 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     }
 
     /// ⌘R on Skim: leaves a note in this app's container that the hot build's follower watches
-    /// (`Library/Caches/skim-refresh`: it pulls the shared branch at once, and a newer page then hot-reloads
-    /// again), and reloads the page from the app's files now. The open clips go with the reload, as in a browser.
+    /// (`Library/Caches/skim-refresh`: it pulls the shared branch at once, and a newer page then reloads
+    /// again the same way), and reloads the page now, keeping the open shoot (`reloadSkimKeeping`).
     private func reloadSkim() {
-        guard let webView else { return }
         if let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
             try? Data(ISO8601DateFormatter().string(from: Date()).utf8).write(to: caches.appendingPathComponent("skim-refresh"), options: .atomic)
         }
         LuminaLog.app.notice("skim: reload from the menu")
-        webView.load(URLRequest(url: SetsSchemeHandler.pageURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
+        reloadSkimKeeping()
+    }
+
+    // MARK: Skim's reload in place (⌘R and the hot build; Debug only, LOCAL-CHANGES 257)
+
+    /// What the page's file input was last answered with. The panel's grant lasts as long as the app, so a
+    /// reload can hand the same clips back without asking. Clips dropped on the page have no URLs and don't come back.
+    private var skimURLs: [URL]?
+    /// Set while a reload reopens the shoot: the page's file input is answered with these, with no panel.
+    private var skimReopenURLs: [URL]?
+    /// The page's marks and view by clip (`luminaSkimKeep.take()`), waiting for the reloaded page.
+    private var skimKept: String?
+    /// The picture of the page as it was, over the reloading page until the shoot is back, then faded out.
+    private var skimCurtain: NSView?
+    private var skimCurtainToken = 0
+    /// What the badge says once the reload is done ("Refreshed", or "Updated to the latest" from the hot build).
+    private var skimNote = "Refreshed"
+    private var skimBadge: NSView?
+
+    /// Reloads the page from the app's files and puts the open shoot back: the same clips, marks and view.
+    /// The old picture stays over the window, dims to half while the page reloads, and fades out once the
+    /// shoot is back (or after 8 s, whatever the page says). Clips dropped on the page have no file locations, so then
+    /// it doesn't reload at all.
+    func reloadSkimKeeping(note: String = "Refreshed") {
+        guard let webView else { return }
+        webView.evaluateJavaScript("window.luminaSkimKeep ? luminaSkimKeep.take() : null") { [weak self] kept, _ in
+            MainActor.assumeIsolated {
+                guard let self, let webView = self.webView else { return }
+                let fresh = (kept as? String).flatMap { self.skimURLs == nil ? nil : $0 }
+                // Clips dropped on the page can't be handed back: no reload, the work stays.
+                if let fresh, fresh.contains("\"dropped\":true") {
+                    LuminaLog.app.notice("skim: no reload, the open clips were dropped on the page")
+                    self.showSkimBadge("Not refreshed · dropped clips can't be reopened", ok: false)
+                    return
+                }
+                self.skimNote = note
+                // A reload while the last one is still coming back, before the page holds the kept shoot: keep that one.
+                if fresh != nil || self.skimCurtain == nil { self.skimKept = fresh }
+                webView.takeSnapshot(with: nil) { image, _ in
+                    MainActor.assumeIsolated {
+                        self.raiseSkimCurtain(image)
+                        webView.load(URLRequest(url: SetsSchemeHandler.pageURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
+                    }
+                }
+            }
+        }
+    }
+
+    private func raiseSkimCurtain(_ image: NSImage?) {
+        guard let webView, let host = webView.superview else { return }
+        skimCurtain?.removeFromSuperview()
+        let curtain = NSView(frame: host.bounds)
+        curtain.autoresizingMask = [.width, .height]
+        curtain.wantsLayer = true
+        curtain.layer?.backgroundColor = NSColor.black.cgColor
+        let picture = NSImageView(frame: curtain.bounds)
+        picture.autoresizingMask = [.width, .height]
+        picture.imageScaling = .scaleAxesIndependently
+        picture.image = image
+        curtain.addSubview(picture)
+        host.addSubview(curtain, positioned: .above, relativeTo: webView)
+        skimCurtain = curtain
+        skimCurtainToken += 1
+        let token = skimCurtainToken
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.22
+            picture.animator().alphaValue = 0.5
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.skimCurtainToken == token else { return }
+                self.lowerSkimCurtain()
+            }
+        }
+    }
+
+    private func lowerSkimCurtain() {
+        guard let curtain = skimCurtain else { return }
+        skimCurtain = nil
+        skimCurtainToken += 1
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.3
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            curtain.animator().alphaValue = 0
+        }, completionHandler: { curtain.removeFromSuperview() })
+        showSkimBadge(skimNote, ok: true)
+    }
+
+    /// A small pill at the top of the window for 1.6 s: "✓ Refreshed", then it fades. Pixels only, takes no clicks.
+    private func showSkimBadge(_ text: String, ok: Bool) {
+        guard let webView, let host = webView.superview else { return }
+        skimBadge?.removeFromSuperview()
+        let label = NSTextField(labelWithString: (ok ? "✓  " : "") + text)
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        label.textColor = .white
+        label.sizeToFit()
+        let pad = NSSize(width: 16, height: 7)
+        let size = NSSize(width: ceil(label.frame.width) + pad.width * 2, height: ceil(label.frame.height) + pad.height * 2)
+        let badge = SkimBadgeView(frame: NSRect(x: (host.bounds.width - size.width) / 2, y: host.bounds.height - size.height - 18, width: size.width, height: size.height))
+        badge.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
+        badge.wantsLayer = true
+        badge.layer?.backgroundColor = (ok ? NSColor(calibratedRed: 0.12, green: 0.55, blue: 0.32, alpha: 0.92) : NSColor(calibratedWhite: 0.15, alpha: 0.92)).cgColor
+        badge.layer?.cornerRadius = size.height / 2
+        label.frame.origin = NSPoint(x: pad.width, y: pad.height)
+        badge.addSubview(label)
+        badge.alphaValue = 0
+        host.addSubview(badge, positioned: .above, relativeTo: nil)
+        skimBadge = badge
+        NSAnimationContext.runAnimationGroup { ctx in ctx.duration = 0.18; badge.animator().alphaValue = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [weak self] in
+            MainActor.assumeIsolated {
+                NSAnimationContext.runAnimationGroup({ ctx in ctx.duration = 0.4; badge.animator().alphaValue = 0 },
+                                                     completionHandler: { badge.removeFromSuperview() })
+                if self?.skimBadge === badge { self?.skimBadge = nil }
+            }
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        #if DEBUG
+        if skimRestoring { skimRestoring = false; raiseSkimCurtain(nil) }
+        #endif
+        guard SetsPage.current == .skim, skimCurtain != nil else { return }
+        guard skimKept != nil, skimURLs != nil else { lowerSkimCurtain(); return }
+        reopenSkimShoot(tries: 0)
+    }
+
+    /// The page mounts after its scripts are compiled, a moment after the load finishes: looks every 100 ms
+    /// for its hook, then hands it the kept shoot. Run from the app, the reopen counts as the person's click:
+    /// the page's file input opens and is answered with the same clips (`skimReopenURLs`).
+    private func reopenSkimShoot(tries: Int) {
+        guard skimCurtain != nil, let webView, let kept = skimKept, let urls = skimURLs,
+              let arg = try? JSONSerialization.data(withJSONObject: [kept]), let list = String(data: arg, encoding: .utf8) else { lowerSkimCurtain(); return }
+        webView.evaluateJavaScript("window.luminaSkimKeep ? luminaSkimKeep.reopen(\(list)[0]) : 'wait'") { [weak self] opened, _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if (opened as? String) == "wait" {
+                    guard tries < 60 else { self.skimKept = nil; self.lowerSkimCurtain(); return }
+                    self.skimReopenURLs = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { MainActor.assumeIsolated { self.reopenSkimShoot(tries: tries + 1) } }
+                    return
+                }
+                self.skimKept = nil
+                guard (opened as? Bool) == true else { self.skimReopenURLs = nil; self.lowerSkimCurtain(); return }
+                self.waitForSkimShoot(tries: 0)
+            }
+        }
+        skimReopenURLs = urls
+    }
+
+    #if DEBUG
+    /// Set at launch when the last run left its shoot behind (`keepSkimAcrossRelaunch`): the first load reopens it.
+    private var skimRestoring = false
+    private var skimTermSource: DispatchSourceSignal?
+    private static var skimKeptFile: URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("skim-kept.json")
+    }
+
+    /// The hot build relaunches the app with SIGTERM after a Swift change (Scripts/dev.sh). The open shoot is
+    /// written down first (the kept marks and view, and bookmarks to the clips chosen), and the next launch, within
+    /// 10 minutes, opens the same clips and puts it back, as ⌘R does. A Quit from the menu starts clean.
+    private func keepSkimAcrossRelaunch() {
+        signal(SIGTERM, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        source.setEventHandler { [weak self] in MainActor.assumeIsolated { self?.saveSkimAndExit() } }
+        source.resume()
+        skimTermSource = source
+        guard let file = Self.skimKeptFile, let data = try? Data(contentsOf: file) else { return }
+        try? FileManager.default.removeItem(at: file)
+        guard let saved = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let kept = saved["kept"] as? String,
+              let at = saved["at"] as? Double, Date().timeIntervalSince1970 - at < 600, let marks = saved["bookmarks"] as? [String] else { return }
+        let urls: [URL] = marks.compactMap { b in
+            var stale = false
+            guard let d = Data(base64Encoded: b), let u = try? URL(resolvingBookmarkData: d, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+            _ = u.startAccessingSecurityScopedResource()
+            return u
+        }
+        guard !urls.isEmpty else { return }
+        LuminaLog.app.notice("skim: reopening the shoot the last run left")
+        skimURLs = urls
+        skimKept = kept
+        skimNote = "Picked up where you were"
+        skimRestoring = true
+    }
+
+    /// SIGTERM: the open shoot to disk, then exit. At most 1.5 s; dev.sh waits 5 s before a kill -9.
+    private func saveSkimAndExit() {
+        guard let webView, let urls = skimURLs, let file = Self.skimKeptFile else { exit(0) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { exit(0) }
+        webView.evaluateJavaScript("window.luminaSkimKeep ? luminaSkimKeep.take() : null") { kept, _ in
+            MainActor.assumeIsolated {
+                if let kept = kept as? String, !kept.contains("\"dropped\":true") {
+                    let marks = urls.compactMap { try? $0.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil).base64EncodedString() }
+                    if let data = try? JSONSerialization.data(withJSONObject: ["kept": kept, "at": Date().timeIntervalSince1970, "bookmarks": marks] as [String: Any]) {
+                        try? data.write(to: file, options: .atomic)
+                    }
+                }
+                exit(0)
+            }
+        }
+    }
+    #endif
+
+    /// Looks every 100 ms until the page says the shoot is back.
+    private func waitForSkimShoot(tries: Int) {
+        guard skimCurtain != nil, let webView else { return }
+        webView.evaluateJavaScript("window.luminaSkimKeep ? luminaSkimKeep.state() : 'done'") { [weak self] state, _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if (state as? String) == "done" || tries > 80 { self.skimReopenURLs = nil; self.lowerSkimCurtain(); return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { MainActor.assumeIsolated { self.waitForSkimShoot(tries: tries + 1) } }
+            }
+        }
     }
 
     func toggleZoom() { webView?.evaluateJavaScript("window.__lumina && __lumina.zoom()", completionHandler: nil) }
@@ -279,7 +495,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         // Skim reads clips through the page's own file input: a card, folders or clips, nothing else of Pick's.
         if SetsPage.current == .skim {
             // The folder the clips are in is the open shoot's folder for the storage line (drive, Trash).
-            Task { @MainActor in let urls = await chooseClips(); if let urls { bridge.skimOpened(urls) }; completionHandler(urls) }
+            // A reload in place answers with the clips that were open, with no panel (reloadSkimKeeping).
+            if let urls = skimReopenURLs { skimReopenURLs = nil; bridge.skimOpened(urls); completionHandler(urls); return }
+            Task { @MainActor in let urls = await chooseClips(); if let urls { skimURLs = urls; bridge.skimOpened(urls) }; completionHandler(urls) }
             return
         }
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
@@ -482,6 +700,11 @@ final class SetsHostView: NSView {
         guard let webView, webView.frame != bounds else { return }
         webView.frame = bounds
     }
+}
+
+/// The Skim dev app's refresh badge: shown over the page, never in the way of a click on it.
+final class SkimBadgeView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 /// Window sizes: opens at the reference size (1440×900, PARITY.md); minimum 1024×700 (ADDENDUM-1 §4).
