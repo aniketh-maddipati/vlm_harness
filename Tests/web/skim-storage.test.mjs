@@ -75,7 +75,7 @@ test('only frames made in this tab are dropped, and marks are not part of it', (
   assert.ok(!p.frames.some(([c]) => c === C[0]));
   assert.equal(JSON.stringify(marks), before);
   assert.ok(!/marks|setMarks/.test(extractMethod(src, 'farFrames', 'static farFrames(clips, at, cover) {')));
-  const drop = src.slice(src.indexOf('  dropFar = () => {'), src.indexOf('  // Saved covers, the page\'s side.'));
+  const drop = src.slice(src.indexOf('  dropFar = '), src.indexOf('  // Saved covers, the page\'s side.'));
   assert.ok(drop.length > 0 && !/marks/.test(drop.replace('Covers and marks stay', '')));
 });
 

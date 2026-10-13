@@ -13,7 +13,7 @@ import { PAGE, extractMethod, fixture, loadBuildX, ctxFromFixture, validateAgain
 import { MiniDOMParser } from './mini-xml.mjs';
 
 const src = fs.readFileSync(PAGE, 'utf8');
-const checkX = new Function('return function ' + extractMethod(src, 'checkX', 'static checkX(text, n, P) {').replace(/^static /, ''))();
+const checkX = new Function('return function ' + extractMethod(src, 'checkX', 'static checkX(text, n, P, kws) {').replace(/^static /, ''))();
 const check = (text, n) => checkX(text, n, MiniDOMParser);
 const buildX = loadBuildX().fn, fx = fixture();
 const build = (over, f = fx) => buildX.call(ctxFromFixture(f, over));
@@ -31,7 +31,7 @@ const fails = (text, sentence, n = good.n) => {
 test('checkX comes out of the page and checks the version buildX declares', () => {
   assert.equal(typeof checkX, 'function');
   assert.match(good.text, /<fcpxml version="1\.10">/);
-  assert.match(extractMethod(src, 'checkX', 'static checkX(text, n, P) {'), /'1\.10'/);
+  assert.match(extractMethod(src, 'checkX', 'static checkX(text, n, P, kws) {'), /'1\.10'/);
 });
 
 test('what buildX writes for the fixture passes, under every option', () => {
@@ -115,7 +115,7 @@ test('ratings and keywords only as buildX writes them', () => {
 });
 
 test('it does not say anything about Final Cut', () => {
-  const body = extractMethod(src, 'checkX', 'static checkX(text, n, P) {');
+  const body = extractMethod(src, 'checkX', 'static checkX(text, n, P, kws) {');
   for (const l of body.match(/'[^'\n]*'/g) || []) assert.doesNotMatch(l, /Final Cut|import/i, l);
   const vals = extractMethod(src, 'extraVals', 'extraVals(markN, markB, und) {');
   assert.match(vals, /'File checked: '/);
