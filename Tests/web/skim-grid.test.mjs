@@ -14,7 +14,7 @@ for (const f of ['ZL', 'ZL_LINES', 'ZL_WORD', 'ZL_DEF', 'KEEP_MARKS']) {
   const m = src.match(new RegExp('\\n  static ' + f + ' = ([^;]*);'));
   assert.ok(m, 'in the page: ' + f); C[f] = new Function('return ' + m[1])();
 }
-for (const name of ['zlGeo', 'laySecs', 'laySecAt', 'laySecNav', 'zlStep', 'skimAt', 'rubber', 'exSummary', 'isMarkKey']) {
+for (const name of ['zlGeo', 'laySecs', 'laySecAt', 'laySecNav', 'zlStep', 'skimAt', 'rubber', 'verifySay', 'exSummary', 'isMarkKey']) {
   const m = src.match(new RegExp('\\n  static ' + name + '\\(([^)]*)\\) \\{'));
   assert.ok(m, 'in the page: ' + name);
   C[name] = new Function('Component', 'return ' + extractMethod(src, name, 'static ' + name + '(' + m[1] + ') {').replace(/^static /, 'function '))(C);
@@ -130,6 +130,28 @@ test('Export summary: Everything, no S-Log3, nothing yet, a failed check, the ap
   for (const o of [base, {...base, all:true}]) { const S = C.exSummary(o, fmtB, fmtDur), words = [S.file, S.inLine, S.where, ...S.did.map(r => r.t), ...S.steps.map(r => r.t), ...S.look.map(r => r.t)].join(' '); assert.doesNotMatch(words, /\b(keep|kept|keepers?|AI|smart|auto)\b/); }
 });
 
+test('Export summary: where the file goes, and the In Final Cut options', () => {
+  assert.match(C.exSummary(base, fmtB, fmtDur).steps[0].t, /^Download \(⌘⏎\)\. The file lands in Downloads\.$/);
+  assert.equal(C.exSummary({...base, host:true, dest:'~/Movies/Exports', openFc:true}, fmtB, fmtDur).steps[0].t, 'Save (⌘⏎). The file goes to ~/Movies/Exports. Lumina then opens it in Final Cut.');
+  assert.match(C.exSummary({...base, host:true, dest:''}, fmtB, fmtDur).steps[0].t, /goes to the place you pick\./);
+  const off = C.exSummary({...base, rate:false, kw:'b-roll', lut:false, scenes:true}, fmtB, fmtDur);
+  assert.ok(off.did.some(r => r.t === '2 maybe · 0.5 GB · keyword “b-roll”')); assert.ok(!off.did.some(r => /Favorites/.test(r.t)));
+  assert.ok(!off.steps.some(r => /S-Log3/.test(r.t))); assert.ok(off.steps.some(r => /keyword collection/.test(r.t))); assert.ok(!off.look.some(r => /Favorites/.test(r.t)));
+  assert.ok(C.exSummary({...base, kw:''}, fmtB, fmtDur).did.some(r => r.t === '2 maybe · 0.5 GB · no keyword'));
+});
+
+test('Export: the background check against Final Cut and the clip files says what it found, and flags a failure', () => {
+  assert.deepEqual(C.verifySay(null, 3, false), {t:'', bad:false}, 'the browser has no such check');
+  assert.match(C.verifySay(null, 3, true).t, /^Checking against Final Cut/);
+  assert.deepEqual(C.verifySay({dtd:'ok', missing:[], unchecked:0}, 3, true), {t:'Valid for Final Cut (its own FCPXML rules) · all 3 clip files found on disk.', bad:false});
+  const miss = C.verifySay({dtd:'ok', missing:['/V/dump/C0001.MP4', '/V/dump/C0002.MP4'], unchecked:0}, 3, true);
+  assert.equal(miss.bad, true); assert.match(miss.t, /^2 clip files missing on disk: C0001\.MP4, C0002\.MP4\. Final Cut would show them as Missing File\.$/);
+  const bad = C.verifySay({dtd:'bad', errors:['Element asset-clip content does not follow the DTD'], missing:[]}, 3, true);
+  assert.equal(bad.bad, true); assert.match(bad.t, /^Final Cut would not take this file: Element asset-clip/);
+  assert.match(C.verifySay({dtd:'none', missing:[], unchecked:1}, 3, true).t, /not on this Mac · all 2 clip files found on disk · 1 clip outside the opened folder not looked for\./);
+  assert.match(C.exSummary({...base, host:true, ver:{dtd:'ok', missing:['/x/C9.MP4']}}, fmtB, fmtDur).verify, /1 clip file missing/);
+});
+
 test('marks are never stored: nothing read back, nothing written, old entries dropped', () => {
   assert.equal(C.KEEP_MARKS, false);
   assert.match(src, /save\(\) \{\n    const s = this\.state; if \(!Component\.KEEP_MARKS \|\|/, 'save writes nothing');
@@ -152,7 +174,7 @@ test('the one grid shows less: no level tabs, no scene slider, the raw file only
   assert.ok(!grid.includes('aria-label="scenes"') && !grid.includes('data-lumina="fold-strip"'), 'no scene slider and no size strip over the grid');
   for (const k of ['By scene</span>', 'The .fcpxml</span>', '{{ exRows }}']) { const at = tpl.indexOf(k), on = tpl.lastIndexOf('<sc-if value="{{ exDbg }}"', at); assert.ok(on > 0 && !tpl.slice(on, at).includes('</sc-if>'), k); }
   assert.ok(!/data-lumina="export-problems"[\s\S]{0,40}exDbg/.test(tpl) && tpl.indexOf('export-problems') > 0, 'a failed check still shows');
-  assert.match(src, /const sheet = !!st\.cv && st\.step === 'export' && this\.hasShoot\(\), sk = st\.step === 'skim' \|\| sheet;/);
+  assert.match(src, /const sheet = !!st\.cv && st\.step === 'export' && this\.hasShoot\(\) && !st\.exFull, sk = st\.step === 'skim' \|\| sheet;/);   // the workshop is a page of its own
   assert.match(src, /isSkim:st\.step === 'skim' \|\| sheet/);
   assert.match(src, /exOut:e => \{ if \(e\.target === e\.currentTarget\) this\.setStep\('skim'\); \}/, 'a click beside the sheet goes back');
   assert.doesNotMatch(src, /'nothing to note'/);

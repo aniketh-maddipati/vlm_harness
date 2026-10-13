@@ -13,6 +13,7 @@ const exGate = new Function('return function ' + extractMethod(src, 'exGate', 's
 const buildX = loadBuildX().fn;
 // download is an arrow property in the page; run it with a stand-in component and a stand-in browser
 const downloadSrc = extractMethod(src, 'download', 'download = () => {').replace(/^download = /, '');
+const exSent = new Function('return function ' + extractMethod(src, 'exSent', 'exSent(x, name, bytes) {'))();
 const runDownload = new Function('document', 'Blob', 'URL', 'setTimeout', 'return (' + downloadSrc + ')();');
 
 const OPTS = { default: { all: false, maybes: true }, 'maybes off': { all: false, maybes: false }, everything: { all: true, maybes: true } };
@@ -28,6 +29,7 @@ function press(sh, ex, checked = 'passed'){
     d: { shoot: { name: 'card', rate: 24 }, clips: sh.clips }, state: { marks: sh.marks, ex: { event: 'card', kw: 'maybe', ...ex } },
     buildX, api(){}, plural: (n, w) => n + ' ' + w + (n === 1 ? '' : 's'), setState(s){ said.push(s); },
     sentKey: () => 'lumina-skim:sent:card', persist(k, v){ said.push({sent:k}); },   // the storage line's note that this shoot went to Final Cut
+    exHostApi: () => null, exSent,                                                     // the browser: no app to save through
   };
   // the verdict of the page's own check for the file as it stands: passed, failed, or not in yet
   const now = buildX.call(comp);

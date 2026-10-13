@@ -230,9 +230,27 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = "Export here"
-        panel.message = refusal ?? (label == "xmp" ? "Choose the folder for the .xmp sidecars." : "Choose where the export goes.")
+        panel.message = refusal ?? (label == "xmp" ? "Choose the folder for the .xmp sidecars." : label == "skim" ? "Choose the folder Skim saves its Final Cut files and cut lists in." : label == "skim-place" ? "Let Skim into this drive or folder, so Export can show its folders and save there. Skim only adds files you save." : "Choose where the export goes.")
+        if label == "skim" { panel.prompt = "Save Here" }
+        if label == "skim-place" { panel.prompt = "Let Skim In" }
         panel.directoryURL = suggested
         return await run(panel)
+    }
+
+    /// Skim's Export with no Save to folder: the save panel, opened beside the shoot. A name already there is
+    /// refused in the panel (`panel(_:validate:)`), so the file Skim writes is always a new one.
+    func chooseSaveFile(name: String, suggested: URL?) async -> URL? {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = name
+        panel.canCreateDirectories = true
+        panel.directoryURL = suggested
+        panel.prompt = "Save"
+        panel.message = name.lowercased().hasSuffix(".fcpxml") ? "Save the Final Cut file. Then File ▸ Import ▸ XML… in Final Cut, or Open in Final Cut in Export." : "Save the list of cut clips."
+        panel.delegate = self
+        guard let window = webView?.window else { return panel.runModal() == .OK ? panel.url : nil }
+        return await withCheckedContinuation { c in
+            panel.beginSheetModal(for: window) { c.resume(returning: $0 == .OK ? panel.url : nil) }
+        }
     }
 
     func chooseCard(name: String, at: URL, refusal: String?) async -> URL? {

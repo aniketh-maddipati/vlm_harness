@@ -5,7 +5,9 @@
 //   node --test Tests/web/skim-export.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadBuildX, fixture, buildFixture, decodeLtc, validateAgainstDTD } from './skim-export.mjs';
+import fs from 'node:fs';
+import { PAGE, extractMethod, loadBuildX, fixture, buildFixture, ctxFromFixture, decodeLtc, validateAgainstDTD } from './skim-export.mjs';
+import { MiniDOMParser } from './mini-xml.mjs';
 
 const fx = fixture();
 const attr = (xml, tag, id, name) => {
@@ -84,7 +86,6 @@ test('every clip is referenced by an original-media rep at its real path', () =>
 // Step 2 of design/handoff/lumina-skim/FRIEND-DEMO.md. Each of these needs a change to buildX,
 // and the ones marked (FCP) can only be settled by importing into Final Cut Pro.
 test('camera timecode as the asset start', { skip: 'not built: asset start is still 0s' }, () => {});
-test('one keyword per scene', { skip: 'not built: only the maybe keyword is written' }, () => {});
 test('real audio channel count and rate', { skip: 'not built: hasAudio=1 for every clip' }, () => {});
 // S-Log3's Sony conversion, the clips' real location and the true frame rate: built, in Tests/web/skim-handoff.test.mjs.
 test('the export is DTD-valid against the version it declares', t => {
@@ -97,3 +98,56 @@ test('the export is DTD-valid against the version it declares', t => {
   assert.ok(r.ok, `not valid against FCPXMLv${v}:\n${r.errors}`);
 });
 test('Final Cut honours rating, keyword and timecode on import', { skip: '(FCP) needs an import check' }, () => {});
+
+// ---- Export's In Final Cut options (ratings, the maybe keyword, scenes as keywords, the Camera LUT) ----
+const src = fs.readFileSync(PAGE, 'utf8');
+const checkX = new Function('return function ' + extractMethod(src, 'checkX', 'static checkX(text, n, P, kws) {').replace(/^static /, ''))();
+const scenesCtx = over => { const c = ctxFromFixture(fx, over); c.G = fx.scenes.map(sc => ({ title: sc.label.replace(/^Scene \d+ · /, ''), clips: c.d.clips.filter((_, i) => fx.clips[i].scene === sc.n) })); return c; };
+const fxBuild = over => loadBuildX().fn.call(scenesCtx(over));
+const clipOf = (text, name) => text.split('<asset-clip ').find(b => b.startsWith('ref') && b.includes('name="' + name + '"')) || '';
+
+test('Ratings off: no clip is rated, and the file still passes the page check', () => {
+  const x = fxBuild({ all: true, rate: false });
+  assert.doesNotMatch(x.text, /<rating /);
+  assert.deepEqual(checkX(x.text, x.n, MiniDOMParser, x.kws), { ok: true, problems: [] });
+});
+
+test('the maybe keyword is what was typed, or none at all', () => {
+  const b = fxBuild({ all: false, maybes: true, kw: 'b-roll' });
+  assert.match(clipOf(b.text, 'C0019'), /<keyword [^>]*value="b-roll"\/>/);
+  assert.deepEqual(b.kws, ['b-roll']);
+  assert.deepEqual(checkX(b.text, b.n, MiniDOMParser, b.kws), { ok: true, problems: [] });
+  assert.equal(checkX(b.text, b.n, MiniDOMParser).ok, false, 'a keyword the file was not written with fails');
+  const none = fxBuild({ all: false, maybes: true, kw: '  ' });
+  assert.doesNotMatch(none.text, /<keyword /);
+  assert.match(fxBuild({ kw: 'a, b' }).text, /value="a b"/, 'a comma would split it in Final Cut');
+});
+
+test('one keyword per scene', () => {
+  const x = fxBuild({ all: true, scenes: true });
+  for (const c of fx.clips) {
+    const label = fx.scenes.find(sc => sc.n === c.scene).label;
+    const kw = /<keyword [^>]*value="([^"]*)"/.exec(clipOf(x.text, c.name.replace(/\.\w+$/, '')));
+    assert.ok(kw, c.name + ' has a keyword');
+    assert.ok(kw[1].split(', ').includes(label.replace(/–/g, '–')), c.name + ': ' + kw[1]);
+    if (c.mark === 'maybe') assert.ok(kw[1].split(', ').includes('maybe'), 'the maybe keyword stays beside the scene');
+  }
+  assert.deepEqual(checkX(x.text, x.n, MiniDOMParser, x.kws), { ok: true, problems: [] });
+  const r = validateAgainstDTD(x.text);
+  if (!r.skipped) assert.ok(r.ok, r.errors);
+});
+
+test('Camera LUT off: no S-Log3 clip carries Final Cut\u2019s Sony conversion', () => {
+  const c = ctxFromFixture(fx, { all: true }); c.d.clips.forEach(k => { k.profile = { gamma: 'S-Log3', primaries: 'S-Gamut3.Cine' }; });
+  assert.match(loadBuildX().fn.call(c).text, /customLUTOverride/);
+  c.state.ex.lut = false;
+  assert.doesNotMatch(loadBuildX().fn.call(c).text, /customLUTOverride/);
+});
+
+test('in the app the clips point at the folder Lumina read them from, unless a folder was typed', () => {
+  const c = ctxFromFixture(fx, { all: true });
+  c.d.clips.forEach(k => { k.path = 'dump/CLIP/' + k.name; }); c.d.shoot.real = true; c.exHost = { clips: '/Volumes/T7/dump' };
+  assert.match(loadBuildX().fn.call(c).text, /src="file:\/\/\/Volumes\/T7\/dump\/CLIP\/C0002\.MP4"/);
+  c.state.ex.root = '/Volumes/Other/dump';
+  assert.match(loadBuildX().fn.call(c).text, /src="file:\/\/\/Volumes\/Other\/dump\/CLIP\/C0002\.MP4"/);
+});
