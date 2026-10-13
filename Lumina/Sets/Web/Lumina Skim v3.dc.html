@@ -49,7 +49,7 @@ body:has([data-view=phone]){background:#111}
 @container skim (max-width:640px){
   [data-lumina=topbar]{padding:0 10px!important;gap:10px!important}
   [data-lumina=brand]{display:none}
-  [data-lumina=viewer-top] [data-well],[data-lumina=viewer-bottom]{display:none!important}
+  [data-lumina=viewer-top] [data-well]{display:none!important}
   [data-lumina=shoot-line]{display:none}
   [data-lumina=skim-bar]{height:auto!important;min-height:44px;padding:4px 10px!important;flex-wrap:wrap;gap:4px 10px!important}
   [data-lumina=skim-bar]>div{flex:1 1 100%!important;max-width:none!important;min-width:0!important}
@@ -124,7 +124,7 @@ body:has([data-view=phone]){background:#111}
     </sc-if>
   </div>
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
-  <div data-lumina="skim-bar" style="flex:none;height:44px;padding:0 20px;display:flex;align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
+  <div data-lumina="skim-bar" style="flex:none;height:44px;padding:0 20px;display:{{ skimBarD }};align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
     <div style="flex:1;min-width:0;display:flex">
       <sc-if value="{{ lvTabsOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="levels" role="tablist" aria-label="levels" style="position:relative;display:grid;grid-template-columns:repeat({{ lvN }},68px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)">
@@ -328,10 +328,10 @@ body:has([data-view=phone]){background:#111}
       </div>
     </sc-if>
     <sc-if value="{{ takeStripOn }}" hint-placeholder-val="{{ false }}">
-      <div data-lumina="furled-takes" style="flex:none;height:46px;display:flex;align-items:center;gap:4px;padding:0 20px;border-bottom:1px solid rgba(239,236,230,0.06);overflow:hidden">
+      <div data-lumina="furled-takes" style="flex:none;height:60px;display:flex;align-items:center;gap:4px;padding:0 20px;border-bottom:1px solid rgba(239,236,230,0.06);overflow:hidden">
         <span data-lumina="strip-where" style="flex:none;width:{{ tPosW }}px;color:#B8B3AB;white-space:nowrap">{{ tPos }}</span>
         <sc-for list="{{ tstrip }}" as="ts" hint-placeholder-count="8">
-          <button type="button" data-strip="{{ ts.id }}" aria-label="{{ ts.tip }}" title="{{ ts.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="text-align:left;color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0 0 0 {{ ts.ml }}px;font:inherit;-webkit-appearance:none;appearance:none;flex:none;width:56px;height:32px;border-radius:3px;background:{{ ts.bg }};filter:{{ ts.flt }};opacity:{{ ts.op }};animation:{{ ts.anim }};box-shadow:{{ ts.edge }};outline:{{ ts.out }};outline-offset:2px;cursor:pointer"></button>
+          <button type="button" data-strip="{{ ts.id }}" aria-label="{{ ts.tip }}" title="{{ ts.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="text-align:left;color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0 0 0 {{ ts.ml }}px;font:inherit;-webkit-appearance:none;appearance:none;flex:none;width:80px;height:45px;border-radius:3px;background:{{ ts.bg }};filter:{{ ts.flt }};opacity:{{ ts.op }};animation:{{ ts.anim }};box-shadow:{{ ts.edge }};outline:{{ ts.out }};outline-offset:2px;cursor:pointer"></button>
         </sc-for>
       </div>
     </sc-if>
@@ -480,9 +480,6 @@ body:has([data-view=phone]){background:#111}
             </div>
           </sc-if>
           <sc-if value="{{ row.oneOn }}" hint-placeholder-val="{{ false }}"><div style="color:#9A958D">{{ row.one }}</div></sc-if>
-          <div data-lumina="viewer-bottom" style="display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap">
-            <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><button type="button" data-well="{{ pk.m }}" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · on / off" onClick="{{ wClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;min-width:132px;height:40px;box-sizing:border-box;padding:0 16px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;font-size:14px;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:{{ pk.capBg }};display:grid;place-items:center;font-weight:700;color:{{ pk.capFg }}">{{ pk.k }}</span><span style="color:{{ pk.fg }};font-weight:{{ pk.fw }}">{{ pk.l }}</span></button></sc-for>
-          </div>
           <sc-if value="{{ noKeepOn }}" hint-placeholder-val="{{ false }}">
             <div data-lumina="no-keep" role="alertdialog" aria-label="Nothing selected yet" style="align-self:flex-start;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:#2A2927;box-shadow:0 0 0 1px rgba(255,210,122,0.4);animation:fade 100ms ease-out">
               <span style="color:#FFD27A;font-weight:600">Nothing selected yet</span><span style="color:#B8B3AB">Export would be empty.</span>
@@ -493,6 +490,9 @@ body:has([data-view=phone]){background:#111}
           
         </div>
         <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+          <sc-if value="{{ nbOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="neighbours" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <sc-for list="{{ nbrs }}" as="nb" hint-placeholder-count="2"><button type="button" data-strip="{{ nb.id }}" title="{{ nb.tip }}" aria-label="{{ nb.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;color:inherit;text-align:left;-webkit-appearance:none;appearance:none;grid-column:{{ nb.col }};min-width:0;display:flex;flex-direction:column;gap:4px;cursor:pointer;opacity:{{ nb.op }}" style-hover="filter:brightness(1.12)"><div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#161514"><div style="position:absolute;inset:0;background:{{ nb.bg }};filter:{{ nb.flt }}"></div><div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ nb.edge }}"></div></div><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ nb.say }}</span></button></sc-for>
+          </div></sc-if>
           <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:22px">{{ cv.name }}</span><span style="color:#9A958D">{{ cv.when }}</span></div>
           <div data-lumina="viewer-mark" style="display:flex;flex-direction:column;gap:7px">
             <div style="display:flex;justify-content:space-between;gap:10px;white-space:nowrap"><span data-lumina="viewer-mark-now" style="color:{{ cv.markNowC }};font-weight:600">{{ cv.markNow }}</span><span data-lumina="viewer-cut" style="color:{{ cutC }}">{{ cutSoFar }}</span></div>
@@ -2154,10 +2154,10 @@ class Component extends DCLogic {
       lvX:(st.cv ? (st.lv >= 2 ? 1 : 0) : st.lv) * 68, lvN:st.cv ? 2 : 3, lvTabs, lvTabsOn:!st.cv, lvF:sk && !empty && !!st.cv && st.lv === 0, fEnter:this.fEnter, fClick:this.fClick, fDbl:this.fDbl, fMove:this.fMove, fLeave:this.fLeave, hClick:this.hClick,
       pvA:pvOnUi, pvBg:pvOnUi ? 'rgba(239,236,230,0.16)' : 'rgba(239,236,230,0.08)', pvTrack:pvOnUi ? '#B8B3AB' : 'rgba(239,236,230,0.18)', pvKnob:pvOnUi ? '14px' : '2px', pvLine, askOpts, pvToggle:this.pvToggle,
       isEmpty:sk && empty,
-      stripOn:sk && !empty && st.lv >= 1, takeStripOn:sk && !empty && st.lv >= 2,
+      stripOn:sk && !empty && st.lv === 1, takeStripOn:sk && !empty && st.lv >= 2,
       lv0:sk && !empty && !st.cv && st.lv === 0, lv1:sk && !empty && !st.cv && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
-      tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, backClick:this.backClick, tPos:'', tPosW:0,
+      tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex',
       wClick:this.wClick, 
       scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef,
       grid42:true,
@@ -2222,7 +2222,7 @@ class Component extends DCLogic {
     // The strip above the Viewer: the clips of the whole shoot around the one you are on (a gap where the scene
     // changes), marks as coloured edges, cut clips dimmed, and where you are in the shoot.
     if (st.lv >= 2 && curGi != null) {
-      const fl = this.flat, at = Math.max(0, fl.indexOf(st.cur)), n = Math.max(5, Math.floor((st.vw - 40 - 96) / 62)), s0 = Math.max(0, Math.min(fl.length - n, at - Math.floor(n / 2)));
+      const fl = this.flat, at = Math.max(0, fl.indexOf(st.cur)), n = Math.max(5, Math.floor((st.vw - 40 - 96) / 86)), s0 = Math.max(0, Math.min(fl.length - n, at - Math.floor(n / 2)));
       let pg = null;
       vals.tstrip = fl.slice(s0, s0 + n).map((id, j) => { const c = this.byId[id], m = st.marks[id], t0 = this.tone(c, 0), g = this.gOfAll[id], brk = j > 0 && g !== pg; pg = g;
         return {id, ml:brk ? 10 : 0, op:m === 'cut' ? 0.45 : 1, tip:c.name.replace(/\.\w+$/, '') + (m ? ' · ' + this.W(m) : ''), bg:t0.bg, flt:t0.flt, anim:t0.anim, edge:m ? 'inset 0 0 0 3px ' + MK[m] : 'none', out:id === st.cur ? '2px solid #EFECE6' : 'none'}; });
@@ -2304,12 +2304,15 @@ class Component extends DCLogic {
         markNow:m ? this.W(m) : 'undecided', markNowC:m ? MK[m] : '#9A958D',
         ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
         chips:ch.pending ? [this.pendV(), this.pendV(), this.pendV()] : ch.list.map(x => this.chipV(c, x))};
+      { const i = this.flat.indexOf(c.id), P = this.flat[i - 1], N = this.flat[i + 1], nb = (id, col, arrow) => { const cc = this.byId[id], mm = st.marks[id], t0 = this.tone(cc, this.firstIdx()), nm = cc.name.replace(/\.\w+$/, '');
+          return {id, col, op:mm === 'cut' ? 0.55 : 1, bg:t0.bg, flt:t0.flt, edge:mm ? 'inset 0 0 0 3px ' + MK[mm] : 'inset 0 0 0 1px rgba(239,236,230,0.12)', say:arrow + ' ' + nm + (mm ? ' · ' + this.W(mm) : ''), tip:nm + ' · ' + arrow}; };
+        vals.nbrs = [P && nb(P, '1', '←'), N && nb(N, '2', '→')].filter(Boolean); vals.nbOn = st.vw > 640 && vals.nbrs.length > 0; }
       vals.backBg = st.backHit ? 'rgba(255,210,122,0.4)' : 'rgba(239,236,230,0.1)'; vals.backAnim = st.backHit ? 'press 140ms ease-out' : 'none';
       vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
       // the row: this clip and as many of its chapter as fit, joined by a bracket
       const gq = G[curGi], list = gq ? (gq.vis.length ? gq.vis : gq.clips) : [c], ci = Math.max(0, list.findIndex(x => x.id === c.id));
-      const narrow = st.vw <= 640, vp = narrow ? null : Component.viewPlan(st.vw, st.vh - this.dockH() - 100), padX = narrow ? 10 : Math.min(40, Math.max(16, st.vw * 0.022)), W = narrow ? st.vw - 2 * padX : vp.W, Hh = narrow ? Math.max(160, st.vh * 0.42) : Math.max(st.vh <= 500 ? 130 : 0, vp.H); if (vp) vals.lv2Cols = vp.cols;
-      const fit = this.rowFit(list.length, W, Hh), k = fit.k, s0 = Math.max(0, Math.min(list.length - k, ci - Math.floor((k - 1) / 2)));
+      const narrow = st.vw <= 640, vp = narrow ? null : Component.viewPlan(st.vw, st.vh - this.dockH() + 10), padX = narrow ? 10 : Math.min(40, Math.max(16, st.vw * 0.022)), W = narrow ? st.vw - 2 * padX : vp.W, Hh = narrow ? Math.max(160, st.vh * 0.42) : Math.max(st.vh <= 500 ? 130 : 0, vp.H); if (vp) vals.lv2Cols = vp.cols;
+      const fit = this.rowFit(narrow ? list.length : 1, W, Hh), k = fit.k, s0 = Math.max(0, Math.min(list.length - k, ci - Math.floor((k - 1) / 2)));
       const shown = list.slice(s0, s0 + k);
       let x = 0; const centers = [];
       const items = shown.map(cc => {
@@ -2325,10 +2328,11 @@ class Component extends DCLogic {
       const span = gq ? gq.title : '', extra = (before ? '‹ ' + before + ' more · ' : '') + (after ? after + ' more ›' : '');
       vals.row = {items, cw, connOn:k >= 2, l0:Math.round(centers[0] || 0), lw:Math.round((centers[centers.length - 1] || 0) - (centers[0] || 0)), ticks:centers.slice(1, -1).map(cx => ({x:Math.round(cx)})),
         label:span + ' · same scene · ' + this.plural(list.length, 'clip') + (more ? ' · ' + extra.replace(/ · $/, '') : ''),
-        oneOn:k < 2 && list.length > 1, one:'1 of ' + list.length + ' clips in ' + span + (more ? ' · ' + extra.replace(/ · $/, '') : '') + ' · ← → to move'};
+        oneOn:narrow && k < 2 && list.length > 1, one:'1 of ' + list.length + ' clips in ' + span + (more ? ' · ' + extra.replace(/ · $/, '') : '') + ' · ← → to move'};
     }
     Object.assign(vals, this.extraVals(markN, markB, und));
     Object.assign(vals, this.dockVals(vals));
+    vals.skimBarD = st.lv >= 2 && !vals.loadOn && !vals.unsupOn && !vals.recNoteOn && !vals.pauseOn && !vals.haltOn && !vals.lvTabsOn ? 'none' : 'flex';
     return vals;
   }
   // A stored entry that holds marks: a shoot's entry ('lumina-skim:<shoot>'), not the read clock or the folder locations.
@@ -2351,7 +2355,7 @@ class Component extends DCLogic {
   static dockOut(ids, id) { const i = ids.indexOf(id); return i < 0 ? null : ids[i + 1] ?? ids[i - 1] ?? null; }
   // Large under the grid; in the Viewer a slim strip of pictures only, so the large view keeps the height.
   dockSlim() { return this.state.lv >= 2; }
-  dockPh() { const vh = this.state.vh; return this.dockSlim() ? (vh >= 860 ? 76 : vh >= 700 ? 64 : 54) : vh >= 860 ? 110 : vh >= 700 ? 96 : 72; }
+  dockPh() { const vh = this.state.vh; return this.dockSlim() ? (vh >= 1000 ? 130 : vh >= 860 ? 104 : vh >= 700 ? 80 : 60) : vh >= 860 ? 110 : vh >= 700 ? 96 : 72; }
   // The height the dock takes from the window (the Viewer and the scene fit leave it room).
   // In the Viewer the slim strip keeps its height while it is empty, so the first K does not shrink the picture
   // (a smaller picture let the chapter's neighbours in beside it, which read as K opening the next clip).
@@ -2884,7 +2888,7 @@ class Component extends DCLogic {
     this.clockDone(); this.readyAt = Date.now(); setTimeout(() => this.bump(), 6200);
     this.fillStart(list, tok);
   }
-  // What can't be played is not kept (LOCAL-CHANGES 249): once every clip has been read once, a clip in a format this
+  // What can't be played is not kept (LOCAL-CHANGES 250): once every clip has been read once, a clip in a format this
   // browser can't play or a file with no video in it leaves the shoot, its frames and marks with it, and the line under
   // the bar says how many were skipped. Opened clips only; a slow clip that timed out stays (the drive may be slow).
   skipBad(list) {
