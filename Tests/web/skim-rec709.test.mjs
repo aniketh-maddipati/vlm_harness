@@ -136,10 +136,10 @@ test('the canvas draws only a frame that is there, shows nothing of another clip
   assert.doesNotMatch(src, /el\.style\.opacity = '1'/);
 });
 
-test('the switch fades the pictures it changes, and the canvas fades like the video', () => {
-  assert.match(src, /@keyframes pvA\{from\{opacity:0\.6\}to\{opacity:1\}\}/);
-  assert.match(src, /@keyframes pvB\{from\{opacity:0\.6\}to\{opacity:1\}\}/);
-  assert.match(src, /anim:this\.pvAn && this\.needsPv\(c\) \? this\.pvAn : 'none'/);
+test('no transitions: the switch changes the pictures at once (LOCAL-CHANGES 161), the canvas keeps its fade only on paper', () => {
+  assert.doesNotMatch(src, /@keyframes pv[AB]\{/);
+  assert.doesNotMatch(src, /this\.pvAn = /);
+  assert.match(src, /\*,\*::before,\*::after\{transition:none!important\}/);
   assert.match(src.match(/<canvas ref="\{\{ pvCvRef \}\}"[^>]*>/)[0], /transition:opacity 120ms/);
 });
 
@@ -225,4 +225,51 @@ test('exposure is noted from a full stop either way, not from 0.7', () => {
   const keys = ev => p.chips({ id:'a', fps:24, profile:{gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'sidecar'}, facts:{state:'ready', ev, clip:0, crush:0, sharp:1, motion:null, bump:null} }).list.map(k => k.key);
   for (const ev of [0, 0.5, 0.7, 0.8, 0.9, -0.7, -0.9]) assert.ok(!keys(ev).includes('ev'), ev + ' stops is not noted');
   for (const ev of [1, 1.4, 2.3, -1, -2.3, -3.7]) assert.ok(keys(ev).includes('ev'), ev + ' stops is noted');
+});
+
+test('a sensed profile can be overridden per clip, and a click on the sensed one puts it back', () => {
+  const Pick = new Function('return class Component {\n  static PRIM = {\'S-Log3\':\'S-Gamut3.Cine\', \'S-Log2\':\'S-Gamut3\', \'HLG\':\'Rec.2020\', \'none\':\'Rec.709\'};\n' + ['overrideProfile', 'applyProfile'].map(method).join('\n') + '\n}')();
+  const a = { id:'a', profile:{ gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'sidecar' } };
+  const b = { id:'b', profile:{ gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'sidecar' } };
+  const u = { id:'u', profile:{ gamma:null, primaries:null, source:'none' } };
+  const p = Object.assign(new Pick(), { state:{ cur:'a', sel:[] }, byId:{ a, b, u }, setState(){}, save(){}, remeasure(){} });
+  p.overrideProfile('HLG');
+  assert.deepEqual(a.profile, { gamma:'HLG', primaries:'Rec.2020', source:'you' });
+  assert.equal(b.profile.gamma, 'S-Log3', 'only the current clip when nothing is selected');
+  p.applyProfile({ clips:[a, b, u] }, 'S-Log2');
+  assert.equal(a.profile.gamma, 'HLG', 'answering for unknown clips leaves an override alone');
+  assert.equal(u.profile.gamma, 'S-Log2');
+  p.overrideProfile('S-Log3');
+  assert.deepEqual(a.profile, { gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'sidecar' });
+  assert.equal(a._sensed, undefined);
+  p.state = { cur:'a', sel:['a', 'b'] };
+  p.overrideProfile('none');
+  assert.equal(a.profile.gamma, 'none'); assert.equal(b.profile.gamma, 'none');
+});
+
+// Sensing a profile when the clip carries no Sony metadata: HLG from the file's colour tag, S-Log3 from its picture.
+function staticMethod(name){ const body = method('static ' + name); return body; }
+const Sense = new Function('return class Component {\n' + ['moovTransfer', 'rawSpread', 'looksLog'].map(staticMethod).join('\n') + '\n}')();
+const frame = (lo, hi, sat) => { const W = 64, H = 36, D = new Uint8ClampedArray(W * H * 4);
+  for (let i = 0; i < W * H; i++) { const y = (lo + (hi - lo) * (i % W) / (W - 1)) * 255, c = y * sat; D[i * 4] = y; D[i * 4 + 1] = y - c; D[i * 4 + 2] = y - c; D[i * 4 + 3] = 255; }
+  return { data:D, width:W, height:H }; };
+
+test('the colour tag: HLG is transfer 18 in the nclx box, anything else is not told from it', () => {
+  const box = tr => Uint8Array.from([0, 0, 0, 19, ...Buffer.from('colrnclx'), 0, 9, 0, tr, 0, 9, 0]);
+  assert.equal(Sense.moovTransfer(box(18)), 18);
+  assert.equal(Sense.moovTransfer(box(1)), 1);
+  assert.equal(Sense.moovTransfer(Uint8Array.from(Buffer.from('moov....trak....nothing here'))), null);
+});
+
+test('the picture: a flat, pale, grey-ish clip reads as log; a full-range or a dark clip does not', () => {
+  const log = [0, 1, 2, 3].map(() => Sense.rawSpread(frame(0.09, 0.66, 0.12)));
+  const rec = [0, 1, 2, 3].map(() => Sense.rawSpread(frame(0.0, 1.0, 0.4)));
+  const dark = [0, 1, 2, 3].map(() => Sense.rawSpread(frame(0.0, 0.02, 0)));
+  assert.equal(Sense.looksLog(log), true);
+  assert.equal(Sense.looksLog(rec), false);
+  assert.equal(Sense.looksLog(dark), false);
+  assert.equal(Sense.looksLog(log.slice(0, 1)), true, 'the cover alone decides until more frames are read');
+  assert.equal(Sense.looksLog([log[0], rec[0]]), false, 'with fewer than four frames, every one must agree');
+  assert.equal(Sense.looksLog([]), false);
+  assert.equal(Sense.looksLog([...log.slice(0, 3), rec[0]]), true, 'one odd frame does not undo it');
 });

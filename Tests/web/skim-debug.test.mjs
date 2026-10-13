@@ -77,7 +77,7 @@ test('per-load timings are only shown in debug mode and are still recorded', () 
 });
 
 test('the trust line is on the Open step and words stay neutral', () => {
-  assert.match(src, /'Read only\. Nothing leaves this Mac\.'/);
+  assert.match(src, /'Read only\. Nothing leaves ' \+ this\.devName\(\) \+ '\.'/);   // 'this Mac' on a Mac (skim-mobile.test.mjs)
   assert.match(template, /data-lumina="drop-note"[^>]*>\{\{ dropNote \}\}/);
   for (const k of ['closeGo:', 'closeTip:', 'forgetOn:', 'pauseOn:']) {
     const line = src.split('\n').find(l => l.includes('      ' + k)); assert.ok(line, k);
@@ -118,9 +118,11 @@ test('the footer\'s storage line gives way before the cut line, and never runs o
   assert.equal(storeShort(line, 1024), 'storage'); assert.equal(storeShort(line, 720), 'storage');
   // the full line can shrink (four times as readily as the cut line) and shortens with … inside its own button;
   // the one word under 1100 px keeps its width
-  assert.match(src, /<div style="position:relative;flex:\{\{ storeFlex \}\};min-width:0">\s*<div data-lumina="storage"/);
+  assert.match(src, /<div style="position:relative;flex:\{\{ storeFlex \}\};min-width:0">\s*<button type="button" data-lumina="storage"/);   // a real button here (LOCAL-CHANGES 180)
   assert.match(src, /vals\.storeFlex = st\.vw < 1100 \? 'none' : '0 4 auto'/);
   assert.match(src, /storeFlex:'0 4 auto'/);
+  // the line's colours are set, not left in a comment after storeFlex
+  assert.match(src, /vals\.storeFlex = st\.vw < 1100 \? 'none' : '0 4 auto'; vals\.storeFg = /);
   assert.match(src, /data-lumina="storage"[^>]*min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden"[^>]*><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">\{\{ storeLine \}\}<\/span>/);
   assert.match(src, /<div style="flex:0 1 auto;min-width:0;display:flex;justify-content:flex-end;gap:14px;overflow:hidden"><span data-lumina="footer-cut"/);
 });

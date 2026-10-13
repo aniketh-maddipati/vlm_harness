@@ -61,7 +61,9 @@ async function run(quota, host) {
     await tap(p, '[data-lumina="storage-trash"]'); ok(await p.evaluate(() => window.__trash) === 1, 'Show in Finder asks the app once');
     ok(/Cut clips on T7\nnone/.test(await rows(p)), 'no cut clips: the row says none');
     // five clips marked cut far from the first one, from the keyboard in Clips (C marks the clip you are on), then back to the first
-    await p.keyboard.press('Escape'); await p.locator('[data-lumina="levels"] [role=tab]').nth(1).click(); await p.waitForTimeout(200);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    // Clips under the level tabs; on the one grid (video/skim-condensed) the clips are already the tiles
+    const clipsTab = p.locator('[data-lumina="levels"] [role=tab]').nth(1); if (await clipsTab.count()) { await clipsTab.click(); await p.waitForTimeout(200); } else { await p.click('[data-gi="0"]'); await p.waitForTimeout(200); }
     for (let i = 0; i < 25; i++) await p.keyboard.press('ArrowRight');
     for (let i = 0; i < 5; i++) { await p.keyboard.press('c'); await p.waitForTimeout(50); await p.keyboard.press('ArrowRight'); }
     for (let i = 0; i < 30; i++) await p.keyboard.press('ArrowLeft');
@@ -69,7 +71,12 @@ async function run(quota, host) {
     ok(/5 decided/.test(await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent || '')), 'five clips marked cut: ' + await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent));
     await p.waitForTimeout(300); await tap(p, '[data-lumina="storage"]'); let r2 = await rows(p);
     ok(/Cut clips on T7\n5 clips · /.test(r2) && /Send to Final Cut first/.test(r2) && await p.evaluate(() => document.querySelector('[data-lumina="storage-trash-move"]').getAttribute('aria-disabled')) === 'true', 'five cut: the move waits for the Final Cut file');
-    await p.evaluate(() => { const k = Object.keys(localStorage).find(k => /^lumina-skim:/.test(k) && !/clock|sent|^lumina-skimprefs/.test(k)); localStorage.setItem('lumina-skim:sent:' + k.replace(/^lumina-skim:/, ''), '1'); });
+    // the shoot's key: its marks' key where marks are kept, else the shoot the app's store saved last (marks are never stored on video/skim-condensed)
+    await p.evaluate(() => {
+      let k = Object.keys(localStorage).find(k => /^lumina-skim:/.test(k) && !/clock|sent|^lumina-skimprefs/.test(k));
+      if (!k) k = Object.values(JSON.parse(localStorage.getItem('fake-covers') || '{}')).sort((a, b) => b.at - a.at)[0].k;   // the app's store, faked above
+      localStorage.setItem('lumina-skim:sent:' + k.replace(/^lumina-skim:/, ''), '1');
+    });
     await tap(p, '[data-lumina="storage-scope-day"]'); r2 = await rows(p);
     ok(/Move cut to Trash · 5\.\d MB|Move cut to Trash · \d/.test(r2) && /Drive would have .* free once you empty the Trash/.test(r2), 'after the Final Cut file: the yield and the forecast');
     await tap(p, '[data-lumina="storage-trash-move"]'); ok(/to Trash\? Click again/.test(await rows(p)) && !(await p.evaluate(() => window.__moved)), 'the first click only asks');
