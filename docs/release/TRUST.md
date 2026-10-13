@@ -119,6 +119,16 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `setPrefs` | — | the page's preferences in the app's defaults |
 | `skimStore` | Skim's saved shoots, `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimSave` | — | one Skim shoot's marks, name and counts in `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimCoverGet` | Skim's saved covers and first measures for the clips asked for, `skim/covers/` in the container (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimCoverPut` | — | covers (the page's own JPEGs) and first measures for one shoot in `skim/covers/<hash>/` in the container, capped at 200 MB, the shoot opened longest ago removed first (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimCoverTouch` | — | when a shoot was last opened, in its `skim/covers/<hash>/shoot.json` (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimCoverStat` | the sizes of `skim/covers/` per shoot (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimCoverDrop` | — | deletes `skim/covers/<hash>/` for the shoots named, nothing outside it (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimDrive` | the drive the open Skim shoot was opened from: name, size, free and purgeable space, read only or a card, and its Trash's size when the sandbox lets it be read (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimShowTrash` | — | — (opens that drive's Trash in Finder after a click; never empties it; Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimTrashMove` | the opened folder's clips named, and their Sony sidecars | moves them to the system Trash after the user's two clicks (Put Back works), and notes each move in `skim/trash.json` in the container; refused on a camera card, a read-only drive or under `PRIVATE/M4ROOT`, and for any path outside the opened folder; never deletes, never empties the Trash (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimTrashPutBack` | `skim/trash.json` | moves this shoot's files from the Trash back to where they were, while they are still there (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimTrashList` | `skim/trash.json`, and whether each file is still in the Trash (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimHealth` | the Mac's thermal state, Low Power Mode, memory pressure and Lumina's own memory footprint (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `openSettings` | — | — (opens System Settings ▸ Privacy & Security ▸ Files and Folders) |
 | `checkAccess` | whether a refused folder is readable now | — |
@@ -142,7 +152,7 @@ Every `NSWorkspace.shared.open` call site. Each hands a URL to another app, afte
 |---|---|
 | `Lumina/LuminaApp.swift` | Help ▸ Report a Bug…, through `SetsExternalLinks` |
 | `Lumina/Sets/SetsRootView.swift` | a link clicked in the page, through `SetsExternalLinks` (LinkedIn, X, the bug-report mail) |
-| `Lumina/Sets/Core/SetsBridge.swift` | System Settings' Files and Folders pane (`openSettings`) |
+| `Lumina/Sets/Core/SetsBridge.swift` | System Settings' Files and Folders pane (`openSettings`); the Trash of the drive Skim's shoot is on, in Finder (`skimShowTrash`) |
 
 ### URLs in the app's code
 
@@ -185,6 +195,9 @@ Not checked by the script; keep it current by hand.
 | Container `shoots/index.json` | recent shoots: name, path, volume UUID, counts, first capture time, last photo's name, bookmark | Remove Working Files (per shoot) |
 | Container `shoots/<id>/session.json`, `Lumina.json` | decisions and looks; decoder facts | Remove Working Files |
 | Container `skim/store.json` (Debug builds' Skim only) | Skim's marks per shoot, with the folder's name, clip count, size and days | Forget marks in Skim's Working memory |
+| Container `skim/covers/` (Debug builds' Skim only) | Skim's covers (the page's JPEGs of the clips' first frame) and first measures per shoot, capped at 200 MB | Clear for shoots not open, Re-measure this shoot, and the cap |
+| Container `skim/trash.json` (Debug builds' Skim only) | where each clip Skim moved to the Trash came from and where it went, for Put back | Put back, and dropped from the list once a file is no longer in the Trash |
+| Opened Skim folder (Debug builds' Skim only) | nothing written; cut clips and their sidecars moved to the system Trash after two clicks | the user, from the Trash (Put Back) |
 | Container `exports/` | one journal per export | after recovery |
 | Container preferences | the page's preferences | deleting the app's container |
 | Opened folder | `.xmp` sidecars, `.lumina-bak` | the user |

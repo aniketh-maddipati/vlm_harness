@@ -263,7 +263,7 @@ nonisolated enum SetsPage: String, Sendable {
 
     /// Skim's host: the page's `lumina.video` calls, set before the page runs. `storeAll` and `storeSet`
     /// keep its saved shoots in the app's container (`skimStore` / `skimSave`, SkimStore), so marks survive
-    /// a quit; `health` reads heat and memory (`skimHealth`, SkimHealth) to pace the page's reading; mark, preview and handoff have nothing native behind them yet.
+    /// a quit; `cover*` keep its saved covers and first measures there too (`skimCover*`, SkimCovers); `health` reads heat and memory (`skimHealth`, SkimHealth) to pace the page's reading; mark, preview and handoff have nothing native behind them yet.
     static let skimHostScript = #"""
     (() => {
       const post = (op, a) => window.webkit.messageHandlers.lumina.postMessage(Object.assign({ op }, a || {}));
@@ -272,6 +272,16 @@ nonisolated enum SetsPage: String, Sendable {
         storeAll: () => post('skimStore'),
         storeSet: (key, value) => post('skimSave', { key: String(key), value: value == null ? null : String(value) }),
         health: (slowdown) => post('skimHealth', { slowdown: Number(slowdown) || 1 }),
+        coverGet: (keys) => post('skimCoverGet', { keys: (keys || []).map(String) }),
+        coverPut: (shoot, recs) => post('skimCoverPut', { shoot, recs }),
+        coverTouch: (shoot) => post('skimCoverTouch', { shoot }),
+        coverStat: () => post('skimCoverStat'),
+        coverDrop: (keys) => post('skimCoverDrop', { keys: (keys || []).map(String) }),
+        drive: () => post('skimDrive'),
+        showTrash: () => post('skimShowTrash'),
+        trashMove: (shoot, paths) => post('skimTrashMove', { shoot: String(shoot), paths: (paths || []).map(String) }),
+        trashPutBack: (shoot) => post('skimTrashPutBack', { shoot: String(shoot) }),
+        trashList: (shoot) => post('skimTrashList', { shoot: String(shoot) }),
         mark() {}, preview() {}, handoff() {}
       });
     })();

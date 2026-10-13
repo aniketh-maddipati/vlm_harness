@@ -79,3 +79,9 @@ regroup on a ⌃-wheel pinch and on − / =, no page errors. Not yet tried in Sa
 button, double-click to open in the Viewer, ↓ / ⇧↓ ← → ↑ between the dock and the time canvas or the Viewer. Not done
 from 2.1–2.2: elastic sizing, drag out to remove, totals per run. It touches the grid only through `cvGrid`, `cvG`,
 `cvGeo`, `cvSecs`, `laySecNav`, `scOf` / `gOfAll` and `wantScroll = ['@cur']`.
+
+## Status (2026-10-12, elastic tiles, branch video/skim-elastic on video/skim-condensed)
+LOCAL-CHANGES 220 to 222: `zlFit` grows tiles when few clips leave the screen empty, and every double-click in has a
+double-click out (Viewer and dock back to the clips; Takes back to Chapters; double tap on a phone). Not solved: runs of
+one clip each still start a row each, so a sparse shoot on the one-minute interval leaves the right of the screen
+empty; filling that needs runs to share a row beside the rod (a time-axis layout change), or a longer interval.

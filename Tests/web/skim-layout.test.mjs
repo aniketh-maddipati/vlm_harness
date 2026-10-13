@@ -133,3 +133,37 @@ test('500 clips lay out in under 2 ms (Node)', () => {
     assert.ok(med < 2, name + ' median ' + med.toFixed(3) + ' ms');
   }
 });
+
+// ---- the Viewer's row: the clip you are on comes first ----
+import fs from 'node:fs';
+import { PAGE, extractMethod } from './skim-export.mjs';
+const rowFit = new Function('return function ' + extractMethod(fs.readFileSync(PAGE, 'utf8'), 'rowFit', 'rowFit(n, W, H) {'))();
+// the window as the page works it out: the width left of the facts column, the height under the bars
+const room = (vw, vh) => { const padX = Math.min(40, Math.max(16, vw * 0.022)); return [Math.max(280, vw - 2 * padX - 28 - 300), vh - 380]; };
+
+test('Viewer: the current clip keeps its full size when a neighbour fits beside it, and 88% of it at least otherwise', () => {
+  for (const [vw, vh] of [[720, 900], [800, 600], [1024, 640], [1180, 760], [1280, 800], [1440, 900], [1512, 982], [1728, 1117], [1920, 1080], [2560, 1440], [3008, 1692], [3440, 1440]])
+    for (const n of [1, 2, 3, 5, 9]) {
+      const [W, H] = room(vw, vh), alone = Math.floor(Math.min(W, Math.max(160, H) * 16 / 9)), f = rowFit(n, W, H);
+      assert.ok(f.wc >= Math.floor(alone * 0.88) - 1, `${vw}x${vh}, ${n} clips: ${f.wc} of ${alone}`);
+      assert.ok(f.wc <= alone, 'never taller than the room');
+      assert.ok(f.wc + (f.k - 1) * (f.wo + f.gap) <= W, `${vw}x${vh}, ${n} clips: the row fits the width`);
+      assert.ok(f.k >= 1 && f.k <= Math.min(n, 7));
+    }
+});
+
+test('Viewer: bigger than before on the common windows (it was 639, 925 and 1320 px wide)', () => {
+  assert.ok(rowFit(3, ...room(1440, 900)).wc >= 840);
+  assert.ok(rowFit(3, ...room(1920, 1080)).wc >= 1200);
+  assert.ok(rowFit(3, ...room(2560, 1440)).wc >= 1740);
+});
+
+test('Viewer: neighbours are shown only at a useful size, and never wider than half the current clip', () => {
+  for (const [vw, vh] of [[1024, 640], [1440, 900], [1920, 1080], [2560, 1440], [3440, 1440]]) {
+    const f = rowFit(9, ...room(vw, vh));
+    if (f.k > 1) { assert.ok(f.wo >= 160, `${vw}: ${f.wo}`); assert.ok(f.wo >= f.wc * 0.19, `${vw}: a fifth of the current one`); assert.ok(f.wo <= f.wc * 0.5 + 1, `${vw}: ${f.wo} beside ${f.wc}`); }
+  }
+  assert.deepEqual(rowFit(1, ...room(1440, 900)).k, 1);
+  assert.equal(rowFit(5, 360, 520).k, 1, 'no room beside it in a narrow window: alone, full width');
+  assert.equal(rowFit(5, 360, 520).wc, 360);
+});

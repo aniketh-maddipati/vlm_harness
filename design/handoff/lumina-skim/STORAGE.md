@@ -10,10 +10,10 @@ Skim never empties the Trash. Marks are never part of any dump.
 
 | # | What fills up | Figure | Dump | Refresh | State |
 |---|---|---|---|---|---|
-| 1 | Frames in memory (`frameSz` sum + `thumbs`) | MB of the limit | Drop frames (covers stay) | Make frames again | step 1, built |
-| 2 | Saved covers and measures (reopen is instant) | MB on disk, shoots held | Clear for shoots not open | Re-measure this shoot | step 2 |
-| 3 | Cut clips still on the drive | GB, clips | Move cut to Trash: scene / day / shoot | Put back | step 4, Mac app |
-| 4 | Trash on each drive | GB waiting | Show in Finder (he empties) | Re-read size | step 3, Mac app |
+| 1 | Frames in memory (`frameSz` sum + `thumbs`) | MB of the limit | Drop frames (covers stay) | Make frames again | step 1, merged (PR 238) |
+| 2 | Saved covers and measures (reopen is instant) | MB on disk, shoots held | Clear for shoots not open | Re-measure this shoot | step 2, built: IndexedDB in a browser, `skim/covers/` in the app |
+| 3 | Cut clips still on the drive | GB, clips | Move cut to Trash: scene / day / shoot | Put back | step 4, built: cut only, after the Final Cut send, two clicks; `trashItem` in the sandbox not yet seen on a Mac (PR 239) |
+| 4 | Trash on each drive | GB waiting | Show in Finder (he empties) | Re-read size | step 3, built (the drive's free space too); Trash listing in the sandbox not yet seen on a Mac |
 | 5 | Final Cut's generated media | GB per library | Show size, point at Final Cut's own Delete Generated Library Files | Re-read size | step 5, findings first |
 Free space per drive is the read-out all five feed, not a sixth item.
 
@@ -28,6 +28,11 @@ Free space per drive is the read-out all five feed, not a sixth item.
 4. Item 3 (Mac app): FREESPACE.md, with the scope (scene / day / shoot) and "N GB free once you empty the Trash".
 5. Item 5 (Mac app, last): find out on a scratch library how Final Cut 12.4 lays out generated media and whether
    sizes can be read without opening it. Report before building.
+
+## Hooks into the reading code (skim-ingest owns runQueue / readClip)
+Two lines and no more: `importFiles` waits for `coverLoad(d)` before `runQueue`, and `runPass` calls `coverNote(c)`
+after a clip's first-pass read succeeds. A clip restored from saved covers already has its cover frame, so the first
+pass passes over it (its `idxOf` answers `[]`); the fill reads its other frames where he looks, as before.
 
 ## Must hold
 - No dump blocks keys, scrubbing or marking; no main-thread task over 100 ms.
