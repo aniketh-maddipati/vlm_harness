@@ -42,6 +42,9 @@
 #                                                warm-up (the "before" measure; the gate fails)
 #   bash Scripts/probe.sh raw9                   RAW 9 (§8): decoder map, time to first tile / full region, export time + memory
 #                                                per decoder version, the forced per-file fallback, tiles vs export ΔE per version
+#   bash Scripts/probe.sh auto                   Auto from the RAW (BRIDGE-v0.02 §1): lumina.auto answers AutoDevelop's {look, version}
+#                                                for real ARWs in slider units, cached per file + version; A in Edit says "Auto · …",
+#                                                never "Auto (estimate)". Folder: LUMINA_EDIT_DIR, else as scroll
 #   bash Scripts/probe.sh consistency            canvas vs export: ΔE between what the Edit canvas shows and what Export writes (full size,
 #                                                pinned decoder), per stage of the look, on 12 distinct real ARWs of LUMINA_EDIT_DIR
 #   bash Scripts/probe.sh readspeed              how fast a folder reads: Open → first rows, first thumbnail, first screen full,
@@ -91,7 +94,7 @@ scenario_limit() { python3 -c 'import json,sys; print(int(json.load(open(sys.arg
 long=0
 case "$suite" in
   contract|selftest)                            limit=120 ;;
-  smoke|edge|ingest|edit-cold|raw9|slowdisk)    limit=240 ;;
+  smoke|edge|ingest|edit-cold|raw9|slowdisk|auto) limit=240 ;;
   screens|app|card|scroll|edit|readspeed)       limit=420 ;;
   reference)                                    limit=600 ;;
   fuzz|fault|consistency)                       limit=1200; long=1 ;;
@@ -103,7 +106,7 @@ case "$suite" in
                l=$(scenario_limit "$n"); limit=$((limit + l)); [[ $l -gt 300 ]] && long=1
              done ;;
   sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
-  *)         sed -n '2,69p' "$0"; exit 2 ;;
+  *)         sed -n '2,72p' "$0"; exit 2 ;;
 esac
 [[ $sandbox == 1 ]] && limit=$((limit * 2))       # one process per scenario, then the log is read
 limit="${LUMINA_PROBE_LIMIT:-$limit}"
@@ -402,6 +405,7 @@ case "$suite" in
              LUMINA_CANVAS=image run_out "$OUT/image-path" "$S/edit-canvas.json" ;;
   edit-cold) editdir; LUMINA_KERNEL_SALT="${LUMINA_KERNEL_SALT:-p$(date +%s)}" run "$S/edit-cold.json" ;;
   raw9)      editdir; run "$S/raw9.json" ;;
+  auto)      editdir; run "$S/edit-auto.json" ;;
   consistency) editdir; run "$S/edit-consistency.json" ;;
   readspeed) [[ -n ${LUMINA_READ_DIR:-} ]] || { scrolldir; export LUMINA_READ_DIR="${LUMINA_SCROLL_DIR:-}"; }
              run "$S/read-speed.json" ;;
@@ -409,7 +413,7 @@ case "$suite" in
              LUMINA_SLOW_DIR_MS="${LUMINA_SLOW_DIR_MS:-12000}" run "$S/open-slow-disk.json" ;;
   all)       reference; run "$S/selftest.json" "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" "$S"/edge-*.json $(paths "${APP[@]}") $(paths "${FAULT[@]}")
              LUMINA_PROBE_MODE=app run "$S"/edge-*.json ;;
-  *)         sed -n '2,69p' "$0"; exit 2 ;;
+  *)         sed -n '2,72p' "$0"; exit 2 ;;
 esac
 sandbox_table
 echo "evidence: $OUT"

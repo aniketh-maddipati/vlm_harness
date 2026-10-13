@@ -8,6 +8,11 @@
 #   make parity-test       the Python tests (Linux too)
 #   make parity-loop       Tools/parity/loop.sh (every unlocked stage)
 #
+# Auto fixtures (BRIDGE-v0.02 §1): AutoDevelop's real output for the browser design (needs the Mac and the RAWs):
+#   make auto-fixtures     lumina-render auto on the sample shoot's RAWs + the ARW fixtures → data/auto-fixtures.js
+#   make auto-fixtures SAMPLE_RAWS=~/LuminaEvidence/sample-shoot FIXTURE_RAWS=~/LuminaEvidence/fixtures/src [AUTO_OUT=path] [ALLOW_MISSING=1]
+#   make auto-fixtures-test  the generator's tests (Linux too)
+#
 # The culling eval (Tools/culleval/README.md):
 #   make culleval          grouping + auto keeps vs what was shot and kept → ~/LuminaEvidence/culleval/report
 #   make culleval-test     its scoring tests (Linux too)
@@ -86,3 +91,15 @@ culleval-test:
 
 culleval-app:
 	node Tools/culleval/culleval-app.mjs --exports $(EXPORTS) $(if $(OUT),--out $(OUT)) $(DUMPS)
+
+.PHONY: auto-fixtures auto-fixtures-test
+
+# Regenerate whenever AutoDevelop changes (its version is stamped into the file). Writes nothing when a
+# RAW is missing or fails, unless ALLOW_MISSING=1. The page's <script src="data/auto-fixtures.js"> is
+# added by the design, once the file exists.
+auto-fixtures: render
+	$(PY) Tools/auto/auto_fixtures.py --render $(RENDER) $(if $(RULES),--rules $(RULES)) $(if $(SAMPLE_RAWS),--sample $(SAMPLE_RAWS)) \
+		$(if $(FIXTURE_RAWS),--fixtures $(FIXTURE_RAWS)) $(if $(AUTO_OUT),--out $(AUTO_OUT)) $(if $(ALLOW_MISSING),--allow-missing)
+
+auto-fixtures-test:
+	$(PY) -m unittest discover -s Tools/auto/tests

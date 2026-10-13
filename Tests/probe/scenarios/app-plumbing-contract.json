@@ -30,7 +30,7 @@
   },
   {
    "do": "expect",
-   "js": "return ['reveal','setPrefs','openSettings','checkAccess','reopen','workingFiles','removeWorkingFiles','near','notices','prefetch','emit'].filter(k => typeof window.lumina[k] !== 'function')",
+   "js": "return ['reveal','setPrefs','openSettings','checkAccess','reopen','workingFiles','removeWorkingFiles','near','notices','prefetch','emit','auto'].filter(k => typeof window.lumina[k] !== 'function')",
    "equals": []
   },
   {

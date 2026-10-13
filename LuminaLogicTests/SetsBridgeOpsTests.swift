@@ -153,7 +153,7 @@ final class SetsBridgeOpsTests: XCTestCase {
     /// The fields each op reads (SetsBridge.swift, `userContentController`). `openSettings` is left
     /// out on purpose (it opens System Settings).
     static let fields: [String: [String]] = [
-        "ready": ["missing"], "cullCard": [], "openFolder": [], "prefetch": ["items"], "near": ["a", "b"], "ingestStats": [],
+        "ready": ["missing"], "cullCard": [], "openFolder": [], "prefetch": ["items"], "near": ["a", "b"], "auto": ["rel"], "ingestStats": [],
         "shootOpened": ["name", "n", "date", "bodies"], "shootHeader": [], "decoderUpdate": [],
         "canvasEnter": ["rel", "model", "look", "prev", "next", "preview", "prevPreview", "nextPreview"], "canvasLeave": [],
         "canvasLayout": ["x", "y", "w", "h", "visible", "dpr", "holes"], "canvasLook": ["look", "drag", "key", "roi", "t", "seq"],
@@ -231,6 +231,9 @@ final class SetsBridgeOpsTests: XCTestCase {
             return url.path == shoot.path || url.path.hasPrefix(shoot.path + "/") ? nil : "revealed \(url.path)"
         case ("canvasEnter", "rel"):
             return e == nil ? "entered a hostile rel" : nil
+        case ("auto", "rel"):
+            // lumina.auto: the only RAW-shaped rel in the table is a 4 KB junk file Core Image can't develop.
+            return r != nil && !(r is NSNull) ? "an Auto for a hostile rel" : nil
         default:
             return nil
         }
@@ -430,6 +433,23 @@ final class SetsBridgeOpsTests: XCTestCase {
         let stats = b.ingest.snapshot
         XCTAssertLessThanOrEqual(stats.largestRead, SetsIngest.headBytes, "no read past a 4 KB file's end, no 2 GB buffer")
         XCTAssertEqual(stats.opensAfterGone, 0)
+    }
+
+    /// `lumina.auto` (BRIDGE-v0.02 §1): only a RAW inside an opened folder is measured; anything else
+    /// is null without a decode. A RAW that can't be developed is null too, and decoded once, not on every ask.
+    func testAutoMeasuresOnlyRawsInsideTheShoot() async throws {
+        let (b, _) = try await bridge(canvas: false)
+        let rels: [Any] = ["shoot/DSC00001.ARW", "shoot/DSC00001.ARW", "shoot/DSC00001.xmp", "../outside/DSC09999.ARW", "shoot/../outside/DSC09999.ARW",
+                           outside.appendingPathComponent("DSC09999.ARW").path, "outside/DSC09999.ARW", "shoot/NOPE.ARW", "", "shoot/DSC00001.ARW\u{0}",
+                           Self.tenMB, 42, Double.nan, true, NSNull(), ["shoot/DSC00001.ARW"], ["rel": "shoot/DSC00001.ARW"]]
+        for rel in rels {
+            let (r, e) = await call(b, ["op": "auto", "rel": rel])
+            XCTAssertNil(e)
+            XCTAssertTrue(r == nil || r is NSNull, "an Auto for \(String(describing: rel).prefix(60))")
+        }
+        let (none, _) = await call(b, ["op": "auto"])
+        XCTAssertTrue(none == nil || none is NSNull)
+        XCTAssertEqual(b.auto.measured, 1, "only the shoot's own ARW reached a decode, once (its failure is cached)")
     }
 
     /// `canvasLayout`'s `holes` (the page's chrome over the photo): up to 16 `{x, y, w, h}`; 10,000 of
