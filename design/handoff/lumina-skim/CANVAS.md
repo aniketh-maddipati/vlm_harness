@@ -62,3 +62,26 @@ tiles, not canvas drawing, so on-demand reading keeps reading `[data-gi]` tiles.
 Before it becomes the default: try it on the real card in Safari and the app (only headless Chromium with made-up
 clips so far); decide what a saved `state.cuts` should mean; give the pinch a real trackpad pass in WebKit
 (gesture events, not ⌃-wheel); then canvas drawing (1.3) can replace the DOM tiles using `layFuse` rects.
+
+## Status (2026-10-09, one grid)
+The DOM grid became the one grid instead of a canvas (LOCAL-CHANGES 148, 149): clips first, scenes as headers, six
+sizes on a pinch that follows the fingers, skimming on every tile, Export as a sheet over it. Drawing to a canvas
+(1.3) was not needed for 150 clips at 60 fps in Chromium; not yet measured in Safari or on a 400-clip card.
+
+## Status (2026-10-12, time axis)
+The one grid is one canvas on capture time (LOCAL-CHANGES 150): runs of clips per interval beside a solid rod, a pinch
+and − / = move along the intervals (`Component.TI`, 5 s to a day, default a minute) and regroup, no size or scene strip,
+no scene headers. Checked in headless Chromium with the 150-clip test load (made-up clips): the rod and its marks, the
+regroup on a ⌃-wheel pinch and on − / =, no page errors. Not yet tried in Safari, the app or on a real card.
+
+## Status (2026-10-12, the dock, branch video/skim-dock on video/skim-canvas)
+2.1 in a first form (LOCAL-CHANGES 170 to 172): every selected clip in one sticky row above the key bar, each a
+button, double-click to open in the Viewer, ↓ / ⇧↓ ← → ↑ between the dock and the time canvas or the Viewer. Not done
+from 2.1–2.2: elastic sizing, drag out to remove, totals per run. It touches the grid only through `cvGrid`, `cvG`,
+`cvGeo`, `cvSecs`, `laySecNav`, `scOf` / `gOfAll` and `wantScroll = ['@cur']`.
+
+## Status (2026-10-12, elastic tiles, branch video/skim-elastic on video/skim-condensed)
+LOCAL-CHANGES 220 to 222: `zlFit` grows tiles when few clips leave the screen empty, and every double-click in has a
+double-click out (Viewer and dock back to the clips; Takes back to Chapters; double tap on a phone). Not solved: runs of
+one clip each still start a row each, so a sparse shoot on the one-minute interval leaves the right of the screen
+empty; filling that needs runs to share a row beside the rod (a time-axis layout change), or a longer interval.
