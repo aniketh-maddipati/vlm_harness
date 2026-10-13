@@ -51,7 +51,8 @@ struct LuminaCommands: Commands {
         CommandGroup(replacing: .saveItem) {
             Button("Close Shoot") { SetsMenuModel.closeShoot() }.keyboardShortcut("w", modifiers: .command)
             Button("Save") { send("save") }.keyboardShortcut(.return, modifiers: .command)
-            Button("Show in Finder") { send("finder") }.keyboardShortcut("r", modifiers: .command)
+            // ⌘R is Show in Finder on Pick; on Skim (the dev app) it reloads the page, after the latest shared branch.
+            Button(SetsPage.current == .skim ? "Reload Page" : "Show in Finder") { send(SetsPage.current == .skim ? "reload" : "finder") }.keyboardShortcut("r", modifiers: .command)
             Divider()
             Button("Remove Working Files…") { SetsMenuModel.removeWorkingFiles() }
         }
