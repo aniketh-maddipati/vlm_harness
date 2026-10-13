@@ -60,6 +60,9 @@ nonisolated final class LookBases: @unchecked Sendable {
         let developMs: Double
         let onGPU: Bool
         let textures: [MTLTexture]
+        /// Why the embedded JPEG stands in: the RAW develop's error. Nil for a developed RAW, an
+        /// image file, and a stand-in that was asked for (`previewOnly`).
+        var why: String? = nil
     }
 
     struct Stats: Codable, Equatable, Sendable {
@@ -132,6 +135,9 @@ nonisolated final class LookBases: @unchecked Sendable {
         }
     }
 
+    /// One entry goes (the canvas develops a photo again after its RAW failed).
+    func drop(_ key: Key) { lock.withLock { _ = cache.removeAll { $0 == key } } }
+
     func forget(rel: String? = nil) {
         lock.withLock {
             if let rel { _ = cache.removeAll { $0.rel == rel } } else { _ = cache.removeAll() }
@@ -141,8 +147,9 @@ nonisolated final class LookBases: @unchecked Sendable {
     // MARK: Building
 
     /// The photo's bases, built now on the calling queue when not cached. `preview` is the
-    /// embedded JPEG's range, used only when the RAW can't be developed.
-    func build(_ key: Key, url: URL, look: Look, preview: PreviewFallback?) throws -> Entry {
+    /// embedded JPEG's range, used only when the RAW can't be developed (`Entry.why` then says so),
+    /// or at once with `previewOnly`: the stand-in the canvas shows while the RAW develops.
+    func build(_ key: Key, url: URL, look: Look, preview: PreviewFallback?, previewOnly: Bool = false) throws -> Entry {
         if let e = entry(key) { return e }
         let t0 = Date()
         let margin = 1 + LookRawPolicy.baseMargin
@@ -154,11 +161,14 @@ nonisolated final class LookBases: @unchecked Sendable {
         let fit = min(canvas.width / max(1, cropped.width), canvas.height / max(1, cropped.height))
         let px = native.map { Int((max($0.width, $0.height) * fit).rounded(.up)) }
         var dev: LookPipeline.Developed
+        var why: String?
         do {
+            if previewOnly { throw LookPipeline.Failure("the embedded JPEG was asked for") }
             dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipeline.rules, decoderVersion: key.decoder, nr: look.nr)
         } catch {
             guard let p = preview else { lock.withLock { _stats.failed += 1 }; throw error }
             source = "jpeg"
+            if !previewOnly { why = "\(error)" }
             dev = try LookPipeline.developPreview(url: url, offset: p.offset, length: p.length, orientation: p.orientation, longEdge: nil)
             let c = Self.croppedSize(dev.extent.size, look.crop, rot: look.rot)
             dev = LookPipeline.Developed(image: LookPipeline.scaled(dev.image, longEdge: Int((max(dev.extent.width, dev.extent.height) * min(canvas.width / max(1, c.width), canvas.height / max(1, c.height))).rounded(.up))), asShot: dev.asShot, anchor: dev.anchor)
@@ -178,7 +188,7 @@ nonisolated final class LookBases: @unchecked Sendable {
         let (base, small, textures, bytes) = try rasterise(img, baseRect, smallImg, smallRect)
         let entry = Entry(base: base, small: small, asShot: dev.asShot, anchor: dev.anchor, baseSize: baseRect.size, smallSize: smallRect.size, photoSize: photoSize,
                           bytes: bytes, source: source, decoder: source == "raw" ? key.decoder : nil, developMs: Date().timeIntervalSince(t0) * 1000,
-                          onGPU: !textures.isEmpty, textures: textures)
+                          onGPU: !textures.isEmpty, textures: textures, why: why)
         lock.withLock {
             _stats.built += 1
             _stats.lastBuildMs = entry.developMs
@@ -199,11 +209,11 @@ nonisolated final class LookBases: @unchecked Sendable {
     }
 
     /// Builds on the build queue; `done` on the main thread.
-    func request(_ key: Key, url: URL, look: Look, preview: PreviewFallback?, done: @escaping (Result<Entry, Error>) -> Void) {
+    func request(_ key: Key, url: URL, look: Look, preview: PreviewFallback?, previewOnly: Bool = false, done: @escaping (Result<Entry, Error>) -> Void) {
         let started: Bool = lock.withLock { building.insert(key).inserted }
         guard started else { return }
         buildQueue.addOperation { [self] in
-            let r = Result { try LookTrace.span("base build \(key.rel.split(separator: "/").last ?? "")") { try self.build(key, url: url, look: look, preview: preview) } }
+            let r = Result { try LookTrace.span("\(previewOnly ? "stand-in" : "base build") \(key.rel.split(separator: "/").last ?? "")") { try self.build(key, url: url, look: look, preview: preview, previewOnly: previewOnly) } }
             lock.withLock { _ = building.remove(key) }
             DispatchQueue.main.async { done(r) }
         }

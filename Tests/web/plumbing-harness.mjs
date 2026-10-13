@@ -68,7 +68,11 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   bridge.pending = shoot; await page.evaluate(() => __lumina.openFolder());
   await loaded(page);
   let s = await S(page);
-  ok(s.view === 'cull', 'read: lands in Cull', s.view);
+  ok(s.view === 'edit', 'read: a small shoot with nothing decided opens in Edit', s.view);
+  // The rest of this shoot is exercised from Pick, as before. Leaving Edit here, not beside the
+  // first keep, so that keep is not waiting on Edit's save debounce.
+  await page.evaluate(() => __lumina.logic().setView('cull', true));
+  await page.waitForTimeout(200);
   ok(s.n === 12 && s.realInfo.n === 12 && s.realInfo.bad === 0, 'read: 12 photos, 0 unreadable', s.realInfo);
   ok(s.realInfo.name === '2026-09-01' && s.realInfo.date === '2026-09-01', 'read: realInfo name + date', s.realInfo);
   ok(s.realInfo.rows >= 2, 'read: rows', s.realInfo);
@@ -113,13 +117,18 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(await page.evaluate(() => window.lumina.readingCard === false), 'card: readingCard false for a folder');
 
   // Decisions + autosave
-  await key(page, 'p'); await page.waitForTimeout(100);
-  await key(page, 'ArrowDown'); await page.waitForTimeout(100); await key(page, 'p'); await page.waitForTimeout(100);
+  // A decision is saved on the next tick, not the next 2 s loop: the page's process can stop at any
+  // moment. Two keeps 500 ms apart: one tick of a 2 s loop could save one of them in time, never both.
+  const sid = await page.evaluate(() => __lumina.shootId());
+  const keeps = m => Object.values(m || {}).filter(v => v === 'keep').length, soon = [];
+  const sample = async () => { await page.waitForTimeout(400); soon.push([keeps((await S(page)).marks), keeps(bridge.sessions[sid] && JSON.parse(bridge.sessions[sid]).marks)]); };
+  await key(page, 'p'); await sample();
+  await key(page, 'ArrowDown'); await page.waitForTimeout(100); await key(page, 'p'); await sample();
+  ok(soon.every(([have, saved]) => have >= 1 && saved === have), 'session: every keep is saved within 400 ms of its key', soon);
   s = await S(page);
   const keptN = Object.values(s.marks).filter(v => v === 'keep').length;
   ok(keptN >= 1, 'cull: P keeps', s.marks);
   await page.waitForTimeout(2300);
-  const sid = await page.evaluate(() => __lumina.shootId());
   const saved = bridge.sessions[sid] && JSON.parse(bridge.sessions[sid]);
   ok(saved && Object.keys(saved.marks).length === keptN && Object.keys(saved.marks).every(k => /DSC0\d+\.ARW$/.test(k) && !k.startsWith('2026')), 'session: marks saved by path inside the folder', saved && saved.marks);
   ok(saved && typeof saved.cur === 'string' && saved.seen && Object.keys(saved.seen).length >= 1, 'session: cur + seen saved', saved && { cur: saved.cur, seen: saved.seen });
@@ -161,6 +170,8 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(bridge.canvas.entered[0] && bridge.canvas.entered[0].rel === rel0 && bridge.canvas.entered[0].model === 'ILCE-7M4' && bridge.canvas.entered[0].next && bridge.canvas.entered[0].preview && +bridge.canvas.entered[0].preview.l > 0,
     'edit: canvasEnter carries the photo, its body, its preview range and its neighbours', bridge.canvas.entered[0]);
   ok(bridge.canvas.layouts[0] && bridge.canvas.layouts[0].w === 900 && bridge.canvas.layouts[0].visible === true && bridge.canvas.layouts[0].dpr >= 1, 'edit: canvasLayout carries the rect, visibility and dpr', bridge.canvas.layouts[0]);
+  { const vh = await page.evaluate(() => window.innerHeight), L0 = bridge.canvas.layouts[0];
+    ok(L0 && L0.vh === vh && vh > 0, 'edit: canvasLayout carries the page viewport height, so the Mac places the canvas below a title bar the web view keeps out of the page', { vh, sent: L0 && L0.vh }); }
   // Page chrome over the photo rides along as `holes`, on the rect or in the options; a hidden canvas sends none.
   { const n0 = bridge.canvas.layouts.length, hole = { x: 110, y: 60, w: 40, h: 20 };
     await page.evaluate(h => { const r = Object.assign({}, lumina.edit.state().rect); lumina.canvasRect(Object.assign({}, r, { holes: [h] })); lumina.edit.layout(r, true, { holes: [h, h] }); lumina.edit.layout(r, true); }, hole);
@@ -236,6 +247,48 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(bridge.canvas.entered.some(e => e.leave) && (await page.evaluate(() => lumina.edit.state().rel)) === null && bridge.canvas.layouts[bridge.canvas.layouts.length - 1].visible === false, 'edit: leave hides the canvas and tells the Mac');
   ok((await page.evaluate(() => { try { lumina.edit.look('ev:+0.10', { drag: true }); lumina.edit.dragEnd(); return true; } catch (e) { return String(e); } })) === true, 'edit: calls after leave are harmless no-ops');
 
+  // The native canvas and a photo's first look (the "rendering…" that never left on the first entry
+  // into Edit): the photo and the page's first look go to the Mac together, so the frame that shows
+  // it is acknowledged with the page's seq; looks that follow wait until the Mac has the photo. A
+  // photo the Mac refuses is answered at once with the reason in the facts line. The page never
+  // draws its own preview on the native path: lumina.preview answers null, never false.
+  { bridge.canvas.path = 'native'; bridge.header = Object.assign({}, bridge.header, { canvas: 'native' }); bridge.canvas.enterMs = 300;
+    const rels = await page.evaluate(() => __lumina.logic().real.slice(0, 3).map(p => p.path));
+    const e0 = bridge.canvas.entered.length, k0 = bridge.canvas.looks.length, a0 = bridge.canvas.answered || 0;
+    const first = await page.evaluate(async rel => {
+      __lumina.editHeader({ canvas: 'native' });
+      window.__shown = []; window.luminaPresented = s => window.__shown.push(s); window.__facts = []; window.luminaFacts = f => window.__facts.push(f);
+      lumina.canvasRect({ x: 300, y: 80, w: 900, h: 600, holes: [] });
+      const r = lumina.preview(rel, 'ev:+0.10', 1800, 7);            // the page's first look for the photo
+      const sync = r && typeof r.then === 'function' ? 'promise' : r;
+      lumina.preview(rel, 'ev:+0.20', 1800, 8); lumina.preview(rel, 'ev:+0.30', 1800, 9);   // while the Mac is still entering
+      return { sync, v: await r, st: lumina.edit.state() };
+    }, rels[0]);
+    await new Promise(r => setTimeout(r, 100));
+    const ent = bridge.canvas.entered.slice(e0).filter(x => !x.leave), looks = bridge.canvas.looks.slice(k0);
+    ok(first.sync === 'promise' && first.v === null && ent.length === 1 && ent[0].rel === rels[0] && ent[0].seq === 7 && ent[0].look === 'ev:+0.10 shp:40',
+      'edit (native): a photo\'s first look goes with canvasEnter, with the page\'s seq; lumina.preview answers null', { first, ent });
+    ok(looks.length === 1 && looks[0].seq === 9 && looks[0].look === 'ev:+0.30 shp:40' && looks[0].answered > a0,
+      'edit (native): looks sent while the Mac enters the photo wait; the newest goes once it has', looks);
+    bridge.canvas.enterMs = 0; bridge.canvas.refuse = 'not in an opened folder';
+    const l0 = bridge.canvas.layouts.length, k1 = bridge.canvas.looks.length;
+    const bad = await page.evaluate(async rel => {
+      window.__shown = []; window.__facts = [];
+      const v = await lumina.preview(rel, 'ev:+0.10', 1800, 11);
+      const again = lumina.preview(rel, 'ev:+0.20', 1800, 12);
+      await new Promise(r => setTimeout(r, 50));
+      return { v, again, shown: window.__shown.slice(), text: lumina.edit.facts().text, seen: window.__facts[window.__facts.length - 1], visible: lumina.edit.state().visible };
+    }, rels[1]);
+    ok(bad.v === null && bad.again === null && bad.shown.join() === '11,12' && bad.visible === true && !bridge.canvas.layouts.slice(l0).some(l => l.visible === false) && bridge.canvas.looks.length === k1,
+      'edit (native): a photo canvasEnter refuses is answered (no frame to wait for); the page is not told to draw its own preview and the canvas stays', bad);
+    ok(/can't show [^ ]+ · not in an opened folder/.test(bad.text) && bad.seen && /not in an opened folder/.test(bad.seen.note || ''), 'edit (native): the facts line says why the photo is not on the canvas', bad);
+    bridge.canvas.refuse = null;
+    const good = await page.evaluate(async rel => { const v = await lumina.preview(rel, '', 1800, 13); return { v, text: lumina.edit.facts().text }; }, rels[2]);
+    ok(good.v === null && !/can't show/.test(good.text) && bridge.canvas.entered[bridge.canvas.entered.length - 1].seq === 13, 'edit (native): the next photo enters as usual and the reason is gone', good);
+    await page.evaluate(() => { lumina.edit.leave(); delete window.luminaPresented; delete window.luminaFacts; __lumina.editHeader({ canvas: 'image' }); });
+    bridge.header = Object.assign({}, bridge.header, { canvas: 'image' });
+    bridge.canvas.path = 'image'; }
+
   // Edit v22 through the page itself (not lumina.edit): it names a photo by its file name, so plumbing's
   // editShoot gives each photo its path; the chrome over the photo becomes holes; the RAW's as-shot
   // white balance reaches the page's photo.
@@ -258,6 +311,162 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     const L2 = bridge.canvas.layouts.slice(n1);
     ok(L2.length >= 1 && L2[L2.length - 1].visible && L2[L2.length - 1].holes.length === last.holes.length + 1, 'edit v22 (page): a chip that appears over the photo is sent as one more hole', L2.map(x => x.holes));
     await page.evaluate(() => document.getElementById('__chip').remove()); await page.waitForTimeout(300);
+    // Crop's frame is inset under the full-size skip. It must not be a hole (that is the page's
+    // black canvas). The dim is the frame's box-shadow, so the frame stays looked-through; the
+    // thirds grid is a hairline and is a hole, so the line shows over the photo. The Ratio /
+    // Straighten bar still is. A straighten and a zoom then have to reach the Mac with the page's
+    // own angle, scale and box. Opened from the page's Crop control, then Cancel, so the intro
+    // card and the zoom checks below stay as they were.
+    { const nCrop = bridge.canvas.layouts.length;
+      const opened = await page.evaluate(() => {
+        const norm = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const btn = [...document.querySelectorAll('[role="button"]')].find(b => norm(b) === 'Crop');
+        if (!btn) return false;
+        btn.click();
+        return true;
+      });
+      ok(opened, 'edit v22 (page): Crop is opened from the page\'s Crop control');
+      await page.waitForFunction(() => !!document.querySelector('[data-lumina="canvas"] [data-frame]'), null, { timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(350);
+      const crop = await page.evaluate(() => {
+        const canvas = document.querySelector('[data-lumina="canvas"]');
+        const frame = canvas && canvas.querySelector('[data-frame]');
+        const box = el => { const b = el.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; };
+        const norm = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const lines = frame ? [...frame.children].filter(el => !el.hasAttribute('data-h') && !el.hasAttribute('data-rot')).map(box) : [];
+        const bars = [...(canvas ? canvas.querySelectorAll('div') : [])].filter(el => /Ratio/.test(norm(el)) && /Straighten/.test(norm(el)) && /Apply/.test(norm(el)));
+        const barEl = bars.find(el => !bars.some(o => o !== el && el.contains(o))) || null;
+        const degText = [...(canvas ? canvas.querySelectorAll('div') : [])].map(norm).find(t => /^-?\d+(?:\.\d+)?°(?: · .+)?$/.test(t) && !(barEl && norm(barEl).includes(t) && t.length > 12)) || '';
+        const dialogs = [...document.querySelectorAll('[role="dialog"]')].map(box);
+        return { frame: frame ? box(frame) : null, lines, bar: barEl ? box(barEl) : null, degText, dialogs, shadow: frame ? getComputedStyle(frame).boxShadow : '' };
+      });
+      const cropLast = bridge.canvas.layouts.slice(nCrop).filter(x => x.visible).pop();
+      const holes = (cropLast && cropLast.holes) || [];
+      const overlap = (h, b) => {
+        if (!h || !b || !(b.w > 0) || !(b.h > 0)) return 0;
+        const x0 = Math.max(h.x, b.x), y0 = Math.max(h.y, b.y);
+        const x1 = Math.min(h.x + h.w, b.x + b.w), y1 = Math.min(h.y + h.h, b.y + b.h);
+        return x1 > x0 && y1 > y0 ? (x1 - x0) * (y1 - y0) : 0;
+      };
+      // The hole is the element's box plus a 1 px pad, clipped to the canvas. The intro card
+      // overlaps the frame and is a hole of its own; it is not the frame.
+      const isBox = (h, b) => Math.abs(h.x - b.x) < 6 && Math.abs(h.y - b.y) < 6 && Math.abs(h.x + h.w - (b.x + b.w)) < 6 && Math.abs(h.y + h.h - (b.y + b.h)) < 6;
+      const frameArea = crop.frame ? crop.frame.w * crop.frame.h : 0;
+      const isDialog = h => (crop.dialogs || []).some(d => isBox(h, d));
+      const coversInterior = h => !isDialog(h) && crop.frame && overlap(h, crop.frame) > 0.7 * h.w * h.h && overlap(h, crop.frame) > 0.2 * frameArea;
+      ok(!!(crop.frame && frameArea > 100 && cropLast && holes.length <= 16 && !holes.some(h => isBox(h, crop.frame)) && !holes.some(coversInterior)),
+        'edit v22 (page): with Crop open, no hole covers the crop interior', { frame: crop.frame, holes });
+      const grids = bridge.canvas.zooms.filter(z => z && Array.isArray(z.guides) && z.guides.some(g => g.k === 'grid'));
+      const gridSent = grids.length ? grids[grids.length - 1].guides.filter(g => g.k === 'grid') : [];
+      ok(crop.lines.length >= 4 && crop.lines.every(b => (b.w < 3 || b.h < 3) && !holes.some(h => isBox(h, b))) && gridSent.length >= 4 && /9999/.test(crop.shadow || '') && !holes.some(h => isBox(h, crop.frame)),
+        'edit v22 (page): the crop grid is drawn on the photo, not cut out of it, and the frame (the dim) is not a hole', { lines: crop.lines.length, grid: gridSent.length, shadow: crop.shadow, holes });
+      const canvasBox = cropLast && { x: cropLast.x, y: cropLast.y, w: cropLast.w, h: cropLast.h };
+      ok(!!(crop.bar && canvasBox && overlap(crop.bar, canvasBox) > 0.5 * crop.bar.w * crop.bar.h && holes.some(h => isBox(h, crop.bar))),
+        'edit v22 (page): the Ratio / Straighten bar stays a hole', { bar: crop.bar, holes });
+      const badgeHole = h => h.w > h.h * 1.4 && h.h > 8 && h.h < 40 && h.w < 240;
+      // v23 puts the live angle on the Straighten control (off the picture). A filled badge on the
+      // photo is still not a hole. An empty degText means that badge is gone.
+      ok(!holes.some(badgeHole),
+        'edit v22 (page): the on-photo degree badge is not a hole', { degText: crop.degText, holes });
+      // The page owns the gesture. Straighten is the image's rotate/scale (not the look, until
+      // Apply); zoom is the same pinch the canvas already follows, and it has to keep the angle.
+      const drive = (op, n) => page.evaluate(a => {
+        const el = document.querySelector('[data-lumina="canvas"]');
+        const k = Object.keys(el).find(x => x.startsWith('__reactFiber$'));
+        let E = null;
+        for (let f = el[k]; f && !E; f = f.return) if (f.stateNode && f.stateNode.logic && f.stateNode.logic.zoomTo) E = f.stateNode.logic;
+        if (!E) return false;
+        if (a.op === 'straighten') E.straighten(a.n); else E.zoomTo(a.n, null, null, false);
+        return true;
+      }, { op, n });
+      const cropView = () => page.evaluate(() => {
+        const canvas = document.querySelector('[data-lumina="canvas"]'), im = canvas.querySelector('[data-lumina-img]');
+        const m = new DOMMatrix(getComputedStyle(im).transform);
+        const c = canvas.getBoundingClientRect(), b = im.parentElement.getBoundingClientRect();
+        const k = Object.keys(canvas).find(x => x.startsWith('__reactFiber$'));
+        let E = null;
+        for (let f = canvas[k]; f && !E; f = f.return) if (f.stateNode && f.stateNode.logic && f.stateNode.logic.zoomTo) E = f.stateNode.logic;
+        return { ang: E && E.state.cd ? E.state.cd.ang : null, matrix: Math.atan2(m.b, m.a) * 180 / Math.PI, cover: Math.hypot(m.a, m.b),
+          box: { x: (c.left - b.left) / b.width, y: (c.top - b.top) / b.height, w: c.width / b.width, h: c.height / b.height } };
+      });
+      const zCrop = bridge.canvas.zooms.length;
+      ok(await drive('straighten', 45), 'edit v22 (page): straighten is the page\'s own control');
+      await page.waitForTimeout(700);
+      const spun = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], pageSpin = await cropView();
+      const axis = (spun && spun.guides || []).filter(g => g.k === 'axis');
+      ok(bridge.canvas.zooms.length > zCrop && spun && Math.abs(pageSpin.ang - 45) < 0.05 && Math.abs(spun.ang - pageSpin.matrix) < 0.2 && Math.abs(spun.cover - pageSpin.cover) < 0.02
+        && axis.length === 2 && axis.every(g => Math.abs(g.x1 - g.x0) > 20 && Math.abs(g.y1 - g.y0) > 20),
+        'edit v22 (page): a straighten reaches the Mac with the page\'s angle and scale, and the dotted axis stays on the photo', { sent: spun && { ang: spun.ang, cover: spun.cover, axis }, page: pageSpin });
+      ok(await drive('zoom', 2), 'edit v22 (page): zoom during crop is the page\'s own pinch');
+      await page.waitForTimeout(700);
+      const zoomed = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], pageZoom = await cropView();
+      ok(zoomed && Math.abs(zoomed.ang - pageZoom.matrix) < 0.2 && Math.abs(zoomed.cover - pageZoom.cover) < 0.02 && zoomed.w < spun.w
+        && ['x', 'y', 'w', 'h'].every(k => Math.abs(zoomed[k] - pageZoom.box[k]) < 0.02),
+        'edit v22 (page): a zoom during crop reaches the Mac with the page\'s box, still straightened', { sent: zoomed, page: pageZoom });
+      await drive('zoom', 1);
+      await page.waitForTimeout(200);
+      // Apply, then open Crop again. The angle in the message is the page's straighten, once.
+      // It is not added to the crop the look already has (that would be 90 here).
+      const applied = await page.evaluate(() => {
+        const el = document.querySelector('[data-lumina="canvas"]');
+        const k = Object.keys(el).find(x => x.startsWith('__reactFiber$'));
+        let E = null;
+        for (let f = el[k]; f && !E; f = f.return) if (f.stateNode && f.stateNode.logic && f.stateNode.logic.cropApply) E = f.stateNode.logic;
+        if (!E || !E.state.cd) return false;
+        E.cropApply();
+        return true;
+      });
+      ok(applied, 'edit v22 (page): Apply keeps this straighten');
+      await page.waitForFunction(() => !document.querySelector('[data-lumina="canvas"] [data-frame]'), null, { timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(200);
+      const reopened = await page.evaluate(() => {
+        const norm = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const btn = [...document.querySelectorAll('[role="button"]')].find(b => norm(b) === 'Crop');
+        if (btn) btn.click();
+        return !!btn;
+      });
+      ok(reopened, 'edit v22 (page): Crop opens again on the applied straighten');
+      await page.waitForFunction(() => !!document.querySelector('[data-lumina="canvas"] [data-frame]'), null, { timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(700);
+      const again = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], pageAgain = await cropView();
+      ok(!!(again && pageAgain) && Math.abs(pageAgain.ang - 45) < 0.05 && Math.abs(again.ang - pageAgain.matrix) < 0.2 && Math.abs(again.ang - 90) > 5,
+        'edit v22 (page): a second Crop sends the current straighten once, not stacked on the applied crop', { sent: again, page: pageAgain });
+      ok(await drive('straighten', -45), 'edit v22 (page): straighten is moved back by the angle it has');
+      await page.waitForTimeout(700);
+      const zeroed = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], pageZero = await cropView();
+      ok(!!(zeroed && pageZero) && Math.abs(pageZero.ang) < 0.05 && zeroed.ang === 0,
+        'edit v22 (page): the bridge sees angle 0 when the page\'s straighten is 0', { sent: zeroed, page: pageZero });
+      // Native canvas: the page's picture is hidden so it is not a second copy under the grid.
+      // The frame stays. The layout reply carries the bridge's canvas path, so that path has to
+      // say native too or the next layout puts the page picture back. Restored before Cancel.
+      const canvasPath = bridge.canvas.path;
+      bridge.canvas.path = 'native';
+      await page.evaluate(() => __lumina.editHeader({ canvas: 'native' }));
+      await page.waitForFunction(() => document.documentElement.getAttribute('data-lumina-crop-hide') === '1' && !!document.querySelector('[data-lumina="canvas"] [data-frame]'), null, { timeout: 3000 }).catch(() => {});
+      const hidden = await page.evaluate(() => {
+        const im = document.querySelector('[data-lumina="canvas"] [data-lumina-img]');
+        const frame = document.querySelector('[data-lumina="canvas"] [data-frame]');
+        return { hide: document.documentElement.getAttribute('data-lumina-crop-hide'), visibility: im ? getComputedStyle(im).visibility : null, frame: !!frame };
+      });
+      ok(hidden.hide === '1' && hidden.visibility === 'hidden' && hidden.frame, 'edit v22 (page): on the native canvas, Crop hides the page picture and keeps the frame', hidden);
+      bridge.canvas.path = canvasPath;
+      await page.evaluate(() => __lumina.editHeader({ canvas: 'image' }));
+      await page.waitForFunction(() => {
+        const im = document.querySelector('[data-lumina="canvas"] [data-lumina-img]');
+        return !document.documentElement.hasAttribute('data-lumina-crop-hide') && im && getComputedStyle(im).visibility === 'visible';
+      }, null, { timeout: 3000 }).catch(() => {});
+      const shown = await page.evaluate(() => {
+        const im = document.querySelector('[data-lumina="canvas"] [data-lumina-img]');
+        return { hide: document.documentElement.getAttribute('data-lumina-crop-hide'), visibility: im ? getComputedStyle(im).visibility : null };
+      });
+      ok(shown.hide == null && shown.visibility === 'visible', 'edit v22 (page): leaving the native canvas shows the page picture again', shown);
+      await page.evaluate(() => {
+        const norm = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const cancel = [...document.querySelectorAll('[data-lumina="canvas"] [role="button"]')].find(b => norm(b).startsWith('Cancel'));
+        if (cancel) cancel.click();
+      });
+      await page.waitForFunction(() => !document.querySelector('[data-lumina="canvas"] [data-frame]'), null, { timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(200); }
     // As-shot white balance from the canvas (the base landed): the page's photo starts there.
     const shot = await page.evaluate(rel => {
       __lumina.editHeader({ asShot: { kelvin: 4321, tint: 7 }, asShotRel: rel });
@@ -268,6 +477,32 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     }, ent[0] && ent[0].rel);
     ok(shot.page && shot.page[0] === 4321 && shot.page[1] === 7 && shot.shoot[0] === 4321 && shot.def === 4321, 'edit v22 (page): the RAW\'s as-shot white balance becomes the photo\'s wbShot / tintShot (Edit and later opens)', shot);
     await page.evaluate(() => __lumina.editHeader({ asShot: { kelvin: 'x', tint: 1 }, asShotRel: 'nope' }));
+    // The page's own zoom (pinch, the zoom pill): the part of the photo in the canvas box reaches the Mac
+    // at every zoom, as fractions of the photo's box; none at fit. Edit v22's lumina.roi (image px, above
+    // 1.2× only) does not place the picture.
+    { const zoomTo = z => page.evaluate(z => {
+        const el = document.querySelector('[data-lumina="canvas"]'), k = Object.keys(el).find(x => x.startsWith('__reactFiber$'));
+        let E = null; for (let f = el[k]; f && !E; f = f.return) if (f.stateNode && f.stateNode.logic && f.stateNode.logic.nbInfo) E = f.stateNode.logic;
+        E.zoomTo(z, null, null, false);
+      }, z);
+      const box = () => page.evaluate(() => { const c = document.querySelector('[data-lumina="canvas"]').getBoundingClientRect(), b = document.querySelector('[data-lumina="canvas"] [data-lumina-img]').parentElement.getBoundingClientRect(); return { x: (c.left - b.left) / b.width, y: (c.top - b.top) / b.height, w: c.width / b.width, h: c.height / b.height }; });
+      const near = (a, b) => !!a && !!b && ['x', 'y', 'w', 'h'].every(k => Math.abs(a[k] - b[k]) < 0.01);
+      const z0 = bridge.canvas.zooms.length, lp0 = bridge.canvas.loupes.length;
+      await zoomTo(3); await page.waitForTimeout(700);
+      const in3 = bridge.canvas.zooms[bridge.canvas.zooms.length - 1], b3 = await box();
+      ok(bridge.canvas.zooms.length > z0 && in3 && in3.w < 0.6 && in3.h < 0.6 && near(in3, b3), 'edit v22 (page): zoomed in, the canvas box as a part of the photo reaches the Mac (canvasZoom)', { sent: in3, page: b3 });
+      { const R = bridge.canvas.zoomRests.slice(z0);
+        ok(R.length >= 2 && R[0] === false && R[R.length - 1] === true && R.filter(Boolean).length === 1, 'edit v22 (page): a moving zoom is followed, then the Mac is told once that it rests (its full-quality render)', R); }
+      const lp = bridge.canvas.loupes.slice(lp0).filter(l => l.on), st =await page.evaluate(() => lumina.edit.state());
+      ok(lp.length === 1 && near(lp[0].roi, in3) && near(st.zoom, in3), 'edit v22 (page): once the zoom rests, the same region goes to RAW 9, once, in fractions (not the page\'s image px)', { loupes: bridge.canvas.loupes.slice(lp0), zoom: st.zoom });
+      await zoomTo(1.1); await page.waitForTimeout(500);
+      const in11 = bridge.canvas.zooms[bridge.canvas.zooms.length - 1];
+      ok(in11 && near(in11, await box()) && in11.w > 0.5, 'edit v22 (page): between fit and 1.2× the canvas follows too', in11);
+      await zoomTo(0.5); await page.waitForTimeout(500);
+      const out = bridge.canvas.zooms[bridge.canvas.zooms.length - 1];
+      ok(out && out.w > 1 && out.h > 1 && out.x < 0 && out.y < 0 && near(out, await box()), 'edit v22 (page): zoomed out, the region reaches beyond the photo', out);
+      await zoomTo(1); await page.waitForTimeout(500);
+      ok(bridge.canvas.zooms[bridge.canvas.zooms.length - 1] === null && (await page.evaluate(() => lumina.edit.state().zoom)) === null, 'edit v22 (page): back at fit, no region (the Mac fits the photo)', bridge.canvas.zooms.slice(-2)); }
     const n2 = bridge.canvas.layouts.length;
     await page.evaluate(() => __lumina.logic().setView('cull')); await page.waitForTimeout(500);
     const L3 = bridge.canvas.layouts.slice(n2);
@@ -332,6 +567,8 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const slow = path.join(tmp, '2026-09-02');
   makeBigShoot(slow, jpegs, 160);
   const during = async (label, moves) => {
+    // A previous step (Save, Edit) would be where this folder reopens. This check is the read itself.
+    await page.evaluate(() => __lumina.logic().setState({ lastView: null }));
     bridge.delayMs = 25; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
     await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 30000 });
     for (const k of moves) { await key(page, k); await page.waitForTimeout(120); }
@@ -355,12 +592,30 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
   const again = await during('reopen during read', ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowRight']);
   ok(again.end.kept.length === 2 && again.end.kept.includes(first.end.kept[0]), 'reopen during read: the saved keep and the new one both kept', { first: first.end.kept, again: again.end.kept });
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  // Edit opened while the folder is still being read: the photo's path includes the folder
+  // (realInfo arrives only when the read ends), and finishing the read does not send you back to Pick.
+  // Its own folder, so it does not rewrite the session the reopen above just checked.
+  const earlyDir = path.join(tmp, '2026-09-03');
+  makeBigShoot(earlyDir, jpegs, 80);
+  await page.evaluate(() => __lumina.logic().setState({ lastView: null }));
+  bridge.delayMs = 25; bridge.pending = earlyDir; await page.evaluate(() => __lumina.openFolder());
+  await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'edit' || (l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48); }, null, { timeout: 30000 });
+  await page.evaluate(() => __lumina.logic().setView('edit'));
+  const early = await page.evaluate(() => { const l = __lumina.logic(), s = l.editShoot(); return { rel: s && s.P && s.P[0] && s.P[0].rel, view: l.state.view }; });
+  await loaded(page);
+  const landed = await page.evaluate(() => __lumina.logic().state.view);
+  bridge.delayMs = 0;
+  ok(/^2026-09-03\//.test(early.rel || ''), 'during read: Edit names the folder before the read ends', early);
+  ok(landed === 'edit', 'during read: finishing the read stays in Edit', { early, landed });
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
 
   // Scrolling while a folder is read, and keys typed fast. The page's own scroll handler still runs
   // under plumbing's lead (the time axis follows the scroll); the grid is never rebuilt under a moving
   // scroll; tiles that scrolled in keep the page's fade for later changes; a menu shortcut runs after
   // the keys still queued.
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  await page.evaluate(() => __lumina.logic().setState({ lastView: null }));
   bridge.delayMs = 120; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
   await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 60000 });
   const SCROLL = async ([frames, dy]) => {
@@ -548,6 +803,65 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(await page.evaluate(async () => (await lumina.notices()) === 'React 18.3.1 · MIT\n'), 'acknowledgements: lumina.notices() is the app\'s text');
   await page.evaluate(() => lumina.emit('openCancel', {})); await page.waitForTimeout(100);
   ok(bridge.cancels === 1, 'opening: Esc (openCancel) stops the listing', bridge.cancels);
+
+  // Edit's first-run card. Fresh storage shows it, and the canvas has to leave a hole for it even
+  // while its fade is still at opacity 0 (the frame that used to skip it). Esc stores the dismissal
+  // with the Mac's prefs; a later setPrefs must not drop it. A page opened with those prefs has no card.
+  { const covers = (h, b, r) => {
+      const x0 = Math.max(b.x, r.x), y0 = Math.max(b.y, r.y), x1 = Math.min(b.x + b.w, r.x + r.w), y1 = Math.min(b.y + b.h, r.y + r.h);
+      return x1 - x0 >= 8 && y1 - y0 >= 8 && h.x <= x0 + 2 && h.y <= y0 + 2 && h.x + h.w >= x1 - 2 && h.y + h.h >= y1 - 2;
+    };
+    const n0 = bridge.canvas.layouts.length;
+    await page.evaluate(() => __lumina.logic().setView('edit', true));
+    await page.waitForTimeout(500);
+    const card = await page.evaluate(() => { const d = document.querySelector('[role="dialog"][aria-label="Editing in Lumina"]'); if (!d) return null; const b = d.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height, op: +getComputedStyle(d).opacity }; });
+    const last = bridge.canvas.layouts.slice(n0).filter(x => x.visible).pop();
+    ok(!!(card && last && last.holes.some(h => covers(h, card, last))), 'edit intro: the open card is a hole in the canvas', { card, holes: last && last.holes });
+    const n1 = bridge.canvas.layouts.length;
+    const faded = await page.evaluate(() => {
+      const d = document.querySelector('[role="dialog"][aria-label="Editing in Lumina"]');
+      d.getAnimations().forEach(a => a.cancel());
+      d.style.opacity = '0';
+      const a = d.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 60000, fill: 'both' });
+      a.pause(); a.currentTime = 0;
+      d.appendChild(document.createElement('i'));
+      return +getComputedStyle(d).opacity;
+    });
+    await page.waitForTimeout(300);
+    const card0 = await page.evaluate(() => { const d = document.querySelector('[role="dialog"][aria-label="Editing in Lumina"]'); const b = d.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; });
+    const last0 = bridge.canvas.layouts.slice(n1).filter(x => x.visible).pop();
+    ok(faded < 0.05 && !!(last0 && last0.holes.some(h => covers(h, card0, last0))), 'edit intro: a card still at opacity 0 mid fade-in is a hole', { faded, holes: last0 && last0.holes });
+    const nH = bridge.canvas.layouts.length;
+    const placed = await page.evaluate(() => {
+      const r = lumina.edit.state().rect, h = document.createElement('div');
+      h.id = '__hiddenDialog'; h.setAttribute('role', 'dialog');
+      h.style.cssText = 'position:fixed;left:' + (r.x + 20) + 'px;top:' + (r.y + 20) + 'px;width:48px;height:48px;opacity:0';
+      document.body.appendChild(h);
+      return { x: r.x + 20, y: r.y + 20 };
+    });
+    await page.waitForTimeout(300);
+    const hid = bridge.canvas.layouts.slice(nH).filter(x => x.visible).pop() || last0;
+    ok(!(hid && hid.holes.some(h => Math.abs(h.x - placed.x) < 8 && Math.abs(h.y - placed.y) < 8)), 'edit intro: a dialog left at opacity 0 with no animation is not a hole', hid && hid.holes);
+    await page.evaluate(() => { const h = document.getElementById('__hiddenDialog'); if (h) h.remove(); });
+    await key(page, 'Escape');
+    await page.waitForTimeout(100);
+    ok(bridge.prefs && bridge.prefs.editIntro === true, 'edit intro: Esc persists the seen flag in prefs', bridge.prefs);
+    ok(await page.evaluate(() => localStorage.getItem('lumina.edit.intro.v1') === '1' && !('editIntro' in __lumina.logic().state.prefs)), 'edit intro: the page\'s own prefs do not carry the flag');
+    await page.evaluate(() => __lumina.logic().setPref({ rating: 2 }));
+    ok(bridge.prefs && bridge.prefs.editIntro === true && bridge.prefs.rating === 2, 'edit intro: a later setPrefs keeps the flag', bridge.prefs);
+    const bridge2 = new Bridge();
+    const p2 = await open(browser, bridge2, { prefs: { rating: 2, editIntro: true } });
+    ok(await p2.page.evaluate(() => localStorage.getItem('lumina.edit.intro.v1') === '1' && !('editIntro' in __lumina.logic().state.prefs) && __lumina.logic().state.prefs.rating === 2), 'edit intro: a later launch seeds the seen key and not the page\'s prefs');
+    await p2.page.evaluate(() => __lumina.logic().setView('edit', true));
+    await p2.page.waitForTimeout(400);
+    ok(await p2.page.evaluate(() => !document.querySelector('[role="dialog"][aria-label="Editing in Lumina"]')), 'edit intro: that launch opens Edit with no card');
+    await p2.page.evaluate(() => __lumina.logic().setPref({ rating: 1 }));
+    ok(bridge2.prefs && bridge2.prefs.editIntro === true && bridge2.prefs.rating === 1, 'edit intro: setPrefs on the later launch keeps the flag', bridge2.prefs);
+    ok(p2.errors.length === 0, 'edit intro: no page errors on the later launch', p2.errors);
+    await p2.ctx.close();
+    await page.evaluate(() => __lumina.logic().setView('cull', true));
+    await page.waitForTimeout(200); }
+
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
 
   // ——— Sources (the page's Sources panel): adding to the open shoot, drops, reconnect, the clock sheet, AirDrop.

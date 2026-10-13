@@ -114,7 +114,10 @@ final class SetsMenuModel: ObservableObject {
     /// Z is a hold key in the page (100% while held): the menu toggles it on and off instead.
     static func zoom() { shared.controller?.toggleZoom() }
 
-    static func openLink(_ s: String) { if let url = URL(string: s) { NSWorkspace.shared.open(url) } }
+    /// The menu's links go through the same allowlist as the page's (docs/release/TRUST.md I5).
+    static func openLink(_ s: String) {
+        if let url = URL(string: s), case .external(let safe) = SetsExternalLinks.verdict(for: url, userClicked: true) { NSWorkspace.shared.open(safe) }
+    }
 
     static func showAbout() {
         let credits = NSAttributedString(string: "© 2026 Aniketh Maddipati\nHelp ▸ Lumina FAQ",

@@ -22,10 +22,10 @@ stays the product-side checklist.
 | # | Decision | Recommendation |
 |---|---|---|
 | D1 | **Name and bundle id.** App Store names are unique and "Lumina" is very likely taken. `com.lumina.app` may also be registered by someone else. The id names the sandbox container, so it cannot change after the first TestFlight build without losing sessions. | Check both in App Store Connect first. Fallbacks: "Lumina Cull" / `com.anikethmaddipati.lumina`. One line in `Config/Release.xcconfig`. **Decided 2026-10-05: `com.aniketh.lumina`, registered for team QHB498M84T; the App Store Connect record is named "Lumina Editor" (SKU `lumina-mac`).** Day-to-day builds (`install_app.sh`, Xcode) keep the project's `com.lumina.app`, so they have their own container |
-| D2 | **Which UI ships in 1.0.** The WebView UI needs the outgoing-network entitlement to start in a sandbox, so the system stops enforcing "nothing leaves the Mac" and SAFETY.md 7 must be amended. The native UI needs no network entitlement. | If native passes its gates in time, ship native with `LUMINA_UI=native`. If not, ship the WebView with task S1 done and say "blocked by the app" rather than "by the system" in the privacy text |
-| D3 | **Channels.** Store only, or also a notarised dmg. | Both. The dmg works today and gets friends a build while review runs. Same sandbox, same bundle id |
-| D4 | **Price and territories.** | Yours |
-| D5 | **Minimum macOS.** 14 today. | Keep 14 only if a 14 and a 15 machine are tested (`STRESS-MATRIX.md` 9); else raise it |
+| D2 | **Which UI ships in 1.0.** The WebView UI needs the outgoing-network entitlement to start in a sandbox, so the system stops enforcing "nothing leaves the Mac" and SAFETY.md 7 must be amended. The native UI needs no network entitlement. | Ship the WebView with task S1 done and say "blocked by the app" rather than "by the system" in the privacy text. **Decided 2026-10-06: the WebView** (the SwiftUI UI was removed in Phase 6) |
+| D3 | **Channels.** Store only, or also a notarised dmg. | Both. The dmg works today and gets friends a build while review runs. Same sandbox, same bundle id. TestFlight build 568 goes to testers now (2026-10-06); a v11 build follows |
+| D4 | **Price and territories.** | **Decided 2026-10-06: free, all countries.** The EU listing needs the trader status declaration (App Store Connect ▸ Business) |
+| D5 | **Minimum macOS.** | **Decided 2026-10-06: 15** (`Config/Release.xcconfig`, the project). The fresh-machine pass covers 15 and 26 |
 
 ## Once (account holder, about an hour)
 
@@ -75,9 +75,11 @@ refuses a tree with uncommitted changes.
 | Category | Photography (set in the build) |
 | Subtitle | "Cull a Sony shoot, keys first" (30 characters max) |
 | Privacy label | Data Not Collected. True for both UIs: no analytics, no account, no network use |
+| Price, territories | Free; all countries (D4) |
+| Drafts | `docs/release/listing/` (description, keywords, review notes, privacy and support pages) |
 | Export compliance | Answered in the build: SHA-256 only, exempt |
 | Screenshots | 2880 × 1800 or 2560 × 1600, 1 to 10. `docs/screenshots` are older keys: retake once the UI is final |
-| Review notes | The reviewer has no Sony RAW files. Give a download link to five ARWs you own the rights to and three lines: Open the folder, P keeps, ⌘↩ saves. Say that "Save" writes `.xmp` next to the photos and why the folder panel appears |
+| Review notes | The reviewer has no Sony RAW files. Give a download link to five ARWs you own the rights to and three lines: Open the folder, P keeps, ⌘4 saves (v11). Say that "Save" writes `.xmp` next to the photos and why the folder panel appears |
 | Age rating, copyright | 4+; © 2026 Aniketh Maddipati (in the build) |
 
 ## Review risks, most likely first
@@ -94,8 +96,8 @@ refuses a tree with uncommitted changes.
 ## Not measured, so not promised
 
 - `release.sh store` has never produced a pkg (no distribution certificate here).
-- Whether App Store Connect accepts an arm64-only build with macOS 14 as minimum: expected (the
-  rule is 12 or later), confirmed only by `--validate`.
+- Whether App Store Connect accepts an arm64-only build with macOS 15 as minimum: expected (the
+  rule is 12 or later; build 568 with 14 was accepted), confirmed only by `--validate`.
 - Whether the privacy manifest's reasons are checked for a Mac app at all. Shipping it costs nothing.
 - The local sandbox check left a container at `~/Library/Containers/com.lumina.app.sandbox-check`
   on this Mac. It holds nothing; remove it in Finder if you like.

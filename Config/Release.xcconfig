@@ -25,7 +25,7 @@ CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO
 // AGENTS.md: Apple silicon only. An arm64-only app needs LSMinimumSystemVersion 12 or later.
 ARCHS = arm64
 ONLY_ACTIVE_ARCH = NO
-MACOSX_DEPLOYMENT_TARGET = 14.0
+MACOSX_DEPLOYMENT_TARGET = 15.0
 
 // Info.plist keys the store asks for.
 INFOPLIST_KEY_CFBundleDisplayName = Lumina
