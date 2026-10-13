@@ -530,10 +530,10 @@ button:focus:not(:focus-visible){outline:none}
       <button type="button" data-lumina="nav-prev" aria-label="previous clip" onClick="{{ navPrev }}" style="box-sizing:content-box;padding:0;background:transparent;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:content-box;height:28px;padding:0 12px;border-radius:7px;display:grid;place-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;opacity:{{ navPrevOp }};font-size:16px">‹</button>
       <button type="button" data-lumina="nav-next" aria-label="next clip" onClick="{{ navNext }}" style="box-sizing:content-box;padding:0;background:transparent;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:content-box;height:28px;padding:0 12px;border-radius:7px;display:grid;place-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;opacity:{{ navNextOp }};font-size:16px">›</button>
     </div></sc-if>
-    <div data-lumina="hints" style="flex:1;min-width:0;display:flex;align-items:center;gap:16px;overflow:hidden">
-      <span data-lumina="where" style="flex:none;color:#EFECE6;font-weight:600">{{ hintLead }}</span>
+    <div data-lumina="hints" style="flex:1;min-width:0;height:30px;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:center;column-gap:16px;overflow:hidden">
+      <span data-lumina="where" style="flex:none;height:30px;display:flex;align-items:center;color:#EFECE6;font-weight:600">{{ hintLead }}</span>
       <sc-for list="{{ hints }}" as="hk" hint-placeholder-count="6">
-        <span style="flex:none;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">{{ hk.k }}</span>{{ hk.t }}</span>
+        <span style="flex:none;height:30px;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">{{ hk.k }}</span>{{ hk.t }}</span>
       </sc-for>
     </div>
     <button type="button" data-lumina="progress-pill" aria-expanded="{{ progOn }}" onClick="{{ progToggle }}" title="Clips added · P" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:28px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:{{ progPillC }};cursor:pointer;background:{{ progPillBg }}" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span style="width:6px;height:6px;border-radius:50%;background:{{ progDot }};animation:{{ progAnim }}"></span><span>{{ progPill }}</span><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">P</span></button>
@@ -546,7 +546,7 @@ button:focus:not(:focus-visible){outline:none}
   <div data-lumina="footer" style="flex:none;height:48px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:16px;padding:0 20px;background:#262523;border-top:1px solid rgba(239,236,230,0.08);white-space:nowrap">
     <div role="status" aria-live="polite" style="min-width:0;display:flex;align-items:center;gap:10px;overflow:hidden">
       <sc-if value="{{ propOn }}" hint-placeholder-val="{{ false }}"><span style="color:#FFD27A;font-weight:600;animation:fade 100ms ease-out">{{ prop }}</span><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700">esc</span></sc-if>
-      <sc-if value="{{ countsOn }}" hint-placeholder-val="{{ true }}"><span data-lumina="counts" style="color:#EFECE6">{{ counts }}</span></sc-if>
+      <sc-if value="{{ countsOn }}" hint-placeholder-val="{{ true }}"><span data-lumina="counts" style="flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:#EFECE6">{{ counts }}</span></sc-if>
       <sc-if value="{{ handOffer }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ handOpen }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 10px;border-radius:7px;display:flex;align-items:center;gap:7px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-hover="filter:brightness(1.05)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:20px;height:18px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:11px">⌘⏎</span>Export</button></sc-if>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
@@ -554,9 +554,9 @@ button:focus:not(:focus-visible){outline:none}
         <button type="button" data-well="{{ w.m }}" aria-label="{{ w.l }} {{ w.n }}" onClick="{{ wClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:30px;min-width:92px;box-sizing:border-box;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:8px;background:{{ w.bg }};box-shadow:inset 0 0 0 1px {{ w.ring }};cursor:pointer;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-hover="background:rgba(239,236,230,0.1)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:8px;height:8px;border-radius:50%;background:{{ w.c }}"></span><span style="color:#EFECE6">{{ w.l }}</span><span style="flex:1"></span><span style="color:#B8B3AB">{{ w.n }}</span></button>
       </sc-for>
     </div>
-    <div style="min-width:0;display:flex;justify-content:flex-end;align-items:center;gap:14px;color:#B8B3AB"><div style="min-width:0;display:flex;justify-content:flex-end;gap:14px;overflow:hidden"><span data-lumina="footer-cut" style="color:{{ cutC }}">{{ cutSoFar }}</span><span style="color:#9A958D">{{ freeTxt }}</span></div>
-      <div style="position:relative;flex:none">
-        <button type="button" data-lumina="storage" aria-label="Storage" aria-expanded="{{ storeOn }}" onClick="{{ storeToggle }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:6px;color:{{ storeFg }};cursor:pointer;background:{{ storeBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ storeLine }}<span style="color:#9A958D">{{ storeArrow }}</span></button>
+    <div style="min-width:0;display:flex;justify-content:flex-end;align-items:center;gap:14px;color:#B8B3AB"><div style="flex:0 1 auto;min-width:0;display:flex;justify-content:flex-end;gap:14px;overflow:hidden"><span data-lumina="footer-cut" style="flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:{{ cutC }}">{{ cutSoFar }}</span><span style="color:#9A958D">{{ freeTxt }}</span></div>
+      <div style="position:relative;flex:0 4 auto;min-width:0">
+        <button type="button" data-lumina="storage" aria-label="Storage" aria-expanded="{{ storeOn }}" onClick="{{ storeToggle }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:6px;color:{{ storeFg }};cursor:pointer;background:{{ storeBg }};white-space:nowrap;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">{{ storeLine }}</span><span style="color:#9A958D">{{ storeArrow }}</span></button>
         <sc-if value="{{ storeOn }}" hint-placeholder-val="{{ false }}">
           <div data-lumina="storage-rows" role="dialog" aria-label="Storage" style="position:absolute;right:0;bottom:34px;z-index:35;width:380px;max-height:calc(100vh - 120px);overflow-y:auto;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:14px;animation:fade 100ms ease-out;white-space:normal;line-height:1.45">
             <sc-for list="{{ storeRows }}" as="sr" hint-placeholder-count="1"><div data-store="{{ sr.k }}" style="display:flex;flex-direction:column;gap:6px">
@@ -692,9 +692,15 @@ class Component extends DCLogic {
   // carries ?debug=1 or #debug, or luminaSkimDebug('panel') is called in the console. The budget and the pacing work the same either way.
   static isDebug(search, hash) { const q = /[?&]debug=1(&|$)/, h = /^#debug($|[&=\/])/; return q.test(search || '') || h.test(hash || ''); }
   // The footer's cut line, as the space he gets back.
-  static cutLine(n, bytes, fmtB) { return n ? 'cut: ' + n + ' clip' + (n === 1 ? '' : 's') + ' · ' + fmtB(bytes) + ' you can free' : 'cut: none yet'; }
+  // vw: the window's width when it is known. In a narrower window the footer's lines say less, so they are not cut:
+  // the cut line under 1280 px (the storage line sits beside it), the counts under 900 px.
+  static cutLine(n, bytes, fmtB, vw) { return n ? 'cut: ' + n + ' clip' + (n === 1 ? '' : 's') + ' · ' + fmtB(bytes) + (vw && vw < 1280 ? '' : ' you can free') : 'cut: none yet'; }
+  static countsLine(decided, und, vw) { return decided + ' decided · ' + und + ' undecided' + (vw && vw < 900 ? '' : ' · 0 automatic'); }
   // Storage (STORAGE.md): what fills up while a shoot is open, as one line in the footer that opens to a row per thing.
   // A part is {t, b, of} (b held of a limit) or {t, free} (a drive); a part with nothing measured is left out, never guessed.
+  // In a window under 1280 px the footer's storage line drops its first word; under 1100 px it is that word alone
+  // (its colour still says over the limit, and a click still opens the rows).
+  static storeShort(line, vw) { return !vw || vw >= 1280 ? line : vw >= 1100 ? line.replace(/^storage · /, '') : 'storage'; }
   static storeLine(parts, fmtB) {
     const said = (parts || []).filter(p => p && (p.b != null || p.free != null)).map(p => p.free != null ? p.t + ' ' + fmtB(p.free) + ' free' : p.t + ' ' + fmtB(p.b) + (p.of ? ' of ' + fmtB(p.of) + (p.b > p.of ? ' · over' : '') : ''));
     return said.length ? 'storage · ' + said.join(' · ') : 'storage · nothing held';
@@ -1969,12 +1975,15 @@ class Component extends DCLogic {
     if (this.vidWant != null && Math.abs(this.vidWant - t) < 0.01) return;
     this.vidWant = t; if (v.readyState >= 1 && !v.seeking) v.currentTime = t; this.vidArm();
   }
-  // How many of the chapter's clips share the canvas: as many as fit with each neighbour at least
-  // 220 px wide and 0.62 of the current one, while the current one keeps 60% of its size alone.
+  // How the chapter's clips share the canvas. The clip you are on comes first: it takes what the height allows
+  // (16:9). Its neighbours share the width beside it, as many as fit at 160 px and a fifth of it at least, none
+  // wider than half of it. Only when not even one fits does it give up width, 12% at most, for neighbours at
+  // that least size. With no room even then, it is alone.
   rowFit(n, W, H) {
-    const gap = 12, r = 0.62, minO = 220, cap = Math.max(160, H) * 16 / 9, alone = Math.min(W, cap);
-    for (let k = Math.min(n, 7); k >= 2; k--) { const w = Math.min(cap, (W - (k - 1) * gap) / (1 + r * (k - 1))); if (w * r >= minO && w >= alone * 0.6) return {k, wc:Math.floor(w), wo:Math.floor(w * r), gap}; }
-    return {k:1, wc:Math.floor(Math.min(W, cap)), wo:0, gap};
+    const gap = 12, keep = 0.88, cap = Math.max(160, H) * 16 / 9, alone = Math.floor(Math.min(W, cap)), minO = Math.ceil(Math.max(160, alone * 0.2));
+    for (let k = Math.min(n, 7); k >= 2; k--) { const wo = Math.floor(Math.min(alone * 0.5, (W - (k - 1) * gap - alone) / (k - 1))); if (wo >= minO) return {k, wc:alone, wo, gap}; }
+    for (let k = Math.min(n, 7); k >= 2; k--) { const wc = Math.floor(W - (k - 1) * (gap + minO)); if (wc >= alone * keep) return {k, wc:Math.min(alone, wc), wo:minO, gap}; }
+    return {k:1, wc:alone, wo:0, gap};
   }
   viewTap = () => { const st = this.state; if (st.held && st.cur) { this.heldTapped = true; this.doMark([st.cur], st.held); } };
   // A double-click goes in, a double-click comes back out: in the Viewer (on a picture or the space around it, not on
@@ -2073,11 +2082,11 @@ class Component extends DCLogic {
     // footer
     vals.propOn = !!st.prop; vals.prop = st.prop || '';
     vals.countsOn = !st.prop;
-    vals.counts = st.flash || (decided + ' decided · ' + und + ' undecided · 0 automatic');
+    vals.counts = st.flash || Component.countsLine(decided, und, st.vw);
     vals.handOffer = !st.prop && !empty && und === 0;
     vals.handOpen = () => this.setStep('export');
     vals.wells = ['keep', 'maybe', 'cut'].map(m => ({m, l:this.W(m), n:markN[m], c:MK[m], bg:'rgba(239,236,230,0.05)', ring:'rgba(239,236,230,0.1)'}));
-    vals.cutSoFar = Component.cutLine(markN.cut, markB.cut, b => this.fmtB(b)); vals.cutC = markN.cut ? '#B8B3AB' : '#9A958D';
+    vals.cutSoFar = Component.cutLine(markN.cut, markB.cut, b => this.fmtB(b), st.vw); vals.cutC = markN.cut ? '#B8B3AB' : '#9A958D';
     vals.freeTxt = '';
     // storage: the line and its rows (step 1: frames in memory)
     { const ms = this.memStats(), ts = this.thumbs.stats(), B = this.mp.budget, held = ms.frB + ts.bytes, of = B === 'all' || !B ? null : B * 1048576 + this.thumbs.budget, fb = b => this.fmtB(b);
@@ -2085,7 +2094,7 @@ class Component extends DCLogic {
       vals.storeOn = !!st.storeOn; vals.storeToggle = () => { if (st.storeOn) this.storeSaid = null; this.setState({storeOn:!st.storeOn}); }; vals.storeArrow = st.storeOn ? '▾' : '▴';
       const cs = this.covSt, curK = this.storeKey(d), others = cs ? cs.shoots.filter(s => s.k !== curK) : [], othB = others.reduce((a, s) => a + s.bytes, 0), host = !!this.hostStore();
       const dr = this.drv, low = Component.lowSay(dr, fb);
-      vals.storeLine = Component.storeLine([{t:'in memory', b:held, of}, {t:'saved', b:cs && cs.ok ? cs.bytes : null}, {t:'drive', free:dr ? dr.free : null}], fb) + (low ? ' · under 20% free' : ''); vals.storeFg = (of && held > of) || low ? '#FFD27A' : '#B8B3AB'; vals.storeBg = st.storeOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)';
+      vals.storeLine = Component.storeShort(Component.storeLine([{t:'in memory', b:held, of}, {t:'saved', b:cs && cs.ok ? cs.bytes : null}, {t:'drive', free:dr ? dr.free : null}], fb) + (low ? ' · under 20% free' : ''), st.vw); vals.storeFg = (of && held > of) || low ? '#FFD27A' : '#B8B3AB'; vals.storeBg = st.storeOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)';
       const btn = (id, t, tip, on, go) => ({id, t, tip, off:!on, op:on ? 1 : 0.45, cur:on ? 'pointer' : 'default', go:on ? go : () => {}});
       vals.storeRows = st.storeOn ? [{k:'frames', t:'Frames in memory', fig:fb(held) + (of ? ' of ' + fb(of) : ''), figC:of && held > of ? '#FFD27A' : '#B8B3AB',
         sub:'Frames of the clips you skim. Far ones give theirs up on their own at the limit; frames come back for the clips you go to.',
