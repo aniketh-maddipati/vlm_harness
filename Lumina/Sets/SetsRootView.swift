@@ -101,7 +101,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                         self.reopen(last.id)
                     }
                     // Skim reloads in place: the open shoot comes back after the page does.
-                    if page == .skim { hotReload?.reloadPage = { [weak self] in self?.reloadSkimKeeping(note: "Updated to the latest") } }
+                    if page == .skim {
+                        hotReload?.reloadPage = { [weak self] in self?.reloadSkimKeeping(note: "Updated to the latest") }
+                        keepSkimAcrossRelaunch()
+                    }
                 }
                 #endif
             } catch {
@@ -250,6 +253,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        #if DEBUG
+        if skimRestoring { skimRestoring = false; raiseSkimCurtain(nil) }
+        #endif
         guard SetsPage.current == .skim, skimCurtain != nil else { return }
         guard skimKept != nil, skimURLs != nil else { lowerSkimCurtain(); return }
         reopenSkimShoot(tries: 0)
@@ -277,6 +283,59 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         }
         skimReopenURLs = urls
     }
+
+    #if DEBUG
+    /// Set at launch when the last run left its shoot behind (`keepSkimAcrossRelaunch`): the first load reopens it.
+    private var skimRestoring = false
+    private var skimTermSource: DispatchSourceSignal?
+    private static var skimKeptFile: URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("skim-kept.json")
+    }
+
+    /// The hot build relaunches the app with SIGTERM after a Swift change (Scripts/dev.sh). The open shoot is
+    /// written down first (the kept marks and view, and bookmarks to the clips chosen), and the next launch, within
+    /// 10 minutes, opens the same clips and puts it back, as ⌘R does. A Quit from the menu starts clean.
+    private func keepSkimAcrossRelaunch() {
+        signal(SIGTERM, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        source.setEventHandler { [weak self] in MainActor.assumeIsolated { self?.saveSkimAndExit() } }
+        source.resume()
+        skimTermSource = source
+        guard let file = Self.skimKeptFile, let data = try? Data(contentsOf: file) else { return }
+        try? FileManager.default.removeItem(at: file)
+        guard let saved = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let kept = saved["kept"] as? String,
+              let at = saved["at"] as? Double, Date().timeIntervalSince1970 - at < 600, let marks = saved["bookmarks"] as? [String] else { return }
+        let urls: [URL] = marks.compactMap { b in
+            var stale = false
+            guard let d = Data(base64Encoded: b), let u = try? URL(resolvingBookmarkData: d, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+            _ = u.startAccessingSecurityScopedResource()
+            return u
+        }
+        guard !urls.isEmpty else { return }
+        LuminaLog.app.notice("skim: reopening the shoot the last run left")
+        skimURLs = urls
+        skimKept = kept
+        skimNote = "Picked up where you were"
+        skimRestoring = true
+    }
+
+    /// SIGTERM: the open shoot to disk, then exit. At most 1.5 s; dev.sh waits 5 s before a kill -9.
+    private func saveSkimAndExit() {
+        guard let webView, let urls = skimURLs, let file = Self.skimKeptFile else { exit(0) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { exit(0) }
+        webView.evaluateJavaScript("window.luminaSkimKeep ? luminaSkimKeep.take() : null") { kept, _ in
+            MainActor.assumeIsolated {
+                if let kept = kept as? String, !kept.contains("\"dropped\":true") {
+                    let marks = urls.compactMap { try? $0.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil).base64EncodedString() }
+                    if let data = try? JSONSerialization.data(withJSONObject: ["kept": kept, "at": Date().timeIntervalSince1970, "bookmarks": marks] as [String: Any]) {
+                        try? data.write(to: file, options: .atomic)
+                    }
+                }
+                exit(0)
+            }
+        }
+    }
+    #endif
 
     /// Looks every 100 ms until the page says the shoot is back.
     private func waitForSkimShoot(tries: Int) {
