@@ -97,7 +97,7 @@ test('no cut clips: nothing to list', () => {
 });
 
 test('Export starts on selected plus maybes, and that option is unchanged in what it produces', () => {
-  const m = /ex:\{event:'',kw:'maybe',maybes:(true|false),all:(true|false),root:''\}/.exec(src);
+  const m = /ex:\{event:'',kw:'maybe',maybes:(true|false),all:(true|false),root:''[,}]/.exec(src);
   assert.ok(m, 'the export defaults are in the page state');
   assert.deepEqual([m[1], m[2]], ['true', 'false']);
   const fx = fixture(), { fn } = loadBuildX();
@@ -117,5 +117,6 @@ test('the Export screen says selected / maybe / cut and nothing else for the mar
   assert.doesNotMatch(shown, /\b(keep|kept|keepers?|reject\w*|flag\w*)\b/i);
   assert.match(shown, /Clip files are never changed\./);
   assert.match(shown, /The page cannot delete files; delete these in Finder\./);
-  assert.doesNotMatch(shown, /send to Final Cut|opens? in Final Cut/i);
+  // Open in Final Cut is the app's own step now (skimOpenInFinalCut); the page still never says it sends anything.
+  assert.doesNotMatch(shown, /send to Final Cut/i);
 });
