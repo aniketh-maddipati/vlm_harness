@@ -66,6 +66,16 @@ test('the page wires the dock in: one block above the key bar, the keys, the mar
   assert.match(page, /Object\.assign\(vals, this\.dockVals\(vals\)\);/);
 });
 
+test('the first K changes no layout: the Viewer keeps the slim strip height while it is empty, the grid keeps the marked clip', () => {
+  // A dock that grew from one line to a strip on the first K shrank the Viewer's picture, and the chapter's next clip
+  // came in beside it. Under the grid the reflow put another tile under a still pointer, which took the current clip.
+  assert.match(src, /return this\.dockIds\(\)\.length \|\| this\.dockSlim\(\) \? this\.dockPh\(\)/);
+  assert.match(src, /out\.dockFull = L\.length > 0 \|\| this\.dockSlim\(\); out\.dockHold = !L\.length;/);
+  assert.equal((src.match(/data-lumina="dock-hold"/g) || []).length, 1);
+  const dm = src.slice(src.indexOf('  doMark(ids, m) {'), src.indexOf('  propose(t, fn) {'));
+  assert.match(dm, /this\.kbAt = Date\.now\(\);/);
+});
+
 test('neutral words: the dock says selected, never a verdict', () => {
   const i = src.indexOf('  // The dock: every selected clip'), j = src.indexOf('  clipKey(c) {');
   const block = src.slice(i, j);

@@ -497,6 +497,7 @@ button:focus:not(:focus-visible){outline:none}
     <div style="display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden"><span style="flex:none;color:{{ dockHeadC }};font-weight:600">Selected</span><span data-lumina="dock-sum" style="min-width:0;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ dockSum }}</span></div>
     <sc-if value="{{ dockFull }}" hint-placeholder-val="{{ true }}">
     <div data-lumina="dock-row" style="display:flex;align-items:flex-start;overflow-x:auto;overflow-y:hidden;padding:3px 3px 4px;margin:-3px">
+      <sc-if value="{{ dockHold }}" hint-placeholder-val="{{ false }}"><div data-lumina="dock-hold" aria-hidden="true" style="flex:none;width:{{ dockW }}px;min-height:44px;box-sizing:border-box;padding:4px"><div style="height:{{ dockPh }}px;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.12)"></div></div></sc-if>
       <sc-for list="{{ dock }}" as="dt" hint-placeholder-count="6">
         <button type="button" data-dock="{{ dt.id }}" tabIndex="-1" aria-label="{{ dt.tip }}" title="{{ dt.tip }}" onClick="{{ dockClick }}" onDoubleClick="{{ dockDbl }}" style="flex:none;width:{{ dockW }}px;min-height:44px;margin:0 0 0 {{ dt.ml }}px;display:flex;flex-direction:column;gap:4px;padding:4px;border:none;border-radius:7px;outline:{{ dt.out }};outline-offset:0;background:{{ dt.bg }};color:inherit;font:inherit;text-align:left;cursor:pointer;-webkit-appearance:none;appearance:none" style-hover="background:rgba(239,236,230,0.06)">
           <div style="position:relative;height:{{ dockPh }}px;border-radius:3px;overflow:hidden;background:#2A2826">
@@ -1532,6 +1533,9 @@ class Component extends DCLogic {
     ids.forEach(id => { prev[id] = st.marks[id] || null; if (m) marks[id] = m; else delete marks[id]; });
     const step = {k:'mark', ids, prev, next:m};
     this.lastMark = {step, at:Date.now()};
+    // the first selection brings the dock up and the grid reflows under a pointer that has not moved: the tile that
+    // lands under it must not take the place of the clip just marked
+    this.kbAt = Date.now();
     this.setState({marks, undo:[...st.undo, step], redo:[]});
     this.api('mark', ids, m);
   }
@@ -2254,7 +2258,9 @@ class Component extends DCLogic {
   dockSlim() { return this.state.lv >= 2; }
   dockPh() { const vh = this.state.vh; return this.dockSlim() ? 54 : vh >= 860 ? 150 : vh >= 700 ? 120 : 84; }
   // The height the dock takes from the window (the Viewer and the scene fit leave it room).
-  dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; return this.dockIds().length ? this.dockPh() + (this.dockSlim() ? 49 : 68) : 35; }
+  // In the Viewer the slim strip keeps its height while it is empty, so the first K does not shrink the picture
+  // (a smaller picture let the chapter's neighbours in beside it, which read as K opening the next clip).
+  dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; return this.dockIds().length || this.dockSlim() ? this.dockPh() + (this.dockSlim() ? 49 : 68) : 35; }
   dockIds() { const C = this.d ? this.d.clips : [], m = this.state.marks; return C.filter(c => m[c.id] === 'keep').map(c => c.id); }
   // While the dock has focus it follows the clip you are on when that clip is selected (an undo can move you).
   dockFoc() { const st = this.state, ok = id => id && this.byId && this.byId[id] && st.marks[id] === 'keep'; return st.step === 'skim' && ok(st.dk) ? (ok(st.cur) ? st.cur : st.dk) : null; }
@@ -2305,12 +2311,12 @@ class Component extends DCLogic {
     return false;
   }
   dockVals(v) {
-    const st = this.state, d = this.d, MK = Component.MK, out = {dockOn:false, dockFull:false, dock:[], dockSum:'', dockLine:'rgba(239,236,230,0.08)', dockHeadC:'#B8B3AB', dockW:0, dockPh:0, dockClick:this.dockClick, dockDbl:this.dockDbl};
+    const st = this.state, d = this.d, MK = Component.MK, out = {dockOn:false, dockFull:false, dockHold:false, dock:[], dockSum:'', dockLine:'rgba(239,236,230,0.08)', dockHeadC:'#B8B3AB', dockW:0, dockPh:0, dockClick:this.dockClick, dockDbl:this.dockDbl};
     if (!v.isSkim || !d || !d.clips.length) return out;
     const L = Component.dockList(d.clips.map(c => ({id:c.id, g:st.cv && this.scOf && this.scOf[c.id] != null ? this.scOf[c.id] : this.gOfAll[c.id]})), st.marks), foc = this.dockFoc();
     const ph = this.dockPh(), slot = this.dockSl || (this.dockSl = {}), nm = c => c.name.replace(/\.\w+$/, '');
     const ids = L.map(x => x.id), dur = ids.reduce((a, id) => a + (this.byId[id].dur || 0), 0);
-    out.dockOn = true; out.dockFull = L.length > 0; out.dockPh = ph; out.dockW = Math.round(ph * 16 / 9) + 8; out.dockText = !this.dockSlim();
+    out.dockOn = true; out.dockFull = L.length > 0 || this.dockSlim(); out.dockHold = !L.length; out.dockPh = ph; out.dockW = Math.round(ph * 16 / 9) + 8; out.dockText = !this.dockSlim();
     out.dockSum = L.length ? this.plural(L.length, 'clip') + ' · ' + this.fmtDur(dur) + ' · ' + this.fmtB(this.bytesOf(ids)) : 'nothing yet · K selects the clip you are on';
     out.dockLine = foc ? 'rgba(255,210,122,0.5)' : 'rgba(239,236,230,0.08)'; out.dockHeadC = foc ? '#FFD27A' : L.length ? '#EFECE6' : '#9A958D';
     out.dock = L.map(x => {
