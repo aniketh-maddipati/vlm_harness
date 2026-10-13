@@ -71,7 +71,18 @@ step "5. wording + demo-layer audit (report only; fixes go to the design)"
 python3 Tests/probe/design_audit.py "$NEW/$PAGE"
 
 step "6. install"
-rsync -a --delete --exclude '._*' "$NEW/" "$DEST/"
+# No --delete: the authority docs from earlier handoffs (PROMPT, ADDENDUM-1, PARITY, MENUS, …) stay
+# until a handoff replaces them. uploads/ (the sample shoot's photos) and screenshots/ stay out of
+# the repo (personal data, AGENTS.md): they go to ~/LuminaEvidence/design for the prototype runs.
+rsync -a --exclude '._*' --exclude 'uploads/' --exclude 'screenshots/' "$NEW/" "$DEST/"
+for d in uploads screenshots; do
+  [[ -d "$NEW/$d" ]] && { mkdir -p "$HOME/LuminaEvidence/design/$d"; rsync -a --delete --exclude '._*' "$NEW/$d/" "$HOME/LuminaEvidence/design/$d/"; }
+done
+# A page from an earlier handoff (renamed since) must not linger next to the new one.
+for f in "$DEST"/*.dc.html; do
+  keep=0; for p in "${PAGE_FILES[@]}"; do [[ $(basename "$f") == "$p" ]] && keep=1; done
+  [[ $keep == 1 || $(basename "$f") != Lumina\ Sets\ * && $(basename "$f") != Lumina\ Edit\ * ]] || { git rm -q --cached "$f" 2>/dev/null || true; rm -f "$f"; echo "removed stale $(basename "$f")"; }
+done
 bash Scripts/sets_sync_ui.sh
 
 step "7. plumbing contract + app suites"

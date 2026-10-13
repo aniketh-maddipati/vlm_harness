@@ -16,7 +16,7 @@
 #   ASC_KEY_ID, ASC_ISSUER_ID an App Store Connect API key; the .p8 in ~/.appstoreconnect/private_keys  (store)
 #
 # LUMINA_UI=sets (default: the design page in a WKWebView, needs the network.client entitlement to
-# start in a sandbox) or LUMINA_UI=native (the SwiftUI app: no network entitlement at all).
+# start in a sandbox) or LUMINA_UI=native (no network entitlement; its SwiftUI UI is gone, so the page won't load).
 #
 # Output: build/release/<version>-<build>/ (ignored by git). VERSION=1.0.1 overrides the xcconfig.
 # A notarised dmg is also copied, with its checksum and archive, to ~/Desktop/Lumina Releases/<version>-<build>/

@@ -28,6 +28,13 @@ const STATE = `(() => { const l = (${LOGIC})(), seen = new WeakSet();
     if (v && typeof v === 'object') { if (v.nodeType || v instanceof Blob || ('current' in v && Object.keys(v).length === 1)) return undefined; if (seen.has(v)) return undefined; seen.add(v); } return v; })),
     order: l.data ? l.data.order.length : 0, real: !!l.real }; })()`;
 
+// As the Mac probe's snapshots (probe.js meterMask): the header's working-files meter is hidden while
+// a snapshot is taken; what it shows depends on the moment (a 1 s total, 360 ms fades).
+const shot = async page => {
+  await page.evaluate(css => { const el = document.createElement('style'); el.id = '__probe-meter-mask'; el.textContent = css; document.head.appendChild(el); }, '[data-lumina="cache-pill"] { width: 140px !important; box-sizing: border-box !important; overflow: hidden !important; color: transparent !important; } [data-lumina="cache-pill"] * { visibility: hidden !important; color: transparent !important; }');
+  try { return await page.screenshot(); } finally { await page.evaluate(() => { const el = document.getElementById('__probe-meter-mask'); if (el) el.remove(); }); }
+};
+
 async function run(browser, spec, app, dir) {
   fs.mkdirSync(dir, { recursive: true });
   const clockBase = spec.clock ? new Date(spec.clock).getTime() : undefined;
@@ -41,9 +48,9 @@ async function run(browser, spec, app, dir) {
         case 'wait': await page.waitForTimeout(s.ms || 100); break;
         case 'key': for (let t = 0; t < (s.times || 1); t++) await page.keyboard.press(combo(s)); await page.waitForTimeout(s.settleMs ?? 60); break;
         case 'hold': await page.keyboard.down(KEY(s.k)); await page.waitForTimeout(s.ms || 400);
-          if (s.snap) { const b = await page.screenshot(); fs.writeFileSync(path.join(dir, s.snap + '.png'), b); out.snaps[s.snap] = b; }
+          if (s.snap) { const b = await shot(page); fs.writeFileSync(path.join(dir, s.snap + '.png'), b); out.snaps[s.snap] = b; }
           await page.keyboard.up(KEY(s.k)); await page.waitForTimeout(60); break;
-        case 'snap': { const b = await page.screenshot(); fs.writeFileSync(path.join(dir, s.name + '.png'), b); out.snaps[s.name] = b; break; }
+        case 'snap': { const b = await shot(page); fs.writeFileSync(path.join(dir, s.name + '.png'), b); out.snaps[s.name] = b; break; }
         case 'state': { const st = await page.evaluate(STATE); fs.writeFileSync(path.join(dir, s.name + '.state.json'), JSON.stringify(st, null, 1)); out.states[s.name] = st; break; }
         case 'js': await page.evaluate(src => (new Function(src))(), s.src); break;
         case 'expect': { const got = await page.evaluate(src => (new Function(src))(), s.js);
