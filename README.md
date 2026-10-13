@@ -41,6 +41,12 @@ Open ──▶ Skim ──▶ Export
 | **Skim** | Mark each clip **keep** (K), **maybe** (M) or **cut** (C or X) | Three levels: chapters (split at long gaps), takes, and one clip. Eight frames per clip and a Viewer to play it. Measures exposure, clipped and crushed areas, sharpness and camera motion. A Rec.709 preview for S-Log3 clips | Nothing |
 | **Export** | Send the keepers to Final Cut Pro | An `.fcpxml` with your marks as ratings. In the app: the drive's free space, and moving cut clips to the Trash | An `.fcpxml`; the Trash only when you ask |
 
+| Skim, with clips marked and sorted into docks | The Viewer, with a clip's measures | Export for Final Cut |
+|---|---|---|
+| ![Skim with clips marked](docs/screenshots/skim-marked.jpg) | ![The Viewer](docs/screenshots/skim-viewer.jpg) | ![Export](docs/screenshots/skim-export.jpg) |
+
+Screenshots are from the web preview, on 20-second copies of the T7 clips below.
+
 ### Trying it on the T7 clips
 
 Seven a7S III clips sit at the root of the T7 drive:
