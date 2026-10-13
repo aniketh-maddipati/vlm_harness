@@ -994,7 +994,7 @@ class Component extends DCLogic {
 
   // facts
   prof(c) {
-    if (c.profile && c.profile.gamma) return {g:c.profile.gamma, p:c.profile.primaries, src:c.profile.source === 'sidecar' ? 'from the clip\'s sidecar' : c.profile.source === 'you' ? 'as you set it' : 'from the file'};
+    if (c.profile && c.profile.gamma) return {g:c.profile.gamma, p:c.profile.primaries, src:c.profile.source === 'sidecar' ? 'from the clip\'s sidecar' : c.profile.source === 'you' ? 'as you set it' : c.profile.source === 'picture' ? 'sensed from its picture' : 'from the file'};
     return null;
   }
   pvFlt(c) { const p = this.prof(c); return p && p.g === 'S-Log3' ? 'url(#lumina-slog3)' : 'contrast(1.35) saturate(1.45) brightness(0.96)'; }
@@ -2505,7 +2505,7 @@ class Component extends DCLogic {
     const o = this.sonyMeta(tx, src);
     // No Sony metadata: the rate and the capture time from the file's own header. A clip picked from Photos on an iPhone or
     // from Android's picker carries the time it was picked as its date, not the time it was shot.
-    if (!o.fd || !o.t) { try { const mv = await this.fileMoov(f); if (mv) { const r = !o.fd && Component.moovRate(mv); if (r) { o.fd = r; if (!o.fps) o.fps = Math.round(r[1] / r[0]); } if (!o.t) { const w = Component.moovTime(mv); if (w) o.t = w.local || this.iso(w.utc); } } } catch (x) {} }
+    if (!o.fd || !o.t || !o.prof.gamma) { try { const mv = await this.fileMoov(f); if (mv) { if (!o.prof.gamma && Component.moovTransfer(mv) === 18) o.prof = {gamma:'HLG', primaries:'Rec.2020', source:'file'}; const r = !o.fd && Component.moovRate(mv); if (r) { o.fd = r; if (!o.fps) o.fps = Math.round(r[1] / r[0]); } if (!o.t) { const w = Component.moovTime(mv); if (w) o.t = w.local || this.iso(w.utc); } } } catch (x) {} }
     return o;
   }
   // A clip with no camera metadata says its rate in its own header. 24 is not 23.98: a 24.000 clip described as 23.98
@@ -2550,6 +2550,28 @@ class Component extends DCLogic {
       }
     } catch (x) {}
     return null;
+  }
+  // The transfer the file is tagged with (the nclx colour box of its video track, ISO/IEC 23091-2): 18 is HLG, 16 is PQ,
+  // 1 is BT.709. Sony tags S-Log3 as BT.709, so only HLG is told from this; S-Log3 without its metadata is told from its picture.
+  static moovTransfer(u8) {
+    for (let o = 4; o + 14 <= u8.length; o++) if (u8[o] === 0x63 && u8[o + 1] === 0x6F && u8[o + 2] === 0x6C && u8[o + 3] === 0x72 && u8[o + 4] === 0x6E && u8[o + 5] === 0x63 && u8[o + 6] === 0x6C && u8[o + 7] === 0x78) return (u8[o + 10] << 8) | u8[o + 11];
+    return null;
+  }
+  // A log picture, as the decoder hands it over: its darkest pixels well above black, its brightest well below white,
+  // and little colour. Per frame: the 2nd and 98th percentile of luma and the mean chroma (max − min of R, G, B).
+  // S-Log3 puts black at code 95 of 1023 (0.035 once the video range is spread), 18 % grey at 0.41 and 90 % white at 0.61.
+  static rawSpread(img) {
+    const D = img.data, H = new Uint32Array(256); let sat = 0, n = 0;
+    for (let i = 0; i < D.length; i += 8) { const r = D[i], g = D[i + 1], b = D[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b); H[Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)]++; sat += (mx - mn) / 255; n++; }
+    const at = q => { let k = 0; for (let v = 0; v < 256; v++) { k += H[v]; if (k >= q * n) return v / 255; } return 1; };
+    return {p2:at(0.02), p98:at(0.98), sat:n ? sat / n : 0};
+  }
+  // Log when the frames read so far read so: every one of them while there are fewer than four (the first pass reads
+  // the cover alone), three in four after that, so a black frame or a blown sky in one frame does not undo it.
+  static looksLog(list) {
+    const L = (list || []).filter(Boolean); if (!L.length) return false;
+    const ok = L.filter(f => f.p2 >= 0.03 && f.p98 <= 0.85 && f.p98 - f.p2 >= 0.08 && f.sat <= 0.15).length;
+    return L.length < 4 ? ok === L.length : ok >= Math.ceil(L.length * 0.75);
   }
   // Finds the moov box by its headers (16 bytes read per box, the picture data is skipped) and reads it, 8 MB at most.
   async fileRate(f) { const mv = await this.fileMoov(f); return mv ? Component.moovRate(mv) : null; }
@@ -2852,10 +2874,12 @@ class Component extends DCLogic {
           // still dark then is what the clip holds (a black clip is a clip: it gets its cover and reads as dark).
           let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!Component.lookAgain(this.blank(im), c._dark ? 2 : k)) break; await new Promise(r => setTimeout(r, 120 + k * 160)); }
           if (this.blank(im)) c._dark = true;   // a clip known to hold dark frames is not looked at three times for each
+          if (!this.prof(c)) (c._raw || (c._raw = {}))[i] = Component.rawSpread(im);
           const fb = await this.frameBlob(cv); this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
           this.bump();
         }
         if (px.length) this.noteSpeed((performance.now() - t0) / px.length); c.facts = this.factsAll(c); c.why = null; c.tries = 0;
+        if (!this.prof(c) && c._raw && Component.looksLog(Object.values(c._raw))) { c.profile = {gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'picture'}; this.remeasure([c]); }
       } catch (x) { if (x !== 'stopped') { c.why = document.hidden || this.wasHidden ? 'hidden' : typeof x === 'string' ? x : 'error'; this.wasHidden = false; if (c.facts.state === 'pending') c.facts = {state:'unreliable'}; } }
       URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {} this.vOpen--; this.reading.delete(c.id); this.readMs = performance.now() - t0;
       this.bump(); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);

@@ -246,3 +246,30 @@ test('a sensed profile can be overridden per clip, and a click on the sensed one
   p.overrideProfile('none');
   assert.equal(a.profile.gamma, 'none'); assert.equal(b.profile.gamma, 'none');
 });
+
+// Sensing a profile when the clip carries no Sony metadata: HLG from the file's colour tag, S-Log3 from its picture.
+function staticMethod(name){ const body = method('static ' + name); return body; }
+const Sense = new Function('return class Component {\n' + ['moovTransfer', 'rawSpread', 'looksLog'].map(staticMethod).join('\n') + '\n}')();
+const frame = (lo, hi, sat) => { const W = 64, H = 36, D = new Uint8ClampedArray(W * H * 4);
+  for (let i = 0; i < W * H; i++) { const y = (lo + (hi - lo) * (i % W) / (W - 1)) * 255, c = y * sat; D[i * 4] = y; D[i * 4 + 1] = y - c; D[i * 4 + 2] = y - c; D[i * 4 + 3] = 255; }
+  return { data:D, width:W, height:H }; };
+
+test('the colour tag: HLG is transfer 18 in the nclx box, anything else is not told from it', () => {
+  const box = tr => Uint8Array.from([0, 0, 0, 19, ...Buffer.from('colrnclx'), 0, 9, 0, tr, 0, 9, 0]);
+  assert.equal(Sense.moovTransfer(box(18)), 18);
+  assert.equal(Sense.moovTransfer(box(1)), 1);
+  assert.equal(Sense.moovTransfer(Uint8Array.from(Buffer.from('moov....trak....nothing here'))), null);
+});
+
+test('the picture: a flat, pale, grey-ish clip reads as log; a full-range or a dark clip does not', () => {
+  const log = [0, 1, 2, 3].map(() => Sense.rawSpread(frame(0.09, 0.66, 0.12)));
+  const rec = [0, 1, 2, 3].map(() => Sense.rawSpread(frame(0.0, 1.0, 0.4)));
+  const dark = [0, 1, 2, 3].map(() => Sense.rawSpread(frame(0.0, 0.02, 0)));
+  assert.equal(Sense.looksLog(log), true);
+  assert.equal(Sense.looksLog(rec), false);
+  assert.equal(Sense.looksLog(dark), false);
+  assert.equal(Sense.looksLog(log.slice(0, 1)), true, 'the cover alone decides until more frames are read');
+  assert.equal(Sense.looksLog([log[0], rec[0]]), false, 'with fewer than four frames, every one must agree');
+  assert.equal(Sense.looksLog([]), false);
+  assert.equal(Sense.looksLog([...log.slice(0, 3), rec[0]]), true, 'one odd frame does not undo it');
+});
