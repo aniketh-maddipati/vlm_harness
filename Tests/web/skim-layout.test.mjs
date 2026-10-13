@@ -143,11 +143,11 @@ const pageSrc = fs.readFileSync(PAGE, 'utf8');
 const viewPlan = new Function('return function ' + extractMethod(pageSrc, 'viewPlan', 'static viewPlan(vw, vh) {').replace(/^static /, ''))();
 const room = (vw, vh) => { const p = viewPlan(vw, vh); return [p.W, p.H]; };
 
-test('Viewer: the current clip keeps its full size when a neighbour fits beside it, and 88% of it at least otherwise', () => {
+test('Viewer: the current clip always keeps its full size; neighbours only take room left beside it', () => {
   for (const [vw, vh] of [[720, 900], [800, 600], [1024, 640], [1180, 760], [1280, 800], [1440, 900], [1512, 982], [1728, 1117], [1920, 1080], [2560, 1440], [3008, 1692], [3440, 1440]])
     for (const n of [1, 2, 3, 5, 9]) {
       const [W, H] = room(vw, vh), alone = Math.floor(Math.min(W, Math.max(160, H) * 16 / 9)), f = rowFit(n, W, H);
-      assert.ok(f.wc >= Math.floor(alone * 0.88) - 1, `${vw}x${vh}, ${n} clips: ${f.wc} of ${alone}`);
+      assert.equal(f.wc, alone, `${vw}x${vh}, ${n} clips: ${f.wc} of ${alone}`);
       assert.ok(f.wc <= alone, 'never taller than the room');
       assert.ok(f.wc + (f.k - 1) * (f.wo + f.gap) <= W, `${vw}x${vh}, ${n} clips: the row fits the width`);
       assert.ok(f.k >= 1 && f.k <= Math.min(n, 7));
@@ -178,7 +178,7 @@ test('Viewer in a narrow window: the facts go under the picture when that makes 
   // wide enough, or too short for it to help: beside it, as before
   for (const [vw, vh] of [[1024, 640], [1180, 760], [1280, 800], [1440, 900], [1920, 1080], [2560, 1440], [800, 600]]) { assert.equal(viewPlan(vw, vh).stack, false, vw + 'x' + vh); assert.equal(viewPlan(vw, vh).cols, 'minmax(0,1fr) minmax(240px,300px)'); }
   assert.equal(pic(800, 600), 391, 'a short window is limited by its height either way');
-  assert.equal(pic(1440, 900), 851);
+  assert.equal(pic(1440, 900), 924, 'full size: no neighbour takes width from it');
   // under the picture, 100 px of height are kept for the name and the mark buttons
   assert.equal(viewPlan(720, 900).H, 900 - 480); assert.equal(viewPlan(1440, 900).H, 900 - 380);
   // never smaller than it would be beside the facts

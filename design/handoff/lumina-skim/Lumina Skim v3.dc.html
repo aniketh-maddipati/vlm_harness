@@ -1983,12 +1983,10 @@ class Component extends DCLogic {
   }
   // How the chapter's clips share the canvas. The clip you are on comes first: it takes what the height allows
   // (16:9). Its neighbours share the width beside it, as many as fit at 160 px and a fifth of it at least, none
-  // wider than half of it. Only when not even one fits does it give up width, 12% at most, for neighbours at
-  // that least size. With no room even then, it is alone.
+  // wider than half of it. It never gives up size for them: with no room beside it, it is alone.
   rowFit(n, W, H) {
-    const gap = 12, keep = 0.88, cap = Math.max(160, H) * 16 / 9, alone = Math.floor(Math.min(W, cap)), minO = Math.ceil(Math.max(160, alone * 0.2));
+    const gap = 12, cap = Math.max(160, H) * 16 / 9, alone = Math.floor(Math.min(W, cap)), minO = Math.ceil(Math.max(160, alone * 0.2));
     for (let k = Math.min(n, 7); k >= 2; k--) { const wo = Math.floor(Math.min(alone * 0.5, (W - (k - 1) * gap - alone) / (k - 1))); if (wo >= minO) return {k, wc:alone, wo, gap}; }
-    for (let k = Math.min(n, 7); k >= 2; k--) { const wc = Math.floor(W - (k - 1) * (gap + minO)); if (wc >= alone * keep) return {k, wc:Math.min(alone, wc), wo:minO, gap}; }
     return {k:1, wc:alone, wo:0, gap};
   }
   viewTap = () => { const st = this.state; if (st.held && st.cur) { this.heldTapped = true; this.doMark([st.cur], st.held); } };
