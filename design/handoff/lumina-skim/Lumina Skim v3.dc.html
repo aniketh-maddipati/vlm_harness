@@ -1052,7 +1052,7 @@ class Component extends DCLogic {
     // measures from fewer frames than the clip will have are shown, quietly, and say how many frames they are from
     let pv = f.prov ? f.n || 1 : 0;
     if (f.state !== 'unreliable') {
-      add('clip', this.pct(f.clip) + ' clipped', 90 + f.clip, f.clip >= 1);
+      // no clipped chip: the share of pure white is read on the Rec.709 preview, and an S-Log3 clip keeps highlights the preview has lost
       add('ev', (f.ev > 0 ? '+' : '−') + Math.abs(f.ev).toFixed(1) + ' stops', 70 + Math.abs(f.ev) * 5, Math.abs(f.ev) >= 1);   // a stop or more from the middle: ordinary daylight sits at +0.5 to +0.8 in Final Cut's own Rec.709
       add('soft', 'soft', 76, f.sharp < 0.35);
       add('motion', f.motion, 66, !!f.motion);
@@ -1435,10 +1435,10 @@ class Component extends DCLogic {
     const all = ids.every(id => st.sel.indexOf(id) >= 0) && st.sel.length === ids.length; this.kbAt = Date.now(); this.setState({sel:all ? [] : ids, cur:ids[0], box:null});
   };
   // What a tile says about the clips in it: the words of their notes, in a fixed order, image trouble first.
-  static NOTE = ['can’t read', 'clipped', 'dark', 'bright', 'soft', 'crushed', 'motion', 'bump', 'other rate', 'no profile', 'no sidecar'];
+  static NOTE = ['can’t read', 'dark', 'bright', 'soft', 'crushed', 'motion', 'bump', 'other rate', 'no profile', 'no sidecar'];
   cvNotes(c) {
     const f = c.facts || {}, ch = this.chips(c); if (ch.pending) return {pending:true, notes:[]};
-    const W = {clip:'clipped', ev:f.ev > 0 ? 'bright' : 'dark', soft:'soft', motion:'motion', bump:'bump', crush:'crushed', rate:'other rate', profile:'no profile', sidecar:'no sidecar'};
+    const W = {ev:f.ev > 0 ? 'bright' : 'dark', soft:'soft', motion:'motion', bump:'bump', crush:'crushed', rate:'other rate', profile:'no profile', sidecar:'no sidecar'};
     const notes = ch.list.filter(x => !x.dis).map(x => W[x.key] || x.t); if (f.state === 'unreliable') notes.unshift('can’t read');
     return {pending:false, notes};
   }
@@ -2195,7 +2195,6 @@ class Component extends DCLogic {
       else if (f.state === 'unreliable') facts.push({k:'measures', v:'couldn\'t be read for this clip', c:'#9A958D'});
       else {
         facts.push({k:'exposure', v:(f.ev > 0 ? '+' : f.ev < 0 ? '−' : '') + Math.abs(f.ev).toFixed(1) + ' stops' + dsx('ev')});
-        facts.push({k:'clipped', v:this.pct(f.clip) + dsx('clip')});
         facts.push({k:'crushed', v:this.pct(f.crush) + dsx('crush')});
         facts.push({k:'sharpness', v:(f.sharp < 0.35 ? 'soft' : 'sharp') + ' · ' + f.sharp.toFixed(2) + (f.n ? f.n === 1 ? ' · one frame' : ' · lowest of ' + f.n + ' frames' : '') + dsx('soft')});
         facts.push({k:'motion', v:(f.motion || (f.n && f.n < 3 ? '—' : 'steady')) + dsx('motion')});
