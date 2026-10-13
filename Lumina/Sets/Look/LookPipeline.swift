@@ -54,7 +54,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// `cacheIntermediates: false` and a memory target are what export uses (roadmap §7); previews
     /// keep the defaults. `device` pins the context to one Metal device (the canvas shares it
     /// with its textures); nil takes the system default.
-    init(rules: LookRules, cacheIntermediates: Bool = true, memoryLimitMB: Int = 0, softwareRenderer: Bool = false, device: MTLDevice? = nil) throws {
+    /// `lowPriority`: the context's renders yield the GPU to others on the device (the neighbours'
+    /// bases, so a develop in flight never holds a frame of the canvas back).
+    init(rules: LookRules, cacheIntermediates: Bool = true, memoryLimitMB: Int = 0, softwareRenderer: Bool = false, device: MTLDevice? = nil, lowPriority: Bool = false) throws {
         try rules.validate()
         self.rules = rules
         guard let ws = Self.colorSpace(named: rules.workingSpace) else { throw Failure("unknown working space \(rules.workingSpace)") }
@@ -67,6 +69,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         ]
         if memoryLimitMB > 0 { opts[CIContextOption(rawValue: "kCIContextMemoryTarget")] = memoryLimitMB << 20 }
         if softwareRenderer { opts[.useSoftwareRenderer] = true }
+        if lowPriority { opts[.priorityRequestLow] = true }
         if softwareRenderer {
             context = CIContext(options: opts)
             self.device = nil
