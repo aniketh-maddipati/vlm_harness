@@ -16,7 +16,7 @@ SITE="${1:-$ROOT/dist/site-stills}"
 mkdir -p "$SITE/vendor"
 for f in "${PAGE_FILES[@]}"; do [[ "$f" == "$PAGE" ]] || cp "$SRC/$f" "$SITE/$f"; done
 cp "$ROOT/design/handoff/vendor/"*.js "$SITE/vendor/"
-BUILD="$(git -C "$ROOT" rev-parse --short HEAD)"
+BUILD="${LUMINA_BUILD:-$(git -C "$ROOT" rev-parse --short HEAD)}"
 python3 - "$SRC/$PAGE" "$SITE/index.html" "$BUILD" <<'PY'
 import json, os, sys
 src, out, build = sys.argv[1:4]
