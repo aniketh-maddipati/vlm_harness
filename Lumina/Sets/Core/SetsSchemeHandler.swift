@@ -5,7 +5,9 @@ import WebKit
 /// Serves the page from local files under `lumina://`. Nothing loads from the network.
 ///
 /// - `lumina://app/<file>`     the design's page files, byte-identical
-/// - `lumina://vendor/<file>`  React / Babel (support.js asks for them via `window.__resources`)
+/// - `lumina://vendor/<file>`  React and React DOM (support.js asks for them via `window.__resources`).
+///   Not Babel: support.js loads it only for an `<x-import>` of a .jsx/.tsx file, which no page file
+///   has (Scripts/sets_sync_ui.sh refuses a sync that adds one), so its 3 MB stay out of the bundle.
 /// - `lumina://app/media/{head,preview,thumb}?p=<folder/file>&o=&l=&ori=`  the opened folder's
 ///   photos, read natively by byte range (SetsIngest). Same origin as the page, so it can measure
 ///   them on a canvas. Never a whole RAW, never the network.
@@ -19,17 +21,22 @@ import WebKit
 ///   rendering; a bad look string 400; a file outside the opened folders 404.
 nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "lumina"
-    static let pageFile = "Lumina Sets v11.dc.html"
-    /// Edit is its own page, which support.js fetches when Sets mounts it (`<dc-import name="Lumina Edit v22">`).
-    static let editPageFile = "Lumina Edit v22.dc.html"
-    static let vendorFiles = ["react.production.min.js", "react-dom.production.min.js", "babel.min.js"]
+    static let pageFile = "Lumina Sets v12.dc.html"
+    /// Edit is its own page, which support.js fetches when Sets mounts it (`<dc-import name="Lumina Edit v23">`).
+    static let editPageFile = "Lumina Edit v23.dc.html"
+    /// The video step's page (design/handoff/lumina-skim), shown only by a Debug build run with
+    /// `LUMINA_PAGE=skim` (Scripts/dev-skim.sh): `SetsPage`. It reads clips through WebKit's own
+    /// `<video>` from a folder the user picks, with no plumbing yet. support.js is Pick's, byte for byte.
+    static let skimPageFile = "Lumina Skim v3.dc.html"
+    static let skimFiles = [skimPageFile, "lumina-video-data-mvp.js"]
+    static let vendorFiles = ["react.production.min.js", "react-dom.production.min.js"]
     /// What `lumina://app/<file>` serves. Debug builds and the probe: the same list as
     /// Scripts/page_files.sh, with the design's self-test, which the page asks for only with
     /// `?selftest` (`probe.sh selftest`). The app's Release build does not serve the self-test
     /// (S4): the file stays in the bundle, because the page files ship byte for byte, but the
     /// binary has no name for it, so `?selftest` gets "not served" and the page runs as usual.
     #if DEBUG || LUMINA_TOOLS
-    static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js", "lumina-selftest.js"]
+    static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js", "lumina-selftest.js"] + skimFiles
     #else
     static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js"]
     #endif
@@ -38,7 +45,6 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let resources: [String: String] = [
         "https://unpkg.com/react@18.3.1/umd/react.production.min.js": "\(scheme)://vendor/react.production.min.js",
         "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js": "\(scheme)://vendor/react-dom.production.min.js",
-        "https://unpkg.com/@babel/standalone@7.29.0/babel.min.js": "\(scheme)://vendor/babel.min.js",
     ]
 
     let pageRoot: URL
@@ -64,7 +70,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     static var pageURL: URL {
-        URL(string: "\(scheme)://app/\(pageFile.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)")!
+        URL(string: "\(scheme)://app/\(SetsPage.current.file.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)")!
     }
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
@@ -82,7 +88,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
             if standInPhotos, path == Self.pageFile || path == Self.editPageFile, let text = String(data: data, encoding: .utf8) {
                 data = Data(text.replacingOccurrences(of: "https://picsum.photos/", with: "\(Self.scheme)://photo/").utf8)
             }
-            respond(task, url, data, mime(path))
+            respond(task, url, data, mime(path), headers: path.hasSuffix(".html") ? SetsOffline.pageHeaders : [:])
         case "vendor":
             guard Self.vendorFiles.contains(path), let data = try? Data(contentsOf: vendorRoot.appendingPathComponent(path)) else { return fail(task) }
             respond(task, url, data, "text/javascript")
@@ -201,9 +207,9 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
         task.didFinish()
     }
 
-    private func respond(_ task: WKURLSchemeTask, _ url: URL, _ data: Data, _ mime: String) {
+    private func respond(_ task: WKURLSchemeTask, _ url: URL, _ data: Data, _ mime: String, headers: [String: String] = [:]) {
         let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1",
-                                       headerFields: ["Content-Type": mime, "Content-Length": "\(data.count)"])!
+                                       headerFields: headers.merging(["Content-Type": mime, "Content-Length": "\(data.count)"]) { $1 })!
         task.didReceive(response)
         task.didReceive(data)
         task.didFinish()
@@ -236,5 +242,62 @@ nonisolated enum StandInPhoto {
         ctx.setFillColor(sky.cgColor); ctx.fill(CGRect(x: 0, y: Int(horizon), width: w, height: h))
         guard let image = ctx.makeImage() else { return nil }
         return NSBitmapImageRep(cgImage: image).representation(using: .jpeg, properties: [.compressionFactor: 0.85])
+    }
+}
+
+/// Which design page the window shows. The app ships Pick (`Lumina Sets v11`, with Edit inside it).
+/// Skim, the video step, is shown only by a Debug build that asks for it with `LUMINA_PAGE=skim`
+/// (Scripts/dev-skim.sh, its own "Lumina Skim" dev app); Release and the probe always show Pick.
+/// Skim has no plumbing yet: no `window.__lumina`, no Edit canvas, no card watcher.
+nonisolated enum SetsPage: String, Sendable {
+    case pick, skim
+
+    static var current: SetsPage {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["LUMINA_PAGE"] == "skim" { return .skim }
+        #endif
+        return .pick
+    }
+
+    var file: String { self == .skim ? SetsSchemeHandler.skimPageFile : SetsSchemeHandler.pageFile }
+
+    /// Skim's host: the page's `lumina.video` calls, set before the page runs. `storeAll` and `storeSet`
+    /// keep its saved shoots in the app's container (`skimStore` / `skimSave`, SkimStore), so marks survive
+    /// a quit; `cover*` keep its saved covers and first measures there too (`skimCover*`, SkimCovers); `health` reads heat and memory (`skimHealth`, SkimHealth) to pace the page's reading; mark, preview and handoff have nothing native behind them yet.
+    static let skimHostScript = #"""
+    (() => {
+      const post = (op, a) => window.webkit.messageHandlers.lumina.postMessage(Object.assign({ op }, a || {}));
+      window.lumina = window.lumina || {};
+      window.lumina.video = Object.assign(window.lumina.video || {}, {
+        storeAll: () => post('skimStore'),
+        storeSet: (key, value) => post('skimSave', { key: String(key), value: value == null ? null : String(value) }),
+        health: (slowdown) => post('skimHealth', { slowdown: Number(slowdown) || 1 }),
+        coverGet: (keys) => post('skimCoverGet', { keys: (keys || []).map(String) }),
+        coverPut: (shoot, recs) => post('skimCoverPut', { shoot, recs }),
+        coverTouch: (shoot) => post('skimCoverTouch', { shoot }),
+        coverStat: () => post('skimCoverStat'),
+        coverDrop: (keys) => post('skimCoverDrop', { keys: (keys || []).map(String) }),
+        drive: () => post('skimDrive'),
+        showTrash: () => post('skimShowTrash'),
+        trashMove: (shoot, paths) => post('skimTrashMove', { shoot: String(shoot), paths: (paths || []).map(String) }),
+        trashPutBack: (shoot) => post('skimTrashPutBack', { shoot: String(shoot) }),
+        trashList: (shoot) => post('skimTrashList', { shoot: String(shoot) }),
+        mark() {}, preview() {}, handoff() {}
+      });
+    })();
+    """#
+
+    /// The menu bar takes ⌘-keys before the page sees them and hands them to `__lumina.command`,
+    /// which only Pick's plumbing provides. On Skim each comes back as the key the page already
+    /// handles, pressed on whatever has focus. Nil: the command has no key on Skim.
+    static func skimKeyScript(for command: String) -> String? {
+        let keys: [String: (key: String, code: String, shift: Bool)] = [
+            "open": ("o", "KeyO", false), "undo": ("z", "KeyZ", false), "redo": ("z", "KeyZ", true),
+            "stepOpen": ("1", "Digit1", false), "stepCull": ("2", "Digit2", false), "stepEdit": ("3", "Digit3", false),
+            "save": ("Enter", "Enter", false), "closeShoot": ("w", "KeyW", false),
+        ]
+        guard let k = keys[command] else { return nil }
+        let opts = "{key:'\(k.key)',code:'\(k.code)',metaKey:true,shiftKey:\(k.shift),bubbles:true,cancelable:true}"
+        return "(()=>{const t=document.activeElement||document.body;t.dispatchEvent(new KeyboardEvent('keydown',\(opts)));t.dispatchEvent(new KeyboardEvent('keyup',\(opts)));})()"
     }
 }

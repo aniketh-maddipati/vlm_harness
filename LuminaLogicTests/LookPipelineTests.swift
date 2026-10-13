@@ -499,6 +499,32 @@ final class LookPipelineTests: XCTestCase {
         }
     }
 
+    /// The canvas opens a photo on its embedded JPEG (`previewOnly`) while the RAW develops. When
+    /// the RAW can't be developed the same JPEG stands in and the entry says why.
+    func testBasesStandInIsTheEmbeddedJPEG() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("look-standin-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let jpeg = try pipe.jpeg(pipe.ramp(steps: 64, columnWidth: 4, height: 128).image)      // 256 × 128
+        let prefix = Data(repeating: 0x42, count: 4096)
+        let file = dir.appendingPathComponent("fake.ARW")
+        try (prefix + jpeg + Data(repeating: 0, count: 100)).write(to: file)
+        let preview = LookBases.PreviewFallback(offset: prefix.count, length: jpeg.count, orientation: 1)
+        let bases = LookBases(pipeline: pipe, byteCap: 64 << 20, maxPhotos: 3)
+        let key = LookBases.Key(rel: "s/fake.ARW", decoder: nil, look: Look(), canvas: CGSize(width: 200, height: 100))
+        let standIn = try bases.build(key, url: file, look: Look(), preview: preview, previewOnly: true)
+        XCTAssertEqual(standIn.source, "jpeg"); XCTAssertNil(standIn.why, "asked for, not a failure")
+        XCTAssertEqual(standIn.baseSize, CGSize(width: 230, height: 115)); XCTAssertEqual(standIn.smallSize, CGSize(width: 57, height: 28))
+        XCTAssertThrowsError(try bases.build(LookBases.Key(rel: "s/none.ARW", decoder: nil, look: Look(), canvas: CGSize(width: 200, height: 100)), url: file, look: Look(), preview: nil, previewOnly: true),
+                             "no embedded JPEG: no stand-in")
+        // The develop itself: the cache is asked again once the stand-in is dropped.
+        bases.drop(key)
+        XCTAssertNil(bases.entry(key))
+        let e = try bases.build(key, url: file, look: Look(), preview: preview)
+        if e.source == "jpeg" { XCTAssertNotNil(e.why, "the RAW failed: the entry says why") } else { XCTAssertNil(e.why) }
+        print("LookPipelineTests: fake ARW base source = \(e.source), why = \(e.why ?? "nil")")
+    }
+
     /// The canvas's bases from a PNG: `base` fits the canvas plus its 15 % margin, `small` is a
     /// quarter on each edge, both the right way up (the texture read-back flip is measured, not
     /// assumed), cached by key, pinned, and at most `maxPhotos` photos resident.

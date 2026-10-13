@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Linux sandbox for the app's Foundation-only Swift: compiles Lumina/Sets/Core/{SetsFileOps,
-# SetsShootStore,SetsExport,SetsIngest}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath,
+# SetsShootStore,SetsExport,SetsIngest,SetsExportMetadata,SetsOffline,SetsExternalLinks}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath,
 # LookCanvasSchedule,LookWarmPlan,LookByteCache,LookRawPolicy,LookLensShading}.swift unchanged with Swift 6.1 (Docker image
 # swift:6.1-noble) and runs the logic tests that don't need Core Image / ImageIO / AppKit:
 #   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests,
 #   LookStringTests, LookMathTests (the look grammar and the stage maths on synthetic ramps),
 #   LookCanvasTests (the canvas schedule, the warm-up plan, the byte cache, the RAW tiers and the pin rule),
+#   VideoPolicyTests (the video module's budgets, tiers, pacing, pressure order and profile → transform; Lumina/Sets/Video/VideoPolicy.swift),
+#   SkimStoreTests, SkimCoversTests, SkimDriveTests and SkimTrashTests (Skim's saved shoots and covers, its drive, Move cut to Trash),
 #   SetsShootStoreTests (a shoot id from the page stays inside the store),
-#   SetsShootImportTests (sessions from before the sandbox are brought over, R1e).
+#   SetsShootImportTests (sessions from before the sandbox are brought over, R1e),
+#   SetsExportMetadataTests, SetsOfflineTests, SetsExternalLinksTests (docs/release/TRUST.md I5, I7).
 # Not covered here (Mac only): SetsBridge, SetsSchemeHandler, SetsCardWatcher (AppKit/WebKit),
 # SetsLookExport, LookPipeline/LookKernels/LookRenderer (Core Image, Metal),
 # SetsIngestTests, SetsPageBytesTests and LookPipelineTests (ImageIO, bundle, Core Image).
@@ -16,8 +19,9 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
 B="$HERE/Build"; rm -rf "$B"; mkdir -p "$B/Lumina" "$B/Tests"
-for f in SetsFileOps SetsShootStore SetsExport SetsIngest; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
+for f in SetsFileOps SetsShootStore SetsExport SetsIngest SetsExportMetadata SetsOffline SetsExternalLinks; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
 for f in LookString LookRules LookMath LookCanvasSchedule LookWarmPlan LookByteCache LookRawPolicy LookLensShading; do cp "$ROOT/Lumina/Sets/Look/$f.swift" "$B/Lumina/"; done
+cp "$ROOT/Lumina/Sets/Video/VideoPolicy.swift" "$ROOT/Lumina/Sets/Video/SkimStore.swift" "$ROOT/Lumina/Sets/Video/SkimCovers.swift" "$ROOT/Lumina/Sets/Video/SkimDrive.swift" "$ROOT/Lumina/Sets/Video/SkimTrash.swift" "$B/Lumina/"
 cp "$ROOT/Lumina/Sets/Look/rules-v1.json" "$B/rules-v1.json"     # LookMathTests read it via LUMINA_RULES (only this folder is mounted)
 # swift-corelibs-foundation's FileManager.replaceItemAt fails on Linux and deletes the original
 # (checked with swift 6.1). Darwin's is correct. In this copy only, the replace is the POSIX rename
@@ -44,8 +48,9 @@ extension URLResourceKey { static let volumeAvailableCapacityForImportantUsageKe
 extension URLResourceValues { var volumeAvailableCapacityForImportantUsage: Int64? { nil } }
 SWIFT
 cp "$ROOT/LuminaLogicTests/SetsTrustTests.swift" "$ROOT/LuminaLogicTests/LookStringTests.swift" "$ROOT/LuminaLogicTests/LookMathTests.swift" \
-   "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" \
-   "$ROOT/LuminaLogicTests/SetsShootStoreTests.swift" "$ROOT/LuminaLogicTests/SetsShootImportTests.swift" "$B/Tests/"
+   "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" "$ROOT/LuminaLogicTests/VideoPolicyTests.swift" "$ROOT/LuminaLogicTests/SkimStoreTests.swift" "$ROOT/LuminaLogicTests/SkimCoversTests.swift" "$ROOT/LuminaLogicTests/SkimDriveTests.swift" "$ROOT/LuminaLogicTests/SkimTrashTests.swift" \
+   "$ROOT/LuminaLogicTests/SetsShootStoreTests.swift" "$ROOT/LuminaLogicTests/SetsShootImportTests.swift" \
+   "$ROOT/LuminaLogicTests/SetsExportMetadataTests.swift" "$ROOT/LuminaLogicTests/SetsOfflineTests.swift" "$ROOT/LuminaLogicTests/SetsExternalLinksTests.swift" "$B/Tests/"
 # SetsFileOpsTests and SetsSidecarTests without any test that needs Core Image, or the locked-file
 # test (Linux has no user-immutable flag for FileManager to set).
 for t in SetsFileOpsTests SetsSidecarTests; do

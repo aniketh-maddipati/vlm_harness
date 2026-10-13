@@ -4,9 +4,10 @@ import Foundation
 /// Metal or timer behind it, so `LookCanvasTests` can run them on any machine:
 ///
 /// - **Two tiers.** While a slider is dragged the look renders from `small` (a quarter of the
-///   canvas, linear); on drag end, on a keystroke, or once the thumb has been still for `idleMs`,
-///   the newest look renders from `base` at full quality (a *rest* render). Histogram and
-///   clipping are computed on rest renders only.
+///   canvas, linear); on drag end, on a keystroke, or once the thumb has been still for `idleMs`
+///   (during a drag: `restAfterMs`, which follows the drag's own cadence), the newest look
+///   renders from `base` at full quality (a *rest* render). Histogram and clipping are computed
+///   on rest renders only.
 /// - **Latest wins.** Sliders emit continuously; only the newest look per photo is kept. A render
 ///   in flight is never queued behind: the next `tick` starts the newest value, at most once per
 ///   display refresh.
@@ -22,6 +23,9 @@ nonisolated struct LookCanvasSchedule: Sendable {
     struct ROI: Equatable, Sendable, Codable {
         var x: Double, y: Double, w: Double, h: Double
         var isWhole: Bool { x <= 0 && y <= 0 && w >= 1 && h >= 1 }
+        /// Exactly the photo: nothing to place, the canvas fits it. A region reaching beyond the
+        /// photo (the page zoomed out) is whole and still has a place of its own.
+        var isFit: Bool { x == 0 && y == 0 && w == 1 && h == 1 }
     }
 
     /// One render to start now.
@@ -57,6 +61,26 @@ nonisolated struct LookCanvasSchedule: Sendable {
     /// A full-quality render is owed this long after the thumb stops moving.
     var idleMs: Double = 120
 
+    /// During a drag the thumb counts as still only after 1.5 × the drag's own cadence, when that
+    /// is longer than `idleMs`: a slider that steps in whole numbers delivers looks 100 to 117 ms
+    /// apart on a slow drag, and one late step must not put a rest render (its histogram, and a
+    /// frame the next look waits behind) in the middle of it.
+    static let cadenceFactor = 1.5
+    /// … and never longer than this many `idleMs`: looks further apart than that are pauses.
+    static let maxIdleFactor = 3.0
+
+    /// The gap between the last two looks of this drag (ms); a gap long enough to rest was a
+    /// pause, not the cadence, and leaves it as it was. Nil until the drag's second look.
+    private(set) var cadence: Double?
+    private var dragSubmitAt: Double?
+
+    /// How long the newest look must have stood before it is owed a rest render: `idleMs`, or
+    /// while dragging `max(idleMs, 1.5 × cadence)` (at most 3 × `idleMs`).
+    var restAfterMs: Double {
+        guard dragging, let c = cadence else { return idleMs }
+        return min(max(idleMs, Self.cadenceFactor * c), Self.maxIdleFactor * idleMs)
+    }
+
     private(set) var dragging = false
     private(set) var latest: (look: String, seq: Int, at: Double, roi: ROI?, pageSeq: Int, pageAt: Double)?
     private(set) var inFlight: Int?
@@ -77,6 +101,10 @@ nonisolated struct LookCanvasSchedule: Sendable {
     @discardableResult
     mutating func submit(_ look: String, at now: Double, roi: ROI? = nil, pageSeq: Int = 0, pageAt: Double = 0) -> Int {
         lookSeq += 1
+        if dragging {
+            if let p = dragSubmitAt, now >= p, now - p < restAfterMs { cadence = now - p }
+            dragSubmitAt = now
+        }
         // The previous newest never started: it is replaced, not rendered.
         if let l = latest, l.seq > (lastStarted?.lookSeq ?? Int.min) { stats.coalesced += 1 }
         latest = (look, lookSeq, now, roi, pageSeq, pageAt)
@@ -84,7 +112,7 @@ nonisolated struct LookCanvasSchedule: Sendable {
         return lookSeq
     }
 
-    mutating func dragStart(at now: Double) { dragging = true; restWanted = false }
+    mutating func dragStart(at now: Double) { dragging = true; restWanted = false; cadence = nil; dragSubmitAt = nil }
 
     /// The thumb was let go: the newest look renders from `base` next.
     mutating func dragEnd(at now: Double) { dragging = false; restWanted = true }
@@ -94,6 +122,20 @@ nonisolated struct LookCanvasSchedule: Sendable {
         let s = submit(look, at: now, roi: roi, pageSeq: pageSeq, pageAt: pageAt)
         restWanted = true
         return s
+    }
+
+    /// The newest look again at full quality: its base landed or changed, the canvas has a new
+    /// size, the loupe's region arrived. The look, its region and the page's `seq` stay, so a look
+    /// still waiting for its first frame keeps its acknowledgement (`luminaPresented`); a look
+    /// already started is not timed twice. False when no look was ever given.
+    @discardableResult
+    mutating func again(at now: Double) -> Bool {
+        guard let l = latest else { return false }
+        let started = lastStarted.map { l.seq <= $0.lookSeq } ?? false
+        lookSeq += 1
+        latest = (l.look, lookSeq, now, l.roi, l.pageSeq, started ? 0 : l.pageAt)
+        restWanted = true
+        return true
     }
 
     // MARK: The display link
@@ -113,8 +155,9 @@ nonisolated struct LookCanvasSchedule: Sendable {
             tier = (dragging && !restWanted) ? .small : .base
         } else {
             // The newest look is on screen (or in the pipe) from `small`: owe it a rest render
-            // when the drag ends, a key asks, or the thumb has been still for idleMs.
-            guard lastStarted?.tier == .small, restWanted || !dragging || now - l.at >= idleMs else { return nil }
+            // when the drag ends, a key asks, or the thumb has been still for restAfterMs (idleMs,
+            // longer on a drag whose looks come further apart than that).
+            guard lastStarted?.tier == .small, restWanted || !dragging || now - l.at >= restAfterMs else { return nil }
             tier = .base
         }
         restWanted = false
@@ -145,7 +188,7 @@ nonisolated struct LookCanvasSchedule: Sendable {
     /// Another photo, or Edit closed: nothing pending, nothing presented.
     mutating func reset() {
         dragging = false; latest = nil; inFlight = nil; presented = Int.min; presentedTier = nil; presentedLook = nil
-        lastStarted = nil; restWanted = false
+        lastStarted = nil; restWanted = false; cadence = nil; dragSubmitAt = nil
     }
 
     /// A full-quality render is still owed (the last one shown came from `small`).

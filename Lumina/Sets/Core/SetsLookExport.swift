@@ -1,5 +1,7 @@
 import CoreImage
 import Foundation
+import ImageIO
+import os
 
 /// Export's renders (`SetsExportJob.Item.look`) through the same `LookPipeline` the previews use,
 /// at full size, with the export settings the roadmap asks for (§7): no intermediate caching, a
@@ -49,7 +51,7 @@ nonisolated enum SetsLookExport {
             return (data, outcome)
         } catch {
             guard let v = decoder, let prev = LookRawPolicy.fallback(after: v, supported: LookPipeline.supportedDecoderVersions(url: url)) else { throw error }
-            NSLog("Lumina export: RAW decoder \(v) failed for \(url.lastPathComponent) (\(error)); rendering again with \(prev)")
+            LuminaLog.export.error("RAW decoder \(v, privacy: .public) failed for \(url.lastPathComponent, privacy: .private) (\(String(describing: error), privacy: .private)); rendering again with \(prev, privacy: .public)")
             let data = try encode(pipe, parsed, url: url, px: px, format: format, decoder: prev)
             outcome.decoder = prev; outcome.fellBackFrom = v; outcome.reason = "\(error)"
             outcome.ms = Date().timeIntervalSince(t0) * 1000
@@ -59,12 +61,45 @@ nonisolated enum SetsLookExport {
 
     private static func encode(_ pipe: LookPipeline, _ look: Look, url: URL, px: Int?, format: String, decoder: Int?) throws -> Data {
         let dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipe.rules, decoderVersion: decoder, nr: look.nr)
-        let img = pipe.apply(look, to: dev)
+        // Core Image carries the source's metadata (GPS, serials) through to the encoder: cleared
+        // here, so the file holds only what withMetadata writes.
+        let img = pipe.apply(look, to: dev).settingProperties([:])
+        let data: Data
         switch format.lowercased() {
-        case "tif", "tiff": return try pipe.tiff16(img, space: .sRGB)
-        case "png": return try pipe.png(img, space: .sRGB)
-        default: return try pipe.jpeg(img, quality: 0.92, space: .sRGB)
+        case "tif", "tiff": data = try pipe.tiff16(img, space: .sRGB)
+        case "png": data = try pipe.png(img, space: .sRGB)
+        default: data = try pipe.jpeg(img, quality: 0.92, space: .sRGB)
         }
+        return try withMetadata(data, from: url)
+    }
+
+    /// The export with the metadata SetsExportMetadata chooses from the source, and no other
+    /// (docs/release/TRUST.md I7): written without re-encoding the pixels, then read back. Where
+    /// ImageIO can't rewrite a format's metadata, the render goes out as it is only if it holds
+    /// nothing SetsExportMetadata refuses (encode clears what Core Image carried, so it holds none).
+    static func withMetadata(_ data: Data, from source: URL) throws -> Data {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil), let type = CGImageSourceGetType(src) else {
+            throw SetsFileOps.Failure("export: the render is not an image")
+        }
+        let props = CGImageSourceCreateWithURL(source as CFURL, nil).flatMap { CGImageSourceCopyPropertiesAtIndex($0, 0, nil) } as? [String: Any] ?? [:]
+        let meta = CGImageMetadataCreateMutable()
+        for f in SetsExportMetadata.fields(from: props) {
+            _ = CGImageMetadataSetValueMatchingImageProperty(meta, f.dictionary as CFString, f.key as CFString, f.value as AnyObject)
+        }
+        let out = NSMutableData()
+        let options: [CFString: Any] = [kCGImageDestinationMetadata: meta, kCGImageDestinationMergeMetadata: false]
+        let refused = { (d: Data) in
+            SetsExportMetadata.refused(in: CGImageSourceCreateWithData(d as CFData, nil).flatMap { CGImageSourceCopyPropertiesAtIndex($0, 0, nil) } as? [String: Any] ?? [:])
+        }
+        if let dest = CGImageDestinationCreateWithData(out, type, 1, nil), CGImageDestinationCopyImageSource(dest, src, options as CFDictionary, nil),
+           refused(out as Data).isEmpty {
+            return out as Data
+        }
+        // Whatever goes out is checked: a file holding anything SetsExportMetadata refuses is never written.
+        let left = refused(data)
+        guard left.isEmpty else { throw SetsFileOps.Failure("export: metadata could not be cleared (\(left.joined(separator: ", ")))") }
+        LuminaLog.export.notice("export metadata not rewritten for \(type as String, privacy: .public); the render holds none Lumina refuses")
+        return data
     }
 
     /// Runs `work` on its own thread and waits at most `seconds` when `guarded`; a render that

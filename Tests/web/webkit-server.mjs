@@ -103,7 +103,9 @@ http.createServer(async (req, res) => {
     }
     const file = p.startsWith('vendor/') ? path.join(WEB, p.slice(7)) : path.join(WEB, p);
     if (!p || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { 'content-type': file.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/javascript; charset=utf-8' });
+    // Page files carry the app's Content-Security-Policy (SetsOffline, via webkit.py), as SetsSchemeHandler sends it.
+    const csp = file.endsWith('.html') && process.env.LUMINA_CSP && !u.searchParams.has('nocsp') ? { 'content-security-policy': process.env.LUMINA_CSP, 'x-dns-prefetch-control': 'off' } : {};
+    res.writeHead(200, { 'content-type': file.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/javascript; charset=utf-8', ...csp });
     res.end(fs.readFileSync(file));
   } catch (e) { json(res, { error: String(e) }, 500); }
 }).listen(port, '127.0.0.1', () => console.log('ready ' + ORIGIN));

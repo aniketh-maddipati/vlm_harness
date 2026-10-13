@@ -21,12 +21,11 @@ export function deadline(name, seconds) {
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const WEB = path.join(ROOT, 'Lumina/Sets/Web');
-export const PAGE = 'Lumina Sets v11.dc.html';
+export const PAGE = 'Lumina Sets v12.dc.html';
 export const ORIGIN = 'http://lumina.test';
 export const VENDOR = {
   'https://unpkg.com/react@18.3.1/umd/react.production.min.js': ORIGIN + '/vendor/react.production.min.js',
   'https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js': ORIGIN + '/vendor/react-dom.production.min.js',
-  'https://unpkg.com/@babel/standalone@7.29.0/babel.min.js': ORIGIN + '/vendor/babel.min.js',
 };
 
 // ——— synthetic ARWs
@@ -148,7 +147,7 @@ export class Bridge {
   constructor(parent) {
     this.parent = parent; this.roots = {}; this.pending = null; this.calls = []; this.sessions = {}; this.index = []; this.prefs = null; this.revealed = []; this.gone = new Set(); this.denied = null;
     // The Edit canvas (no Metal here: the image path). What SetsBridge answers, and the renders lumina://render served.
-    this.canvas = { path: 'image', entered: [], layouts: [], looks: [], drags: [], loupes: [], statsCalls: 0, resets: 0, updates: 0 };
+    this.canvas = { path: 'image', entered: [], layouts: [], looks: [], drags: [], zooms: [], zoomRests: [], loupes: [], statsCalls: 0, resets: 0, updates: 0 };
     this.header = { canvas: 'image', raw9: false, raw9Present: false, decoder: 8, newest: 8, offerUpdate: false, slowed: false, bodies: { 'ILCE-7M4': { supported: [7, 8], raw9: false, fastest: 8, developMs: { 7: 30, 8: 20 } } } };
     this.renders = []; this.renderDelayMs = 0; this.renderJpeg = null; this.renderSeq = {};
   }
@@ -187,11 +186,12 @@ export class Bridge {
       }
       case 'shootHeader': return this.header;
       case 'decoderUpdate': this.canvas.updates++; this.header = Object.assign({}, this.header, { decoder: this.header.newest, offerUpdate: false }); return this.header;
-      case 'canvasEnter': this.canvas.entered.push(msg); return Object.assign({ decoderCanvas: 8, decoderRegion: 8 }, this.header);
+      case 'canvasEnter': this.canvas.entered.push(msg); if (this.canvas.enterMs) await new Promise(r => setTimeout(r, this.canvas.enterMs)); this.canvas.answered = (this.canvas.answered || 0) + 1; if (this.canvas.refuse) throw new Error(this.canvas.refuse); return Object.assign({ decoderCanvas: 8, decoderRegion: 8 }, this.header, { canvas: this.canvas.path });
       case 'canvasLeave': this.canvas.entered.push({ leave: true }); return true;
       case 'canvasLayout': this.canvas.layouts.push(msg); return { path: this.canvas.path };
-      case 'canvasLook': this.canvas.looks.push(msg); return this.canvas.looks.length;
+      case 'canvasLook': this.canvas.looks.push(Object.assign({ answered: this.canvas.answered || 0 }, msg)); return this.canvas.looks.length;
       case 'canvasDrag': this.canvas.drags.push(msg.start); return true;
+      case 'canvasZoom': this.canvas.zooms.push(msg.roi || null); this.canvas.zoomRests.push(!!msg.rest); return true;
       case 'canvasLoupe': this.canvas.loupes.push(msg); return true;
       case 'canvasStats': this.canvas.statsCalls++; if (msg.reset) this.canvas.resets++; return { path: this.canvas.path, facts: this.header, latencyMs: [], schedule: {}, bases: {}, tiles: {} };
       case 'writeInto': {
