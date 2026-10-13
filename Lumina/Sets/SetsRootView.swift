@@ -101,7 +101,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                         self.reopen(last.id)
                     }
                     // Skim reloads in place: the open shoot comes back after the page does.
-                    if page == .skim { hotReload?.reloadPage = { [weak self] in self?.reloadSkimKeeping() } }
+                    if page == .skim { hotReload?.reloadPage = { [weak self] in self?.reloadSkimKeeping(note: "Updated to the latest") } }
                 }
                 #endif
             } catch {
@@ -146,19 +146,27 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     /// The picture of the page as it was, over the reloading page until the shoot is back, then faded out.
     private var skimCurtain: NSView?
     private var skimCurtainToken = 0
+    /// What the badge says once the reload is done ("Refreshed", or "Updated to the latest" from the hot build).
+    private var skimNote = "Refreshed"
+    private var skimBadge: NSView?
 
     /// Reloads the page from the app's files and puts the open shoot back: the same clips, marks and view.
-    /// The old picture stays over the window, dims a little while the page reloads, and fades out once the
+    /// The old picture stays over the window, dims to half while the page reloads, and fades out once the
     /// shoot is back (or after 8 s, whatever the page says). Clips dropped on the page have no file locations, so then
     /// it doesn't reload at all.
-    func reloadSkimKeeping() {
+    func reloadSkimKeeping(note: String = "Refreshed") {
         guard let webView else { return }
         webView.evaluateJavaScript("window.luminaSkimKeep ? luminaSkimKeep.take() : null") { [weak self] kept, _ in
             MainActor.assumeIsolated {
                 guard let self, let webView = self.webView else { return }
                 let fresh = (kept as? String).flatMap { self.skimURLs == nil ? nil : $0 }
                 // Clips dropped on the page can't be handed back: no reload, the work stays.
-                if let fresh, fresh.contains("\"dropped\":true") { LuminaLog.app.notice("skim: no reload, the open clips were dropped on the page"); return }
+                if let fresh, fresh.contains("\"dropped\":true") {
+                    LuminaLog.app.notice("skim: no reload, the open clips were dropped on the page")
+                    self.showSkimBadge("Not refreshed · dropped clips can't be reopened", ok: false)
+                    return
+                }
+                self.skimNote = note
                 // A reload while the last one is still coming back, before the page holds the kept shoot: keep that one.
                 if fresh != nil || self.skimCurtain == nil { self.skimKept = fresh }
                 webView.takeSnapshot(with: nil) { image, _ in
@@ -188,8 +196,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         skimCurtainToken += 1
         let token = skimCurtainToken
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
-            picture.animator().alphaValue = 0.82
+            ctx.duration = 0.22
+            picture.animator().alphaValue = 0.5
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
             MainActor.assumeIsolated {
@@ -208,6 +216,37 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             curtain.animator().alphaValue = 0
         }, completionHandler: { curtain.removeFromSuperview() })
+        showSkimBadge(skimNote, ok: true)
+    }
+
+    /// A small pill at the top of the window for 1.6 s: "✓ Refreshed", then it fades. Pixels only, takes no clicks.
+    private func showSkimBadge(_ text: String, ok: Bool) {
+        guard let webView, let host = webView.superview else { return }
+        skimBadge?.removeFromSuperview()
+        let label = NSTextField(labelWithString: (ok ? "✓  " : "") + text)
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        label.textColor = .white
+        label.sizeToFit()
+        let pad = NSSize(width: 16, height: 7)
+        let size = NSSize(width: ceil(label.frame.width) + pad.width * 2, height: ceil(label.frame.height) + pad.height * 2)
+        let badge = SkimBadgeView(frame: NSRect(x: (host.bounds.width - size.width) / 2, y: host.bounds.height - size.height - 18, width: size.width, height: size.height))
+        badge.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
+        badge.wantsLayer = true
+        badge.layer?.backgroundColor = (ok ? NSColor(calibratedRed: 0.12, green: 0.55, blue: 0.32, alpha: 0.92) : NSColor(calibratedWhite: 0.15, alpha: 0.92)).cgColor
+        badge.layer?.cornerRadius = size.height / 2
+        label.frame.origin = NSPoint(x: pad.width, y: pad.height)
+        badge.addSubview(label)
+        badge.alphaValue = 0
+        host.addSubview(badge, positioned: .above, relativeTo: nil)
+        skimBadge = badge
+        NSAnimationContext.runAnimationGroup { ctx in ctx.duration = 0.18; badge.animator().alphaValue = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [weak self] in
+            MainActor.assumeIsolated {
+                NSAnimationContext.runAnimationGroup({ ctx in ctx.duration = 0.4; badge.animator().alphaValue = 0 },
+                                                     completionHandler: { badge.removeFromSuperview() })
+                if self?.skimBadge === badge { self?.skimBadge = nil }
+            }
+        }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -593,6 +632,11 @@ final class SetsHostView: NSView {
     }
 
     override func cancelOperation(_ sender: Any?) {}
+}
+
+/// The Skim dev app's refresh badge: shown over the page, never in the way of a click on it.
+final class SkimBadgeView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 /// Window sizes: opens at the reference size (1440×900, PARITY.md); minimum 1024×700 (ADDENDUM-1 §4).
