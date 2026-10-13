@@ -514,7 +514,7 @@ button:focus:not(:focus-visible){outline:none}
             <sc-if value="{{ dt.phOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;display:grid;place-items:center;color:#9A958D;white-space:nowrap;overflow:hidden">{{ dt.name }}</div></sc-if>
             <div style="position:absolute;inset:0;border-radius:3px;box-shadow:inset 0 0 0 2px #A9D18E;pointer-events:none"></div>
           </div>
-          <div style="display:flex;gap:6px;white-space:nowrap;overflow:hidden"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;color:{{ dt.nameC }}">{{ dt.name }}</span><span style="flex:none;margin-left:auto;color:#9A958D">{{ dt.sub }}</span></div>
+          <sc-if value="{{ dockText }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:6px;white-space:nowrap;overflow:hidden"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;color:{{ dt.nameC }}">{{ dt.name }}</span><span style="flex:none;margin-left:auto;color:#9A958D">{{ dt.sub }}</span></div></sc-if>
         </button>
       </sc-for>
     </div>
@@ -2258,9 +2258,11 @@ class Component extends DCLogic {
   static dockStep(ids, id, d) { const i = ids.indexOf(id); if (i < 0) return ids[0] ?? null; return ids[Math.max(0, Math.min(ids.length - 1, i + d))]; }
   static dockNear(order, ids, cur) { if (!ids.length) return null; if (ids.includes(cur)) return cur; const at = order.indexOf(cur), set = new Set(ids); if (at >= 0) for (let i = at + 1; i < order.length; i++) if (set.has(order[i])) return order[i]; return ids[ids.length - 1]; }
   static dockOut(ids, id) { const i = ids.indexOf(id); return i < 0 ? null : ids[i + 1] ?? ids[i - 1] ?? null; }
-  dockPh() { const vh = this.state.vh; return vh >= 860 ? 104 : vh >= 700 ? 80 : 60; }
+  // Large under the grid; in the Viewer a slim strip of pictures only, so the large view keeps the height.
+  dockSlim() { return this.state.lv >= 2; }
+  dockPh() { const vh = this.state.vh; return this.dockSlim() ? 54 : vh >= 860 ? 150 : vh >= 700 ? 120 : 84; }
   // The height the dock takes from the window (the Viewer and the scene fit leave it room).
-  dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; return this.dockIds().length ? this.dockPh() + 68 : 35; }
+  dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; return this.dockIds().length ? this.dockPh() + (this.dockSlim() ? 49 : 68) : 35; }
   dockIds() { const C = this.d ? this.d.clips : [], m = this.state.marks; return C.filter(c => m[c.id] === 'keep').map(c => c.id); }
   // While the dock has focus it follows the clip you are on when that clip is selected (an undo can move you).
   dockFoc() { const st = this.state, ok = id => id && this.byId && this.byId[id] && st.marks[id] === 'keep'; return st.step === 'skim' && ok(st.dk) ? (ok(st.cur) ? st.cur : st.dk) : null; }
@@ -2316,7 +2318,7 @@ class Component extends DCLogic {
     const L = Component.dockList(d.clips.map(c => ({id:c.id, g:st.cv && this.scOf && this.scOf[c.id] != null ? this.scOf[c.id] : this.gOfAll[c.id]})), st.marks), foc = this.dockFoc();
     const ph = this.dockPh(), slot = this.dockSl || (this.dockSl = {}), nm = c => c.name.replace(/\.\w+$/, '');
     const ids = L.map(x => x.id), dur = ids.reduce((a, id) => a + (this.byId[id].dur || 0), 0);
-    out.dockOn = true; out.dockFull = L.length > 0; out.dockPh = ph; out.dockW = Math.round(ph * 16 / 9) + 8;
+    out.dockOn = true; out.dockFull = L.length > 0; out.dockPh = ph; out.dockW = Math.round(ph * 16 / 9) + 8; out.dockText = !this.dockSlim();
     out.dockSum = L.length ? this.plural(L.length, 'clip') + ' · ' + this.fmtDur(dur) + ' · ' + this.fmtB(this.bytesOf(ids)) : 'nothing yet · K selects the clip you are on';
     out.dockLine = foc ? 'rgba(255,210,122,0.5)' : 'rgba(239,236,230,0.08)'; out.dockHeadC = foc ? '#FFD27A' : L.length ? '#EFECE6' : '#9A958D';
     out.dock = L.map(x => {
