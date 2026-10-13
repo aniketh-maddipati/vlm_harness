@@ -39,6 +39,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     let ingest = SetsIngest()
     /// How alike two photos' previews are, for the page's retake stacks (`lumina.near`).
     private(set) lazy var near = SetsNear(ingest: ingest)
+    /// The selections found in a photo's preview, for Edit's automatic masks (`lumina.masks`).
+    private(set) lazy var masks = SetsMasks(ingest: ingest)
     private var pendingSource: URL?
     /// The recent shoot `pendingSource` reopens: the folder keeps that shoot's id wherever its
     /// bookmark found it (renamed or moved), instead of becoming a second shoot.
@@ -459,6 +461,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // preview can't be measured; the page then keeps its own rule.
             guard let a = Self.ingestPreview(body["a"]), let b = Self.ingestPreview(body["b"]), let d = await near.distance(a, b) else { return (NSNull(), nil) }
             return (d, nil)
+        case "masks":
+            // The subject, people, objects and background Vision finds in a photo's preview
+            // (Prompt 28): each with its kind, score, box, share of the photo and outline. Null when
+            // the preview can't be read; an empty list when there is nothing to select.
+            guard let p = Self.ingestPreview(body["preview"]), let found = await masks.masks(p) else { return (NSNull(), nil) }
+            return (found.map(\.dictionary), nil)
         case "ingestStats":
             return (ingest.snapshot.dictionary, nil)
         case "shootOpened":

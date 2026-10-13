@@ -38,8 +38,10 @@ caches hold no image data). File ▸ Remove Working Files deletes a shoot's file
 Sessions from builds before the sandbox stay in `~/Library/Application Support/Lumina` until you
 bring them over or delete them.
 
-Similar-photo detection uses Apple's Vision framework on the Mac. There is no face recognition, no
-account, no analytics and no crash reporter.
+Similar-photo detection uses Apple's Vision framework on the Mac. So does finding the subject,
+people and objects in a photo for Edit's masks: it finds where people are, not who they are, and
+its outlines stay in memory. There is no face recognition, no account, no analytics and no crash
+reporter.
 
 ## Network
 

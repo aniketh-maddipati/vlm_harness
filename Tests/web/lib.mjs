@@ -209,6 +209,16 @@ export class Bridge {
         const okP = q => q && q.p && +q.o > 0 && +q.l > 0 && this.resolve(q.p) && !this.gone.has(q.p.split('/')[0]);
         return okP(msg.a) && okP(msg.b) ? (msg.a.p === msg.b.p ? 0 : 0.25) : null;
       }
+      // SetsMasks: the selections found in a photo's preview, null when it can't be read. Here: a
+      // subject and the background for any readable preview.
+      case 'masks': {
+        (this.maskAsks = this.maskAsks || []).push(msg.preview);
+        const q = msg.preview;
+        if (!(q && q.p && +q.o > 0 && +q.l > 0 && this.resolve(q.p) && !this.gone.has(q.p.split('/')[0]))) return null;
+        const sq = [[0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75]];
+        return [{ id: 'subject', kind: 'subject', score: 0.9, box: [0.25, 0.25, 0.5, 0.5], area: 0.25, outline: [sq] },
+                { id: 'background', kind: 'background', score: 0.9, box: [0, 0, 1, 1], area: 0.75, outline: [[[0, 0], [1, 0], [1, 1], [0, 1]], sq.slice().reverse()] }];
+      }
       case 'ingestStats': return { workers: 4, inFlight: 0, maxInFlight: 4, heads: 0, previews: 0, largestRead: 0, opensAfterGone: 0, failures: 0, gone: [...this.gone] };
       case 'setPrefs': this.prefs = msg.prefs; return true;
       case 'reveal': this.revealed.push(msg.path); return true;

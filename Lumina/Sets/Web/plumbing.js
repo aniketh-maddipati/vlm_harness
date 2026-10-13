@@ -247,6 +247,18 @@
       return native('near', { a: A, b: B }).then(d => (typeof d === 'number' && isFinite(d) ? d : null), () => null);
     },
     nearLimit: typeof cfg.nearLimit === 'number' ? cfg.nearLimit : null,
+    // The selections the Mac finds in a photo by itself, for Edit's automatic masks (DESIGN-ASKS
+    // Prompt 28), on its embedded preview (never a RAW decode). Takes a photo path; resolves to a
+    // list, subject first: [{id, kind ('subject' | 'person' | 'object' | 'background'), score,
+    // box: [x, y, w, h], area, outline: [[[x, y], …], …]}], every number a fraction of the photo
+    // from its top left, each outline loop closed and filled even-odd (a hole is a loop of its own).
+    // An empty list is a photo with nothing to select; null when the photo wasn't read here or the
+    // Mac can't read its preview.
+    masks: rel => {
+      const P = previewAt.get(String(rel));
+      if (!P) return Promise.resolve(null);
+      return native('masks', { preview: P }).then(m => (Array.isArray(m) ? m : null), () => null);
+    },
     // Exports a crash or kill cut short, found at launch (SetsExportJournal.recover): the page says so
     // once on Open (CHANGES-v0.04 D3). [{folder, done, planned, cleaned}], newest first.
     cutShort: Array.isArray(cfg.cutShort) ? cfg.cutShort : [],

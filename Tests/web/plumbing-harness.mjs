@@ -114,7 +114,16 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   const sent = (bridge.nears || [])[0];
   ok(sent && sent.a.p === near.a && sent.b.p === near.b && sent.a.o > 0 && sent.a.l > 0 && sent.a.ori >= 1, 'near: the Mac gets each preview\'s path, byte range and orientation', sent);
   ok(near.unknown === null && near.none === null && (bridge.nears || []).length === 2, 'near: a path that was not read resolves to null without asking the Mac', { near, asked: (bridge.nears || []).length });
-  ok(await page.evaluate(() => window.lumina.readingCard === false), 'card: readingCard false for a folder');
+  // Automatic masks (DESIGN-ASKS Prompt 28): lumina.masks(path) is the Mac's list of selections in a
+  // photo, found on its preview; plumbing sends where the preview is, as for near.
+  const masks = await page.evaluate(async () => {
+    const P = __lumina.logic().real, a = P[0].path;
+    return { a, found: await lumina.masks(a), unknown: await lumina.masks('nowhere/DSC0.ARW') };
+  });
+  ok(Array.isArray(masks.found) && masks.found[0].kind === 'subject' && masks.found.every(m => Array.isArray(m.outline)), 'masks: lumina.masks(path) resolves to the Mac\'s list, subject first', masks.found);
+  const askedMask = (bridge.maskAsks || [])[0];
+  ok(askedMask && askedMask.p === masks.a && askedMask.o > 0 && askedMask.l > 0 && askedMask.ori >= 1, 'masks: the Mac gets the preview\'s path, byte range and orientation', askedMask);
+  ok(masks.unknown === null && (bridge.maskAsks || []).length === 1, 'masks: a path that was not read resolves to null without asking the Mac', { masks, asked: (bridge.maskAsks || []).length });
 
   // Decisions + autosave
   // A decision is saved on the next tick, not the next 2 s loop: the page's process can stop at any

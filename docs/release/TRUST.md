@@ -95,6 +95,7 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `notices` | the bundled licence texts | — |
 | `prefetch` | previews in the opened folders, into memory | — |
 | `near` | two previews in the opened folders (Vision, on the Mac) | — |
+| `masks` | one preview in the opened folders: the subject, people, objects and background (Vision, on the Mac) | — |
 | `ingestStats` | read counters | — |
 | `shootOpened` | — | the shoot in `shoots/index.json` (name, path, volume, counts, bookmark) |
 | `shootHeader` | the shoot's decoder facts | — |

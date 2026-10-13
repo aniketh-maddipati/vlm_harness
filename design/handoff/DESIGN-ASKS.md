@@ -1458,3 +1458,53 @@ three settings lines. Counts, sizes and states are text and do not respond to cl
 Reply with the complete Handoff block (`data-screen-label="2 Handoff"`) and every function you
 changed or added, as full functions, not a description and not a partial diff. List any new
 `window.lumina` call the page makes, with its arguments and the answer it expects.
+
+## Prompt 28 — Edit offers the masks Lumina found (paste into Claude Design)
+
+Lumina now finds the selections in a photo by itself, the way Lightroom's Select Subject, Select
+People, Select Objects and Select Background do, so in Edit nobody has to draw before they adjust a
+part of the photo. This prompt is the page's half: listing what was found and choosing one. The
+adjustments for a chosen mask come in a later prompt, once the app renders them.
+
+**1. Asking.** When a photo comes onto the Edit canvas, call `lumina.masks(path)`. It resolves to a
+list, subject first, or to `null` when the app can't look at that photo (the page then shows no
+Masks section, and no error):
+```
+[{ id: 'subject', kind: 'subject', score: 0.93, box: [x, y, w, h], area: 0.18,
+   outline: [[[x, y], [x, y], …], …] },
+ { id: 'person-1', kind: 'person', … }, { id: 'object-1', kind: 'object', … },
+ { id: 'background', kind: 'background', … }]
+```
+Every number is a fraction of the photo from its top left, before crop and rotation. `outline` is
+closed loops, filled with the even-odd rule (a hole, such as the gap under an arm, is a loop of its
+own). An empty list means there is nothing to select. The answer can take up to a second the first
+time; ask once per photo and keep the answer.
+
+**2. The Masks section.** Above the sliders in Edit's right column, a section titled **Masks** lists
+what was found, one row each, in the list's order: **Subject**, **Person 1**, **Person 2**, …,
+**Object 1**, …, **Background**. While the answer is on its way the section shows one line,
+"Finding subjects…". With an empty list it shows "Nothing to select in this photo".
+
+**3. Showing a mask.** Hovering a row shows that mask on the photo; leaving the row hides it. Clicking a
+row chooses it (it stays shown, with the row highlighted); Esc or clicking it again lets it go.
+Report what to show with `lumina.edit.showMask(id | null)`. The app draws the outline on the photo
+itself, as it draws the crop guides (Prompt 26): a light hairline with a faint tint inside. The page
+draws nothing over the canvas for it. In the web preview, where there is no app, the page draws the
+same outline itself from `outline`.
+
+**4. Keys.** **M** steps through the rows (⇧M back), showing each; Esc lets the chosen one go.
+
+**Clickable, and only these:** each Masks row. The section title, counts and the "Finding…" line are
+text.
+
+### How Prompt 28 is checked once its handoff lands
+
+- A photo with a person opens with a Masks section listing Subject, Person 1 and Background; a
+  landscape with nothing found says "Nothing to select in this photo".
+- Hovering Person 1 calls `lumina.edit.showMask('person-1')`; leaving it calls
+  `lumina.edit.showMask(null)`; clicking keeps it shown until Esc.
+- M and ⇧M step through the rows. A photo the app can't look at has no Masks section and no error.
+
+Reply with the complete Masks section, the changes to the Edit column it sits in, and every function
+you changed or added, as full functions, not a description and not a partial diff. List any new
+`window.lumina` call the page makes, with its arguments and the answer it expects.
