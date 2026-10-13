@@ -1,18 +1,29 @@
 import AppKit
+import UniformTypeIdentifiers
 import SwiftUI
 import WebKit
+import os
 
 /// The whole app window: one WKWebView showing the design's page, full window, no browser chrome.
 struct SetsRootView: NSViewRepresentable {
     func makeCoordinator() -> SetsWindowController { SetsWindowController() }
 
-    func makeNSView(context: Context) -> NSView {
-        let host = NSView()
+    func makeNSView(context: Context) -> SetsHostView {
+        let host = SetsHostView()
         context.coordinator.attach(to: host)
         return host
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    /// The window offers its content size. Taking that offer is what makes the page grow when the
+    /// window does. Left to the default, a representable answers with its current fitting size, so
+    /// the page stays at the size it first laid out and the rest of a larger window is empty.
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: SetsHostView, context: Context) -> CGSize? {
+        SetsWindowSize.filled(width: proposal.width, height: proposal.height)
+    }
+
+    func updateNSView(_ nsView: SetsHostView, context: Context) {
+        nsView.stretchWebView()
+    }
 }
 
 /// Owns the bridge and the web view (and, through the bridge, the Edit canvas overlay); answers
@@ -21,6 +32,10 @@ struct SetsRootView: NSViewRepresentable {
 final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, WKDownloadDelegate, NSOpenSavePanelDelegate, SetsChooser {
     private(set) var bridge: SetsBridge!
     private(set) var webView: WKWebView?
+    #if DEBUG
+    /// Scripts/dev.sh (`LUMINA_HOT=1`): the page reloads when a build changes its files.
+    private var hotReload: SetsHotReload?
+    #endif
 
     static var isDebug: Bool {
         #if DEBUG
@@ -34,7 +49,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Lumina", isDirectory: true)
     }
 
-    func attach(to host: NSView) {
+    func attach(to host: SetsHostView) {
         bridge = SetsBridge(chooser: self, supportDir: Self.supportDir)
         SetsMenuModel.shared.controller = self
         bridge.onShootsChanged = { [weak self] in self?.refreshRecents() }
@@ -46,34 +61,49 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         // with no export cut short it is one directory listing.
         let exports = Self.supportDir.appendingPathComponent("exports", isDirectory: true)
         let res = Bundle.main.resourceURL!
-        let plumbing = (try? String(contentsOf: res.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? ""
+        // Skim (a Debug build with LUMINA_PAGE=skim) has no plumbing yet: the page runs on its own.
+        let page = SetsPage.current
+        let plumbing = page == .pick ? ((try? String(contentsOf: res.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? "") : ""
         Task { @MainActor in
             let cut = await Task.detached(priority: .userInitiated) { () -> [(folder: String, done: Int, planned: Int, cleaned: Bool)] in
                 SetsExportJournal.recover(in: exports).map { e in
                     if let why = e.recoveryRefused {
-                        NSLog("Lumina: export %@ was cut short: %d of %d done, temp files left: %@", e.id, e.done.count, e.planned.count, why)
+                        LuminaLog.export.error("export \(e.id, privacy: .public) was cut short: \(e.done.count, privacy: .public) of \(e.planned.count, privacy: .public) done, temp files left: \(why, privacy: .private)")
                     } else {
-                        NSLog("Lumina: export %@ was cut short: %d of %d done, %d temp files removed", e.id, e.done.count, e.planned.count, e.tempsRemoved ?? 0)
+                        LuminaLog.export.notice("export \(e.id, privacy: .public) was cut short: \(e.done.count, privacy: .public) of \(e.planned.count, privacy: .public) done, \(e.tempsRemoved ?? 0, privacy: .public) temp files removed")
                     }
                     return (URL(fileURLWithPath: e.destination).lastPathComponent, e.done.count, e.planned.count, e.recoveryRefused == nil)
                 }
             }.value.map { ["folder": $0.folder, "done": $0.done, "planned": $0.planned, "cleaned": $0.cleaned] as [String: Any] }
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
-                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut], frame: host.bounds)
+                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut],
+                                                         extraScripts: page == .skim ? [SetsPage.skimHostScript] : [], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
                 host.addSubview(wv)
+                host.webView = wv
+                host.stretchWebView()
                 webView = wv
                 // The Edit canvas: the one native view over the page (AGENTS.md), above the web view.
-                bridge.attachCanvas(host: host)
+                if page == .pick { bridge.attachCanvas(host: host) }
                 wv.load(URLRequest(url: SetsSchemeHandler.pageURL))
                 host.window?.makeFirstResponder(wv)
-                bridge.cards.start()
-                offerEarlierSessions()
+                if page == .pick {
+                    bridge.cards.start()
+                    offerEarlierSessions()
+                }
+                #if DEBUG
+                if SetsHotReload.isOn {
+                    hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: page == .pick ? plumbing : nil) { [weak self] in
+                        guard let self, let last = self.bridge.shoots.index().first else { return }
+                        self.reopen(last.id)
+                    }
+                }
+                #endif
             } catch {
-                NSLog("Lumina: web view setup failed: \(error)")
+                LuminaLog.app.fault("web view setup failed: \(String(describing: error), privacy: .private)")
             }
         }
     }
@@ -83,6 +113,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     /// A menu item: the page presses the key it already handles.
     func command(_ name: String) {
         guard name.allSatisfy({ $0.isLetter }) else { return }
+        if SetsPage.current == .skim {
+            if let js = SetsPage.skimKeyScript(for: name) { webView?.evaluateJavaScript(js, completionHandler: nil) }
+            return
+        }
         webView?.evaluateJavaScript("window.__lumina && __lumina.command('\(name)')", completionHandler: nil)
     }
 
@@ -103,6 +137,11 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     /// The page saves and forgets the shoot; then its folder's access is stopped (SetsAccess).
     func closeShoot() {
+        // Skim: ⌘W is the page's own Close (it asks first, then goes back to Open).
+        if SetsPage.current == .skim {
+            if let js = SetsPage.skimKeyScript(for: "closeShoot") { webView?.evaluateJavaScript(js, completionHandler: nil) }
+            return
+        }
         guard let webView else { bridge.closeShoot(); return }
         webView.evaluateJavaScript("window.__lumina && __lumina.closeShoot()") { [weak self] _, _ in self?.bridge.closeShoot() }
     }
@@ -154,6 +193,23 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         return await run(panel)
     }
 
+    /// Skim's panel: a card, folders, or clips picked one by one. Sony's sidecars come with a folder or a card.
+    func chooseClips() async -> [URL]? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = true
+        // Clips and their sidecars (Sony writes C0001M01.XML beside C0001.MP4): ⌘A in a clip folder takes both;
+        // the page keeps the clips and reads the sidecars, and ignores anything else.
+        panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie, .xml] + [UTType(filenameExtension: "mxf"), UTType(filenameExtension: "m4v")].compactMap { $0 }
+        panel.prompt = "Open"
+        panel.message = "Choose a card, a folder or clips: MP4, MOV, MXF, M4V. Read only."
+        guard let window = webView?.window else { return panel.runModal() == .OK ? panel.urls : nil }
+        return await withCheckedContinuation { c in
+            panel.beginSheetModal(for: window) { c.resume(returning: $0 == .OK ? panel.urls : nil) }
+        }
+    }
+
     func chooseDestination(label: String, suggested: URL?, refusal: String?) async -> URL? {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -189,22 +245,36 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        // Skim reads clips through the page's own file input: a card, folders or clips, nothing else of Pick's.
+        if SetsPage.current == .skim {
+            // The folder the clips are in is the open shoot's folder for the storage line (drive, Trash).
+            Task { @MainActor in let urls = await chooseClips(); if let urls { bridge.skimOpened(urls) }; completionHandler(urls) }
+            return
+        }
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
     }
 
     // MARK: Navigation: only our own scheme; downloads go through a save panel
 
+    /// The page is only ever `lumina://`; frames it makes may be about:blank (the CSP allows no
+    /// others). Anything else is never loaded here: a link the user clicked to one of the three
+    /// destinations `SetsExternalLinks` names (Report a bug, LinkedIn, X) is rebuilt and handed to
+    /// their mail app or browser; every other URL is refused (docs/release/TRUST.md I5).
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences) async -> (WKNavigationActionPolicy, WKWebpagePreferences) {
         if action.shouldPerformDownload { return (.download, preferences) }
-        guard let url = action.request.url, let scheme = url.scheme, [SetsSchemeHandler.scheme, "about", "blob", "data"].contains(scheme) else {
-            // The page's contact links (X, mail) open in the user's browser or mail app, from a click
-            // only. The page itself never reaches the network.
-            if action.navigationType == .linkActivated, let url = action.request.url, ["https", "mailto"].contains(url.scheme ?? "") {
-                NSWorkspace.shared.open(url)
-            }
-            return (.cancel, preferences)
+        guard let url = action.request.url else { return (.cancel, preferences) }
+        let scheme = url.scheme?.lowercased() ?? ""
+        if scheme == SetsSchemeHandler.scheme || scheme == "about" { return (.allow, preferences) }
+        if ["blob", "data"].contains(scheme), let frame = action.targetFrame, !frame.isMainFrame { return (.allow, preferences) }
+        switch SetsExternalLinks.verdict(for: url, userClicked: action.navigationType == .linkActivated) {
+        case .external(let safe):
+            NSWorkspace.shared.open(safe)
+        case .refuse(let why):
+            LuminaLog.app.error("navigation refused (\(why, privacy: .public)): \(url.absoluteString, privacy: .private)")
+        case .inPage:
+            break
         }
-        return (.allow, preferences)
+        return (.cancel, preferences)
     }
 
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) { download.delegate = self }
@@ -299,14 +369,13 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                     do { return (try store.importStore(from: old), nil) } catch { return (nil, "\(error)") }
                 }.value
                 if let failure {
-                    NSLog("Lumina: earlier sessions not brought over: %@", failure)
+                    LuminaLog.app.error("earlier sessions not brought over: \(failure, privacy: .private)")
                     say(SetsEarlierSessions.failed(failure))
                     return
                 }
                 guard let result = imported else { refusal = SetsEarlierSessions.panelRefusal; continue }
-                NSLog("Lumina: earlier sessions: %d sessions, %d headers, %d recents brought over; %d already here, %d kept as they are here; skipped %@",
-                      result.sessions, result.headers, result.recents, result.alreadyHere, result.keptNewer,
-                      result.skipped.map { "\($0.key.rawValue) \($0.value)" }.sorted().joined(separator: ", "))
+                let skipped = result.skipped.map { "\($0.key.rawValue) \($0.value)" }.sorted().joined(separator: ", ")
+                LuminaLog.app.notice("earlier sessions: \(result.sessions, privacy: .public) sessions, \(result.headers, privacy: .public) headers, \(result.recents, privacy: .public) recents brought over; \(result.alreadyHere, privacy: .public) already here, \(result.keptNewer, privacy: .public) kept as they are here; skipped \(skipped, privacy: .public)")
                 try? bridge.shoots.markImportAsked()
                 refreshRecents()
                 webView?.evaluateJavaScript("window.__lumina && __lumina.recents()", completionHandler: nil)
@@ -330,7 +399,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             webView.load(URLRequest(url: SetsSchemeHandler.pageURL))
         case .ask:
             // It keeps stopping (a file that kills the page would loop forever): ask, once.
-            NSLog("Lumina: the page stopped again after %d reloads in %.0f s; not reloading", reloadPolicy.limit, reloadPolicy.window)
+            let (limit, secs) = (reloadPolicy.limit, reloadPolicy.window)
+            LuminaLog.app.fault("the page stopped again after \(limit, privacy: .public) reloads in \(secs, format: .fixed(precision: 0), privacy: .public) s; not reloading")
             pageStopped = true
             askAboutStoppedPage(webView)
         }
@@ -361,9 +431,44 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     }
 }
 
+/// The view SwiftUI sizes to the window. The web view is added after the first layout, so it is
+/// pinned to these bounds whenever they change. The Edit canvas is a sibling and keeps the frame
+/// the page measured for it.
+final class SetsHostView: NSView {
+    weak var webView: NSView?
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        stretchWebView()
+    }
+
+    override func layout() {
+        super.layout()
+        stretchWebView()
+    }
+
+    func stretchWebView() {
+        guard let webView, webView.frame != bounds else { return }
+        webView.frame = bounds
+    }
+}
+
 /// Window sizes: opens at the reference size (1440×900, PARITY.md); minimum 1024×700 (ADDENDUM-1 §4).
 enum SetsWindowSize {
     static let initial = CGSize(width: 1440, height: 900)
     static let minimum = CGSize(width: 1024, height: 700)
+
+    /// What the page answers for a window offer. A finite offer is the window's content size, so
+    /// enlarging the window enlarges the page, and it is never below the minimum. No offer, or an
+    /// unbounded one, is the size the window opens at.
+    static func filled(width: CGFloat?, height: CGFloat?) -> CGSize {
+        CGSize(width: axis(width, ideal: initial.width, minimum: minimum.width),
+               height: axis(height, ideal: initial.height, minimum: minimum.height))
+    }
+
+    private static func axis(_ proposed: CGFloat?, ideal: CGFloat, minimum: CGFloat) -> CGFloat {
+        guard let proposed, proposed.isFinite else { return ideal }
+        return max(proposed, minimum)
+    }
 }
 

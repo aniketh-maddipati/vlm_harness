@@ -1,5 +1,7 @@
 # Lumina: threat model
 
+The promises and the checked inventory of what the app can reach are [TRUST.md](TRUST.md); this file keeps the findings.
+
 2026-10-01, at `4421a7c`. Covers the app as it ships today (the design page in a WKWebView plus
 the native bridge in `Lumina/Sets`). The native SwiftUI rebuild (`LuminaKit`) inherits every
 finding that is not marked *WebView only*. Fixes are proposals; `TASKS.md` orders them.
@@ -80,6 +82,10 @@ limited to `lumina: blob: data:`, `form-action 'none'`, `frame-src 'none'`, `obj
 (c) a probe scenario that tries fetch, XHR, WebSocket, an image, a beacon, RTCPeerConnection, a
 form post and `window.open`, and fails if any leaves; (d) the lasting fix is the native UI, which
 needs no network entitlement at all.
+**Status 2026-10-06:** (a), (b) and (c) landed in `SetsOffline.swift`, plus WebRTC removed in every
+frame (no URL load, so neither rules nor CSP cover it) and clicked links through
+`SetsExternalLinks`. The escape test is `Tests/web/webkit.py offline` (32 ways out, WebKitGTK,
+against a real listener); `app-offline` checks the layers in WKWebView. (d) is still D2.
 
 ### T4 · Medium · A sidecar written from text read hours earlier (A2)
 `plumbing.js:324–327` keeps each sidecar's text from when the folder was opened; Save
@@ -140,7 +146,7 @@ click the first time and none after.
 ### T11 · Low · Smaller items
 - Downloads go to `~/Downloads` under a name the page supplies, any type (`SetsRootView.swift:164`). The sandbox refuses it; only a debug export uses it. Remove in release.
 - Navigation allows `data:` and `blob:` as pages, and any https link the user clicks opens in the browser. Allow only the known contact links.
-- Paths and folder names go to the unified log in clear (`NSLog`, `onEvent` in the probe). Use `os_log` with private fields.
+- ~~Paths and folder names go to the unified log in clear (`NSLog`).~~ Closed 2026-10-06: `LuminaLog` with private fields; `trust_check.py` refuses `NSLog`. (`onEvent` reaches only the probe's log.)
 - A damaged `index.json` reads as "no recent shoots" and the next open overwrites it. Keep the damaged file aside.
 - Sessions, paths and capture dates sit unencrypted in the container. Acceptable; "Remove Working Files" exists. Say so in the privacy text.
 

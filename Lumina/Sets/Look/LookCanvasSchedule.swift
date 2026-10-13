@@ -23,6 +23,9 @@ nonisolated struct LookCanvasSchedule: Sendable {
     struct ROI: Equatable, Sendable, Codable {
         var x: Double, y: Double, w: Double, h: Double
         var isWhole: Bool { x <= 0 && y <= 0 && w >= 1 && h >= 1 }
+        /// Exactly the photo: nothing to place, the canvas fits it. A region reaching beyond the
+        /// photo (the page zoomed out) is whole and still has a place of its own.
+        var isFit: Bool { x == 0 && y == 0 && w == 1 && h == 1 }
     }
 
     /// One render to start now.
@@ -119,6 +122,20 @@ nonisolated struct LookCanvasSchedule: Sendable {
         let s = submit(look, at: now, roi: roi, pageSeq: pageSeq, pageAt: pageAt)
         restWanted = true
         return s
+    }
+
+    /// The newest look again at full quality: its base landed or changed, the canvas has a new
+    /// size, the loupe's region arrived. The look, its region and the page's `seq` stay, so a look
+    /// still waiting for its first frame keeps its acknowledgement (`luminaPresented`); a look
+    /// already started is not timed twice. False when no look was ever given.
+    @discardableResult
+    mutating func again(at now: Double) -> Bool {
+        guard let l = latest else { return false }
+        let started = lastStarted.map { l.seq <= $0.lookSeq } ?? false
+        lookSeq += 1
+        latest = (l.look, lookSeq, now, l.roi, l.pageSeq, started ? 0 : l.pageAt)
+        restWanted = true
+        return true
     }
 
     // MARK: The display link

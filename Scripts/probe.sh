@@ -41,6 +41,7 @@
 #                                                of each new set of stages ≤ 8 ms on the main thread. LUMINA_CANVAS_WARM=0 = no
 #                                                warm-up (the "before" measure; the gate fails)
 #   bash Scripts/probe.sh raw9                   RAW 9 (§8): decoder map, time to first tile / full region, export time + memory
+#   bash Scripts/probe.sh video                  video budget metrics on LUMINA_VIDEO_DIR: first rows, flags for 50 clips, peak memory, proxy disk, decoders (M1 gates; FAILS until lumina.video exists)
 #                                                per decoder version, the forced per-file fallback, tiles vs export ΔE per version
 #   bash Scripts/probe.sh consistency            canvas vs export: ΔE between what the Edit canvas shows and what Export writes (full size,
 #                                                pinned decoder), per stage of the look, on 12 distinct real ARWs of LUMINA_EDIT_DIR
@@ -382,7 +383,7 @@ case "$suite" in
   screens)   screens ;;
   scenarios) scrolldir; editdir; files=(); for n in ${extra[@]+"${extra[@]}"}; do files+=("$S/$n.json"); done; extra=(); run "${files[@]}" ;;
   sync)      echo "use: bash Scripts/sets_sync_design.sh <handoff.zip>"; exit 2 ;;
-  smoke)     run "$S/smoke.json" "$S/keys-open-return.json" "$S/selftest.json" "$S/app-plumbing-contract.json" "$S/app-smoke.json" "$S/app-empty-start.json" ;;
+  smoke)     run "$S/smoke.json" "$S/keys-open-return.json" "$S/selftest.json" "$S/app-plumbing-contract.json" "$S/app-offline.json" "$S/app-smoke.json" "$S/app-empty-start.json" ;;
   selftest)  run "$S/selftest.json" ;;
   fuzz)      run "$S"/fuzz-sample-*.json "$S/fuzz-app-card.json" ;;
   edge)      run "$S"/edge-*.json ;;
@@ -395,13 +396,15 @@ case "$suite" in
   contract)  run "$S/app-plumbing-contract.json" ;;
   fault)     run $(paths "${FAULT[@]}") ;;
   scroll)    scrolldir; run "$S/scroll-read.json" "$S/scroll-fast.json" "$S/scroll-fast-2560.json" "$S/keys-spam.json" ;;
-  edit)      editdir; run "$S/edit-canvas.json"
+  edit)      editdir; run "$S/edit-first-entry.json" "$S/edit-canvas.json"
              echo "— nothing compiled (LUMINA_KERNEL_SALT): first drags on stages the canvas has not rendered —"
              LUMINA_KERNEL_SALT="${LUMINA_KERNEL_SALT:-p$(date +%s)}" run_out "$OUT/cold" "$S/edit-cold.json"
              echo "— image fallback path (LUMINA_CANVAS=image) —"
              LUMINA_CANVAS=image run_out "$OUT/image-path" "$S/edit-canvas.json" ;;
   edit-cold) editdir; LUMINA_KERNEL_SALT="${LUMINA_KERNEL_SALT:-p$(date +%s)}" run "$S/edit-cold.json" ;;
   raw9)      editdir; run "$S/raw9.json" ;;
+  video)     [[ -n ${LUMINA_VIDEO_DIR:-} ]] || { echo "video: set LUMINA_VIDEO_DIR (a card's PRIVATE/M4ROOT/CLIP, or MP4s with their M01.XML sidecars); scenario SKIPs without it"; }
+             run "$S/video-budget.json" ;;
   consistency) editdir; run "$S/edit-consistency.json" ;;
   readspeed) [[ -n ${LUMINA_READ_DIR:-} ]] || { scrolldir; export LUMINA_READ_DIR="${LUMINA_SCROLL_DIR:-}"; }
              run "$S/read-speed.json" ;;

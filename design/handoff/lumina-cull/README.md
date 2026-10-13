@@ -11,19 +11,19 @@ The JS is meant to be ported **exactly**:
 - `lumina-core-v4.js` (parsing, grouping, soft/blown, sidecars);
 - the logic classes inside the two `.dc.html` files.
 
-Open `Lumina Sets v11.dc.html` in Chrome to run everything, sample shoot included, with no network calls.
+Open `Lumina Sets v12.dc.html` in Chrome to run everything, sample shoot included, with no network calls.
 
 ## Order of truth (earlier wins)
 1. This README, CHANGES-v0.03.md, BRIDGE-v0.03.md, then CHANGES-v0.02.md, BRIDGE-v0.02.md, NATIVE-EDIT.md
-2. `Lumina Sets v11.dc.html` + `Lumina Edit v22.dc.html` (Edit is mounted inside Sets)
+2. `Lumina Sets v12.dc.html` + `Lumina Edit v23.dc.html` (Edit is mounted inside Sets)
 3. BRIDGE.md, TEST-PLAN.md, ROADMAP.md (v0.01)
 4. `reference/` (v5 era)
 
 ## Files
 | File | Role |
 |---|---|
-| Lumina Sets v11.dc.html | The app: Open → Pick → Edit → Save, passes, aim, tour, keys tutorial, FAQ. v0.03: flow state, moved/stayed/readEnd/leadReady events, stable rows, warm-ahead, settled storage meter |
-| Lumina Edit v22.dc.html | Edit step. v0.03: drives the native canvas (canvasRect / preview / drag / roi / prefetch + hooks). Default render is Lightroom-match; ⇧T switches to AgX; Auto comes from `lumina.auto` first |
+| Lumina Sets v12.dc.html | The app: Open → Pick → Edit → Save, passes, aim, tour, keys tutorial, FAQ. v0.03: flow state, moved/stayed/readEnd/leadReady events, stable rows, warm-ahead, settled storage meter |
+| Lumina Edit v23.dc.html | Edit step. v0.03: drives the native canvas (canvasRect / preview / drag / roi / prefetch + hooks). Default render is Lightroom-match; ⇧T switches to AgX; Auto comes from `lumina.auto` first |
 | lumina-core-v4.js | ARW/DNG/JPEG parsing (incl. phone preview pieces and RGB thumbnails), Sony MakerNote, grouping, soft/blown, sidecars with pass keywords, zip. **Port as is** |
 | lumina-core-v4.test.mjs + .fixtures.json | `node lumina-core-v4.test.mjs`, must print no FAIL. Includes the CHANGES-v0.02 §9 cases and the look string (19 cases) |
 | lumina-measure.js | Pixel measures for the large view |
@@ -40,7 +40,7 @@ Open `Lumina Sets v11.dc.html` in Chrome to run everything, sample shoot include
 | prompts/PROMPT-8g-culleval.md | Validate the new soft/blown rules on scored shoots; turn ⇧A on only if it passes |
 | Window Chrome Options.dc.html | Decision 9a: standard title bar, page 1440 × 872 |
 | Phone Handoff Check.dc.html, Lumina Ingest design.dc.html | Unchanged from v0.01 |
-| uploads/*.jpg | **Not included, to keep the zip small.** Copy `uploads/` from the v0.01 handoff (same files) next to Sets v11, or the sample shoot shows grey tiles |
+| uploads/*.jpg | **Not included, to keep the zip small.** Copy `uploads/` from the v0.01 handoff (same files) next to Sets v12, or the sample shoot shows grey tiles |
 | screenshots/ | Not included. The v0.01 captures are in the v0.01 handoff; key bar copy and the Save step differ (see CHANGES) |
 | reference/ | v5 docs (GRAMMAR, SAFETY, TEST-MATRIX, plumbing.js) |
 
