@@ -96,15 +96,15 @@ nonisolated struct SkimLedger: Sendable {
 
     /// Moves the file to the Trash: only one Skim wrote and nothing changed since, at `url`.
     func moveToTrash(_ id: String, at url: URL?) -> (ok: Bool, why: String) {
-        guard let e = entry(id) else { return (false, "Skim has no note of that file.") }
+        guard let e = entry(id) else { return (false, "Lumina has no note of that file.") }
         switch Self.state(e, at: url) {
         case .trashed: return (false, "It is already in the Trash.")
-        case .unknown: return (false, "Skim may not look in that folder any more.")
+        case .unknown: return (false, "Lumina has no access to that folder any more.")
         case .gone: return (false, "It is not there any more.")
-        case .changed: return (false, "It changed after Skim saved it, so Skim leaves it alone.")
+        case .changed: return (false, "It changed after Lumina saved it, so Lumina leaves it alone.")
         case .here: break
         }
-        guard let url else { return (false, "Skim may not look in that folder any more.") }
+        guard let url else { return (false, "Lumina has no access to that folder any more.") }
         do {
             let to = try trash(url)
             _ = change(id) { $0.trashed = to.path; $0.path = url.path }

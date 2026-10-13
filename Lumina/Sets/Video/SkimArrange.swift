@@ -114,7 +114,7 @@ nonisolated struct SkimArrange: Sendable {
             let from = Self.std(m.from), dir = Self.std(m.dir)
             guard Self.isFile(from) else { no("not there any more"); continue }
             guard let ex = Self.existing(dir) else { no("that folder can't be made there"); continue }
-            guard allowed(from), allowed(ex.base) else { no("outside the folders Skim was let into"); continue }
+            guard allowed(from), allowed(ex.base) else { no("outside the drives and folders Lumina has access to"); continue }
             if let why = refuse(from) ?? refuse(ex.base) { no(why); continue }
             guard let a = Self.device(from), let b = Self.device(ex.base), a == b else { no("on another drive: Skim moves clips only within one drive"); continue }
             if (from as NSString).deletingLastPathComponent == dir { no("already in that folder"); continue }

@@ -750,7 +750,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             guard let name = body["name"] as? String, let text = body["text"] as? String else { return (["ok": false, "why": "Nothing to save."], nil) }
             let saved: SkimExport.Saved
             if let d = body["dir"] as? String, !d.isEmpty {
-                guard skimGranted(d) else { return (["ok": false, "why": "Skim may not save there. Let it into that folder first."], nil) }
+                guard skimGranted(d) else { return (["ok": false, "why": "Lumina has no access to that folder. Give it access in Export first."], nil) }
                 let dir = URL(fileURLWithPath: d, isDirectory: true)
                 if SetsFileOps.isCard(dir) { return (["ok": false, "why": Self.skimCardRefusal], nil) }
                 saved = await Task.detached(priority: .userInitiated) { SkimExport.save(text, name: name, into: dir) }.value
@@ -764,8 +764,78 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 if SetsFileOps.isCard(to.deletingLastPathComponent()) { return (["ok": false, "why": Self.skimCardRefusal], nil) }
                 saved = await Task.detached(priority: .userInitiated) { SkimExport.write(text, to: to) }.value
             }
-            if saved.ok { skimSaved.insert(saved.path); onEvent?("skim export saved \(saved.path)") }
+            if saved.ok {
+                skimSaved.insert(saved.path); onEvent?("skim export saved \(saved.path)")
+                // the note of what was saved (SkimLedger): which clips the file holds, with their marks, and a bookmark to find it again
+                if let note = body["note"] as? [String: Any], let kind = note["kind"] as? String, let shoot = note["shoot"] as? String {
+                    let bm = try? URL(fileURLWithPath: saved.path).bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+                    skimLedger.record(path: saved.path, kind: kind, shoot: shoot, clips: note["clips"] as? [String: String] ?? [:], opts: note["opts"] as? [String: Bool] ?? [:], bookmark: bm)
+                }
+            }
             return (saved.json, nil)
+        case "skimExportsList":
+            // The files Export saved for this shoot (SkimLedger), each as it is on disk now: there, changed since, gone, in the Trash,
+            // or where Lumina may not look. A file moved or renamed in Finder is found again through its bookmark.
+            guard let shoot = body["shoot"] as? String else { return ([Any](), nil) }
+            let ledger = skimLedger
+            return (ledger.entries(shoot: shoot).map { e -> [String: Any] in
+                let u = skimLedgerOpen(e)
+                defer { if let u, u.scoped { u.url.stopAccessingSecurityScopedResource() } }
+                let st = SkimLedger.state(e, at: u?.url)
+                var f = e
+                if st == .here, let u, u.url.path != e.path { ledger.moved(e.id, to: u.url.path); f.path = u.url.path }
+                return SkimLedger.json(f, state: st)
+            }, nil)
+        case "skimExportsForget":
+            // Take a saved file off Export's list. The file is not touched.
+            guard let id = body["id"] as? String else { return (false, nil) }
+            return (skimLedger.forget(id), nil)
+        case "skimExportsTrash":
+            // Move to Trash, after the user's click: a file Export saved and nothing changed since (SkimLedger); Put back returns it.
+            guard let id = body["id"] as? String, let e = skimLedger.entry(id) else { return (["ok": false, "why": "Lumina has no note of that file."], nil) }
+            let u = skimLedgerOpen(e)
+            defer { if let u, u.scoped { u.url.stopAccessingSecurityScopedResource() } }
+            if let u, SetsFileOps.isCard(u.url.deletingLastPathComponent()) { return (["ok": false, "why": Self.skimCardRefusal], nil) }
+            let r = skimLedger.moveToTrash(id, at: u?.url)
+            return (["ok": r.ok, "why": r.why], nil)
+        case "skimExportsPutBack":
+            // Put back: a file Export moved to the Trash, to where it was, while its old place is free.
+            guard let id = body["id"] as? String, let e = skimLedger.entry(id) else { return (["ok": false, "why": "Lumina has no note of that file."], nil) }
+            let dir = (e.path as NSString).deletingLastPathComponent, granted = skimGranted(dir)   // opens the folders Lumina has access to
+            let u = skimLedgerOpen(e)
+            defer { if let u, u.scoped { u.url.stopAccessingSecurityScopedResource() } }
+            let r = skimLedger.putBack(id)
+            return (["ok": r.ok, "why": r.ok || granted ? r.why : r.why + " Lumina may not write in " + (dir as NSString).lastPathComponent + "; give it access to that folder in Export."], nil)
+        case "skimExportsReveal":
+            fallthrough   // Show in Finder: a file on Export's list, found through its bookmark
+        case "skimExportsOpen":
+            // Show in Finder, or Open in Final Cut: a file on Export's list, found through its bookmark.
+            guard let id = body["id"] as? String, let e = skimLedger.entry(id), e.trashed == nil, let u = skimLedgerOpen(e), SkimArrange.isFile(u.url.path) else { return (["ok": false, "why": "That file is not there any more."], nil) }
+            defer { if u.scoped { u.url.stopAccessingSecurityScopedResource() } }
+            if op == "skimExportsReveal" { reveal(u.url); return (["ok": true], nil) }
+            guard e.kind == "fcpxml" else { return (["ok": false, "why": "Only a Final Cut file opens in Final Cut."], nil) }
+            guard let app = Self.finalCut() else { return (["ok": false, "why": "Final Cut Pro is not on this Mac."], nil) }
+            let ok = (try? await NSWorkspace.shared.open([u.url], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())) != nil
+            return (ok ? ["ok": true, "app": app.deletingPathExtension().lastPathComponent] : ["ok": false, "why": "Final Cut Pro did not open it."], nil)
+        case "skimExportsRead":
+            // Preview: the text of a file on Export's list (at most 16 MB), found through its bookmark. Read only.
+            guard let id = body["id"] as? String, let e = skimLedger.entry(id), e.trashed == nil, let u = skimLedgerOpen(e) else { return (NSNull(), nil) }
+            defer { if u.scoped { u.url.stopAccessingSecurityScopedResource() } }
+            guard SkimArrange.isFile(u.url.path), SkimArrange.size(u.url.path) <= Int64(SkimExport.maxBytes), let d = try? Data(contentsOf: u.url) else { return (NSNull(), nil) }
+            return (String(decoding: d, as: UTF8.self), nil)
+        case "skimShowClips":
+            // Delete in Finder: the clips named (inside the opened folder, as the page knows them) selected in a Finder window,
+            // after the user's click, so the user deletes them there. Lumina deletes nothing.
+            guard let root = lastOpened, let rels = body["paths"] as? [String], rels.count <= 5000 else { return (0, nil) }
+            let urls = rels.compactMap { SkimTrash.resolve(root: root, rel: $0) }
+            if !urls.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(urls) }
+            return (urls.count, nil)
+        case "skimShowInFinder":
+            // Show in Finder: a folder or file of Export's tree, selected in a Finder window, after the user's click. Only inside
+            // a drive or folder Lumina has access to.
+            guard let path = body["path"] as? String, SkimArrange.plain(path), skimGranted(path), FileManager.default.fileExists(atPath: path) else { return (false, nil) }
+            reveal(URL(fileURLWithPath: path))
+            return (true, nil)
         case "skimExportCheck":
             // Export's background check: the clip files the .fcpxml points at that are not on disk (inside the opened folder
             // only), and the file against Final Cut's own DTD (read from Final Cut's app, when it is on this Mac).
@@ -890,6 +960,21 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) { return u }
         }
         return nil
+    }
+
+    /// Export's note of the files it saved (SkimLedger), in the container.
+    private var skimLedger: SkimLedger { SkimLedger(file: supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("exports.json")) }
+
+    /// Where a saved file is now: through its bookmark (access started; the caller stops it when `scoped`), else its path when
+    /// it is inside a folder Lumina has access to; nil when Lumina may not look.
+    private func skimLedgerOpen(_ e: SkimLedger.Entry) -> (url: URL, scoped: Bool)? {
+        if let bm = e.bookmark {
+            var stale = false
+            if let u = try? URL(resolvingBookmarkData: bm, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) {
+                return (u, u.startAccessingSecurityScopedResource())
+            }
+        }
+        return skimGranted(e.path) ? (URL(fileURLWithPath: e.path), false) : nil
     }
 
     /// Arrange's note of its runs (SkimArrange), in the container.

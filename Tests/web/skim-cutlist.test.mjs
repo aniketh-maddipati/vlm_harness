@@ -116,7 +116,9 @@ test('the Export screen says selected / maybe / cut and nothing else for the mar
   const shown = src.slice(a, b).replace(/<[^>]*>/g, ' ') + ' ' + lits.join(' ');
   assert.doesNotMatch(shown, /\b(keep|kept|keepers?|reject\w*|flag\w*)\b/i);
   assert.match(shown, /Clip files are never changed\./);
-  assert.match(shown, /The page cannot delete files; delete these in Finder\./);
+  // deleting is Finder's for now: Delete in Finder… selects the cut clips there
+  assert.match(shown, /Delete in Finder/);
+  assert.match(shown, /with the cut clips selected; delete them there/);
   // Open in Final Cut is the app's own step now (skimOpenInFinalCut); the page still never says it sends anything.
   assert.doesNotMatch(shown, /send to Final Cut/i);
 });
