@@ -117,6 +117,14 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `writeSidecars` | — | `.xmp` beside its RAW in the opened folder, `.lumina-bak` first |
 | `reveal` | — | — (shows a file in Finder, only inside the opened folders or the last export) |
 | `setPrefs` | — | the page's preferences in the app's defaults |
+| `addFrom` | the folders or RAWs the user picks in a panel (or a granted Downloads folder): their listings | `sources/<shoot id>.json` in the container (each source's name and security-scoped bookmark) |
+| `claimFiles` | the files the user just dropped on the window or picked in the page's own file input, matched by path to what was granted: their listings | `sources/<shoot id>.json` |
+| `shootSources` | — | `sources/<shoot id>.json`: which sources the open shoot keeps (id checked) |
+| `sourcesStatus` | whether each kept source is reachable now | — |
+| `sourceReconnect` | a folder the user picks to stand for a missing source: its listing | `sources/<shoot id>.json` (the new bookmark) |
+| `watchAirdrop` | new RAWs in the Downloads folder the user granted, once stable for a second (names and sizes only; nothing opened or changed) | `downloads.bookmark` in the container |
+| `removeWorkingFiles` | — | deletes what `shoots/<id>/` holds besides the session in the container (id checked) |
+| `storeSet` | — | one of the page's few lasting keys in `page-store.json` in the container (named keys only, each under a size cap) |
 | `skimStore` | Skim's saved shoots, `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimSave` | — | one Skim shoot's marks, name and counts in `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimCoverGet` | Skim's saved covers and first measures for the clips asked for, `skim/covers/` in the container (Debug builds with `LUMINA_PAGE=skim` only) | — |

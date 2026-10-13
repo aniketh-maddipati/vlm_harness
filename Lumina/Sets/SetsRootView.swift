@@ -1,6 +1,7 @@
 import AppKit
 import UniformTypeIdentifiers
 import SwiftUI
+import UniformTypeIdentifiers
 import WebKit
 import os
 
@@ -77,7 +78,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             }.value.map { ["folder": $0.folder, "done": $0.done, "planned": $0.planned, "cleaned": $0.cleaned] as [String: Any] }
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
-                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut],
+                                                         standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut,
+                                                                  "store": SetsPageStore(supportDir: Self.supportDir).all()],
                                                          extraScripts: page == .skim ? [SetsPage.skimHostScript] : [], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
@@ -247,6 +249,34 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         return await run(panel)
     }
 
+    func chooseSources(at: URL?, files: Bool, multiple: Bool, prompt: String, message: String) async -> [URL] {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = files
+        panel.allowsMultipleSelection = multiple
+        panel.canCreateDirectories = false
+        panel.prompt = prompt
+        panel.message = message
+        if files { panel.allowedContentTypes = [UTType("com.sony.arw-raw-image"), UTType("com.adobe.raw-image"), .rawImage, .folder].compactMap { $0 } }
+        if let at { panel.directoryURL = at }
+        guard let window = webView?.window else { return panel.runModal() == .OK ? panel.urls : [] }
+        return await withCheckedContinuation { c in
+            panel.beginSheetModal(for: window) { c.resume(returning: $0 == .OK ? panel.urls : []) }
+        }
+    }
+
+    func chooseDownloads(at: URL) async -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Watch"
+        panel.message = "Choose Downloads to let Lumina see AirDrop arrivals there. Lumina only reads it, and remembers this."
+        panel.directoryURL = at
+        return await run(panel)
+    }
+
     private func run(_ panel: NSOpenPanel) async -> URL? {
         guard let window = webView?.window else { return panel.runModal() == .OK ? panel.url : nil }
         return await withCheckedContinuation { c in
@@ -264,7 +294,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             Task { @MainActor in let urls = await chooseClips(); if let urls { bridge.skimOpened(urls) }; completionHandler(urls) }
             return
         }
-        Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
+        // The page's own file inputs (the phone page's "choose", Add to shoot's fallback): what is picked
+        // is noted, the page gets its `File`s, and plumbing has the Mac read them (`claimFiles`).
+        Task { @MainActor in completionHandler(await bridge.inputPanel(allowsDirectories: parameters.allowsDirectories, allowsMultipleSelection: parameters.allowsMultipleSelection)) }
     }
 
     // MARK: Navigation: only our own scheme; downloads go through a save panel

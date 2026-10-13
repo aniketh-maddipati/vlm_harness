@@ -161,6 +161,9 @@ final class SetsBridgeOpsTests: XCTestCase {
         "saveSession": ["id", "json", "summary"], "recents": [], "reopen": ["id"], "workingFiles": ["id"], "removeShoot": ["id"],
         "writeInto": ["label", "files"], "readSidecars": ["root", "files"], "writeSidecars": ["root", "files"], "reveal": ["path"],
         "setPrefs": ["prefs"], "checkAccess": [], "reopenDenied": [], "reopenCurrent": [],
+        "storeSet": ["key", "value"], "removeWorkingFiles": ["id"], "addFrom": ["where", "add", "id"],
+        "claimFiles": ["files", "add", "id", "kind", "label"], "shootSources": ["id", "sources"], "sourcesStatus": [],
+        "sourceReconnect": ["nid", "id"], "watchAirdrop": ["on"],
     ]
 
     // MARK: The table
@@ -175,9 +178,11 @@ final class SetsBridgeOpsTests: XCTestCase {
         // Valid values for the fields not under test, so a hostile one is the only thing wrong.
         let good: [String: Any] = ["id": id, "json": "{}", "name": "shoot", "root": "shoot", "rel": "shoot/DSC00001.ARW", "path": "shoot/DSC00001.ARW",
                                    "look": "ev:+0.30", "files": [] as [Any], "items": [] as [Any], "label": "Hostile", "prefs": ["rating": 3]]
-        // Per op, where the op needs a real rect to reach the field.
+        // Per op, where the op needs a real rect to reach the field, or a field name means something else.
         let goodFor: [String: [String: Any]] = [
             "canvasLayout": ["x": 100, "y": 50, "w": 400, "h": 300, "visible": true, "dpr": 2, "holes": [["x": 120, "y": 60, "w": 50, "h": 20]]],
+            "storeSet": ["key": "tour", "value": "1"], "addFrom": ["where": "folder", "add": false], "claimFiles": ["add": false, "kind": "folder"],
+            "shootSources": ["sources": [] as [Any]], "sourceReconnect": ["nid": "n1"], "watchAirdrop": ["on": false],
         ]
         for (op, fields) in Self.fields.sorted(by: { $0.key < $1.key }) {
             // Missing everything, and the op alone with a wrong-typed op name next to it.
@@ -217,8 +222,15 @@ final class SetsBridgeOpsTests: XCTestCase {
     private func refusalBroken(op: String, field: String, value v: Any, result r: Any?, error e: String?) -> String? {
         let truthy = (r as? Bool) == true
         switch (op, field) {
-        case ("saveSession", "id"), ("removeShoot", "id"), ("reopen", "id"):
+        case ("saveSession", "id"), ("removeShoot", "id"), ("reopen", "id"), ("removeWorkingFiles", "id"):
             return truthy ? "accepted a hostile id" : nil
+        case ("shootSources", "id"):
+            return (r as? [[String: Any]])?.isEmpty == false ? "answered the sources of a hostile id" : nil
+        // The test's panel answers Cancel and nothing was handed to the app: no listing comes back.
+        case ("addFrom", _), ("claimFiles", _), ("sourceReconnect", _):
+            return r != nil && !(r is NSNull) ? "answered with a listing" : nil
+        case ("watchAirdrop", "on"):
+            return truthy && (v as? Bool) == true ? "watches with no folder" : nil
         case ("workingFiles", "id"):
             return ((r as? Int64) ?? Int64((r as? Int) ?? 0)) != 0 ? "sized a hostile id" : nil
         case ("saveSession", "json"):
