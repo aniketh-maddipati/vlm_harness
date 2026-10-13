@@ -117,6 +117,10 @@ nonisolated struct SkimPlaces: Sendable {
         var found: [Found]; var scanned: Int; var partial: Bool
     }
 
+    /// Folders that are documents, left out of a search even on a Mac where no app claims them (a Final Cut library on a
+    /// Mac without Final Cut is a plain folder to macOS).
+    static let packageExtensions: Set<String> = ["fcpbundle", "fcpxmld", "app", "photoslibrary", "imovielibrary", "logicx", "band", "bundle", "framework", "plugin", "rtfd"]
+
     /// The words of a search as they are compared: lowercased, accents off, split on spaces.
     static func words(_ q: String) -> [String] {
         q.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil).split(whereSeparator: \.isWhitespace).map(String.init)
@@ -140,7 +144,7 @@ nonisolated struct SkimPlaces: Sendable {
             scanned += 1
             for u in names {
                 let v = try? u.resourceValues(forKeys: Set(keys))
-                guard v?.isDirectory == true, v?.isPackage != true, v?.isSymbolicLink != true else { continue }
+                guard v?.isDirectory == true, v?.isPackage != true, v?.isSymbolicLink != true, !Self.packageExtensions.contains(u.pathExtension.lowercased()) else { continue }
                 let p = u.standardizedFileURL.path
                 guard seen.insert(p).inserted else { continue }
                 let name = u.lastPathComponent, folded = words(name).joined(separator: " ")
