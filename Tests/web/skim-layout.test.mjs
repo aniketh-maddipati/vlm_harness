@@ -187,5 +187,5 @@ test('Viewer in a narrow window: the facts go under the picture when that makes 
   // the three levels and mvp: the plan alone; the one grid (video/skim-condensed): the phone layout at 640 and under,
   // the plan above it with the dock's height taken from the picture's room
   assert.ok(/const vp = Component\.viewPlan\(st\.vw, st\.vh\), W = vp\.W, Hh = vp\.H; vals\.lv2Cols = vp\.cols;/.test(pageSrc)
-    || /vp = narrow \? null : Component\.viewPlan\(st\.vw, st\.vh - this\.dockH\(\)\)[^;]*W = narrow \? [^:]+: vp\.W[^;]*: Math\.max\(st\.vh <= 500 \? 130 : 0, vp\.H\); if \(vp\) vals\.lv2Cols = vp\.cols;/.test(pageSrc));
+    || /vp = narrow \? null : Component\.viewPlan\(st\.vw, st\.vh - this\.dockH\(\)(?: [-+] \d+)?\)[^;]*W = narrow \? [^:]+: vp\.W[^;]*: Math\.max\(st\.vh <= 500 \? 130 : 0, vp\.H\); if \(vp\) vals\.lv2Cols = vp\.cols;/.test(pageSrc));
 });

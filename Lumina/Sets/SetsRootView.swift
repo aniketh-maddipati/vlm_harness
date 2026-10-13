@@ -114,10 +114,23 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     func command(_ name: String) {
         guard name.allSatisfy({ $0.isLetter }) else { return }
         if SetsPage.current == .skim {
+            if name == "reload" { reloadSkim(); return }
             if let js = SetsPage.skimKeyScript(for: name) { webView?.evaluateJavaScript(js, completionHandler: nil) }
             return
         }
         webView?.evaluateJavaScript("window.__lumina && __lumina.command('\(name)')", completionHandler: nil)
+    }
+
+    /// ⌘R on Skim: leaves a note in this app's container that the hot build's follower watches
+    /// (`Library/Caches/skim-refresh`: it pulls the shared branch at once, and a newer page then hot-reloads
+    /// again), and reloads the page from the app's files now. The open clips go with the reload, as in a browser.
+    private func reloadSkim() {
+        guard let webView else { return }
+        if let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            try? Data(ISO8601DateFormatter().string(from: Date()).utf8).write(to: caches.appendingPathComponent("skim-refresh"), options: .atomic)
+        }
+        LuminaLog.app.notice("skim: reload from the menu")
+        webView.load(URLRequest(url: SetsSchemeHandler.pageURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
     }
 
     func toggleZoom() { webView?.evaluateJavaScript("window.__lumina && __lumina.zoom()", completionHandler: nil) }
@@ -454,16 +467,22 @@ final class SetsHostView: NSView {
 }
 
 /// Window sizes: opens at the reference size (1440×900, PARITY.md); minimum 1024×700 (ADDENDUM-1 §4).
+/// Skim narrows to a phone's width (360×560): its page lays itself out for a phone below 640 px.
 enum SetsWindowSize {
     static let initial = CGSize(width: 1440, height: 900)
     static let minimum = CGSize(width: 1024, height: 700)
+    static let phone = CGSize(width: 360, height: 560)
+
+    /// The smallest window for a page.
+    static func minimum(for page: SetsPage) -> CGSize { page == .skim ? phone : minimum }
 
     /// What the page answers for a window offer. A finite offer is the window's content size, so
-    /// enlarging the window enlarges the page, and it is never below the minimum. No offer, or an
-    /// unbounded one, is the size the window opens at.
-    static func filled(width: CGFloat?, height: CGFloat?) -> CGSize {
-        CGSize(width: axis(width, ideal: initial.width, minimum: minimum.width),
-               height: axis(height, ideal: initial.height, minimum: minimum.height))
+    /// enlarging the window enlarges the page, and it is never below the page's minimum. No offer,
+    /// or an unbounded one, is the size the window opens at.
+    static func filled(width: CGFloat?, height: CGFloat?, page: SetsPage = .current) -> CGSize {
+        let floor = minimum(for: page)
+        return CGSize(width: axis(width, ideal: initial.width, minimum: floor.width),
+                      height: axis(height, ideal: initial.height, minimum: floor.height))
     }
 
     private static func axis(_ proposed: CGFloat?, ideal: CGFloat, minimum: CGFloat) -> CGFloat {

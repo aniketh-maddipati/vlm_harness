@@ -9,16 +9,23 @@ import { PAGE, extractMethod } from './skim-export.mjs';
 
 const src = fs.readFileSync(PAGE, 'utf8');
 const C = {};
-for (const [name, args] of [['dockList', 'clips, marks'], ['dockStep', 'ids, id, d'], ['dockNear', 'order, ids, cur'], ['dockOut', 'ids, id'], ['markToggle', 'has, m']]){
+for (const [name, args] of [['dockList', 'clips, marks, cuts, only'], ['dockStep', 'ids, id, d'], ['dockNear', 'order, ids, cur'], ['dockOut', 'ids, id'], ['markToggle', 'has, m']]){
   const body = extractMethod(src, name, 'static ' + name + '(' + args + ') {').replace(/^static /, 'function ');
   C[name] = new Function('Component', 'return ' + body)(C);
 }
 const clips = [['a', 0], ['b', 0], ['c', 1], ['d', 1], ['e', 2], ['f', 3]].map(([id, g]) => ({id, g}));
 
-test('the dock holds selected clips only, in capture order', () => {
-  const L = C.dockList(clips, {f:'keep', b:'keep', c:'maybe', d:'keep', e:'cut'});
-  assert.deepEqual(L.map(x => x.id), ['b', 'd', 'f']);
+test('the dock holds three sections: selected, maybe, then the cut clips only unfurled; capture order in each', () => {
+  const marks = {f:'keep', b:'keep', c:'maybe', d:'keep', e:'cut', a:'cut'};
+  assert.deepEqual(C.dockList(clips, marks).map(x => x.id), ['b', 'd', 'f', 'c']);
+  const L = C.dockList(clips, marks, true);
+  assert.deepEqual(L.map(x => x.id), ['b', 'd', 'f', 'c', 'a', 'e']);
+  assert.deepEqual(L.map(x => x.m), ['keep', 'keep', 'keep', 'maybe', 'cut', 'cut']);
+  assert.equal(L[3].brk, false, 'a section starts without a gap (it has its own box)');
   assert.deepEqual(C.dockList(clips, {}), []);
+  assert.deepEqual(C.dockList(clips, {a:'cut'}, true).map(x => x.brk), [false]);
+  assert.deepEqual(C.dockList(clips, marks, false, 'maybe').map(x => x.id), ['c'], 'one bucket');
+  assert.deepEqual(C.dockList(clips, marks, false, 'cut').map(x => x.brk), [false, true], 'a gap where the scene changes');
 });
 
 test('a gap where the scene changes, none inside a scene and none before the first clip', () => {
@@ -69,8 +76,9 @@ test('the page wires the dock in: one block above the key bar, the keys, the mar
 test('the first K changes no layout: the Viewer keeps the slim strip height while it is empty, the grid keeps the marked clip', () => {
   // A dock that grew from one line to a strip on the first K shrank the Viewer's picture, and the chapter's next clip
   // came in beside it. Under the grid the reflow put another tile under a still pointer, which took the current clip.
-  assert.match(src, /return this\.dockIds\(\)\.length \|\| this\.dockSlim\(\) \? this\.dockPh\(\)/);
-  assert.match(src, /out\.dockFull = L\.length > 0 \|\| this\.dockSlim\(\); out\.dockHold = !L\.length;/);
+  // The dock keeps one height whatever is marked: its three sections are always there to drop on.
+  assert.match(src, /return this\.dockPh\(\) \+ \(this\.dockSlim\(\) \? 49 : 68\) \+ 22; \}/);
+  assert.match(src, /hold = \(open && !tiles\.length\)/);
   assert.equal((src.match(/data-lumina="dock-hold"/g) || []).length, 1);
   const dm = src.slice(src.indexOf('  doMark(ids, m) {'), src.indexOf('  propose(t, fn) {'));
   assert.match(dm, /this\.kbAt = Date\.now\(\);/);
