@@ -37,6 +37,16 @@ async function run(host) {
         '/Users/sam/Desktop/dump':Array.from({length:8}, (_, i) => ({name:'C000' + (i + 1) + '.MP4', path:'/Users/sam/Desktop/dump/C000' + (i + 1) + '.MP4', file:true, bytes:2e6}))}; return ask(D[p] || []); },
       dirMake: (parent, name) => { window.__calls.push(['mkdir', parent, name]); const D = window.__dirs; const q = parent + '/' + name; (D[parent] = D[parent] || []).push({name, path:q, dirs:false}); D[q] = []; return ask({ok:true, path:q}); },
       placeAdd: () => ask(null), placeRemove: () => ask(null),
+      // Arrange: the stand-in moves the listed entries between folders, as skimArrangeApply / Undo do on disk
+      arrangeApply: (shoot, moves) => { window.__calls.push(['arrange', moves.length]); const D = window.__dirs, at = q => q.slice(0, q.lastIndexOf('/'));
+        const out = moves.map(m => { const L = D[at(m.from)] || [], i = L.findIndex(f => f.path === m.from); if (i < 0) return {from:m.from, to:'', ok:false, why:'not there any more'};
+          if (!D[m.dir]) { D[m.dir] = []; (D[at(m.dir)] = D[at(m.dir)] || []).push({name:m.dir.split('/').pop(), path:m.dir, dirs:false}); }
+          const [f] = L.splice(i, 1), to = m.dir + '/' + f.name; D[m.dir].push({...f, path:to}); return {from:m.from, to, ok:true, why:''}; });
+        const run = {id:'r' + (window.__runs || []).length, shoot, at:Date.now(), clips:out.filter(o => o.ok).length, bytes:2e6 * out.filter(o => o.ok).length, undone:false, moves:out};
+        window.__runs = [run].concat(window.__runs || []); return ask({run:run.id, moves:out}); },
+      arrangeUndo: id => { window.__calls.push(['undo', id]); const D = window.__dirs, at = q => q.slice(0, q.lastIndexOf('/')), r = (window.__runs || []).find(x => x.id === id); if (!r || r.undone) return ask([]);
+        r.undone = true; return ask(r.moves.filter(m => m.ok).map(m => { const L = D[at(m.to)], i = L.findIndex(f => f.path === m.to), [f] = L.splice(i, 1); D[at(m.from)].push({...f, path:m.from}); return {from:m.from, to:m.to, ok:true, why:''}; })); },
+      arrangeList: () => ask((window.__runs || []).map(({moves, ...x}) => x)),
       exportCheck: text => { window.__calls.push(['check']); const m = [...text.matchAll(/src="file:\/\/([^"]+)"/g)].map(x => decodeURIComponent(x[1])); return ask({dtd:'ok', errors:[], unchecked:0, missing:m.filter(p => /C0002/.test(p))}); },
       exportReveal: p => { window.__calls.push(['reveal', p]); return ask(true); },
       openInFinalCut: p => { window.__calls.push(['fcp', p]); return ask({ok:true, app:'Final Cut Pro'}); },
@@ -136,6 +146,33 @@ async function run(host) {
     ok(/\/Volumes\/T7$/.test((await text('[data-lumina="ws-to-cut"]')).trim()), 'app: the cut list can go somewhere else: ' + await text('[data-lumina="ws-to-cut"]'));
     ok(/to \/Volumes\/T7\/Projects\/Tuesday export/.test(await text('[data-lumina="export-then"]')), 'app: the plan line names the folder: ' + await text('[data-lumina="export-then"]'));
     if (shots) await p.screenshot({path:path.join(shots, 'app-workshop.png'), fullPage:true});
+    // Arrange: a clip dragged onto a folder waits as a draft; Sort by mark plans the rest; Review, ×, then ⌘⏎ applies
+    const dumpP = '/Users/sam/Desktop/dump';
+    await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '"]'); await p.waitForTimeout(300);
+    cr = await clipRows(); const sel1 = 'C000' + (cr.findIndex(r => /selected/.test(r)) + 1) + '.MP4';
+    await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]'); await p.waitForTimeout(120);
+    await p.dragAndDrop('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]', '[data-lumina="ws-row"][data-path="' + made + '"]'); await p.waitForTimeout(300);
+    ok(/^1 move waiting/.test(await text('[data-lumina="ws-plan-say"]')) && await p.$('[data-lumina="ws-row"][data-path="' + made + '/' + sel1 + '"][data-kind="clip"]')
+      && /→ Tuesday export/.test(await text('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]')) && !(await p.evaluate(() => window.__calls.some(c => c[0] === 'arrange'))),
+      'app: a clip dropped on a folder waits there as a draft, its old row says where it goes, nothing moves: ' + await text('[data-lumina="ws-plan-say"]'));
+    await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '"]'); await p.waitForTimeout(150);
+    if (await p.$eval('[data-lumina="ws-row"][data-path="' + dumpP + '"]', e => e.getAttribute('aria-expanded')) !== 'true') { await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '"]'); await p.waitForTimeout(150); }
+    await p.click('[data-lumina="ws-sort"]'); await p.waitForTimeout(300);
+    ok(/^3 moves waiting/.test(await text('[data-lumina="ws-plan-say"]')) && /new/.test(await text('[data-lumina="ws-row"][data-path="' + dumpP + '/Selected"]')) && await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/Maybe"]')
+      && await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/Selected/' + sel1 + '"]') && !await p.$('[data-lumina="ws-row"][data-path="' + made + '/' + sel1 + '"]'),
+      'app: Sort by mark plans Selected and Maybe folders, shown as new, with the clips inside; the earlier move is replaced: ' + await text('[data-lumina="ws-plan-say"]'));
+    await p.click('[data-lumina="ws-plan-review"]'); await p.waitForTimeout(150);
+    const lst = await text('[data-lumina="ws-plan-list"]');
+    ok((lst.match(/→/g) || []).length === 3 && /dump → .*dump\/Maybe/.test(lst), 'app: Review lists every move, old folder → new: ' + lst.replace(/\n/g, ' | '));
+    await p.click('[data-lumina="ws-plan-x-2"]'); await p.waitForTimeout(150);
+    ok(/^2 moves waiting/.test(await text('[data-lumina="ws-plan-say"]')), 'app: × leaves one clip where it is');
+    if (shots) await p.screenshot({path:path.join(shots, 'app-arrange-draft.png'), fullPage:false});
+    await p.keyboard.press('Meta+Enter'); await p.waitForTimeout(600);
+    const ac = await p.evaluate(() => window.__calls.filter(c => c[0] === 'arrange' || c[0] === 'save'));
+    ok(ac.length === 1 && ac[0][1] === 2 && /^Moved 2 clips .+ into 1 folder/.test(await text('[data-lumina="ws-plan-say"]')) && await p.$('[data-lumina="ws-run-undo-0"]'),
+      'app: ⌘⏎ with moves waiting applies them (and saves nothing): ' + await text('[data-lumina="ws-plan-say"]'));
+    ok(await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/Selected/' + sel1 + '"][data-kind="clip"]') && !await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]'), 'app: the tree reads the folders again: the clip is in Selected now');
+    if (shots) await p.screenshot({path:path.join(shots, 'app-arrange-done.png'), fullPage:false});
     await p.click('[data-lumina="cut-save"]'); await p.waitForTimeout(300);
     await p.keyboard.press('Meta+Enter'); await p.waitForTimeout(900);
     const calls = await p.evaluate(() => window.__calls), r = await text('[data-lumina="export-result"]');
@@ -143,7 +180,8 @@ async function run(host) {
     const savedF = calls.filter(c => c[0] === 'save' && /\.fcpxml$/.test(c[1])).pop(), savedT = calls.find(c => c[0] === 'save' && /cut clips\.txt$/.test(c[1]));
     ok(savedF && /<keyword [^>]*value="[^"]*Scene 1/.test(savedF[2]) && /file:\/\/\/Users\/sam\/Desktop\/dump\//.test(savedF[2]), 'app: the file has scene keywords and points at the folder the app read');
     ok(savedF && savedF[3] === made && savedT && savedT[3] === '/Volumes/T7', 'app: each file is saved in the folder it was dropped on');
-    ok(calls.map(c => c[0]).filter(c => !/check|list|mkdir/.test(c)).join(' ') === 'save save fcp trash', 'app: (cut list), save, then Final Cut, then the Trash: ' + calls.map(c => c[0]).join(' '));
+    ok(savedF && savedF[2].includes('file:///Users/sam/Desktop/dump/Selected/' + sel1), 'app: the Final Cut file points at the clips where Arrange moved them');
+    ok(calls.map(c => c[0]).filter(c => !/check|list|mkdir|arrange/.test(c)).join(' ') === 'save save fcp trash', 'app: (cut list), save, then Final Cut, then the Trash: ' + calls.map(c => c[0]).join(' '));
     ok(/clip file missing on disk: C0002\.MP4/.test(r) && /missing on disk/.test(await text('[data-lumina="sum-verify"]')), 'app: a missing clip file is flagged in the result and the summary');
     ok(/Saved .+ in \/Volumes\/T7\/Projects\/Tuesday export/.test(r) && /Opened in Final Cut Pro/.test(r) && /Moved 2 cut clips/.test(r) && /working memory/.test(r), 'app: the result: ' + r.replace(/\n/g, ' | '));
     if (shots) { await p.evaluate(() => { const e = document.querySelector('[data-screen-label="Export"]'); if (e) e.scrollTop = 0; }); await p.screenshot({path:path.join(shots, 'app-done.png')}); }
@@ -152,6 +190,10 @@ async function run(host) {
     await p.click('[data-lumina="export-reveal"]'); await p.click('[data-lumina="export-putback"]'); await p.waitForTimeout(400);
     const c2 = await p.evaluate(() => window.__calls.map(c => c[0]).join(' '));
     ok(/reveal/.test(c2) && /putback/.test(c2) && /Put back 2 clips/.test(await text('[data-lumina="export-result"]')), 'app: Show in Finder and Put back answer from the result');
+    // Undo: the run on the workshop's list puts its clips back, and their paths follow
+    await p.keyboard.press('w'); await p.waitForTimeout(400); await p.click('[data-lumina="ws-run-undo-0"]'); await p.waitForTimeout(500);
+    ok(/^Put back 2 clips/.test(await text('[data-lumina="ws-plan-say"]')) && /put back/.test(await text('[data-lumina="ws-plan-list"]')) && !await p.$('[data-lumina="ws-run-undo-0"]')
+      && await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]'), 'app: Undo puts the run back, and the list says so: ' + await text('[data-lumina="ws-plan-say"]') + ' | ' + await text('[data-lumina="ws-plan-list"]') + ' | ' + (await rowsT()).join(' | '));
   }
   ok(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();
