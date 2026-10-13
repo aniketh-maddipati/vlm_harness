@@ -19,7 +19,8 @@ import page_bytes
 # fnmatch's `*` crosses `/`, so `Lumina/*` is the whole tree under Lumina/.
 AREAS = {
     # The page and its plumbing: the WebKitGTK + Chromium job, and the probe's screens.
-    "web": ["design/*", "Lumina/Sets/Web/*", "Tests/web/*", "Tests/core/*", "Scripts/page_files.sh"],
+    "web": ["design/*", "Lumina/Sets/Web/*", "Tests/web/*", "Tests/core/*", "Scripts/page_files.sh",
+            "Scripts/build-skim-preview.py"],
     # Anything Xcode builds or tests: the Debug build + LuminaLogicTests.
     "swift": ["Lumina/*", "Lumina.xcodeproj/*", "LuminaLogicTests/*", "TestPlans/*", "Config/*"],
     # The look pipeline and lumina-render (they share Lumina/Sets/Look through symlinks).
