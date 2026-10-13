@@ -28,6 +28,8 @@ final class SetsHotReload {
     private var seen: String
     private var applied: String
     private var timer: Timer?
+    /// Skim's reload, which keeps the open shoot (SetsWindowController.reloadSkimKeeping). Nil: a plain reload.
+    var reloadPage: (@MainActor () -> Void)?
 
     init(root: URL, webView: WKWebView, bridge: SetsBridge, plumbing: String?, resume: @escaping @MainActor () -> Void) {
         self.root = root
@@ -75,6 +77,7 @@ final class SetsHotReload {
         }
         LuminaLog.app.notice("hot reload: the page files changed")
         bridge?.canvas?.leave()
+        if let reloadPage { reloadPage(); return }
         webView.load(URLRequest(url: SetsSchemeHandler.pageURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
     }
 }
