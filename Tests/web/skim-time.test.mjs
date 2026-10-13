@@ -105,8 +105,9 @@ test('the page: the grid groups by time, pinch and − / = move along the interv
   for (const part of ['data-lumina="time-rod"', 'data-lumina="time-mark"', 'data-lumina="time-step"', 'margin-left:{{ fGut }}px']) assert.ok(tpl.includes(part), part);
   assert.ok(!tpl.includes('fold-strip') && !tpl.includes('zoom-levels'), 'no size or scene menu');
   assert.match(tpl, /<button type="button" data-scene="\{\{ h\.s \}\}"[^>]*data-lumina="time-mark"[^>]*min-height:48px/, 'a run’s mark is a real button, 48 px tall at least');
-  const pf = src.slice(src.indexOf('data-lumina="profile-card"'), src.indexOf('data-lumina="memory-pill"'));
-  assert.match(pf, /<\/sc-if>\s*<\/div>\s*<sc-if value="\{\{ dbgOn \}\}"/, 'the profile card’s sc-if closes before the debug controls, so the memory pill shows');
+  const lc = src.slice(src.indexOf('data-lumina="look-controls"'), src.indexOf('<sc-if value="{{ dbgOn }}"'));
+  assert.match(lc, /data-lumina="preview" role="switch"/, 'the Rec.709 toggle is in the top bar');
+  for (const gone of ['profile-answer', 'data-lumina="profiles"', 'profile-card', 'preview-line']) assert.ok(!src.includes(gone), 'no profile picker: ' + gone);
   assert.doesNotMatch(src, /role="button"/, 'every clickable is a real <button>, not a div or span with a role');
   for (const m of src.matchAll(/<button type="button"[^>]*style="([^"]*)"/g)) {
     const h = /(?:^|;)(?:min-)?height:(\d+)px/.exec(m[1]);
