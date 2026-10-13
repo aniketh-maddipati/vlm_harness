@@ -14,7 +14,7 @@ for (const f of ['ZL', 'ZL_LINES', 'ZL_WORD', 'ZL_DEF', 'KEEP_MARKS']) {
   const m = src.match(new RegExp('\\n  static ' + f + ' = ([^;]*);'));
   assert.ok(m, 'in the page: ' + f); C[f] = new Function('return ' + m[1])();
 }
-for (const name of ['zlGeo', 'laySecs', 'laySecAt', 'laySecNav', 'zlStep', 'skimAt', 'rubber', 'exSummary', 'isMarkKey']) {
+for (const name of ['zlGeo', 'laySecs', 'laySecAt', 'laySecNav', 'zlStep', 'skimAt', 'rubber', 'verifySay', 'exSummary', 'isMarkKey']) {
   const m = src.match(new RegExp('\\n  static ' + name + '\\(([^)]*)\\) \\{'));
   assert.ok(m, 'in the page: ' + name);
   C[name] = new Function('Component', 'return ' + extractMethod(src, name, 'static ' + name + '(' + m[1] + ') {').replace(/^static /, 'function '))(C);
@@ -138,6 +138,18 @@ test('Export summary: where the file goes, and the In Final Cut options', () => 
   assert.ok(off.did.some(r => r.t === '2 maybe · 0.5 GB · keyword “b-roll”')); assert.ok(!off.did.some(r => /Favorites/.test(r.t)));
   assert.ok(!off.steps.some(r => /S-Log3/.test(r.t))); assert.ok(off.steps.some(r => /keyword collection/.test(r.t))); assert.ok(!off.look.some(r => /Favorites/.test(r.t)));
   assert.ok(C.exSummary({...base, kw:''}, fmtB, fmtDur).did.some(r => r.t === '2 maybe · 0.5 GB · no keyword'));
+});
+
+test('Export: the background check against Final Cut and the clip files says what it found, and flags a failure', () => {
+  assert.deepEqual(C.verifySay(null, 3, false), {t:'', bad:false}, 'the browser has no such check');
+  assert.match(C.verifySay(null, 3, true).t, /^Checking against Final Cut/);
+  assert.deepEqual(C.verifySay({dtd:'ok', missing:[], unchecked:0}, 3, true), {t:'Valid for Final Cut (its own FCPXML rules) · all 3 clip files found on disk.', bad:false});
+  const miss = C.verifySay({dtd:'ok', missing:['/V/dump/C0001.MP4', '/V/dump/C0002.MP4'], unchecked:0}, 3, true);
+  assert.equal(miss.bad, true); assert.match(miss.t, /^2 clip files missing on disk: C0001\.MP4, C0002\.MP4\. Final Cut would show them as Missing File\.$/);
+  const bad = C.verifySay({dtd:'bad', errors:['Element asset-clip content does not follow the DTD'], missing:[]}, 3, true);
+  assert.equal(bad.bad, true); assert.match(bad.t, /^Final Cut would not take this file: Element asset-clip/);
+  assert.match(C.verifySay({dtd:'none', missing:[], unchecked:1}, 3, true).t, /not on this Mac · all 2 clip files found on disk · 1 clip outside the opened folder not looked for\./);
+  assert.match(C.exSummary({...base, host:true, ver:{dtd:'ok', missing:['/x/C9.MP4']}}, fmtB, fmtDur).verify, /1 clip file missing/);
 });
 
 test('marks are never stored: nothing read back, nothing written, old entries dropped', () => {

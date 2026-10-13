@@ -287,6 +287,7 @@ nonisolated enum SetsPage: String, Sendable {
         exportAsk: () => post('skimExportAsk'),
         exportSave: (name, text) => post('skimExportSave', { name: String(name), text: String(text) }),
         exportReveal: (path) => post('skimExportReveal', { path: String(path) }),
+        exportCheck: (text) => post('skimExportCheck', { text: String(text) }),
         openInFinalCut: (path) => post('skimOpenInFinalCut', { path: String(path) }),
         mark() {}, preview() {}, handoff() {}
       });

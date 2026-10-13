@@ -134,6 +134,7 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `skimExportChoose` | — | the folder panel after the user's click; the folder picked is kept as a security-scoped bookmark in `skim/export.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportAsk` | — | removes `skim/export.json`, so each save asks with the save panel (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportSave` | the file just written, read back | one new `.fcpxml` or `.txt` (the page's text, at most 16 MB) in the Save to folder under a free name, or where the user put it in the save panel; never over an existing file (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimExportCheck` | whether each clip file a .fcpxml points at is on disk (inside the opened folder only), and Final Cut Pro's own FCPXML DTD from its app bundle (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimExportReveal` | — | — (Finder, with a file this run's Export saved selected; Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimOpenInFinalCut` | — | — (hands a `.fcpxml` this run's Export saved to Final Cut Pro, which asks where to import it, after the user's click or the Export option he turned on; Debug builds with `LUMINA_PAGE=skim` only) |
 | `openSettings` | — | — (opens System Settings ▸ Privacy & Security ▸ Files and Folders) |

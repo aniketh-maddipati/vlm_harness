@@ -246,6 +246,7 @@ button:focus:not(:focus-visible){outline:none}
                 <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D">What you download</span>
                 <span data-lumina="sum-file" style="font-size:14px;color:#EFECE6;overflow-wrap:anywhere">{{ sumFile }}</span>
                 <span data-lumina="sum-check" style="color:{{ sumCheckC }}">{{ sumCheck }}</span>
+                <sc-if value="{{ sumVerOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="sum-verify" role="status" style="display:flex;gap:8px;align-items:baseline;color:{{ sumVerC }};line-height:1.45"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:{{ sumVerC }}"></span><span style="overflow-wrap:anywhere">{{ sumVer }}</span></span></sc-if>
               </div>
               <div style="display:flex;flex-direction:column;gap:8px">
                 <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D">The clips it points at</span>
@@ -2454,7 +2455,7 @@ class Component extends DCLogic {
         go:() => { if (on) return this.setStep('skim'); this.want = r.key; this.setState({impMsg:'Choose the clips from “' + r.name + '”, all or some. Their marks come back.'}); this.pickFolder(); }};
     });
   }
-  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const ex = this.state.ex, nm = this.d ? this.d.shoot.name : ''; if (s === 'export') this.exPlaceRead(); this.setState({step:s, memOn:false, exDone:null, exRes:null, cutSay:null, ex:{...ex, ...(this.exPrefsIn ? {} : this.exPrefs()), event:ex.event || nm, trash:ex.rootFor === nm ? ex.trash : false, ...(ex.rootFor === nm ? {} : {root:this.rootSaved(nm), rootFor:nm})}}); }
+  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const ex = this.state.ex, nm = this.d ? this.d.shoot.name : ''; if (s === 'export') this.exPlaceRead(); if (s === 'export') this.verFor = null; this.setState({step:s, memOn:false, exDone:null, exRes:null, exVer:null, cutSay:null, ex:{...ex, ...(this.exPrefsIn ? {} : this.exPrefs()), event:ex.event || nm, trash:ex.rootFor === nm ? ex.trash : false, ...(ex.rootFor === nm ? {} : {root:this.rootSaved(nm), rootFor:nm})}}); }
   // Export's choices that are not about one shoot (ratings, keyword, scenes, LUT, Open in Final Cut, Clear working memory)
   // are kept for the next export. Move cut to Trash never is: it is chosen for each shoot.
   static EX_PREFS = ['rate', 'kw', 'scenes', 'lut', 'openFc', 'mem'];
@@ -3202,6 +3203,7 @@ class Component extends DCLogic {
     out.file = o.n ? o.file + ' · ' + (o.bytes < 1024 ? o.bytes + ' bytes' : Math.max(1, Math.round(o.bytes / 1024)) + ' KB') + ' · a list for Final Cut, not the footage' : 'Nothing to download yet: select clips with K, or turn on Everything under In Final Cut.';
     out.check = !o.n ? '' : !o.check ? 'Checking the file…' : o.check.ok ? 'Checked: ' + P(o.n, 'clip') + ', well formed.' : 'Not ready: ' + o.check.problems[0];
     out.checkBad = !!(o.n && o.check && !o.check.ok);
+    { const v = Component.verifySay(o.ver, o.n, o.host); out.verify = v.t; out.verifyBad = v.bad; }
     out.inLine = o.n ? P(o.n, 'clip') + ' · ' + fmtDur(o.dur) + ' · ' + fmtB(o.inBytes) + ' of footage, linked where it is. Nothing is copied or changed.' : 'No clips yet.';
     out.where = !o.n ? '' : o.sample ? 'Sample clips: the paths point at the card as the camera wrote it.' : o.real ? 'Final Cut links to the files where Lumina read them.' : o.root ? 'Final Cut will look for them in ' + o.root + '.' : 'Final Cut will look on a card mounted as it was named. Opened a folder? Paste its location under Details ▸ Folder.';
     out.did = [
@@ -3223,6 +3225,25 @@ class Component extends DCLogic {
     if (mN.keep && o.rate !== false) out.look.push({t:'Filter the browser by Favorites: ' + P(mN.keep, 'clip') + '.'});
     if (o.slog && o.lut !== false) out.look.push({t:'An S-Log3 clip, Info inspector in its Settings view: Camera LUT reads Sony S-Log3/S-Gamut3.Cine. Want the log picture? Set it to None.'});
     return out;
+  }
+  // The background check in the app (skimExportCheck), in one line: the file against Final Cut's own DTD, and every clip file
+  // it points at found on disk. Missing files or a file Final Cut would refuse are flagged (bad). The browser has neither check.
+  static verifySay(ver, n, host) {
+    if (!n || !host) return {t:'', bad:false};
+    if (!ver) return {t:'Checking against Final Cut and the clip files\u2026', bad:false};
+    const P = (k, w) => k + ' ' + w + (k === 1 ? '' : 's'), miss = ver.missing || [], un = ver.unchecked || 0, nm = p => String(p).split('/').pop();
+    if (ver.dtd === 'bad') return {t:'Final Cut would not take this file: ' + ((ver.errors || [])[0] || 'it does not match Final Cut\u2019s FCPXML rules') + '.', bad:true};
+    if (miss.length) return {t:P(miss.length, 'clip file') + ' missing on disk: ' + miss.slice(0, 3).map(nm).join(', ') + (miss.length > 3 ? ' and ' + (miss.length - 3) + ' more' : '') + '. Final Cut would show ' + (miss.length === 1 ? 'it' : 'them') + ' as Missing File.', bad:true};
+    const found = n - un > 0 ? 'all ' + P(n - un, 'clip file') + ' found on disk' : '';
+    const dtd = ver.dtd === 'ok' ? 'Valid for Final Cut (its own FCPXML rules)' : 'Final Cut\u2019s own rules not checked: Final Cut Pro is not on this Mac';
+    return {t:dtd + (found ? ' \u00b7 ' + found : '') + (un ? ' \u00b7 ' + P(un, 'clip') + ' outside the opened folder not looked for' : '') + '.', bad:false};
+  }
+  // Runs the app's check shortly after the file last changed, away from typing; the verdict is kept with the text it was for.
+  verifySoon(text, force) {
+    const v = this.exHostApi(); if (!v || !v.exportCheck) return;
+    if (!force && (this.verFor === text || (this.state.exVer && this.state.exVer.text === text))) return;
+    this.verFor = text; clearTimeout(this.verT);
+    this.verT = setTimeout(() => { Promise.resolve().then(() => v.exportCheck(text)).then(r => { if (this.verFor === text) this.verFor = null; if (r) this.setState({exVer:{text, ...r, at:Date.now()}}); }, () => { this.verFor = null; }); }, force ? 0 : 400);
   }
   // What the Final Cut download would hold under the options, and what its button says. n is the number of clips in the
   // .fcpxml (the same clips buildX takes); 0 means there is nothing to write, so the button is off and no file is made.
@@ -3315,6 +3336,8 @@ class Component extends DCLogic {
     if (!r || !r.ok) { this.exBusy = false; this.setState({exRes:{head:'Not saved', rows:[{ok:false, t:r && r.cancelled ? 'The save panel was closed. Nothing was saved and nothing else was done.' : ((r && r.why) || 'The app did not answer.') + ' Nothing else was done.'}]}}); return; }
     this.exSent(x, r.name, new Blob([x.text]).size);
     const rows = [{ok:true, t:'Saved ' + r.name + ' · ' + this.plural(x.n, 'clip') + ' in ' + this.tilde(r.folder)}], out = {path:r.path, name:r.name, fc:false, moved:0};
+    // the background check, run again now on exactly what was saved, so the result says whether Final Cut will take it
+    if (v.exportCheck) { let c = null; try { c = await v.exportCheck(x.text); } catch (e) {} if (c) { this.setState({exVer:{text:x.text, ...c, at:Date.now()}}); const say = Component.verifySay(c, x.n, true); rows.push({ok:!say.bad, t:say.t}); } }
     if (ex.openFc && this.exHost && this.exHost.finalCut) { const o = await this.exFc(v, r.path); out.fc = o.ok; rows.push(o); }
     if (ex.trash && !ex.all) { const t = await this.exTrash(); if (t) { rows.push(t.row); out.moved = t.n; } }
     if (ex.mem) rows.push(this.exMem());
@@ -3529,6 +3552,7 @@ class Component extends DCLogic {
       const gate = Component.exGate(markN, d.clips.length, ex);
       const chk = x.n && st.exChk && st.exChk.text === x.text && st.exChk.n === gate.n ? st.exChk : null, pass = !!(chk && chk.ok);
       if (x.n && !chk) this.checkSoon(x.text, gate.n, x.kws);
+      if (x.n) this.verifySoon(x.text);
       v.exBtnOp = pass && !this.exBusy ? 1 : 0.45; v.exBtnOff = !pass || !!this.exBusy; v.exBtnCur = pass ? 'pointer' : 'default'; v.exBtn = x.n ? (this.exHostApi() ? gate.label.replace(/^Download/, 'Save') : gate.label) : 'Nothing selected yet';
       v.exWhyOn = !!x.n && !pass; v.exWhy = chk ? 'The file did not pass its check: ' + chk.problems[0] : 'Checking the file…'; v.exWhyC = chk ? '#FFD27A' : '#9A958D';
       v.exOkOn = pass; v.exOkLine = 'File checked: ' + this.plural(x.n, 'clip') + ', well formed';
@@ -3547,7 +3571,8 @@ class Component extends DCLogic {
         const S = Component.exSummary({file:(ex.event || d.shoot.name || 'Lumina').replace(/[\/:]/g, '-') + '.fcpxml', bytes:new Blob([x.text]).size, check:chk, n:x.n, dur:inc.reduce((s, c) => s + (c.dur || 0), 0), inBytes:inc.reduce((s, c) => s + (c.bytes || 0), 0),
           total:d.clips.length, totalBytes:d.clips.reduce((s, c) => s + (c.bytes || 0), 0), markN, markB, all:ex.all, maybes:ex.maybes, event:ex.event || d.shoot.name, root:rt[0] === '/' || /^file:\/\//.test(rt) ? rt.replace(/\/+$/, '') : '', real:d.clips.length > 0 && d.clips.every(c => c.path && c.path[0] === '/'), sample:!d.shoot.real,
           slog:inc.filter(c => c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine').length, kw:ex.kw == null ? 'maybe' : String(ex.kw).trim(), rate:ex.rate, scenes:!!ex.scenes, lut:ex.lut,
-          host, dest:host ? (H && !H.ask ? this.tilde(H.path) : '') : '', openFc:!!(host && ex.openFc && H && H.finalCut)}, b => this.fmtB(b), s => this.fmtDur(s));
+          host, dest:host ? (H && !H.ask ? this.tilde(H.path) : '') : '', openFc:!!(host && ex.openFc && H && H.finalCut), ver:st.exVer && st.exVer.text === x.text ? st.exVer : null}, b => this.fmtB(b), s => this.fmtDur(s));
+        v.sumVerOn = !!S.verify; v.sumVer = S.verify; v.sumVerC = S.verifyBad ? '#FFD27A' : '#A9D18E';
         const DOT = {all:'rgba(239,236,230,0.5)', keep:MK.keep, maybe:MK.maybe, cut:MK.cut, und:'rgba(239,236,230,0.3)'}, order = {keep:0, maybe:1, cut:2};
         v.sumFile = S.file; v.sumCheck = S.check; v.sumCheckC = S.checkBad ? '#FFD27A' : '#9A958D'; v.sumIn = S.inLine; v.sumWhere = S.where;
         v.sumDid = S.did.map(r => ({t:r.t, c:DOT[r.k]})); v.sumSteps = S.steps; v.sumLook = S.look;

@@ -699,6 +699,15 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             }
             if saved.ok { skimSaved.insert(saved.path); onEvent?("skim export saved \(saved.path)") }
             return (saved.json, nil)
+        case "skimExportCheck":
+            // Export's background check: the clip files the .fcpxml points at that are not on disk (inside the opened folder
+            // only), and the file against Final Cut's own DTD (read from Final Cut's app, when it is on this Mac).
+            guard let text = body["text"] as? String, text.utf8.count <= SkimExport.maxBytes else { return (NSNull(), nil) }
+            let inside = lastOpened, app = Self.finalCut()
+            return (await Task.detached(priority: .utility) { () -> [String: Any] in
+                let m = SkimExport.missing(SkimExport.mediaPaths(text), inside: inside), v = SkimExport.validate(text, finalCut: app)
+                return SkimExport.Check(missing: m.missing, unchecked: m.unchecked, dtd: v.dtd, errors: v.errors).json
+            }.value, nil)
         case "skimExportReveal":
             // Show in Finder: a file this run's Export saved, selected in its folder.
             guard let path = body["path"] as? String, skimSaved.contains(path), FileManager.default.fileExists(atPath: path) else { return (false, nil) }

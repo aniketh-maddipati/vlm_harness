@@ -48,4 +48,24 @@ final class SkimExportTests: XCTestCase {
         XCTAssertTrue(store.set(nil))
         XCTAssertNil(store.place())
     }
+
+    func testTheCheckFindsTheClipFilesAndOnlyLooksInsideTheOpenedFolder() throws {
+        let dump = tmp.appendingPathComponent("my dump", isDirectory: true)
+        try FileManager.default.createDirectory(at: dump, withIntermediateDirectories: true)
+        try Data(count: 10).write(to: dump.appendingPathComponent("C0001.MP4"))
+        let here = dump.appendingPathComponent("C0001.MP4").path, gone = dump.appendingPathComponent("C0002.MP4").path
+        let text = """
+        <asset id="a1"><media-rep kind="original-media" src="file://\(here.replacingOccurrences(of: " ", with: "%20"))"/></asset>
+        <asset id="a2"><media-rep kind="original-media" src="file://\(gone.replacingOccurrences(of: " ", with: "%20"))"/></asset>
+        <asset id="a3"><media-rep kind="original-media" src="file:///Volumes/Elsewhere/C0003.MP4"/></asset>
+        <asset id="a4"><media-rep kind="original-media" src="file://\(here.replacingOccurrences(of: " ", with: "%20"))"/></asset>
+        """
+        let paths = SkimExport.mediaPaths(text)
+        XCTAssertEqual(paths, [here, gone, "/Volumes/Elsewhere/C0003.MP4"], "each file once, decoded")
+        let m = SkimExport.missing(paths, inside: dump)
+        XCTAssertEqual(m.missing, [gone]); XCTAssertEqual(m.unchecked, 1, "outside the opened folder: not looked for, not called missing")
+        XCTAssertEqual(SkimExport.missing(paths, inside: nil).unchecked, 3)
+        XCTAssertNil(SkimExport.dtd(in: tmp, version: "1.10"), "no Final Cut here")
+        XCTAssertNil(SkimExport.dtd(in: tmp, version: "../x"))
+    }
 }

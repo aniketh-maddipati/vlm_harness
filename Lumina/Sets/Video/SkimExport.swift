@@ -96,4 +96,74 @@ nonisolated struct SkimExport: Sendable {
         guard let to = free(in: dir, name: clean) else { return Saved(ok: false, path: "", why: "Too many files with that name in the folder.") }
         return write(text, to: to)
     }
+
+    /// The background check of a .fcpxml before and after it is saved (Export ▸ What you download): which of the clip files
+    /// it points at are not on disk, and whether it is valid against Final Cut's own DTD for its version.
+    struct Check: Equatable, Sendable {
+        /// Files the .fcpxml points at that are not there.
+        var missing: [String]
+        /// Files Lumina may not look at from here (outside the folder the shoot was opened from), so not checked.
+        var unchecked: Int
+        /// "ok", "bad" (with `errors`) or "none" (no Final Cut on this Mac, or a version it has no DTD for).
+        var dtd: String
+        var errors: [String]
+        var json: [String: Any] { ["missing": missing, "unchecked": unchecked, "dtd": dtd, "errors": errors] }
+    }
+
+    /// The clip files a .fcpxml points at: every `media-rep` src (or an asset's own src), as paths.
+    static func mediaPaths(_ text: String) -> [String] {
+        var out: [String] = [], seen = Set<String>()
+        var rest = Substring(text)
+        while let r = rest.range(of: "src=\"") {
+            rest = rest[r.upperBound...]
+            guard let end = rest.firstIndex(of: "\"") else { break }
+            let raw = String(rest[..<end]).replacingOccurrences(of: "&amp;", with: "&").replacingOccurrences(of: "&quot;", with: "\"").replacingOccurrences(of: "&lt;", with: "<").replacingOccurrences(of: "&gt;", with: ">")
+            rest = rest[end...]
+            guard let u = URL(string: raw), u.isFileURL else { continue }
+            let p = u.path
+            if !p.isEmpty, seen.insert(p).inserted { out.append(p) }
+        }
+        return out
+    }
+
+    /// Which of `paths` are missing. Only paths inside `inside` are looked at (the sandbox answers "not there" for any other);
+    /// the rest are counted as unchecked rather than guessed.
+    static func missing(_ paths: [String], inside: URL?) -> (missing: [String], unchecked: Int) {
+        guard let inside else { return ([], paths.count) }
+        let base = inside.standardizedFileURL.path, pre = base.hasSuffix("/") ? base : base + "/"
+        var miss: [String] = [], un = 0
+        for p in paths {
+            let std = URL(fileURLWithPath: p).standardizedFileURL.path
+            guard std.hasPrefix(pre) else { un += 1; continue }
+            if !FileManager.default.fileExists(atPath: std) { miss.append(p) }
+        }
+        return (miss, un)
+    }
+
+    /// Final Cut's DTD for an fcpxml version, inside its app ("1.10" → FCPXMLv1_10.dtd).
+    static func dtd(in app: URL, version: String) -> URL? {
+        guard version.range(of: "^[0-9]+\\.[0-9]+$", options: .regularExpression) != nil else { return nil }
+        let u = app.appendingPathComponent("Contents/Frameworks/Interchange.framework/Versions/A/Resources/FCPXMLv\(version.replacingOccurrences(of: ".", with: "_")).dtd")
+        return FileManager.default.fileExists(atPath: u.path) ? u : nil
+    }
+
+    /// The text against Final Cut's DTD: "ok", "bad" with the first errors, or "none" when there is no DTD to check with.
+    static func validate(_ text: String, finalCut app: URL?) -> (dtd: String, errors: [String]) {
+        #if os(macOS)
+        let version = text.range(of: "<fcpxml version=\"([0-9.]+)\"", options: .regularExpression).map { String(text[$0]).replacingOccurrences(of: "<fcpxml version=\"", with: "").replacingOccurrences(of: "\"", with: "") } ?? ""
+        guard let app, let dtdURL = dtd(in: app, version: version) else { return ("none", []) }
+        do {
+            let doc = try XMLDocument(xmlString: text, options: [])
+            let dtd = try XMLDTD(contentsOf: dtdURL, options: [])
+            dtd.name = "fcpxml"
+            doc.dtd = dtd
+            try doc.validate()
+            return ("ok", [])
+        } catch {
+            return ("bad", [String((error as NSError).localizedDescription.prefix(300))])
+        }
+        #else
+        return ("none", [])
+        #endif
+    }
 }
