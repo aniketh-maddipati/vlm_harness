@@ -24,16 +24,19 @@ final class SetsHotReload {
     private weak var webView: WKWebView?
     private weak var bridge: SetsBridge?
     private var plumbing: String?
+    /// Skim's own way to load the page again, which keeps the work (`reloadSkimKeepingWork`); nil: a plain load.
+    private let reload: (@MainActor () -> Void)?
     /// The files as last looked at, and as the page on screen was loaded from.
     private var seen: String
     private var applied: String
     private var timer: Timer?
 
-    init(root: URL, webView: WKWebView, bridge: SetsBridge, plumbing: String?, resume: @escaping @MainActor () -> Void) {
+    init(root: URL, webView: WKWebView, bridge: SetsBridge, plumbing: String?, reload: (@MainActor () -> Void)? = nil, resume: @escaping @MainActor () -> Void) {
         self.root = root
         self.webView = webView
         self.bridge = bridge
         self.plumbing = plumbing
+        self.reload = reload
         seen = Self.stamp(root)
         applied = seen
         // The next turn of the loop: "ready" is told from inside the page's own message, before its answer.
@@ -75,6 +78,7 @@ final class SetsHotReload {
         }
         LuminaLog.app.notice("hot reload: the page files changed")
         bridge?.canvas?.leave()
+        if let reload { reload(); return }
         webView.load(URLRequest(url: SetsSchemeHandler.pageURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
     }
 }

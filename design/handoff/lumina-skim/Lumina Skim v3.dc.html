@@ -874,6 +874,7 @@ class Component extends DCLogic {
 
   componentDidMount() {
     this.load();
+    window.luminaSkimHold = () => this.hold();
     this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => { this.panS = null; this.setState({held:null}); };
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
     window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu);
@@ -2497,6 +2498,32 @@ class Component extends DCLogic {
     if (!v) { let old = null; try { old = localStorage.getItem(legacy); } catch (x) {} if (old) { try { v = JSON.parse(old); } catch (x) {} if (v) { this.persist(key, old); this.persist(legacy, null); } } }
     d.shoot.name = v && v.name ? v.name : this.freeName(base, key);
   }
+  // The Mac app's own reload (its Reload Page, or a newer page from the hot build) is the one reload that keeps
+  // the work: the app calls luminaSkimHold() just before, then hands the same clips back to the folder input.
+  // What is held lives in sessionStorage for 90 s at most and is taken once, by the clips it was made for.
+  // Answers 'pick' when the app can hand the clips back, 'drop' when they were dropped (the app never saw
+  // their paths), false with nothing open. A reload while an earlier one is still coming back keeps what it held.
+  static HELD = 'lumina-skimheld';
+  heldSig(d) { return d.clips.map(c => c.id + ' ' + c.path + ' ' + c.bytes).sort().join('\n'); }
+  hold() {
+    const K = Component.HELD, s = this.state, d = this.d;
+    try {
+      if (!d || !d.clips.length || !d.clips[0]._file) {
+        const h = JSON.parse(sessionStorage.getItem(K) || 'null'); if (!h || Date.now() - h.at > 90000) return false;
+        h.at = Date.now(); sessionStorage.setItem(K, JSON.stringify(h)); return 'pick';
+      }
+      if (this.rel) return 'drop';
+      sessionStorage.setItem(K, JSON.stringify({at:Date.now(), sig:this.heldSig(d), marks:s.marks, dis:s.dis, cuts:s.cuts, nCut:s.nCut, userCut:!!this.userCut, lv:s.lv, gi:s.gi, cur:s.cur, fx:s.fx, step:s.step, pv:s.pv, zl:s.zl}));
+      return 'pick';
+    } catch (x) { return false; }
+  }
+  heldBack(d) {
+    const K = Component.HELD; let h = null;
+    try { h = JSON.parse(sessionStorage.getItem(K) || 'null'); sessionStorage.removeItem(K); } catch (x) {}
+    if (!h || Date.now() - h.at > 90000 || h.sig !== this.heldSig(d)) return;
+    this.userCut = h.userCut;
+    this.setState({marks:h.marks || {}, dis:h.dis || {}, cuts:h.cuts || null, nCut:h.userCut ? h.nCut : this.state.nCut, lv:h.lv || 0, gi:h.gi || 0, cur:this.byId[h.cur] ? h.cur : this.state.cur, fx:h.fx || 0, step:h.step === 'export' ? 'export' : 'skim', pv:h.pv !== false, zl:h.zl || this.state.zl});
+  }
   // Marks are not saved anywhere (Component.KEEP_MARKS): a reload, a new visit or Close starts clean. The code that wrote
   // them stays for the day they come back as a choice.
   static KEEP_MARKS = false;
@@ -2602,7 +2629,7 @@ class Component extends DCLogic {
     const root = rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
     const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true}, clips, gaps:[]};
     if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0; this.skipped = 0;
-    this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.want = null; this.setState({}, () => this.save());
+    this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.heldBack(d); this.want = null; this.setState({}, () => this.save());
     this.clockStart(d, true); const k = this.clock; k.meta = Math.round(tM - tL); k.metaFrom = from;
     // 'listed' is from the folder being handed over to the clips being drawn with their info; the reading starts after.
     this.setState({impMsg:null, imp:{n:clips.length, done:0}}, () => { if (this.clock !== k || k.listed != null) return; k.listed = Math.round(performance.now() - tL); this.clockSave({name:k.name, n:k.n, bytes:k.bytes, real:true, at:k.at, meta:k.meta, metaFrom:k.metaFrom, listed:k.listed, partial:true}); });

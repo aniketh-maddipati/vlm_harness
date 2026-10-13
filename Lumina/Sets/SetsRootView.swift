@@ -36,6 +36,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     /// Scripts/dev.sh (`LUMINA_HOT=1`): the page reloads when a build changes its files.
     private var hotReload: SetsHotReload?
     #endif
+    /// Skim: what the page's file input was last given from the panel, and the same list while a kept
+    /// reload waits to hand it back (`reloadSkimKeepingWork`). The panel's grant lasts as long as the app runs.
+    private var skimClips: [URL] = []
+    private var skimReopen: [URL]?
 
     static var isDebug: Bool {
         #if DEBUG
@@ -96,7 +100,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 }
                 #if DEBUG
                 if SetsHotReload.isOn {
-                    hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: page == .pick ? plumbing : nil) { [weak self] in
+                    // Skim's page loads again through its own reload, which keeps the work.
+                    var reload: (@MainActor () -> Void)?
+                    if page == .skim { reload = { [weak self] in self?.reloadSkimKeepingWork(always: true) } }
+                    hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: page == .pick ? plumbing : nil, reload: reload) { [weak self] in
                         guard let self, let last = self.bridge.shoots.index().first else { return }
                         self.reopen(last.id)
                     }
@@ -122,13 +129,85 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     }
 
     /// ⌘R on Skim: leaves a note in this app's container that the hot build's follower watches
-    /// (`Library/Caches/skim-refresh`: it pulls the shared branch at once). The page is not reloaded here:
-    /// a reload drops the open clips, so it happens only when the pull brings a different page (SetsHotReload).
+    /// (`Library/Caches/skim-refresh`: it pulls the shared branch at once, and a newer page then reloads
+    /// again through SetsHotReload), and reloads the page now, keeping the work.
     private func reloadSkim() {
         if let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
             try? Data(ISO8601DateFormatter().string(from: Date()).utf8).write(to: caches.appendingPathComponent("skim-refresh"), options: .atomic)
         }
-        LuminaLog.app.notice("skim: latest page asked for from the menu")
+        LuminaLog.app.notice("skim: reload from the menu")
+        reloadSkimKeepingWork(always: false)
+    }
+
+    /// A reload of the Skim page that keeps the work. The page holds its marks (`luminaSkimHold`), the web
+    /// view dims a little, the page loads again, and once its folder input is there the clips picked last
+    /// are handed back to it without a panel (`runOpenPanelWith`); the page then takes its marks back.
+    /// Dropped clips never gave the app their paths, so they can't be handed back: `always` false (the
+    /// menu) leaves that page alone, true (a newer page from the hot build) reloads it anyway.
+    func reloadSkimKeepingWork(always: Bool) {
+        guard let webView else { return }
+        webView.evaluateJavaScript("window.luminaSkimHold ? window.luminaSkimHold() : false") { [weak self] value, _ in
+            MainActor.assumeIsolated {
+                guard let self, let webView = self.webView else { return }
+                let held = value as? String
+                if held == "drop", !always {
+                    LuminaLog.app.notice("skim: not reloaded, the open clips were dropped and can't be handed back")
+                    self.skimPulse()
+                    return
+                }
+                self.skimReopen = held == "pick" && !self.skimClips.isEmpty ? self.skimClips : nil
+                self.skimDim(true)
+                webView.load(URLRequest(url: SetsSchemeHandler.pageURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
+            }
+        }
+    }
+
+    /// The reload's only animation: the page's own pixels fade a little and come back. Nothing is drawn over it.
+    private func skimDim(_ on: Bool) {
+        guard let webView else { return }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = on ? 0.16 : 0.42
+            ctx.timingFunction = CAMediaTimingFunction(name: on ? .easeOut : .easeInEaseOut)
+            webView.animator().alphaValue = on ? 0.45 : 1
+        }
+    }
+
+    private func skimPulse() {
+        skimDim(true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.skimDim(false) }
+    }
+
+    /// After a kept reload's page has loaded: presses its folder input as soon as the page has drawn it
+    /// (tried every 100 ms for 6 s), which asks `runOpenPanelWith` for the clips waiting in `skimReopen`.
+    private func skimHandBack(tries: Int = 60) {
+        guard let webView, skimReopen != nil else { skimDim(false); return }
+        guard tries > 0 else { skimReopen = nil; skimDim(false); LuminaLog.app.error("skim: the page's folder input never came, clips not handed back"); return }
+        let js = "(()=>{const el=document.querySelector('input[type=file][webkitdirectory]');if(!el)return false;el.click();return true})()"
+        webView.evaluateJavaScript(js) { [weak self] value, _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if value as? Bool == true {
+                    // The input is pressed; if the page refused the press, nothing asks for the clips: let go of them.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                        guard let self, self.skimReopen != nil else { return }
+                        self.skimReopen = nil; self.skimDim(false)
+                        LuminaLog.app.error("skim: the page did not ask for its clips after the reload")
+                    }
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.skimHandBack(tries: tries - 1) }
+                }
+            }
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard SetsPage.current == .skim else { return }
+        skimHandBack()
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        guard SetsPage.current == .skim else { return }
+        skimReopen = nil; skimDim(false)
     }
 
     func toggleZoom() { webView?.evaluateJavaScript("window.__lumina && __lumina.zoom()", completionHandler: nil) }
@@ -259,7 +338,15 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         // Skim reads clips through the page's own file input: a card, folders or clips, nothing else of Pick's.
         if SetsPage.current == .skim {
             // The folder the clips are in is the open shoot's folder for the storage line (drive, Trash).
-            Task { @MainActor in let urls = await chooseClips(); if let urls { bridge.skimOpened(urls) }; completionHandler(urls) }
+            // A kept reload hands the clips picked last straight back: no panel.
+            if let urls = skimReopen {
+                skimReopen = nil
+                LuminaLog.app.notice("skim: \(urls.count) picked items handed back after the reload")
+                completionHandler(urls)
+                skimDim(false)
+                return
+            }
+            Task { @MainActor in let urls = await chooseClips(); if let urls { bridge.skimOpened(urls); skimClips = urls }; completionHandler(urls) }
             return
         }
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
