@@ -23,9 +23,11 @@ Keys in Pick: **⏎** keeps a photo and moves on, **R** un-keeps it and moves on
 Hold ⇧ to do the same going back, or to work inside a stack. **Space** shows a photo large, hold
 **Z** for 100 %, hold **F** for focus edges. **Q** or ⌘Z undoes. **?** lists every key.
 
-| Pick, with four kept in the strip | The large view, with camera facts and measures | Save: one rated sidecar per pick |
-|---|---|---|
-| ![Pick with four kept](docs/screenshots/pick-kept.jpg) | ![The large view](docs/screenshots/large-view.jpg) | ![Save](docs/screenshots/save.jpg) |
+| Pick, with four kept in the strip | The large view, with camera facts and measures |
+|---|---|
+| ![Pick with four kept](docs/screenshots/pick-kept.jpg) | ![The large view](docs/screenshots/large-view.jpg) |
+| **Edit: the RAW on the canvas, sliders beside it** | **Save: one rated sidecar per pick** |
+| ![Edit](docs/screenshots/edit.jpg) | ![Save](docs/screenshots/save.jpg) |
 
 Screenshots are from a real a7 III shoot.
 
@@ -40,6 +42,12 @@ Open ──▶ Skim ──▶ Export
 | **Open** | Choose a folder of clips (MP4, MOV, MXF) | Reads a Sony `M01.XML` sidecar when one is next to a clip: frame rate, recording time, colour profile | Nothing |
 | **Skim** | Mark each clip **keep** (K), **maybe** (M) or **cut** (C or X) | Three levels: chapters (split at long gaps), takes, and one clip. Eight frames per clip and a Viewer to play it. Measures exposure, clipped and crushed areas, sharpness and camera motion. A Rec.709 preview for S-Log3 clips | Nothing |
 | **Export** | Send the keepers to Final Cut Pro | An `.fcpxml` with your marks as ratings. In the app: the drive's free space, and moving cut clips to the Trash | An `.fcpxml`; the Trash only when you ask |
+
+| Skim, with clips marked and sorted into docks | The Viewer, with a clip's measures | Export for Final Cut |
+|---|---|---|
+| ![Skim with clips marked](docs/screenshots/skim-marked.jpg) | ![The Viewer](docs/screenshots/skim-viewer.jpg) | ![Export](docs/screenshots/skim-export.jpg) |
+
+Screenshots are from the web preview, on 20-second copies of the T7 clips below.
 
 ### Trying it on the T7 clips
 

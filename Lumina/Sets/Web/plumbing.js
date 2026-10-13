@@ -294,7 +294,9 @@
 
     // Parity mode (test only): the storage meter (header, Save) counts the Mac's working files in the app
     // and the browser's own storage in the prototype. Measure it the prototype's way so the twins compare.
-    if (cfg.parity) for (const k of ['cacheParts', 'cacheView']) {
+    // Handoff's file view does the same: the sample shoot's drives come from the page's own stand-in
+    // (hoHost), and the view is built as the prototype builds it.
+    if (cfg.parity) for (const k of ['cacheParts', 'cacheView', 'hoHost', 'handoffView']) {
       if (typeof logic[k] !== 'function') continue;
       const f = logic[k].bind(logic), C = logic.constructor;
       logic[k] = () => { const app = C.app; C.app = () => false; try { return f(); } finally { C.app = app; } };
