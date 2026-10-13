@@ -33,7 +33,8 @@ window.__skimEngineCheck = async function (names) {
     ok(after, 'K marks the clip on screen: ' + (after || text('[data-lumina="counts"]') || before));
     const tab = [...document.querySelectorAll('[data-lumina="steps"] *')].filter(e => e.textContent.trim() === 'Export').pop();
     if (tab) tab.click();
-    const sum = await until(() => $('[data-lumina="export-summary"]') && text('[data-lumina="sum-check"]'), 5000);
+    // The check runs after the summary draws ("Checking the file…"): wait for its verdict.
+    const sum = await until(() => { const t = $('[data-lumina="export-summary"]') && text('[data-lumina="sum-check"]'); return t && !/^Checking/.test(t) && t; }, 15000) || text('[data-lumina="sum-check"]');
     ok(sum && /well formed/.test(sum) && /\.fcpxml/.test(text('[data-lumina="sum-file"]')), 'Export builds the Final Cut file: ' + (sum || 'no summary'));
   };
   try { await run(); } catch (e) { ok(false, 'the check threw: ' + (e && e.message || e)); }
