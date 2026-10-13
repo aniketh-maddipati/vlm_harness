@@ -1,36 +1,43 @@
 # Lumina
 
-A Mac app for culling Sony shoots fast. Open a card or a folder, go through it with the keyboard,
-keep the frames you want. Your originals are never changed.
+A Mac app for sorting a Sony shoot, stills and video. Open a card or a folder, go through it with the
+keyboard, and hand what you keep to Lightroom Classic, Capture One or Final Cut Pro. Your originals
+are never changed.
 
-![Culling a shoot by time rows](docs/screenshots/cull-row.png)
+![Picking photos, one row per stretch of time](docs/screenshots/cull-row.png)
 
-## Culling photos
+## Stills
 
-Open a folder with ⌘O, or insert a Sony card and press **Return**. Lumina splits the shoot into rows
-by time (a break of 90 seconds starts a new row), groups frames shot under a second apart into bursts
-and brackets, and suggests what to keep: the sharpest good frame of a burst, every frame of a
-bracket, each single without a problem.
+```
+Open ──▶ Pick ──▶ Edit (optional) ──▶ Save
+```
 
-| Key | Does |
-|---|---|
-| ↑ ↓ | Move between rows |
-| **R** / **X** | Keep the suggested frames / reject the row (or one photo, after → steps into the row) |
-| ← → | Step through the photos of a row |
-| **Space** · hold **G** · **W** | See a photo large · at 100 % · compare a burst |
-| **V** · hold **A** | Preview the Auto look · compare with and without it |
-| **Q** or ⌘Z | Undo |
-| **Tab** | On to Edit, then Export |
-| **?** | Every key |
+| Step | What you do | What Lumina can do here | What it writes |
+|---|---|---|---|
+| **Open** ⌘1 | Choose a folder (⌘O) or a Sony card | Reads the RAWs where they are, no import. Reopens a shoot where you left it | Nothing |
+| **Pick** ⌘2 | Keep the photos you want | Rows by time, similar frames stacked, the frame with the most detail marked in gold. Flags **soft**, **blown** and **shake**. Large view, 100 %, focus edges in red. Passes: go round again with only what you kept | Nothing; your choices are saved in the app |
+| **Edit** ⌘3 | Adjust the photos you kept | Exposure, white balance, contrast, highlights, shadows, whites, blacks, clarity, vibrance, saturation, black and white, sharpening, noise reduction, vignette, crop and straighten. Copy and paste a look across photos | Nothing to your files |
+| **Save** ⌘4 | Hand off | A rated `.xmp` sidecar beside each RAW you kept (⌘⏎). Optionally JPEGs with your edits, at 2048 px or full size | `.xmp` files, and JPEGs if you ask |
 
-Your work saves on its own and a reopened shoot picks up where you left off. **Save** writes your
-ratings as `.xmp` sidecars beside the RAWs for Lightroom Classic or Capture One; **Export** writes
-JPEGs of your edits.
+Keys in Pick: **⏎** keeps a photo and moves on, **R** un-keeps it and moves on, the arrows pass.
+Hold ⇧ to do the same going back, or to work inside a stack. **Space** shows a photo large, hold
+**Z** for 100 %, hold **F** for focus edges. **Q** or ⌘Z undoes. **?** lists every key.
 
-## Skimming video (in development)
+## Video (Skim, in development)
 
-Skim is the same idea for clips: open a folder, mark clips keep, maybe or cut, and hand the keepers
-to Final Cut Pro. To try it on the a7S III clips at the root of the T7 drive:
+```
+Open ──▶ Skim ──▶ Export
+```
+
+| Step | What you do | What Skim can do here | What it writes |
+|---|---|---|---|
+| **Open** | Choose a folder of clips (MP4, MOV, MXF) | Reads a Sony `M01.XML` sidecar when one is next to a clip: frame rate, recording time, colour profile | Nothing |
+| **Skim** | Mark each clip **keep** (K), **maybe** (M) or **cut** (C or X) | Three levels: chapters (split at long gaps), takes, and one clip. Eight frames per clip and a Viewer to play it. Measures exposure, clipped and crushed areas, sharpness and camera motion. A Rec.709 preview for S-Log3 clips | Nothing |
+| **Export** | Send the keepers to Final Cut Pro | An `.fcpxml` with your marks as ratings. In the app: the drive's free space, and moving cut clips to the Trash | An `.fcpxml`; the Trash only when you ask |
+
+### Trying it on the T7 clips
+
+Seven a7S III clips sit at the root of the T7 drive:
 
 | Clips | Format | Rate | Length |
 |---|---|---|---|
@@ -46,9 +53,9 @@ python3 Scripts/build-skim-preview.py   # writes dist/Lumina Skim (web preview).
 bash Scripts/dev-skim.sh                 # or the "Lumina Skim" dev app
 ```
 
-Then choose **Open** and pick `/Volumes/T7`. Skim only reads the clips; it never changes or moves them.
-For the budget probe on the same clips: `LUMINA_LONG=1 LUMINA_VIDEO_DIR=/Volumes/T7 bash Scripts/probe.sh video`
-(it fails by design until the native video bridge lands).
+Then choose **Open** and pick `/Volumes/T7`. Skim only reads the clips.
+The budget probe on the same clips: `LUMINA_LONG=1 LUMINA_VIDEO_DIR=/Volumes/T7 bash Scripts/probe.sh video`
+(it fails until the app's video bridge exists).
 
 ## What it won't do
 
