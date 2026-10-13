@@ -90,6 +90,10 @@ height allows (851 px wide at 1440 × 900, was 639), and the bottom bars fit a n
 pull request 238 included. Clips in a wide window is left to the one grid. Pull request 238 (storage line, Drop
 frames) merged by another session. Deployed ad031779 (2026-10-13 03:52 UTC), checked on the live page. Pull
 request 235's five checks pass as of 4b0aeae5. Evidence: ~/LuminaEvidence/skim-layout/2026-10-12-after-fix.
+Then: the 720 footer (196; deployed 0fe6660e, 2026-10-13 04:26 UTC), and the Viewer in a narrow window (197): the
+facts go under the picture when that makes it a quarter wider, 688 px wide at 720 × 900 where it was 360. Main
+merged in again (c4bc9bea). The WebKitGTK flow raced the page's landing and passed or failed by timing; it now
+waits for the landing and for Pick (c8ff2564), unverified until it has passed several runs in a row.
 Open, found on the way: C0248 on the card (all black, 0.5 s) is reported as unreadable though it plays;
 pass-2 frames skipped on a seek timeout are not queued again; in a browser, pacing by heat does nothing.
 Assessed, not changed (waiting on the user): hide the developer memory controls; add a list of cut clips to
