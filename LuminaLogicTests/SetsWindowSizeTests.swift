@@ -18,8 +18,15 @@ final class SetsWindowSizeTests: XCTestCase {
     }
 
     func testASmallOfferStaysAtTheMinimum() {
-        XCTAssertEqual(SetsWindowSize.filled(width: 100, height: 100), SetsWindowSize.minimum)
-        XCTAssertEqual(SetsWindowSize.filled(width: -20, height: 800), CGSize(width: SetsWindowSize.minimum.width, height: 800))
+        XCTAssertEqual(SetsWindowSize.filled(width: 100, height: 100, page: .pick), SetsWindowSize.minimum)
+        XCTAssertEqual(SetsWindowSize.filled(width: -20, height: 800, page: .pick), CGSize(width: SetsWindowSize.minimum.width, height: 800))
+    }
+
+    func testSkimNarrowsToAPhone() {
+        XCTAssertEqual(SetsWindowSize.minimum(for: .skim), CGSize(width: 360, height: 560))
+        XCTAssertEqual(SetsWindowSize.filled(width: 390, height: 844, page: .skim), CGSize(width: 390, height: 844))
+        XCTAssertEqual(SetsWindowSize.filled(width: 100, height: 100, page: .skim), SetsWindowSize.phone)
+        XCTAssertEqual(SetsWindowSize.minimum(for: .pick), SetsWindowSize.minimum)
     }
 
     func testGrowingTheHostFillsThePageAndLeavesTheCanvas() {

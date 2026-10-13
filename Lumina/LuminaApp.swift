@@ -11,7 +11,7 @@ struct LuminaApp: App {
     var body: some Scene {
         WindowGroup {
             SetsRootView()
-                .frame(minWidth: SetsWindowSize.minimum.width, minHeight: SetsWindowSize.minimum.height)
+                .frame(minWidth: SetsWindowSize.minimum(for: .current).width, minHeight: SetsWindowSize.minimum(for: .current).height)
                 .ignoresSafeArea()
         }
         .defaultSize(SetsWindowSize.initial)

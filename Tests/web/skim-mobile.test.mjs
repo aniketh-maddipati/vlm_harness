@@ -98,7 +98,7 @@ test('every clickable is a <button>: no div or span with a button, tab or switch
 
 test('touch: 44 px controls, no key hints, the page’s own pinch and skim; one column on a phone; the screen height that fits', () => {
   const css = src.slice(src.indexOf('<style>'), src.indexOf('</style>'));
-  const touch = css.slice(css.indexOf('@media (hover:none) and (pointer:coarse)')), narrow = css.slice(css.indexOf('@media (max-width:640px)'));
+  const touch = css.slice(css.indexOf('@media (hover:none) and (pointer:coarse)')), narrow = css.slice(css.indexOf('@container skim (max-width:640px)'));
   assert.match(touch, /button\{min-height:44px/); assert.match(touch, /\[data-kbd\],\[data-lumina=hints\]\{display:none!important\}/);
   assert.match(touch, /\[data-gi\],\[data-clip\],\[data-pic\]\{touch-action:pan-y/);
   assert.match(narrow, /\[data-screen-label=Clip\]\{grid-template-columns:minmax\(0,1fr\)!important/);
@@ -107,4 +107,13 @@ test('touch: 44 px controls, no key hints, the page’s own pinch and skim; one 
   assert.match(template, /<input ref="\{\{ fileRef \}\}" type="file" webkitdirectory=""/);
   for (const k of ['nav-grid', 'nav-prev', 'nav-next']) assert.match(template, new RegExp('<button type="button" data-lumina="' + k + '"'));
   assert.doesNotMatch(template, /data-lumina="pick-alt"/);   // no second Open button (Choose clips… / Choose a folder…)
+});
+
+test('Phone view: a button narrows the page to an iPhone’s width, and the narrow rules follow the page, not the window', () => {
+  const css = src.slice(src.indexOf('<style>'), src.indexOf('</style>'));
+  assert.match(css, /\[data-screen-label=Skim\]\{container:skim \/ inline-size\}/); assert.doesNotMatch(css, /@media \(max-width:640px\)/);
+  assert.match(css, /\[data-view=phone\]\{width:390px;max-width:100%/);
+  assert.match(template, /<div data-screen-label="Skim" data-view="\{\{ viewName \}\}"/);
+  assert.match(template, /<button type="button" data-lumina="phone-view" aria-pressed="\{\{ phoneA \}\}" onClick="\{\{ phoneToggle \}\}"/);
+  assert.match(src, /localStorage\.getItem\('lumina-skimview'\) === 'phone'/);
 });
