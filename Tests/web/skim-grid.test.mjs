@@ -130,6 +130,16 @@ test('Export summary: Everything, no S-Log3, nothing yet, a failed check, the ap
   for (const o of [base, {...base, all:true}]) { const S = C.exSummary(o, fmtB, fmtDur), words = [S.file, S.inLine, S.where, ...S.did.map(r => r.t), ...S.steps.map(r => r.t), ...S.look.map(r => r.t)].join(' '); assert.doesNotMatch(words, /\b(keep|kept|keepers?|AI|smart|auto)\b/); }
 });
 
+test('Export summary: where the file goes, and the In Final Cut options', () => {
+  assert.match(C.exSummary(base, fmtB, fmtDur).steps[0].t, /^Download \(⌘⏎\)\. The file lands in Downloads\.$/);
+  assert.equal(C.exSummary({...base, host:true, dest:'~/Movies/Exports', openFc:true}, fmtB, fmtDur).steps[0].t, 'Save (⌘⏎). The file goes to ~/Movies/Exports. Lumina then opens it in Final Cut.');
+  assert.match(C.exSummary({...base, host:true, dest:''}, fmtB, fmtDur).steps[0].t, /goes to the place you pick\./);
+  const off = C.exSummary({...base, rate:false, kw:'b-roll', lut:false, scenes:true}, fmtB, fmtDur);
+  assert.ok(off.did.some(r => r.t === '2 maybe · 0.5 GB · keyword “b-roll”')); assert.ok(!off.did.some(r => /Favorites/.test(r.t)));
+  assert.ok(!off.steps.some(r => /S-Log3/.test(r.t))); assert.ok(off.steps.some(r => /keyword collection/.test(r.t))); assert.ok(!off.look.some(r => /Favorites/.test(r.t)));
+  assert.ok(C.exSummary({...base, kw:''}, fmtB, fmtDur).did.some(r => r.t === '2 maybe · 0.5 GB · no keyword'));
+});
+
 test('marks are never stored: nothing read back, nothing written, old entries dropped', () => {
   assert.equal(C.KEEP_MARKS, false);
   assert.match(src, /save\(\) \{\n    const s = this\.state; if \(!Component\.KEEP_MARKS \|\|/, 'save writes nothing');

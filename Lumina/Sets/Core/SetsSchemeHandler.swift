@@ -263,7 +263,7 @@ nonisolated enum SetsPage: String, Sendable {
 
     /// Skim's host: the page's `lumina.video` calls, set before the page runs. `storeAll` and `storeSet`
     /// keep its saved shoots in the app's container (`skimStore` / `skimSave`, SkimStore), so marks survive
-    /// a quit; `cover*` keep its saved covers and first measures there too (`skimCover*`, SkimCovers); `health` reads heat and memory (`skimHealth`, SkimHealth) to pace the page's reading; mark, preview and handoff have nothing native behind them yet.
+    /// a quit; `cover*` keep its saved covers and first measures there too (`skimCover*`, SkimCovers); `health` reads heat and memory (`skimHealth`, SkimHealth) to pace the page's reading; `export*` save Export's files where the user chose and `openInFinalCut` hands a saved .fcpxml to Final Cut (`skimExport*`, SkimExport); mark, preview and handoff have nothing native behind them yet.
     static let skimHostScript = #"""
     (() => {
       const post = (op, a) => window.webkit.messageHandlers.lumina.postMessage(Object.assign({ op }, a || {}));
@@ -282,6 +282,12 @@ nonisolated enum SetsPage: String, Sendable {
         trashMove: (shoot, paths) => post('skimTrashMove', { shoot: String(shoot), paths: (paths || []).map(String) }),
         trashPutBack: (shoot) => post('skimTrashPutBack', { shoot: String(shoot) }),
         trashList: (shoot) => post('skimTrashList', { shoot: String(shoot) }),
+        exportPlace: () => post('skimExportPlace'),
+        exportChoose: () => post('skimExportChoose'),
+        exportAsk: () => post('skimExportAsk'),
+        exportSave: (name, text) => post('skimExportSave', { name: String(name), text: String(text) }),
+        exportReveal: (path) => post('skimExportReveal', { path: String(path) }),
+        openInFinalCut: (path) => post('skimOpenInFinalCut', { path: String(path) }),
         mark() {}, preview() {}, handoff() {}
       });
     })();

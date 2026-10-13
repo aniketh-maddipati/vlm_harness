@@ -13,12 +13,17 @@ protocol SetsChooser: AnyObject {
     /// opened `at` the card's DCIM (or its root), asking for the card named `name`. `refusal` is
     /// set when the previous pick was not on that card.
     func chooseCard(name: String, at: URL, refusal: String?) async -> URL?
+    /// Skim's Export with no Save to folder: the save panel for one new file named `name`. An existing file is
+    /// refused in the panel, so the pick is always a new file.
+    func chooseSaveFile(name: String, suggested: URL?) async -> URL?
 }
 
 extension SetsChooser {
     /// A chooser with no panel of its own for cards (the probe's scripted one) answers from its
     /// source queue.
     func chooseCard(name: String, at: URL, refusal: String?) async -> URL? { await chooseSource(allowsDirectories: true) }
+    /// A chooser with no save panel (the probe's, the tests') saves nothing.
+    func chooseSaveFile(name: String, suggested: URL?) async -> URL? { nil }
 }
 
 /// Native side of the page's plumbing (see Web/plumbing.js). Owns the folders the user opened,
@@ -42,6 +47,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// The folder the user picked for the last export in this run: with the opened folders, the
     /// only places Show in Finder opens (`revealURL`).
     private var lastExport: URL?
+    /// The files Skim's Export saved in this run: the only ones Show in Finder and Open in Final Cut take.
+    private var skimSaved: Set<String> = []
     /// The open folder's shoot id, volume and place (`SetsShootStore.id(for:)`), taken while it was
     /// being opened. All come from the volume's UUID, which is gone once a card is pulled: asked
     /// again then, the same card would be another shoot and the decisions made while it was out
@@ -656,6 +663,53 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "skimHealth":
             // Skim's pacing: heat, Low Power Mode, memory pressure, this app's footprint (SkimHealth).
             return (SkimHealth.shared.read(slowdown: (body["slowdown"] as? NSNumber)?.doubleValue ?? 1), nil)
+        case "skimExportPlace":
+            // Export ▸ Save to: the folder Skim saves its Final Cut file and cut list into (none: ask each time), and the
+            // folder the open shoot was read from, so the .fcpxml points Final Cut at the clips where they are.
+            return (skimExportPlace(), nil)
+        case "skimExportChoose":
+            // Change…: the folder panel; the folder picked is kept as a bookmark in `skim/export.json`.
+            // A camera card is refused in the panel's own words, and the panel asks again (Lumina never writes to a card).
+            var refusal: String?, picked: URL?
+            while picked == nil {
+                guard let p = await chooser.chooseDestination(label: "skim", suggested: skimExportFolder() ?? lastOpened?.deletingLastPathComponent(), refusal: refusal) else { return (skimExportPlace(), nil) }
+                if SetsFileOps.isCard(p) { refusal = Self.skimCardRefusal; continue }
+                picked = p
+            }
+            guard let picked else { return (skimExportPlace(), nil) }
+            if let bm = try? picked.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) { skimExports.set(.init(bookmark: bm, path: picked.path)) }
+            return (skimExportPlace(), nil)
+        case "skimExportAsk":
+            // Ask each time: the kept folder is forgotten; each save opens the save panel.
+            skimExports.set(nil)
+            return (skimExportPlace(), nil)
+        case "skimExportSave":
+            // The page's .fcpxml or cut list, saved as a new file (never over one) and read back.
+            guard let name = body["name"] as? String, let text = body["text"] as? String else { return (["ok": false, "why": "Nothing to save."], nil) }
+            let saved: SkimExport.Saved
+            if let dir = skimExportFolder() {
+                let scoped = dir.startAccessingSecurityScopedResource()
+                saved = await Task.detached(priority: .userInitiated) { SkimExport.save(text, name: name, into: dir) }.value
+                if scoped { dir.stopAccessingSecurityScopedResource() }
+            } else {
+                guard let clean = SkimExport.safeName(name) else { return (["ok": false, "why": "That is not a file name Lumina saves."], nil) }
+                guard let to = await chooser.chooseSaveFile(name: clean, suggested: lastOpened?.deletingLastPathComponent()) else { return (["ok": false, "cancelled": true, "why": "Not saved."], nil) }
+                if SetsFileOps.isCard(to.deletingLastPathComponent()) { return (["ok": false, "why": Self.skimCardRefusal], nil) }
+                saved = await Task.detached(priority: .userInitiated) { SkimExport.write(text, to: to) }.value
+            }
+            if saved.ok { skimSaved.insert(saved.path); onEvent?("skim export saved \(saved.path)") }
+            return (saved.json, nil)
+        case "skimExportReveal":
+            // Show in Finder: a file this run's Export saved, selected in its folder.
+            guard let path = body["path"] as? String, skimSaved.contains(path), FileManager.default.fileExists(atPath: path) else { return (false, nil) }
+            reveal(URL(fileURLWithPath: path))
+            return (true, nil)
+        case "skimOpenInFinalCut":
+            // Open in Final Cut: a .fcpxml this run's Export saved, handed to Final Cut Pro, which asks where to import it.
+            guard let path = body["path"] as? String, skimSaved.contains(path), path.lowercased().hasSuffix(".fcpxml"), FileManager.default.fileExists(atPath: path) else { return (["ok": false, "why": "That file is not one Skim saved."], nil) }
+            guard let app = Self.finalCut() else { return (["ok": false, "why": "Final Cut Pro is not on this Mac."], nil) }
+            let ok = (try? await NSWorkspace.shared.open([URL(fileURLWithPath: path)], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())) != nil
+            return (ok ? ["ok": true, "app": app.deletingPathExtension().lastPathComponent] : ["ok": false, "why": "Final Cut Pro did not open it."], nil)
         case "openSettings":
             // Privacy & Security → Files and Folders. Opening System Settings is the user's own click.
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") { NSWorkspace.shared.open(url) }
@@ -676,6 +730,37 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         default:
             return (nil, "unknown op \(op)")
         }
+    }
+
+    /// Skim's Save to folder (`skim/export.json`, SkimExport).
+    private var skimExports: SkimExport { SkimExport(file: supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("export.json")) }
+
+    /// The kept Save to folder, resolved; nil when none is kept or it can't be found any more.
+    private func skimExportFolder() -> URL? {
+        guard let p = skimExports.place() else { return nil }
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: p.bookmark, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+        if stale, let bm = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) { skimExports.set(.init(bookmark: bm, path: url.path)) }
+        return url
+    }
+
+    /// What Export shows under Save to, and where the open shoot was read from.
+    private func skimExportPlace() -> [String: Any] {
+        var o: [String: Any] = ["ask": true, "finalCut": Self.finalCut() != nil]
+        if let dir = skimExportFolder() { o["ask"] = false; o["path"] = dir.path; o["name"] = FileManager.default.displayName(atPath: dir.path) }
+        else if let p = skimExports.place() { o["lost"] = p.path }
+        if let f = lastOpened { o["clips"] = f.path }
+        return o
+    }
+
+    static let skimCardRefusal = "That is a camera card. Lumina never writes to a card; pick a folder on a drive."
+
+    /// Final Cut Pro's app, by its bundle id (the App Store build, the trial); nil when none is installed.
+    static func finalCut() -> URL? {
+        for id in ["com.apple.FinalCut", "com.apple.FinalCutTrial", "com.apple.FinalCutApp"] {
+            if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) { return u }
+        }
+        return nil
     }
 
     /// Skim's note of the files it moved to the Trash, in the container.
