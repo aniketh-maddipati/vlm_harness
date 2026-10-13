@@ -454,16 +454,22 @@ final class SetsHostView: NSView {
 }
 
 /// Window sizes: opens at the reference size (1440×900, PARITY.md); minimum 1024×700 (ADDENDUM-1 §4).
+/// Skim narrows to a phone's width (360×560): its page lays itself out for a phone below 640 px.
 enum SetsWindowSize {
     static let initial = CGSize(width: 1440, height: 900)
     static let minimum = CGSize(width: 1024, height: 700)
+    static let phone = CGSize(width: 360, height: 560)
+
+    /// The smallest window for a page.
+    static func minimum(for page: SetsPage) -> CGSize { page == .skim ? phone : minimum }
 
     /// What the page answers for a window offer. A finite offer is the window's content size, so
-    /// enlarging the window enlarges the page, and it is never below the minimum. No offer, or an
-    /// unbounded one, is the size the window opens at.
-    static func filled(width: CGFloat?, height: CGFloat?) -> CGSize {
-        CGSize(width: axis(width, ideal: initial.width, minimum: minimum.width),
-               height: axis(height, ideal: initial.height, minimum: minimum.height))
+    /// enlarging the window enlarges the page, and it is never below the page's minimum. No offer,
+    /// or an unbounded one, is the size the window opens at.
+    static func filled(width: CGFloat?, height: CGFloat?, page: SetsPage = .current) -> CGSize {
+        let floor = minimum(for: page)
+        return CGSize(width: axis(width, ideal: initial.width, minimum: floor.width),
+                      height: axis(height, ideal: initial.height, minimum: floor.height))
     }
 
     private static func axis(_ proposed: CGFloat?, ideal: CGFloat, minimum: CGFloat) -> CGFloat {
