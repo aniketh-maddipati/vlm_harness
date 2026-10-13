@@ -20,7 +20,7 @@ for (let i = 1; i <= 8; i++) execFileSync('ffmpeg', ['-loglevel', 'error', '-y',
 
 let fails = 0; const ok = (c, what) => { console.log((c ? 'ok    ' : 'FAIL  ') + what); if (!c) fails++; };
 async function run(host) {
-  const b = await pw.chromium.launch({executablePath:process.env.CHROMIUM || undefined}), ctx = await b.newContext({viewport:{width:1440, height:1000}}), errs = [];
+  const b = await pw.chromium.launch({executablePath:process.env.CHROMIUM || undefined}), ctx = await b.newContext({viewport:{width:1440, height:1000}}), errs = []; if (host) await ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
   if (host) await ctx.addInitScript(() => {
     const ask = v => new Promise(r => setTimeout(() => r(v), 5)); window.__calls = [];
     let place = {ask:true, finalCut:true, clips:'/Users/sam/Desktop/dump'};
@@ -44,7 +44,7 @@ async function run(host) {
       showClips: paths => { window.__calls.push(['showClips', paths]); return ask(paths.length); },
       exportDefault: p => { place = {...place, ask:false, path:p, name:p.split('/').pop()}; return ask(place); },
       places: () => ask({saveTo:place.ask ? null : place.path, home:'/Users/sam',
-        places:[{name:'dump', path:'/Users/sam/Desktop/dump', kind:'shoot', card:false}].concat(place.ask ? [] : [{name:place.name, path:place.path, kind:'saveTo', card:false}]),
+        places:[{name:'dump', path:'/Users/sam/Desktop/dump', kind:'shoot', card:false}].concat(place.ask ? [] : [{name:place.name, path:place.path, kind:'saveTo', card:false}], window.__keptT7 ? [{name:'T7', path:'/Volumes/T7/', kind:'kept', card:false}] : []),
         drives:[{name:'Macintosh HD', path:'/', granted:false, card:false, readOnly:false, free:2e11}, {name:'T7', path:'/Volumes/T7', granted:true, card:false, readOnly:false, free:1.5e11}, {name:'SONY', path:'/Volumes/SONY', granted:false, card:true, readOnly:false, free:3e10}]}),
       dirList: (p, files) => { window.__calls.push(['list', p, !!files]); const D = window.__dirs = window.__dirs || {'/Volumes/T7':[{name:'Projects', path:'/Volumes/T7/Projects', dirs:true}], '/Volumes/T7/Projects':[],
         '/Users/sam/Desktop/dump':Array.from({length:8}, (_, i) => ({name:'C000' + (i + 1) + '.MP4', path:'/Users/sam/Desktop/dump/C000' + (i + 1) + '.MP4', file:true, bytes:2e6}))}; return ask(D[p] || []); },
@@ -126,7 +126,7 @@ async function run(host) {
     await p.click(t7); await p.waitForTimeout(60);
     let an = await anim('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]');
     ok(an.length === 1 && /lmRowIn/.test(an[0]), 'app: a drive read ahead unfurls at once and its rows slide in: ' + JSON.stringify(an));
-    await p.waitForTimeout(400); await p.click(t7); await p.waitForTimeout(40);
+    await p.waitForTimeout(700); await p.click(t7); await p.waitForTimeout(40);
     an = await anim('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]');
     ok(an.length === 1 && /lmRowOut/.test(an[0]), 'app: furled, its rows fold up before they go: ' + JSON.stringify(an));
     await p.waitForTimeout(300);
@@ -300,6 +300,40 @@ async function run(host) {
     await p.keyboard.press('Escape'); await p.waitForTimeout(200); await p.keyboard.press('Escape'); await p.waitForTimeout(200);
     ok(await p.inputValue('[data-lumina="ws-find-q"]') === '' && !await p.$('[data-lumina="ws-find-list"]'), 'app: Escape closes the list, then clears the search');
     ok(await p.$('[data-lumina="ws-load"]'), 'app: the list has its reading line');
+    // LOCAL-CHANGES 269: a drive given access at its top is listed once, under Drives, with what the folder was
+    await p.evaluate(() => { window.__keptT7 = true; window.dispatchEvent(new Event('focus')); }); await p.waitForTimeout(400);
+    const t7rows = await p.$$eval('[data-lumina="ws-row"]', es => es.filter(e => /^\/Volumes\/T7\/?$/.test(e.getAttribute('data-path'))).length);
+    ok(t7rows === 1, 'app: the T7, given access at its top, is listed once (as a drive), not again under Folders: ' + t7rows);
+    // its menu: a right-click, every thing that can be done with it
+    await p.click('[data-lumina="ws-row"][data-path="/Volumes/T7"]', {button:'right'}); await p.waitForTimeout(500);
+    const menu = (await p.$$eval('[data-lumina="ws-menu"] [role=menuitem]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()))).join(' | ');
+    ok(/Unfurl everything inside/.test(menu) && /Show in Finder/.test(menu) && /Copy path/.test(menu) && /Remove access/.test(menu) && /New folder inside/.test(menu), 'app: a right-click opens the row’s menu: ' + menu);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(250);
+    ok(!await p.$('[data-lumina="ws-menu"]'), 'app: esc closes the menu');
+    await p.click('[data-lumina="ws-row"][data-path="/Volumes/T7"]', {button:'right'}); await p.waitForTimeout(450);
+    await p.click('[data-lumina="ws-menu-all"]'); await p.waitForTimeout(700);
+    const deep = '[data-lumina="ws-row"][data-path="/Volumes/T7/Archive/2025/Wedding Café"]';
+    ok(await p.$(deep) && await p.$('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]'), 'app: Unfurl everything inside shows the folders levels down');
+    await p.click(deep); await p.waitForTimeout(200);
+    const crumbs = (await p.$$eval('[data-lumina="ws-path"] button', es => es.map(e => e.innerText.trim()))).join(' › ');
+    ok(crumbs === 'T7 › Archive › 2025 › Wedding Café', 'app: the path bar shows where the selected folder is: ' + crumbs);
+    await p.click('[data-lumina="ws-path-1"]'); await p.waitForTimeout(200);
+    ok(await p.getAttribute('[data-lumina="ws-row"][data-path="/Volumes/T7/Archive"]', 'aria-selected') === 'true', 'app: a folder in the path bar selects it');
+    await p.keyboard.press('Meta+ArrowUp'); await p.waitForTimeout(200);
+    ok(await p.getAttribute('[data-lumina="ws-row"][data-path="/Volumes/T7"]', 'aria-selected') === 'true', 'app: ⌘↑ goes to the folder above');
+    await p.keyboard.press('Alt+Meta+KeyC'); await p.waitForTimeout(200);
+    ok(/Copied ~?\/?Volumes\/T7|Copied \/Volumes\/T7/.test(await text('[data-lumina="ws-say"]')) && await p.evaluate(() => navigator.clipboard.readText()) === '/Volumes/T7', 'app: ⌥⌘C copies the path: ' + await text('[data-lumina="ws-say"]'));
+    await p.keyboard.press('Alt+ArrowLeft'); await p.waitForTimeout(500);
+    ok(!await p.$('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]') && await p.getAttribute('[data-lumina="ws-row"][data-path="/Volumes/T7"]', 'aria-expanded') === 'false', 'app: ⌥← furls the folder and everything open inside it');
+    // the menu from the keyboard: ⇧F10, ↓ and ⏎
+    await p.keyboard.press('Shift+F10'); await p.waitForTimeout(450);
+    ok(await p.$('[data-lumina="ws-menu"]'), 'app: ⇧F10 opens the menu of the selected row');
+    await p.keyboard.press('ArrowDown'); await p.keyboard.press('Enter'); await p.waitForTimeout(500);
+    ok(!await p.$('[data-lumina="ws-menu"]') && await p.getAttribute('[data-lumina="ws-row"][data-path="/Volumes/T7"]', 'aria-expanded') === 'true', 'app: ↓ ⏎ in the menu runs its first item (Unfurl)');
+    // the options: Clips as three cards with their counts, Then as switches with what each does
+    const sc = (await p.$$eval('[data-lumina="export-scope"] [role=radio]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()))).join(' | ');
+    ok(/Selected \d+ clips?/.test(sc) && /Everything 8 clips/.test(sc), 'app: Clips, three cards each with its count: ' + sc);
+    ok(/Moves|cut clip|No cut clips/.test(await text('[data-lumina="ex-trash"]')) && /working memory/.test(await text('[data-lumina="ex-mem"]')), 'app: each Then switch says what it does: ' + (await text('[data-lumina="ex-mem"]')).replace(/\s+/g, ' '));
   }
   ok(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();
