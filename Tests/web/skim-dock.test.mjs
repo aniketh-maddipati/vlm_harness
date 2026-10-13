@@ -9,7 +9,7 @@ import { PAGE, extractMethod } from './skim-export.mjs';
 
 const src = fs.readFileSync(PAGE, 'utf8');
 const C = {};
-for (const [name, args] of [['dockList', 'clips, marks, cuts'], ['dockStep', 'ids, id, d'], ['dockNear', 'order, ids, cur'], ['dockOut', 'ids, id'], ['markToggle', 'has, m']]){
+for (const [name, args] of [['dockList', 'clips, marks, cuts, only'], ['dockStep', 'ids, id, d'], ['dockNear', 'order, ids, cur'], ['dockOut', 'ids, id'], ['markToggle', 'has, m']]){
   const body = extractMethod(src, name, 'static ' + name + '(' + args + ') {').replace(/^static /, 'function ');
   C[name] = new Function('Component', 'return ' + body)(C);
 }
@@ -24,6 +24,8 @@ test('the dock holds selected and maybe clips in capture order; the cut ones onl
   assert.equal(L[4].brk, true, 'a gap before the cut clips');
   assert.deepEqual(C.dockList(clips, {}), []);
   assert.deepEqual(C.dockList(clips, {a:'cut'}, true).map(x => x.brk), [false]);
+  assert.deepEqual(C.dockList(clips, marks, false, 'maybe').map(x => x.id), ['c'], 'one bucket');
+  assert.deepEqual(C.dockList(clips, marks, false, 'cut').map(x => x.brk), [false, true], 'a gap where the scene changes');
 });
 
 test('a gap where the scene changes, none inside a scene and none before the first clip', () => {
@@ -75,7 +77,7 @@ test('the first K changes no layout: the Viewer keeps the slim strip height whil
   // A dock that grew from one line to a strip on the first K shrank the Viewer's picture, and the chapter's next clip
   // came in beside it. Under the grid the reflow put another tile under a still pointer, which took the current clip.
   assert.match(src, /return this\.dockIds\(\)\.length \|\| this\.dockSlim\(\) \|\| this\.cutN\(\) \? this\.dockPh\(\)/);
-  assert.match(src, /out\.dockFull = L\.length > 0 \|\| this\.dockSlim\(\) \|\| cutL\.length > 0; out\.dockHold = !L\.length;/);
+  assert.match(src, /out\.dockFull = L\.length > 0 \|\| this\.dockSlim\(\) \|\| cutL\.length > 0 \|\| !!st\.bk; out\.dockHold = !L\.length;/);
   assert.equal((src.match(/data-lumina="dock-hold"/g) || []).length, 1);
   const dm = src.slice(src.indexOf('  doMark(ids, m) {'), src.indexOf('  propose(t, fn) {'));
   assert.match(dm, /this\.kbAt = Date\.now\(\);/);
