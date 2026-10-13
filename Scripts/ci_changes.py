@@ -13,10 +13,14 @@ Writes `name=true|false` lines to $GITHUB_OUTPUT when it is set, and prints them
 """
 import fnmatch, glob, os, re, subprocess, sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import page_bytes
+
 # fnmatch's `*` crosses `/`, so `Lumina/*` is the whole tree under Lumina/.
 AREAS = {
     # The page and its plumbing: the WebKitGTK + Chromium job, and the probe's screens.
-    "web": ["design/*", "Lumina/Sets/Web/*", "Tests/web/*", "Tests/core/*", "Scripts/page_files.sh"],
+    "web": ["design/*", "Lumina/Sets/Web/*", "Tests/web/*", "Tests/core/*", "Scripts/page_files.sh",
+            "Scripts/build-skim-preview.py"],
     # Anything Xcode builds or tests: the Debug build + LuminaLogicTests.
     "swift": ["Lumina/*", "Lumina.xcodeproj/*", "LuminaLogicTests/*", "TestPlans/*", "Config/*"],
     # The look pipeline and lumina-render (they share Lumina/Sets/Look through symlinks).
@@ -32,6 +36,16 @@ AREAS = {
                 "Lumina/Sets/Web/plumbing.js", "Tools/LuminaProbe/*", "Scripts/probe.sh", "Scripts/test_guard.py"],
 }
 EVERYTHING = [".github/*", "Scripts/ci_changes.py"]
+# The app's byte copies of the design's page (SetsPageBytesTests' list). The Linux `design handoff`
+# job compares the same bytes (Scripts/page_bytes.py), so a change to them alone builds nothing on a
+# Mac. plumbing.js, or a file the test doesn't list, still counts as `swift`.
+PAGE_COPIES = page_bytes.copies()
+
+
+def in_area(f, area):
+    if area == "swift" and f in PAGE_COPIES:
+        return False
+    return any(fnmatch.fnmatch(f, p) for p in AREAS[area])
 
 
 def changed_files():
@@ -59,8 +73,9 @@ def xctest_args(files, everything):
     """The test classes a change touches, as xcodebuild -only-testing arguments.
 
     A changed test file runs itself. A changed Swift file under Lumina/ runs every test class whose
-    file names a type or top-level name it declares (and any class named after the file). The page
-    files run the tests that read the bundled page, rules-v1.json the tests that read the rules.
+    file names a type or top-level name it declares (and any class named after the file). plumbing.js
+    and the other Web files that aren't page copies run the tests that read the bundled page,
+    rules-v1.json the tests that read the rules. The page copies alone run nothing (PAGE_COPIES).
     Anything else Xcode builds (the project, Config, resources, the test plan) runs the whole target,
     as does everything that isn't a pull request. With nothing selected, SetsPageBytesTests still
     runs: the build has to succeed and the bundle must hold the design.
@@ -73,7 +88,7 @@ def xctest_args(files, everything):
                             if any(re.search(rf"\b{re.escape(w)}\b", src) for w in words)}
     picked = set()
     for f in files:
-        if not any(fnmatch.fnmatch(f, p) for p in AREAS["swift"]):
+        if not in_area(f, "swift"):
             continue
         name = os.path.basename(f)
         if f.startswith(f"{TESTS}/") and f.endswith(".swift"):
@@ -101,7 +116,7 @@ def main():
         flags = {k: True for k in AREAS}
     else:
         why = f"{len(files)} files changed"
-        flags = {k: hit(p) for k, p in AREAS.items()}
+        flags = {k: any(in_area(f, k) for f in files) for k in AREAS}
     lines = [f"{k}={'true' if v else 'false'}" for k, v in flags.items()]
     lines.append("xctest=" + xctest_args(files or [], files is None or hit(EVERYTHING)))
     print(f"# {why}")

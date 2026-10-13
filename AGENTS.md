@@ -66,6 +66,9 @@ python3 Scripts/trust_check.py               # docs/release/TRUST.md's inventory
 node Tests/web/parity.mjs                    # screens-* in prototype vs app parity mode, every snapshot diffed
 # WebKit sandbox (WebKitGTK + JavaScriptCore, real script-message handler): contract, selftest, app flow, screens
 xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py   # apt: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb; runs under the app's offline layers, ends with the escape test (offline)
+# The Skim web preview built and used in Safari's engine (CI: "Skim in WebKit" every PR, "Skim in Safari" on PRs into main + nightly)
+xvfb-run -a -s "-screen 0 1600x1000x24" /usr/bin/python3.12 Tests/web/skim-engine.py webkitgtk   # apt: + gstreamer1.0-libav gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+python3 Tests/web/skim-engine.py safari      # macOS, once: sudo safaridriver --enable
 # Fast scrolling over 400 synthetic ARWs at a Retina pixel ratio (numbers reported, not gated)
 GDK_SCALE=2 xvfb-run -a -s "-screen 0 5200x3000x24" /usr/bin/python3.12 Tests/web/webkit.py scroll
 # The Foundation-only Swift (SetsFileOps, SetsShootStore, SetsExport, SetsIngest, LookString/LookRules/LookMath) + its tests, Swift 6.1 in Docker
@@ -150,9 +153,15 @@ Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh
 CI (`.github/workflows/lumina.yml`) runs a readiness gate on every pull request: the fixtures, the byte-for-byte
 page check, the wording audit and the parity tools (one Linux job), and the probe's smoke on macOS. The rest runs
 only when its area changed (`python3 Scripts/ci_changes.py FILE…` prints which): the Chromium plumbing harness and
-the WebKitGTK sandbox for the page, `plumbing.js` or `Tests/web`; the build + logic tests for anything Xcode builds, with lumina-render for the look and the Release build +
+the WebKitGTK sandbox (two jobs side by side) for the page, `plumbing.js` or `Tests/web`, with the Skim preview
+in WebKitGTK and, on a Mac, in Safari (`Tests/web/skim-engine.py`); the build + logic tests for anything Xcode builds
+except the page's byte copies in `Lumina/Sets/Web` (`Scripts/page_bytes.py` checks those on Linux from
+SetsPageBytesTests' own list), with lumina-render for the look and the Release build +
 strict preflight for signing, entitlements and settings; the probe's screens for the page or the probe; its
-sandbox smoke for native code and entitlements. A change to CI itself, and every push to main, runs all of it. The
+smoke inside the sandbox, in place of the plain smoke, for native code and entitlements. The macOS jobs (build + tests,
+the probe, Skim in Safari) run only on pull requests into main that are not drafts: a draft, or a PR into a shared branch, gets the
+Linux jobs, and the Mac checks run on that branch's own PR into main. On a pull request the offline test skips its
+per-layer report (`LUMINA_OFFLINE_LAYERS=0`). A change to CI itself, and every push to main, runs all of it. The
 long probe shards (fuzz-sample-2 + scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run
 nightly and when the workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real
 ARWs, macOS 27) run on a Mac.
