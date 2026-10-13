@@ -29,6 +29,19 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
 @keyframes lmSlideOut{to{opacity:0;transform:translateX(24px)}}
 @keyframes lmRowIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @keyframes lmRowOut{to{opacity:0;transform:translateY(-4px)}}
+/* Fetching (LOCAL-CHANGES 268): a line runs along the top of the list while a folder is read or a search runs, a folder being
+   read shimmers, the search's dots bounce, and a folder found and shown in the list glows once. */
+@keyframes lmBar{0%{transform:translateX(-100%)}100%{transform:translateX(290%)}}
+@keyframes lmShimmer{0%{background-position:150% 0}100%{background-position:-50% 0}}
+@keyframes lmDot{0%,80%,100%{opacity:0.25;transform:none}40%{opacity:1;transform:translateY(-3px)}}
+@keyframes lmFlash{0%{box-shadow:inset 0 0 0 1.5px #FFD27A;background-color:rgba(255,210,122,0.28)}100%{box-shadow:inset 0 0 0 1.5px rgba(255,210,122,0);background-color:rgba(255,210,122,0.1)}}
+[data-lumina=ws-row][data-loading=true]{position:relative}
+[data-lumina=ws-row][data-loading=true]::after{content:'';position:absolute;top:5px;bottom:5px;left:var(--lm-pad,22px);width:min(220px,50%);border-radius:4px;background:linear-gradient(90deg,rgba(239,236,230,0.03) 25%,rgba(239,236,230,0.12) 50%,rgba(239,236,230,0.03) 75%);background-size:200% 100%;animation:lmShimmer 1.1s linear infinite;pointer-events:none}
+[data-lumina=ws-find-list]{animation:lmDrop 150ms cubic-bezier(0.2,0.8,0.2,1) backwards;transform-origin:top left}
+@media (prefers-reduced-motion:reduce){
+  [data-lumina=ws-load] span,[data-lumina=ws-find-dots] span{animation:breathe 1.6s ease-in-out infinite!important;transform:none!important}
+  [data-lumina=ws-row][data-loading=true]::after,[data-lumina=ws-find-list]{animation:none}
+}
 @media (prefers-reduced-motion:no-preference){
   [data-lumina=ws-options],[data-lumina=export-summary],[data-lumina=ex-preview-text],[data-lumina=ws-led-text],[data-lumina=ex-details],[data-lumina=ws-new],[data-lumina=ws-plan]{animation:lmFoldIn 160ms cubic-bezier(0.2,0.8,0.2,1) backwards}
   [data-lumina=memory]{transform-origin:top right;animation:lmDrop 170ms cubic-bezier(0.2,0.8,0.2,1) backwards}
@@ -287,15 +300,34 @@ body:has([data-view=phone]){background:#111}
           </div>
           <div data-lumina="workshop" style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
             <div data-lumina="ws-places" style="flex:1 1 520px;display:flex;flex-direction:column;gap:8px;min-width:0">
+              <div data-lumina="ws-find" role="search" style="position:relative;z-index:6">
+                <div style="position:relative;display:flex;align-items:center;gap:8px;height:34px;padding:0 6px 0 10px;box-sizing:border-box;border-radius:8px;background:#232220;box-shadow:inset 0 0 0 1px {{ wfRing }};overflow:hidden">
+                  <span aria-hidden="true" style="flex:none;color:#9A958D;font-size:14px;line-height:1">⌕</span>
+                  <input type="text" data-lumina="ws-find-q" role="combobox" aria-label="Find a folder" aria-expanded="{{ wfOpen }}" aria-controls="ws-find-list" autocomplete="off" spellcheck="false" placeholder="Find a folder in the drives and folders Lumina has access to" value="{{ wfQ }}" onChange="{{ wfType }}" onFocus="{{ wfFocus }}" style="flex:1 1 auto;min-width:0;height:32px;border:0;padding:0;background:transparent;color:#EFECE6;font:inherit;font-size:13px;outline:none"></input>
+                  <span data-lumina="ws-find-dots" aria-hidden="true" style="display:{{ wfBusyD }};gap:3px;align-items:center"><span style="width:4px;height:4px;border-radius:50%;background:#FFD27A;animation:lmDot 0.9s ease-in-out infinite"></span><span style="width:4px;height:4px;border-radius:50%;background:#FFD27A;animation:lmDot 0.9s ease-in-out 0.15s infinite"></span><span style="width:4px;height:4px;border-radius:50%;background:#FFD27A;animation:lmDot 0.9s ease-in-out 0.3s infinite"></span></span>
+                  <span data-lumina="ws-find-n" role="status" style="flex:none;color:#9A958D;font-size:12px;white-space:nowrap">{{ wfN }}</span>
+                  <sc-if value="{{ wfClearOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="ws-find-clear" aria-label="Clear the search" onClick="{{ wfClear }}" style="flex:none;box-sizing:border-box;width:28px;height:28px;min-height:28px;padding:0;border-radius:6px;background:rgba(239,236,230,0.08);color:#B8B3AB;cursor:pointer;text-align:center" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:1px">×</button></sc-if>
+                  <span data-lumina="ws-load-find" aria-hidden="true" style="display:{{ wfBusyD }};position:absolute;left:0;right:0;bottom:0;height:2px;overflow:hidden"><span style="display:block;width:35%;height:100%;background:#FFD27A;animation:lmBar 1.1s cubic-bezier(0.4,0,0.2,1) infinite"></span></span>
+                </div>
+                <sc-if value="{{ wfOpen }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-find-list" id="ws-find-list" role="listbox" aria-label="Folders found" onPointerDown="{{ wfHold }}" style="position:absolute;left:0;right:0;top:38px;max-height:min(360px,60vh);overflow:auto;padding:4px;box-sizing:border-box;border-radius:10px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.1),0 12px 32px rgba(0,0,0,0.45)">
+                  <sc-for list="{{ wfRows }}" as="f" hint-placeholder-count="4"><button type="button" role="option" data-lumina="ws-find-row" data-path="{{ f.path }}" aria-selected="{{ f.sel }}" title="{{ f.tip }}" onClick="{{ f.go }}" onMouseEnter="{{ f.hov }}" style="box-sizing:border-box;width:100%;min-height:40px;padding:4px 10px;border-radius:7px;display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:2px 10px;align-items:center;text-align:left;background:{{ f.bg }};color:#EFECE6;cursor:pointer">
+                    <span style="grid-row:span 2;width:11px;height:9px;border-radius:2px;background:{{ f.dot }}"></span>
+                    <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.pre }}<span style="color:#FFD27A;font-weight:600">{{ f.hit }}</span>{{ f.post }}</span>
+                    <span style="grid-row:span 2;color:#9A958D;font-size:11px;white-space:nowrap">{{ f.tag }}</span>
+                    <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9A958D;font-size:12px;direction:rtl;text-align:left">{{ f.where }}</span>
+                  </button></sc-for>
+                  <sc-if value="{{ wfSayOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-find-say" style="padding:10px 12px;color:#9A958D;line-height:1.45">{{ wfSay }}</div></sc-if>
+                </div></sc-if>
+              </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:30px"><div style="flex:1 1 auto;min-width:0"><sc-if value="{{ wsBarOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-bar" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="color:#EFECE6;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ wsSelName }}</span><sc-for list="{{ wsBar }}" as="sb" hint-placeholder-count="3"><button type="button" data-lumina="{{ sb.id }}" aria-disabled="{{ sb.off }}" onClick="{{ sb.go }}" title="{{ sb.tip }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;opacity:{{ sb.op }};cursor:{{ sb.cur }};white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sb.t }}</button></sc-for></div></sc-if></div><div data-lumina="ws-zoom" role="radiogroup" aria-label="Row size (pinch)" title="Row size · pinch on the trackpad" style="display:flex;gap:2px;padding:2px;border-radius:8px;background:#1E1D1B"><sc-for list="{{ wsZ }}" as="o" hint-placeholder-count="3"><button type="button" role="radio" data-lumina="{{ o.id }}" aria-checked="{{ o.on }}" onClick="{{ o.go }}" style="box-sizing:content-box;text-align:center;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;min-width:28px;padding:0 6px;border-radius:6px;background:{{ o.bg }};color:{{ o.fg }};cursor:pointer;font-size:{{ o.fs }}" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ o.t }}</button></sc-for></div></div>
               <sc-if value="{{ wsMkOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-new" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="color:#9A958D">New folder in {{ wsMkIn }}</span><input type="text" data-lumina="ws-new-name" aria-label="Name of the new folder" value="{{ wsMkName }}" onChange="{{ wsMkType }}" style="height:28px;box-sizing:border-box;padding:0 10px;border-radius:8px;border:none;background:#161514;color:#EFECE6;font:inherit;font-size:13px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);user-select:text;-webkit-user-select:text;outline:none;min-width:0;flex:1 1 160px;max-width:280px" style-focus="box-shadow:inset 0 0 0 1.5px #FFD27A"></input><sc-for list="{{ wsMkBtns }}" as="sb" hint-placeholder-count="2"><button type="button" data-lumina="{{ sb.id }}" aria-disabled="{{ sb.off }}" onClick="{{ sb.go }}" title="{{ sb.tip }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;opacity:{{ sb.op }};cursor:{{ sb.cur }};white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sb.t }}</button></sc-for></div></sc-if>
               <sc-if value="{{ wsSayOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="ws-say" role="status" style="color:{{ wsSayC }};line-height:1.45;overflow-wrap:anywhere">{{ wsSay }}</span></sc-if>
               <div data-lumina="ws-tree" role="tree" aria-label="Files and folders" aria-multiselectable="true" onPointerDown="{{ wsPD }}" style="position:relative;height:{{ wsH }};min-height:360px;overflow:auto;border-radius:10px;background:#232220;user-select:none;-webkit-user-select:none;overscroll-behavior:contain">
-                <div style="position:sticky;top:0;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) 96px 76px;gap:8px;padding:6px 12px;background:#2A2927;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D"><span>Name</span><span>Mark</span><span style="text-align:right">Size</span></div>
+                <div style="position:sticky;top:0;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) 96px 76px;gap:8px;padding:6px 12px;background:#2A2927;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D"><span>Name</span><span>Mark</span><span style="text-align:right">Size</span><span data-lumina="ws-load" aria-hidden="true" style="display:{{ wsLoadD }};position:absolute;left:0;right:0;bottom:0;height:2px;overflow:hidden"><span style="display:block;width:35%;height:100%;background:#FFD27A;animation:lmBar 1.1s cubic-bezier(0.4,0,0.2,1) infinite"></span></span></div>
                 <sc-if value="{{ wsEmptyOn }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 16px;color:#9A958D;line-height:1.5">{{ wsEmpty }}</div></sc-if>
                 <sc-for list="{{ wsRows }}" as="r" hint-placeholder-count="8">
                   <div style="display:{{ r.hdD }};padding:10px 12px 4px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D">{{ r.hd }}</div>
-                  <button type="button" role="treeitem" data-lumina="ws-row" data-key="{{ r.key }}" data-path="{{ r.path }}" data-kind="{{ r.kind }}" aria-level="{{ r.level }}" aria-expanded="{{ r.open }}" aria-selected="{{ r.sel }}" title="{{ r.tip }}" draggable="{{ r.drag }}" onDragStart="{{ r.dstart }}" onDragEnd="{{ r.dend }}" onClick="{{ r.go }}" onDragOver="{{ r.over }}" onDragLeave="{{ r.leave }}" onDrop="{{ r.drop }}" style="text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;width:100%;display:grid;grid-template-columns:minmax(0,1fr) 96px 76px;gap:8px;align-items:center;min-height:{{ r.h }};box-sizing:border-box;padding:2px 12px 2px {{ r.pad }};background:{{ r.bg }};box-shadow:{{ r.ring }};color:{{ r.fg }};cursor:{{ r.cur }};opacity:{{ r.op }};transition:background 80ms ease-out" style-hover="background:{{ r.hov }}">
+                  <button type="button" role="treeitem" data-lumina="ws-row" data-loading="{{ r.loading }}" data-key="{{ r.key }}" data-path="{{ r.path }}" data-kind="{{ r.kind }}" aria-level="{{ r.level }}" aria-expanded="{{ r.open }}" aria-selected="{{ r.sel }}" title="{{ r.tip }}" draggable="{{ r.drag }}" onDragStart="{{ r.dstart }}" onDragEnd="{{ r.dend }}" onClick="{{ r.go }}" onDragOver="{{ r.over }}" onDragLeave="{{ r.leave }}" onDrop="{{ r.drop }}" style="text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;width:100%;display:grid;grid-template-columns:minmax(0,1fr) 96px 76px;gap:8px;align-items:center;min-height:{{ r.h }};box-sizing:border-box;padding:2px 12px 2px {{ r.pad }};--lm-pad:{{ r.pad }};background:{{ r.bg }};box-shadow:{{ r.ring }};color:{{ r.fg }};cursor:{{ r.cur }};opacity:{{ r.op }};transition:background 80ms ease-out" style-hover="background:{{ r.hov }}">
                     <span style="display:flex;align-items:center;gap:8px;min-width:0"><span data-lumina="ws-chev" style="flex:none;width:14px;height:14px;display:grid;place-items:center;color:#9A958D;transform:rotate({{ r.rot }});transition:transform 120ms ease-out;opacity:{{ r.chevOp }}">›</span><span style="flex:none;position:relative;width:{{ r.icW }};height:{{ r.icH }};border-radius:{{ r.icR }};overflow:hidden;background:{{ r.dot }};box-shadow:inset 0 0 0 {{ r.icRing }}"><span style="position:absolute;inset:0;background:{{ r.cov }};filter:{{ r.flt }}"></span></span><span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:{{ r.ital }};font-size:{{ r.fs }}">{{ r.name }}</span><sc-for list="{{ r.tags }}" as="tg" hint-placeholder-count="1"><span style="flex:none;font-size:11px;padding:1px 6px;border-radius:4px;background:{{ tg.bg }};color:{{ tg.fg }}">{{ tg.t }}</span></sc-for></span>
                     <span style="display:flex;gap:4px;align-items:center;font-size:12px;color:{{ r.mkC }};white-space:nowrap;overflow:hidden"><sc-for list="{{ r.mk }}" as="m" hint-placeholder-count="1"><span style="display:flex;align-items:center;gap:3px;color:{{ m.c }}"><span style="width:7px;height:7px;border-radius:50%;background:{{ m.c }}"></span>{{ m.t }}</span></sc-for></span>
                     <span style="text-align:right;color:#9A958D;font-size:12px;white-space:nowrap">{{ r.sub }}</span>
@@ -2783,7 +2815,7 @@ class Component extends DCLogic {
   // clip with its mark. Click, ⌘-click, ⇧-click and a drag over the rows select; selected clips drag onto a bucket to be
   // marked; the Final Cut file and the cut list drag onto a folder to be saved there; pinch sets the row size and a
   // sideways swipe unfurls or furls. Nothing here moves a clip file.
-  static WS0() { return {open:{}, kids:{}, sel:'', pick:{}, mk:null, hot:'', dst:{fcp:'', cut:''}, say:null, pl:null, z:1, only:'', opt:false, sum:false, box:null, plan:{}, rev:false, runs:null, ar:null, back:null, backHot:false, led:null, ledOpen:'', ledText:{}, ledSay:null, pvX:false, for:''}; }
+  static WS0() { return {open:{}, kids:{}, sel:'', pick:{}, mk:null, hot:'', dst:{fcp:'', cut:''}, say:null, pl:null, z:1, only:'', opt:false, sum:false, box:null, plan:{}, rev:false, runs:null, ar:null, back:null, backHot:false, led:null, ledOpen:'', ledText:{}, ledSay:null, pvX:false, for:'', fq:'', fr:null, fbusy:false, fsel:0, fopen:false, rv:''}; }
   wsSet(f, then) { this.setState(s => { const w = s.ws || {...Component.WS0(), for:this.wsFor()}; return {ws:{...w, ...(typeof f === 'function' ? f(w) : f)}}; }, then); }
   // Whose workshop it is: the open shoot's (a new shoot starts a new one).
   wsFor() { return this.d && this.hasShoot() ? this.storeKey(this.d) : ''; }
@@ -2882,6 +2914,67 @@ class Component extends DCLogic {
       if (Array.isArray(ks) && had && JSON.stringify(ks) === JSON.stringify(cur)) return;
       this.wsSet(x => ({kids:{...x.kids, [path]:Array.isArray(ks) ? ks : {why:'Lumina has no access inside this folder.'}}}), () => { if (!had && Array.isArray(ks)) this.wsUnfurlFx(path); });
     }, () => { if (!quiet) this.wsSet(x => ({kids:{...x.kids, [path]:{why:'The app did not answer.'}}})); });
+  }
+  // ---- Find a folder (LOCAL-CHANGES 268). What is typed is matched at once against every folder already read (the roots, the
+  // listings read ahead or opened), and a moment later the app looks through all the folders Lumina has access to
+  // (skimFind: names only, breadth first, the newest search stops the older). Every word must be in the name; accents and
+  // case do not count; a name that starts with the search comes first, then the shallower. ↑ ↓ choose, ⏎ shows the folder in
+  // the list (each folder above it unfurled, read if need be, the row selected and glowing once), Escape clears.
+  static wfWords(q) { return String(q || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/\s+/).filter(Boolean); }
+  static wfHas(name, ws) { const n = Component.wfWords(name).join(' '); return ws.length > 0 && ws.every(x => n.indexOf(x) >= 0); }
+  static wfRank(list, ws) {
+    const first = ws[0] || '', pre = f => Component.wfWords(f.name)[0] && Component.wfWords(f.name)[0].indexOf(first) === 0 ? 0 : 1;
+    return list.slice().sort((a, b) => pre(a) - pre(b) || a.depth - b.depth || a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}));
+  }
+  // The folders already read that match: the roots and every listing in hand, each once.
+  wfLocal(w, ws) {
+    const out = [], seen = new Set(), pl = w.pl || {}, roots = (pl.places || []).concat((pl.drives || []).filter(d => d.granted));
+    const add = (name, path, root) => { if (!path || seen.has(path) || !Component.wfHas(name, ws)) return; seen.add(path); out.push({name, path, root, depth:root ? path.slice(root.length).split('/').filter(Boolean).length : 0}); };
+    const rootOf = p => { let best = ''; roots.forEach(r => { const rp = r.path === '/' ? '' : r.path.replace(/\/+$/, ''); if ((p === rp || p.indexOf(rp + '/') === 0) && rp.length >= best.length) best = rp || '/'; }); return best; };
+    roots.forEach(r => add(r.name || r.path.split('/').pop(), r.path, r.path));
+    Object.keys(w.kids || {}).forEach(k => { const ks = w.kids[k]; if (Array.isArray(ks)) ks.forEach(f => { if (!f.file) add(f.name, f.path, rootOf(f.path)); }); });
+    return out;
+  }
+  wfType = e => { const q = e.target.value; this.wsSet({fq:q, fsel:0, fopen:!!q.trim()}); clearTimeout(this.wfT); if (!q.trim()) { this.wfSeq = (this.wfSeq || 0) + 1; this.wsSet({fr:null, fbusy:false}); return; } this.wfT = setTimeout(() => this.wfRun(q), 220); };
+  wfRun(q) {
+    const v = this.exHostApi(); if (!v || !v.find) return;
+    const seq = this.wfSeq = (this.wfSeq || 0) + 1; this.wsSet({fbusy:true});
+    Promise.resolve().then(() => v.find(q, seq)).then(r => { if (seq !== this.wfSeq) return; this.wsSet({fr:r && Array.isArray(r.found) ? {q, found:r.found, scanned:r.scanned || 0, partial:!!r.partial} : {q, found:[], scanned:0, partial:false, bad:true}, fbusy:false}, () => this.wfFx()); },
+      () => { if (seq === this.wfSeq) this.wsSet({fr:{q, found:[], scanned:0, partial:false, bad:true}, fbusy:false}); });
+  }
+  // The rows found slide in when the app's answer lands.
+  wfFx() { requestAnimationFrame(() => Component.fx([...document.querySelectorAll('[data-lumina="ws-find-row"]')].slice(0, 12), 'lmRowIn', 150, 12)); }
+  wfClear = () => { clearTimeout(this.wfT); this.wfSeq = (this.wfSeq || 0) + 1; const done = () => this.wsSet({fq:'', fr:null, fbusy:false, fsel:0, fopen:false}); if ((this.state.ws || {}).fopen) this.foldShut('[data-lumina="ws-find-list"]', done, 'lmDropOut', 110); else done(); const e = document.querySelector('[data-lumina="ws-find-q"]'); if (e) e.focus(); };
+  wfClose() { if ((this.state.ws || {}).fopen) this.foldShut('[data-lumina="ws-find-list"]', () => this.wsSet({fopen:false}), 'lmDropOut', 110); }
+  // ↑ ↓ ⏎ Escape in the search field.
+  wfKey(e) {
+    const w = this.state.ws || Component.WS0(), rows = this.wfList || [], k = e.key;
+    if (k === 'ArrowDown' || k === 'ArrowUp') { e.preventDefault(); if (!w.fopen && w.fq.trim()) return this.wsSet({fopen:true}); if (rows.length) this.wsSet({fsel:(w.fsel + (k === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length}, () => { const el = document.querySelector('[data-lumina="ws-find-row"][aria-selected="true"]'); if (el && el.scrollIntoView) el.scrollIntoView({block:'nearest'}); }); return true; }
+    if (k === 'Enter') { e.preventDefault(); const f = rows[Math.min(w.fsel, rows.length - 1)]; if (f) this.wfReveal(f.path); return true; }
+    if (k === 'Escape') { e.preventDefault(); if (w.fopen) this.wfClose(); else if (w.fq) this.wfClear(); else e.target.blur(); return true; }
+    return false;
+  }
+  // Shows a folder in the list: the root it is under, each folder above it unfurled (read first when it was not), then the
+  // row selected, scrolled to and glowing once.
+  async wfReveal(path) {
+    const v = this.exHostApi(), w0 = this.state.ws; if (!v || !v.dirList || !w0 || !w0.pl) return;
+    const P = (w0.pl.places || []).filter(p => p && p.path), D = (w0.pl.drives || []).filter(p => p && p.path), roots = P.concat(D);
+    let ri = -1, best = null;
+    roots.forEach((r, i) => { if (!(i < P.length || r.granted)) return; const rp = r.path === '/' ? '' : r.path.replace(/\/+$/, ''); if ((path === rp || path.indexOf(rp + '/') === 0) && (best == null || rp.length > best.length)) { ri = i; best = rp; } });
+    if (ri < 0) return this.wsSet({say:{t:'Lumina has no access to ' + this.tilde(path) + ' any more.', bad:true}});
+    const rootPath = roots[ri].path, chain = [];
+    for (let p = path; p.length > best.length; p = p.slice(0, p.lastIndexOf('/'))) chain.unshift(p);
+    const opens = [rootPath].concat(chain.slice(0, -1)), key = path === rootPath ? ri + '|' + rootPath : ri + '|' + path;
+    this.wsSet({rv:path, fopen:false});
+    for (const p of opens) {
+      if (Array.isArray(((this.state.ws || {}).kids || {})[p])) continue;
+      let ks = null; try { ks = await v.dirList(p, true); } catch (e) {}
+      if (!Array.isArray(ks)) { this.wsSet({rv:'', say:{t:'Lumina could not read ' + this.tilde(p) + '.', bad:true}}); return; }
+      await new Promise(r => this.wsSet(x => ({kids:{...x.kids, [p]:ks}}), r));
+    }
+    await new Promise(r => this.wsSet(x => { const open = {...x.open}; opens.forEach(p => { open[ri + '|' + p] = true; }); return {open, sel:key, pick:{[key]:true}, rv:'', say:{t:this.tilde(path)}}; }, r));
+    this.wsAhead();
+    requestAnimationFrame(() => { const row = [...document.querySelectorAll('[data-lumina="ws-row"]')].find(e => e.getAttribute('data-key') === key); if (!row) return; if (row.scrollIntoView) row.scrollIntoView({block:'center'}); if (Component.motionOk()) Component.fx([row], 'lmFlash', 1200, 0); });
   }
   // ---- Motion (LOCAL-CHANGES 267)
   static motionOk() { try { return !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return true; } }
@@ -3253,6 +3346,8 @@ class Component extends DCLogic {
   wsKey(e) {
     const st = this.state, k = e.key, kl = k.length === 1 ? k.toLowerCase() : k, t = e.target, inInput = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'), meta = e.metaKey || e.ctrlKey;
     const w = st.ws || Component.WS0();
+    if (inInput && t.getAttribute && t.getAttribute('data-lumina') === 'ws-find-q') return this.wfKey(e);
+    if (meta && kl === 'f' && !e.altKey && this.exHostApi()) { e.preventDefault(); const q = document.querySelector('[data-lumina="ws-find-q"]'); if (q) { q.focus(); q.select && q.select(); } return true; }
     if (inInput && t.getAttribute && t.getAttribute('data-lumina') === 'ws-new-name') {
       if (k === 'Enter') { e.preventDefault(); this.wsMkGo(); return true; }
       if (k === 'Escape') { e.preventDefault(); this.wsSet({mk:null}); return true; }
@@ -3288,7 +3383,7 @@ class Component extends DCLogic {
     const H_ = ['24px', '30px', '48px'][z], IC = [['9px', '8px'], ['10px', '9px'], ['64px', '36px']][z];
     v.wsRows = rows.map(r => { const sel = !!w.pick[r.key] || (r.key === w.sel && !Object.keys(w.pick).length), hot = r.key === w.hot, ok = Component.wsCanSave(r), open = !!w.open[r.key] || !!r.made, c = r.file ? (r.ghost ? this.byId[r.ghost] : cm.byPath[r.path]) : null, m = c ? st.marks[c.id] : null;
       const t = c && z === 2 && this.tone ? this.tone(c, fi) : null, dragOk = !!(sel && c && !r.ghost), gone = !!(r.file && away[r.path]);
-      return {hd:r.hd || '', hdD:r.hd ? 'block' : 'none', key:r.key, path:r.path || '', kind:r.note ? 'note' : r.file ? (c ? 'clip' : 'file') : 'folder', level:String((r.depth || 0) + 1), name:r.name, sub:subFor(r), tags:r.note ? [] : tagFor(r), mk:mkFor(r), mkC:'#9A958D',
+      return {hd:r.hd || '', hdD:r.hd ? 'block' : 'none', loading:String(!!(r.note && r.name === 'Reading…')), key:r.key, path:r.path || '', kind:r.note ? 'note' : r.file ? (c ? 'clip' : 'file') : 'folder', level:String((r.depth || 0) + 1), name:r.name, sub:subFor(r), tags:r.note ? [] : tagFor(r), mk:mkFor(r), mkC:'#9A958D',
         open:r.note || r.file || !(r.dirs || (r.drive && !r.granted)) ? undefined : String(open), sel:String(sel), drag:dragOk ? 'true' : 'false',
         tip:r.note ? '' : r.card ? 'A camera card: Skim never writes on it.' : !r.granted ? 'No access yet: click to give Lumina access to it.' : this.tilde(r.path),
         h:H_, fs:z === 0 ? '12px' : '13px', pad:(10 + (r.depth || 0) * 16) + 'px', op:gone ? 0.4 : r.ghost || r.made ? 0.8 : r.file && !c ? 0.55 : 1,
@@ -3323,7 +3418,24 @@ class Component extends DCLogic {
     v.wsMkType = e => { const val = e.target.value; this.wsSet(x => ({mk:x.mk ? {...x.mk, name:val} : x.mk})); };
     v.wsMkBtns = [btn('ws-new-make', 'Make', '⏎', !!(w.mk && String(w.mk.name).trim()), this.wsMkGo), btn('ws-new-cancel', 'Cancel', 'esc', true, () => this.wsSet({mk:null}))];
     v.wsSayOn = !!w.say; v.wsSay = w.say ? w.say.t : ''; v.wsSayC = w.say && w.say.bad ? '#FFD27A' : '#A9D18E';
-    v.wsKeys = host ? [{k:'click', t:'unfurl'}, {k:'⌘ ⇧', t:'add'}, {k:'drag', t:'select'}].concat(this.wsArr ? [{k:'drag clips', t:'move'}] : [], Object.keys(plan).length ? [{k:'⌘⏎', t:'apply'}] : [], [{k:'K M C', t:'mark'}, {k:'pinch', t:'size'}, {k:'swipe', t:'in / out'}, {k:'N', t:'folder'}, {k:'⌥⌘R', t:'Finder'}, {k:'esc', t:'Skim'}]) : [{k:'esc', t:'Skim'}];
+    // the search: what is typed, the folders found (the app's answer for this search first, then the ones already read), its line
+    { const ws = Component.wfWords(w.fq), fr = w.fr && w.fr.q === w.fq ? w.fr : null, seen = new Set(), list = [];
+      if (ws.length) { if (fr) fr.found.forEach(f => { if (!seen.has(f.path)) { seen.add(f.path); list.push(f); } }); Component.wfRank(this.wfLocal(w, ws), ws).forEach(f => { if (!seen.has(f.path)) { seen.add(f.path); list.push(f); } }); }
+      const rows = list.slice(0, 200); this.wfList = rows;
+      const sel = Math.min(w.fsel || 0, Math.max(0, rows.length - 1)), lw = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+      v.wfQ = w.fq; v.wfType = this.wfType; v.wfFocus = () => { if (w.fq.trim() && !w.fopen) this.wsSet({fopen:true}); };
+      v.wfClear = this.wfClear; v.wfClearOn = !!w.fq; v.wfHold = e => { if (!(e.target && e.target.closest && e.target.closest('button'))) e.preventDefault(); };
+      v.wfOpen = !!(w.fopen && ws.length); v.wfBusyD = w.fbusy || w.rv ? 'flex' : 'none'; v.wfRing = w.fopen ? 'rgba(255,210,122,0.5)' : 'rgba(239,236,230,0.1)';
+      v.wfN = !ws.length ? '⌘F' : w.rv ? 'Opening…' : w.fbusy && !rows.length ? 'Searching…' : rows.length ? this.plural(rows.length, 'folder') + (w.fbusy ? ' · searching…' : fr && fr.partial ? ' · more not looked at' : '') : fr ? 'none' : '';
+      v.wfRows = rows.map((f, i) => { const n = lw(f.name), at = ws[0] ? n.indexOf(ws[0]) : -1, cut = at >= 0 && n.length === f.name.length, par = f.path.slice(0, f.path.lastIndexOf('/')) || '/';
+        return {path:f.path, sel:String(i === sel), bg:i === sel ? 'rgba(255,210,122,0.14)' : 'transparent', dot:f.depth === 0 ? '#B8B3AB' : '#D9C9A8',
+          pre:cut ? f.name.slice(0, at) : f.name, hit:cut ? f.name.slice(at, at + ws[0].length) : '', post:cut ? f.name.slice(at + ws[0].length) : '',
+          where:'‎' + (f.depth === 0 ? (f.root === '/' ? 'a drive' : this.tilde(f.path)) : this.tilde(par)), tag:f.depth === 0 ? 'top' : '', tip:this.tilde(f.path),
+          go:() => this.wfReveal(f.path), hov:() => { if ((this.state.ws || {}).fsel !== i) this.wsSet({fsel:i}); }}; });
+      v.wfSayOn = !!(ws.length && !rows.length && (fr || !w.fbusy)); v.wfSay = fr && fr.bad ? 'The app did not answer.' : w.fbusy ? 'Searching…' : 'No folder named “' + w.fq.trim() + '” in the drives and folders Lumina has access to' + (fr && fr.partial ? ' (it stopped looking after ' + fr.scanned.toLocaleString() + ' folders: type more of the name)' : '') + '.';
+      if (fr && fr.partial && rows.length) v.wfSayOn = false;
+      v.wsLoadD = Object.keys(w.kids || {}).some(p => w.kids[p] === 'loading') || w.rv ? 'block' : 'none'; }
+    v.wsKeys = host ? [{k:'⌘F', t:'find'}, {k:'click', t:'unfurl'}, {k:'⌘ ⇧', t:'add'}, {k:'drag', t:'select'}].concat(this.wsArr ? [{k:'drag clips', t:'move'}] : [], Object.keys(plan).length ? [{k:'⌘⏎', t:'apply'}] : [], [{k:'K M C', t:'mark'}, {k:'pinch', t:'size'}, {k:'swipe', t:'in / out'}, {k:'N', t:'folder'}, {k:'⌥⌘R', t:'Finder'}, {k:'esc', t:'Skim'}]) : [{k:'esc', t:'Skim'}];
     // the buckets: drop selected clips to mark them; click to list only that mark
     const bk = (m, t) => { const n = o.markN[m] || 0, on = w.only === m, hot = w.hot === 'bk:' + m;
       return {id:'ws-bucket-' + m, t, n:String(n), sz:fb(o.markB[m] || 0), c:MK[m], on:String(on), tip:'Drop clips here to mark them ' + this.W(m) + '; click to list only these', bg:hot ? 'rgba(255,210,122,0.16)' : on ? 'rgba(239,236,230,0.12)' : '#2A2927', ring:hot ? '1.5px #FFD27A' : on ? '1px ' + MK[m] : '1px rgba(239,236,230,0.06)',

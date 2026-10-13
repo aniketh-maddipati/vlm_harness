@@ -710,6 +710,16 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             let dir = URL(fileURLWithPath: path, isDirectory: true)
             if body["files"] as? Bool == true { return (await Task.detached(priority: .userInitiated) { SkimPlaces.entries(in: dir) }.value?.map(\.json) ?? NSNull(), nil) }
             return (await Task.detached(priority: .userInitiated) { SkimPlaces.folders(in: dir) }.value?.map(\.json) ?? NSNull(), nil)
+        case "skimFind":
+            // Export's search: folders whose name holds every word typed, under the folders Lumina has access to (names only,
+            // nothing opened), off the main thread. A newer search cancels the one still running.
+            guard let q = body["q"] as? String, q.count <= 200 else { return (["found": [Any](), "scanned": 0, "partial": false], nil) }
+            let roots = skimRoots(), seq = (body["seq"] as? NSNumber)?.intValue ?? 0
+            skimFindGen += 1
+            let gen = skimFindGen, box = skimFindCancel
+            box.set(gen)
+            let r = await Task.detached(priority: .userInitiated) { SkimPlaces.find(q, in: roots, cancelled: { box.current != gen }) }.value
+            return (["found": r.found.map(\.json), "scanned": r.scanned, "partial": r.partial, "seq": seq, "cancelled": box.current != gen], nil)
         case "skimDirMake":
             // New folder: one plain name inside a folder Skim was let into; never on a camera card, never over a folder.
             guard let parent = body["parent"] as? String, let name = body["name"] as? String, skimGranted(parent) else { return (["ok": false, "why": "Skim may not make a folder there."], nil) }
@@ -935,6 +945,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         return url
     }
     private var skimExportResolved: (bookmark: Data, url: URL)?
+    /// Export's search: the newest search's number, read by the one running so an older search stops.
+    private var skimFindGen = 0
+    private let skimFindCancel = SkimFindGeneration()
 
     /// What Export shows under Save to, and where the open shoot was read from.
     private func skimExportPlace() -> [String: Any] {

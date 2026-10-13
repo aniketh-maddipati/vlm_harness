@@ -48,6 +48,10 @@ async function run(host) {
         drives:[{name:'Macintosh HD', path:'/', granted:false, card:false, readOnly:false, free:2e11}, {name:'T7', path:'/Volumes/T7', granted:true, card:false, readOnly:false, free:1.5e11}, {name:'SONY', path:'/Volumes/SONY', granted:false, card:true, readOnly:false, free:3e10}]}),
       dirList: (p, files) => { window.__calls.push(['list', p, !!files]); const D = window.__dirs = window.__dirs || {'/Volumes/T7':[{name:'Projects', path:'/Volumes/T7/Projects', dirs:true}], '/Volumes/T7/Projects':[],
         '/Users/sam/Desktop/dump':Array.from({length:8}, (_, i) => ({name:'C000' + (i + 1) + '.MP4', path:'/Users/sam/Desktop/dump/C000' + (i + 1) + '.MP4', file:true, bytes:2e6}))}; return ask(D[p] || []); },
+      find: (q, seq) => { window.__calls.push(['find', q]); const D = window.__dirs || {}, fold = x => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(), ws = fold(q).split(/\s+/).filter(Boolean), out = [], seen = new Set();
+        const walk = (p, root, depth) => (D[p] || []).forEach(f => { if (f.file || seen.has(f.path)) return; seen.add(f.path); if (ws.every(w => fold(f.name).includes(w))) out.push({name:f.name, path:f.path, root, depth:depth + 1}); walk(f.path, root, depth + 1); });
+        ['/Users/sam/Desktop/dump', '/Volumes/T7'].forEach(r => walk(r, r, 0));
+        return new Promise(r => setTimeout(() => r({found:out, scanned:Object.keys(D).length, partial:false, seq}), 300)); },
       dirMake: (parent, name) => { window.__calls.push(['mkdir', parent, name]); const D = window.__dirs; const q = parent + '/' + name; (D[parent] = D[parent] || []).push({name, path:q, dirs:false}); D[q] = []; return ask({ok:true, path:q}); },
       placeAdd: () => ask(null), placeRemove: () => ask(null),
       // Arrange: the stand-in moves the listed entries between folders, as skimArrangeApply / Undo do on disk
@@ -276,6 +280,26 @@ async function run(host) {
     ok((await p.evaluate(() => window.__calls.some(c => c[0] === 'showClips' && c[1].length > 0))) && /Finder has .+ selected: press ⌘⌫ there/.test(await text('[data-lumina="cut-say"]')), 'app: Delete in Finder… selects the cut clips in Finder: ' + await text('[data-lumina="cut-say"]'));
     await p.click('[data-lumina="ex-preview"]'); await p.waitForTimeout(200);
     ok(/<fcpxml version=/.test(await text('[data-lumina="ex-preview-text"]')), 'app: Preview the file shows what ⌘⏎ saves');
+    // Find a folder (LOCAL-CHANGES 268): a folder three levels down that nothing has read yet; ⌘F, type, the dots while the app
+    // looks, the folder found with where it is, ⏎ shows it in the list with each folder above it unfurled; nothing found says so
+    await p.evaluate(() => { const D = window.__dirs; D['/Volumes/T7'].push({name:'Archive', path:'/Volumes/T7/Archive', dirs:true}); D['/Volumes/T7/Archive'] = [{name:'2025', path:'/Volumes/T7/Archive/2025', dirs:true}];
+      D['/Volumes/T7/Archive/2025'] = [{name:'Wedding Café', path:'/Volumes/T7/Archive/2025/Wedding Café', dirs:false}]; D['/Volumes/T7/Archive/2025/Wedding Café'] = []; });
+    await p.click('[data-lumina="ws-tree"] [data-lumina="ws-row"]'); await p.keyboard.press('Meta+f'); await p.waitForTimeout(80);
+    ok(await p.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-lumina') === 'ws-find-q'), 'app: ⌘F goes to Find a folder');
+    await p.keyboard.type('cafe wed'); await p.waitForTimeout(320);
+    ok(await p.evaluate(() => getComputedStyle(document.querySelector('[data-lumina="ws-find-dots"]')).display !== 'none') && /Searching/.test(await text('[data-lumina="ws-find"]')), 'app: while the app looks, the dots and the line run: ' + await text('[data-lumina="ws-find-n"]'));
+    await p.waitForTimeout(500);
+    const fr = await p.$$eval('[data-lumina="ws-find-row"]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()));
+    ok(fr.length === 1 && /Wedding Café/.test(fr[0]) && /\/Volumes\/T7\/Archive\/2025/.test(fr[0]) && /1 folder/.test(await text('[data-lumina="ws-find-n"]')), 'app: the folder is found, every word, accents aside, with where it is: ' + fr.join(' | '));
+    await p.keyboard.press('Enter'); await p.waitForTimeout(500);
+    const wc = '[data-lumina="ws-row"][data-path="/Volumes/T7/Archive/2025/Wedding Café"]';
+    ok(await p.$(wc + '[aria-selected="true"]') && await p.getAttribute('[data-lumina="ws-row"][data-path="/Volumes/T7/Archive/2025"]', 'aria-expanded') === 'true' && !await p.$('[data-lumina="ws-find-list"]'),
+      'app: ⏎ shows it in the list, each folder above it unfurled, selected');
+    await p.fill('[data-lumina="ws-find-q"]', 'zzqx'); await p.waitForTimeout(700);
+    ok(/No folder named “zzqx”/.test(await text('[data-lumina="ws-find-say"]')), 'app: nothing found says so: ' + await text('[data-lumina="ws-find-say"]'));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200); await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    ok(await p.inputValue('[data-lumina="ws-find-q"]') === '' && !await p.$('[data-lumina="ws-find-list"]'), 'app: Escape closes the list, then clears the search');
+    ok(await p.$('[data-lumina="ws-load"]'), 'app: the list has its reading line');
   }
   ok(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();

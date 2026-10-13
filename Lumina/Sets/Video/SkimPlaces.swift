@@ -107,6 +107,61 @@ nonisolated struct SkimPlaces: Sendable {
         return dirs.sorted(by: byName) + files.sorted(by: byName)
     }
 
+    /// One folder found by Export's search: its name, its path, the folder Lumina has access to it was found under, how deep.
+    struct Found: Equatable, Sendable {
+        var name: String; var path: String; var root: String; var depth: Int
+        var json: [String: Any] { ["name": name, "path": path, "root": root, "depth": depth] }
+    }
+    /// What a search found, how many folders it looked in, and whether it stopped early (time, folders looked in, or results).
+    struct FindResult: Equatable, Sendable {
+        var found: [Found]; var scanned: Int; var partial: Bool
+    }
+
+    /// The words of a search as they are compared: lowercased, accents off, split on spaces.
+    static func words(_ q: String) -> [String] {
+        q.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil).split(whereSeparator: \.isWhitespace).map(String.init)
+    }
+
+    /// Folders whose name holds every word of `q`, under `roots` (each a folder Lumina has access to), breadth first so the
+    /// shallow ones come first; hidden folders, packages and links are not entered. Stops after `limit` results, `maxScan`
+    /// folders looked in, `budget` seconds or when `cancelled` says so, and says it stopped (`partial`). Ranked: a name that
+    /// starts with the search first, then the shallower, then by name. Only names are read; nothing is opened.
+    static func find(_ q: String, in roots: [URL], limit: Int = 200, maxScan: Int = 20_000, maxDepth: Int = 8, budget: TimeInterval = 2,
+                     cancelled: () -> Bool = { false }) -> FindResult {
+        let ws = words(q)
+        guard !ws.isEmpty else { return FindResult(found: [], scanned: 0, partial: false) }
+        let fm = FileManager.default, keys: [URLResourceKey] = [.isDirectoryKey, .isPackageKey, .isSymbolicLinkKey], end = Date().addingTimeInterval(budget)
+        var queue: [(URL, Int, String)] = [], seen = Set<String>(), found: [Found] = [], scanned = 0, partial = false, head = 0
+        for r in roots { let p = r.standardizedFileURL.path; if seen.insert(p).inserted { queue.append((r.standardizedFileURL, 0, p)) } }
+        while head < queue.count {
+            if scanned >= maxScan || found.count >= limit || Date() > end || cancelled() { partial = true; break }
+            let (dir, depth, root) = queue[head]; head += 1
+            guard let names = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) else { continue }
+            scanned += 1
+            for u in names {
+                let v = try? u.resourceValues(forKeys: Set(keys))
+                guard v?.isDirectory == true, v?.isPackage != true, v?.isSymbolicLink != true else { continue }
+                let p = u.standardizedFileURL.path
+                guard seen.insert(p).inserted else { continue }
+                let name = u.lastPathComponent, folded = words(name).joined(separator: " ")
+                if ws.allSatisfy({ folded.contains($0) }) {
+                    found.append(Found(name: name, path: p, root: root, depth: depth + 1))
+                    if found.count >= limit { break }
+                }
+                if depth + 1 < maxDepth { queue.append((u, depth + 1, root)) }
+            }
+        }
+        if !partial && head < queue.count { partial = true }
+        let first = ws[0]
+        found.sort { a, b in
+            let pa = words(a.name).first?.hasPrefix(first) ?? false, pb = words(b.name).first?.hasPrefix(first) ?? false
+            if pa != pb { return pa }
+            if a.depth != b.depth { return a.depth < b.depth }
+            return a.name.localizedStandardCompare(b.name) == .orderedAscending
+        }
+        return FindResult(found: found, scanned: scanned, partial: partial)
+    }
+
     /// A new folder's name as typed: one plain name (no slash, no colon, no leading dot, no control characters), at
     /// most 120 characters; nil when nothing usable is left.
     static func folderName(_ typed: String) -> String? {
@@ -179,4 +234,12 @@ nonisolated struct SkimPlacesRead: Sendable {
             return a.name.localizedStandardCompare(b.name) == .orderedAscending
         }
     }
+}
+
+/// The newest search's number, shared with the search running off the main thread so it stops when a newer one starts.
+nonisolated final class SkimFindGeneration: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    var current: Int { lock.lock(); defer { lock.unlock() }; return value }
+    func set(_ v: Int) { lock.lock(); value = v; lock.unlock() }
 }
