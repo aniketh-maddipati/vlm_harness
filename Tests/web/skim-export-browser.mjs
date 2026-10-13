@@ -75,6 +75,11 @@ async function run(host) {
   // mark through the page's own keys: two selected, one maybe, two cut
   const clipsTab = p.locator('[data-lumina="levels"] [role=tab]').nth(1); if (await clipsTab.count()) { await clipsTab.click(); await p.waitForTimeout(200); } else { await p.click('[data-gi="0"]'); await p.waitForTimeout(200); }
   for (const k of ['k', 'ArrowRight', 'k', 'ArrowRight', 'm', 'ArrowRight', 'ArrowRight', 'c', 'ArrowRight', 'c']) { await p.keyboard.press(k); await p.waitForTimeout(80); }
+  if (host) {
+    // while you are still in Skim, Export gets ready (LOCAL-CHANGES 267): a moment after the last mark the app is asked for its folders and the file is checked
+    await p.waitForTimeout(2800); const pre = await p.evaluate(() => window.__calls.map(c => c[0]));
+    ok(pre.includes('check') && pre.includes('list'), 'app: Export is made ready in Skim, before it opens (the file checked, the folders read): ' + [...new Set(pre)].join(' '));
+  }
   await p.keyboard.press('Meta+Enter'); await p.waitForTimeout(900);
   const text = sel => p.evaluate(s => document.querySelector(s)?.innerText || '', sel);
   ok(await p.$('[data-lumina="export-plan"]'), (host ? 'app' : 'browser') + ': the Export controls are there');
@@ -112,6 +117,24 @@ async function run(host) {
     ok(rows.some(r => /dump/.test(r) && /selected/.test(r) === false && /2/.test(r)) && rows.some(r => /T7/.test(r) && /free/.test(r)) && rows.some(r => /SONY/.test(r) && /card/.test(r)) && rows.some(r => /Macintosh HD/.test(r)), 'app: the list has the shoot folder (with its marks), Save to and the drives: ' + rows.join(' | '));
     await p.click('[data-lumina="ws-opts"]'); await p.waitForTimeout(150);
     await p.click('[data-lumina="ex-scenes"]'); await p.waitForTimeout(150);
+    // motion: a folder read ahead unfurls at once, its rows sliding in; furled, they fold up first; a fold closes the same way; none with Reduce motion
+    const t7 = '[data-lumina="ws-row"][data-path="/Volumes/T7"]', anim = s => p.evaluate(q => [...document.querySelectorAll(q)].map(e => e.style.animation || ''), s);
+    await p.click(t7); await p.waitForTimeout(60);
+    let an = await anim('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]');
+    ok(an.length === 1 && /lmRowIn/.test(an[0]), 'app: a drive read ahead unfurls at once and its rows slide in: ' + JSON.stringify(an));
+    await p.waitForTimeout(400); await p.click(t7); await p.waitForTimeout(40);
+    an = await anim('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]');
+    ok(an.length === 1 && /lmRowOut/.test(an[0]), 'app: furled, its rows fold up before they go: ' + JSON.stringify(an));
+    await p.waitForTimeout(300);
+    ok(!await p.$('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]') && await p.getAttribute(t7, 'aria-expanded') === 'false', 'app: then the drive is furled');
+    await p.click('[data-lumina="ws-sum"]'); await p.waitForTimeout(250); await p.click('[data-lumina="ws-sum"]'); await p.waitForTimeout(40);
+    an = await anim('[data-lumina="export-summary"]');
+    ok(an.length === 1 && /lmFoldOut/.test(an[0]), 'app: a fold plays its way out: ' + JSON.stringify(an));
+    await p.waitForTimeout(300); ok(!await p.$('[data-lumina="export-summary"]'), 'app: then it is closed');
+    await p.emulateMedia({reducedMotion:'reduce'});
+    await p.click('[data-lumina="ws-sum"]'); await p.waitForTimeout(150); await p.click('[data-lumina="ws-sum"]'); await p.waitForTimeout(40);
+    ok(!await p.$('[data-lumina="export-summary"]'), 'app: with Reduce motion a fold closes at once');
+    await p.emulateMedia({reducedMotion:'no-preference'});
     // the shoot's folder: each clip file with its mark; drag select, K M C, ⌘Z, and clips dropped on a bucket
     await p.click('[data-lumina="ws-row"][data-path="/Users/sam/Desktop/dump"]'); await p.waitForTimeout(300);
     const clipRows = async () => p.$$eval('[data-lumina="ws-row"][data-kind="clip"]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()));

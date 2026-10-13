@@ -56,12 +56,28 @@ nonisolated struct SkimPlaces: Sendable {
         for u in names {
             let v = try? u.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey, .isSymbolicLinkKey])
             guard v?.isDirectory == true, v?.isPackage != true, v?.isSymbolicLink != true else { continue }
-            let kids = (try? fm.contentsOfDirectory(at: u, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])) ?? []
-            let dirs = kids.contains { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
-            out.append(Folder(name: u.lastPathComponent, path: u.path, dirs: dirs))
+            out.append(Folder(name: u.lastPathComponent, path: u.path, dirs: hasInside(u, folders: true)))
             if out.count >= maxListed { break }
         }
         return out.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    /// Whether `dir` has anything (with `folders`, a folder) inside, hidden ones aside. The listing is read lazily and stops at
+    /// the first match, or after `scanLimit` names (then the answer is yes), so a folder of thousands of clips costs one
+    /// directory read, not a full listing per row.
+    static let scanLimit = 400
+    static func hasInside(_ dir: URL, folders: Bool) -> Bool {
+        guard let e = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: folders ? [.isDirectoryKey, .isPackageKey] : [],
+                                                     options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants, .skipsPackageDescendants]) else { return false }
+        var n = 0
+        while let u = e.nextObject() as? URL {
+            if !folders { return true }
+            let v = try? u.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
+            if v?.isDirectory == true, v?.isPackage != true { return true }
+            n += 1
+            if n >= scanLimit { return true }
+        }
+        return false
     }
 
     /// One entry of the workshop's file view: a folder (with whether it has folders or files inside) or a file with its size.
@@ -81,8 +97,7 @@ nonisolated struct SkimPlaces: Sendable {
             let v = try? u.resourceValues(forKeys: Set(keys))
             if v?.isSymbolicLink == true { continue }
             if v?.isDirectory == true && v?.isPackage != true {
-                let kids = (try? fm.contentsOfDirectory(at: u, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
-                dirs.append(Entry(name: u.lastPathComponent, path: u.path, dir: true, dirs: !kids.isEmpty, bytes: 0))
+                dirs.append(Entry(name: u.lastPathComponent, path: u.path, dir: true, dirs: hasInside(u, folders: false), bytes: 0))
             } else {
                 files.append(Entry(name: u.lastPathComponent, path: u.path, dir: false, dirs: false, bytes: Int64(v?.fileSize ?? v?.totalFileAllocatedSize ?? 0)))
             }
@@ -109,5 +124,59 @@ nonisolated struct SkimPlaces: Sendable {
         if FileManager.default.fileExists(atPath: u.path) { return (false, u.path, "A folder named “\(clean)” is already there.") }
         do { try FileManager.default.createDirectory(at: u, withIntermediateDirectories: false); return (true, u.path, "") }
         catch { return (false, "", "The folder could not be made there.") }
+    }
+}
+
+/// The workshop's roots as read from disk (off the main thread): the folders Lumina has access to, by kind, and the drives
+/// mounted, with their names, sizes and whether each is a card, read only, or one Lumina may look inside.
+nonisolated struct SkimPlacesRead: Sendable {
+    struct Place: Equatable, Sendable {
+        var name: String; var path: String; var kind: String; var card: Bool
+        var json: [String: Any] { ["name": name, "path": path, "kind": kind, "card": card] }
+    }
+    struct Drive: Equatable, Sendable {
+        var name: String; var path: String; var card: Bool; var readOnly: Bool; var ejectable: Bool; var granted: Bool
+        var total: Int64?; var free: Int64?
+        var json: [String: Any] {
+            var o: [String: Any] = ["name": name, "path": path, "card": card, "readOnly": readOnly, "ejectable": ejectable, "granted": granted]
+            if let total { o["total"] = total }
+            if let free { o["free"] = free }
+            return o
+        }
+    }
+    var places: [Place]
+    var drives: [Drive]
+
+    /// `kept` are the folders kept in `skim/places.json`, `roots` every folder Lumina may look inside.
+    static func read(roots: [URL], shoot: URL?, save: URL?, kept: [URL]) -> SkimPlacesRead {
+        var places: [Place] = [], seen = Set<String>()
+        func add(_ u: URL, _ kind: String) {
+            guard seen.insert(u.path).inserted else { return }
+            places.append(Place(name: FileManager.default.displayName(atPath: u.path), path: u.path, kind: kind, card: SetsFileOps.isCard(u)))
+        }
+        if let shoot { add(shoot, "shoot") }
+        if let save { add(save, "saveTo") }
+        kept.forEach { add($0, "kept") }
+        let keys: [URLResourceKey] = [.volumeNameKey, .volumeTotalCapacityKey, .volumeAvailableCapacityKey, .volumeAvailableCapacityForImportantUsageKey,
+                                      .volumeIsReadOnlyKey, .volumeIsRemovableKey, .volumeIsEjectableKey, .volumeIsBrowsableKey]
+        let drives = (FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? []).compactMap { v -> Drive? in
+            let r = try? v.resourceValues(forKeys: Set(keys))
+            if r?.volumeIsBrowsable == false { return nil }
+            // free space as Finder counts it (what macOS can free for an import included), else the plain figure
+            let plain = r?.volumeAvailableCapacity.map(Int64.init), important = r?.volumeAvailableCapacityForImportantUsage
+            let free = [plain, important].compactMap { $0 }.filter { $0 >= 0 }.max()
+            return Drive(name: r?.volumeName ?? v.lastPathComponent, path: v.path, card: SetsFileOps.isCard(v), readOnly: r?.volumeIsReadOnly ?? false,
+                         ejectable: (r?.volumeIsEjectable ?? false) || (r?.volumeIsRemovable ?? false), granted: roots.contains { SkimPlaces.inside(v.path, root: $0) },
+                         total: r?.volumeTotalCapacity.map(Int64.init), free: free)
+        }
+        return SkimPlacesRead(places: places, drives: sorted(drives))
+    }
+
+    /// The Mac's own drive first, then the others by name.
+    static func sorted(_ d: [Drive]) -> [Drive] {
+        d.sorted { a, b in
+            if (a.path == "/") != (b.path == "/") { return a.path == "/" }
+            return a.name.localizedStandardCompare(b.name) == .orderedAscending
+        }
     }
 }

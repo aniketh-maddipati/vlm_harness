@@ -689,7 +689,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "skimPlaces":
             // Export's workshop: the drives mounted (name, free space, card / read only, whether Skim may look inside), the
             // folders let in (kept, the shoot's, Save to). Read only.
-            return (skimPlacesJSON(), nil)
+            return (await skimPlacesJSON(), nil)
         case "skimPlaceAdd":
             // Let Skim into a drive or folder: the folder panel, opened there, after the user's click; kept as a bookmark.
             let at = (body["at"] as? String).map { URL(fileURLWithPath: $0, isDirectory: true) }
@@ -697,13 +697,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                let bm = try? picked.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
                 skimPlaces.add(.init(bookmark: bm, path: picked.path))
             }
-            return (skimPlacesJSON(), nil)
+            return (await skimPlacesJSON(), nil)
         case "skimPlaceRemove":
             // Take a kept folder off the list (the folder itself is not touched).
-            guard let path = body["path"] as? String else { return (skimPlacesJSON(), nil) }
+            guard let path = body["path"] as? String else { return (await skimPlacesJSON(), nil) }
             skimPlaces.remove(path: path)
             if let u = skimOpenPlaces.removeValue(forKey: path) { u.stopAccessingSecurityScopedResource() }
-            return (skimPlacesJSON(), nil)
+            return (await skimPlacesJSON(), nil)
         case "skimDirList":
             // The folders (with `files`, also the files and their sizes) inside one folder of the tree, only inside a folder Skim was let into.
             guard let path = body["path"] as? String, skimGranted(path) else { return (NSNull(), nil) }
@@ -777,15 +777,19 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // The files Export saved for this shoot (SkimLedger), each as it is on disk now: there, changed since, gone, in the Trash,
             // or where Lumina may not look. A file moved or renamed in Finder is found again through its bookmark.
             guard let shoot = body["shoot"] as? String else { return ([Any](), nil) }
-            let ledger = skimLedger
-            return (ledger.entries(shoot: shoot).map { e -> [String: Any] in
-                let u = skimLedgerOpen(e)
-                defer { if let u, u.scoped { u.url.stopAccessingSecurityScopedResource() } }
-                let st = SkimLedger.state(e, at: u?.url)
-                var f = e
-                if st == .here, let u, u.url.path != e.path { ledger.moved(e.id, to: u.url.path); f.path = u.url.path }
-                return SkimLedger.json(f, state: st)
-            }, nil)
+            let ledger = skimLedger, roots = skimRoots()
+            // off the main thread: each bookmark is resolved and each file looked at (a drive may be slow to answer)
+            let found = await Task.detached(priority: .userInitiated) { () -> [(SkimLedger.Entry, SkimLedger.State)] in
+                ledger.entries(shoot: shoot).map { e -> (SkimLedger.Entry, SkimLedger.State) in
+                    let u = Self.skimLedgerOpen(e, roots: roots)
+                    defer { if let u, u.scoped { u.url.stopAccessingSecurityScopedResource() } }
+                    let st = SkimLedger.state(e, at: u?.url)
+                    var f = e
+                    if st == .here, let u, u.url.path != e.path { ledger.moved(e.id, to: u.url.path); f.path = u.url.path }
+                    return (f, st)
+                }
+            }.value
+            return (found.map { SkimLedger.json($0.0, state: $0.1) }, nil)
         case "skimExportsForget":
             // Take a saved file off Export's list. The file is not touched.
             guard let id = body["id"] as? String else { return (false, nil) }
@@ -907,28 +911,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
 
     private func skimGranted(_ path: String) -> Bool { skimRoots().contains { SkimPlaces.inside(path, root: $0) } }
 
-    /// What the workshop's tree starts from.
-    private func skimPlacesJSON() -> [String: Any] {
-        let roots = skimRoots(), save = skimExportFolder()?.path
-        var places: [[String: Any]] = []
-        var seen = Set<String>()
-        func add(_ u: URL, _ kind: String) {
-            guard seen.insert(u.path).inserted else { return }
-            places.append(["name": FileManager.default.displayName(atPath: u.path), "path": u.path, "kind": kind, "card": SetsFileOps.isCard(u)])
-        }
-        if let f = lastOpened { add(f, "shoot") }
-        if let save { add(URL(fileURLWithPath: save), "saveTo") }
-        for u in skimPlaceRoots() { add(u, "kept") }
-        let keys: [URLResourceKey] = [.volumeNameKey, .volumeTotalCapacityKey, .volumeAvailableCapacityKey, .volumeIsReadOnlyKey]
-        let drives: [[String: Any]] = (FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? []).compactMap { v in
-            let r = try? v.resourceValues(forKeys: Set(keys))
-            var o: [String: Any] = ["name": r?.volumeName ?? v.lastPathComponent, "path": v.path, "card": SetsFileOps.isCard(v), "readOnly": r?.volumeIsReadOnly ?? false,
-                                    "granted": roots.contains { SkimPlaces.inside(v.path, root: $0) }]
-            if let t = r?.volumeTotalCapacity { o["total"] = t }
-            if let f = r?.volumeAvailableCapacity { o["free"] = f }
-            return o
-        }
-        return ["drives": drives, "places": places, "saveTo": save ?? NSNull(), "home": SkimDrive.realHome().path]
+    /// What the workshop's tree starts from. The bookmarks are resolved here; the folders' names and the drives (their
+    /// names, sizes, card and read-only flags) are read off the main thread, so a slow or sleeping drive never holds the
+    /// page or the menus.
+    private func skimPlacesJSON() async -> [String: Any] {
+        let roots = skimRoots(), save = skimExportFolder(), shoot = lastOpened, kept = skimPlaceRoots()
+        let r = await Task.detached(priority: .userInitiated) { SkimPlacesRead.read(roots: roots, shoot: shoot, save: save, kept: kept) }.value
+        return ["drives": r.drives.map(\.json), "places": r.places.map(\.json), "saveTo": save?.path ?? NSNull(), "home": SkimDrive.realHome().path]
     }
 
     /// Skim's Save to folder (`skim/export.json`, SkimExport).
@@ -937,11 +926,15 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// The kept Save to folder, resolved; nil when none is kept or it can't be found any more.
     private func skimExportFolder() -> URL? {
         guard let p = skimExports.place() else { return nil }
+        // resolved once per bookmark: the tree asks on every listing
+        if let c = skimExportResolved, c.bookmark == p.bookmark { return c.url }
         var stale = false
         guard let url = try? URL(resolvingBookmarkData: p.bookmark, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
-        if stale, let bm = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) { skimExports.set(.init(bookmark: bm, path: url.path)) }
+        if stale, let bm = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) { skimExports.set(.init(bookmark: bm, path: url.path)); return url }
+        skimExportResolved = (p.bookmark, url)
         return url
     }
+    private var skimExportResolved: (bookmark: Data, url: URL)?
 
     /// What Export shows under Save to, and where the open shoot was read from.
     private func skimExportPlace() -> [String: Any] {
@@ -967,14 +960,16 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
 
     /// Where a saved file is now: through its bookmark (access started; the caller stops it when `scoped`), else its path when
     /// it is inside a folder Lumina has access to; nil when Lumina may not look.
-    private func skimLedgerOpen(_ e: SkimLedger.Entry) -> (url: URL, scoped: Bool)? {
+    private func skimLedgerOpen(_ e: SkimLedger.Entry) -> (url: URL, scoped: Bool)? { Self.skimLedgerOpen(e, roots: skimRoots()) }
+
+    nonisolated static func skimLedgerOpen(_ e: SkimLedger.Entry, roots: [URL]) -> (url: URL, scoped: Bool)? {
         if let bm = e.bookmark {
             var stale = false
             if let u = try? URL(resolvingBookmarkData: bm, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) {
                 return (u, u.startAccessingSecurityScopedResource())
             }
         }
-        return skimGranted(e.path) ? (URL(fileURLWithPath: e.path), false) : nil
+        return roots.contains(where: { SkimPlaces.inside(e.path, root: $0) }) ? (URL(fileURLWithPath: e.path), false) : nil
     }
 
     /// Arrange's note of its runs (SkimArrange), in the container.

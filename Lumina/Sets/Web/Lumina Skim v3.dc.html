@@ -16,6 +16,26 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
 @keyframes breathe{0%,100%{opacity:0.4}50%{opacity:0.9}}
 @keyframes press{0%{transform:scale(1)}40%{transform:scale(0.93);background:rgba(255,210,122,0.4)}100%{transform:scale(1)}}
 @keyframes cutIn{from{transform:translateX(60px);opacity:0}to{transform:none;opacity:1}}
+/* Motion on Export and the dropdowns (LOCAL-CHANGES 267). Nothing else eases (161): a fold, a panel or a dropdown plays in when
+   it opens and out when it closes (foldShut), a folder's rows slide into place when it unfurls and out when it furls, and a
+   chevron turns. Short, and none at all with Reduce motion. */
+@keyframes lmFoldIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes lmFoldOut{from{opacity:1;clip-path:inset(0 0 0 0)}to{opacity:0;transform:translateY(-4px);clip-path:inset(0 0 100% 0)}}
+@keyframes lmDrop{from{opacity:0;transform:translateY(-6px) scale(0.97)}to{opacity:1;transform:none}}
+@keyframes lmDropOut{to{opacity:0;transform:translateY(-6px) scale(0.97)}}
+@keyframes lmRise{from{opacity:0;transform:translateY(6px) scale(0.97)}to{opacity:1;transform:none}}
+@keyframes lmRiseOut{to{opacity:0;transform:translateY(6px) scale(0.97)}}
+@keyframes lmSlide{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+@keyframes lmSlideOut{to{opacity:0;transform:translateX(24px)}}
+@keyframes lmRowIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes lmRowOut{to{opacity:0;transform:translateY(-4px)}}
+@media (prefers-reduced-motion:no-preference){
+  [data-lumina=ws-options],[data-lumina=export-summary],[data-lumina=ex-preview-text],[data-lumina=ws-led-text],[data-lumina=ex-details],[data-lumina=ws-new],[data-lumina=ws-plan]{animation:lmFoldIn 160ms cubic-bezier(0.2,0.8,0.2,1) backwards}
+  [data-lumina=memory]{transform-origin:top right;animation:lmDrop 170ms cubic-bezier(0.2,0.8,0.2,1) backwards}
+  [data-lumina=storage-rows]{transform-origin:bottom right;animation:lmRise 170ms cubic-bezier(0.2,0.8,0.2,1) backwards}
+  [data-lumina=progress]{animation:lmSlide 200ms cubic-bezier(0.2,0.8,0.2,1) backwards}
+  [data-rot]{transition:transform 180ms cubic-bezier(0.2,0.8,0.2,1)!important}
+}
 [data-lumina=nav-back]:active,[data-well]:active{transform:scale(0.95)}
 input[type=range]{accent-color:#B8B3AB}
 /* Every clickable is a button element (Scripts/skim-buttons.py): it looks exactly like the div or span it was. */
@@ -102,7 +122,7 @@ body:has([data-view=phone]){background:#111}
     <div style="position:relative;flex:none">
       <button type="button" data-lumina="memory-pill" aria-label="Working memory" aria-expanded="{{ memOn }}" onClick="{{ memToggle }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:32px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:7px;color:#B8B3AB;cursor:pointer;background:{{ memBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:grid;grid-template-columns:repeat(2,4px);gap:2px"><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:#B8B3AB"></span><span style="width:4px;height:4px;border-radius:1px;background:rgba(239,236,230,0.3)"></span></span>{{ memPill }}</button>
       <sc-if value="{{ memOn }}" hint-placeholder-val="{{ false }}">
-        <div data-lumina="memory" role="dialog" aria-label="Working memory" style="position:absolute;right:0;top:32px;z-index:35;width:360px;max-height:calc(100vh - 90px);overflow-y:auto;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:12px;animation:fade 100ms ease-out;white-space:normal;line-height:1.45">
+        <div data-lumina="memory" role="dialog" aria-label="Working memory" style="position:absolute;right:0;top:32px;z-index:35;width:360px;max-height:calc(100vh - 90px);overflow-y:auto;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:12px;white-space:normal;line-height:1.45">
           <span style="font-size:13px;font-weight:600;color:#EFECE6">Working memory</span>
           <div style="display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A;font-weight:700">In this tab</span><sc-for list="{{ memTab }}" as="mr" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ mr.k }}</span><span style="color:#EFECE6">{{ mr.v }}</span></div></sc-for></div>
           <div style="display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A;font-weight:700">{{ memSavedH }}</span><sc-for list="{{ memSaved }}" as="mr" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ mr.k }}</span><span style="color:#EFECE6">{{ mr.v }}</span></div></sc-for></div>
@@ -147,7 +167,7 @@ body:has([data-view=phone]){background:#111}
 
   <div style="flex:1;min-height:0;display:flex;flex-direction:column;position:relative">
     <sc-if value="{{ progOn }}" hint-placeholder-val="{{ false }}">
-      <div data-lumina="progress" role="dialog" aria-label="Clips added" style="position:absolute;right:12px;top:10px;bottom:10px;z-index:30;width:min(360px,calc(100% - 24px));box-sizing:border-box;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;animation:fade 100ms ease-out">
+      <div data-lumina="progress" role="dialog" aria-label="Clips added" style="position:absolute;right:12px;top:10px;bottom:10px;z-index:30;width:min(360px,calc(100% - 24px));box-sizing:border-box;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column">
         <div style="flex:none;padding:12px 14px 8px;display:flex;flex-direction:column;gap:4px;border-bottom:1px solid rgba(239,236,230,0.08)">
           <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:13px;font-weight:600;color:#EFECE6">{{ progH }}</span><span style="flex:1"></span><button type="button" onClick="{{ progToggle }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-width:28px;height:28px;padding:0 6px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px">P</button></div>
           <span style="color:#B8B3AB">{{ progSum }}</span>
@@ -261,7 +281,7 @@ body:has([data-view=phone]){background:#111}
               <sc-for list="{{ stoRows }}" as="so" hint-placeholder-count="3"><div data-lumina="{{ so.id }}" style="display:grid;grid-template-columns:64px minmax(0,1fr);gap:4px 10px;align-items:center"><span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D">{{ so.k }}</span><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0"><span style="display:flex;align-items:center;gap:8px;flex:1 1 180px;min-width:0;color:{{ so.c }};overflow-wrap:anywhere"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:{{ so.dot }}"></span>{{ so.t }}</span><sc-for list="{{ so.btns }}" as="sb" hint-placeholder-count="2"><button type="button" data-lumina="{{ sb.id }}" aria-disabled="{{ sb.off }}" onClick="{{ sb.go }}" title="{{ sb.tip }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;opacity:{{ sb.op }};cursor:{{ sb.cur }};white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sb.t }}</button></sc-for></div></div></sc-for>
               <sc-if value="{{ cutSayOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="cut-say" role="status" style="color:{{ cutSayC }};line-height:1.45">{{ cutSay }}</span></sc-if>
             </div>
-            <button type="button" data-lumina="ex-preview" aria-expanded="{{ pvXOn }}" onClick="{{ pvXGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;align-self:flex-start;display:flex;align-items:center;gap:8px;color:#B8B3AB;cursor:pointer" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:inline-block;transform:rotate({{ pvXRot }});transition:transform 120ms ease">›</span>{{ pvXT }}</button>
+            <button type="button" data-lumina="ex-preview" aria-expanded="{{ pvXOn }}" onClick="{{ pvXGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;align-self:flex-start;display:flex;align-items:center;gap:8px;color:#B8B3AB;cursor:pointer" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-rot="1" style="display:inline-block;transform:rotate({{ pvXRot }});transition:transform 120ms ease">›</span>{{ pvXT }}</button>
             <sc-if value="{{ pvXOn }}" hint-placeholder-val="{{ false }}"><pre data-lumina="ex-preview-text" style="margin:0;max-height:360px;overflow:auto;padding:14px;border-radius:10px;background:#161514;color:#B8B3AB;font:11px/1.5 ui-monospace,'SF Mono',Menlo,monospace;white-space:pre;user-select:text;-webkit-user-select:text">{{ exPreview }}</pre></sc-if>
           </div>
           </div>
@@ -310,7 +330,7 @@ body:has([data-view=phone]){background:#111}
                 <sc-if value="{{ wbListOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-back-list" style="display:flex;flex-direction:column;gap:2px;max-height:200px;overflow:auto;font-size:12px"><sc-for list="{{ wbList }}" as="m" hint-placeholder-count="3"><span style="display:flex;gap:8px;align-items:center;min-height:22px"><span style="color:#EFECE6;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.n }}</span><span style="color:{{ m.fc }}">{{ m.f }}</span><span style="color:#6E6A64">→</span><span style="color:{{ m.tc }}">{{ m.t }}</span></span></sc-for></div></sc-if>
                 <sc-if value="{{ wbBtnsOn }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ wbBtns }}" as="sb" hint-placeholder-count="2"><button type="button" data-lumina="{{ sb.id }}" aria-disabled="{{ sb.off }}" onClick="{{ sb.go }}" title="{{ sb.tip }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;opacity:{{ sb.op }};cursor:{{ sb.cur }};white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sb.t }}</button></sc-for></div></sc-if>
               </div>
-              <button type="button" data-lumina="ws-opts" aria-expanded="{{ wsOpt }}" onClick="{{ wsOptGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;align-self:flex-start;display:flex;align-items:center;gap:8px;padding:4px 8px 4px 2px;border-radius:6px;cursor:pointer;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:inline-block;width:12px;text-align:center;transform:rotate({{ wsOptRot }});transition:transform 120ms ease-out">›</span>Options<span style="text-transform:none;letter-spacing:0;font-size:12px;color:#6E6A64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ wsOptSay }}</span></button>
+              <button type="button" data-lumina="ws-opts" aria-expanded="{{ wsOpt }}" onClick="{{ wsOptGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;align-self:flex-start;display:flex;align-items:center;gap:8px;padding:4px 8px 4px 2px;border-radius:6px;cursor:pointer;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-rot="1" style="display:inline-block;width:12px;text-align:center;transform:rotate({{ wsOptRot }});transition:transform 120ms ease-out">›</span>Options<span style="text-transform:none;letter-spacing:0;font-size:12px;color:#6E6A64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ wsOptSay }}</span></button>
               <sc-if value="{{ wsOpt }}" hint-placeholder-val="{{ false }}">
               <div data-lumina="ws-options" style="display:flex;flex-direction:column;gap:16px;padding:16px;border-radius:10px;background:#2A2927">
               <div data-lumina="export-fcp" style="display:flex;flex-direction:column;gap:8px">
@@ -321,7 +341,7 @@ body:has([data-view=phone]){background:#111}
               </div>
               </div>
               </sc-if>
-              <button type="button" data-lumina="ws-sum" aria-expanded="{{ wsSum }}" onClick="{{ wsSumGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;align-self:flex-start;display:flex;align-items:center;gap:8px;padding:4px 8px 4px 2px;border-radius:6px;cursor:pointer;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:inline-block;width:12px;text-align:center;transform:rotate({{ wsSumRot }});transition:transform 120ms ease-out">›</span>Summary</button>
+              <button type="button" data-lumina="ws-sum" aria-expanded="{{ wsSum }}" onClick="{{ wsSumGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;align-self:flex-start;display:flex;align-items:center;gap:8px;padding:4px 8px 4px 2px;border-radius:6px;cursor:pointer;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-rot="1" style="display:inline-block;width:12px;text-align:center;transform:rotate({{ wsSumRot }});transition:transform 120ms ease-out">›</span>Summary</button>
               <sc-if value="{{ wsSum }}" hint-placeholder-val="{{ false }}">
               <div data-lumina="export-summary" style="display:flex;flex-direction:column;gap:16px;padding:16px;border-radius:10px;background:#2A2927">
               <div style="display:flex;flex-direction:column;gap:4px">
@@ -353,9 +373,9 @@ body:has([data-view=phone]){background:#111}
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
-            <button type="button" data-lumina="details" aria-expanded="{{ exMore }}" onClick="{{ exMoreGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;align-self:flex-start;display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:8px;color:#9A958D;cursor:pointer" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:inline-block;width:12px;text-align:center;transform:rotate({{ exMoreRot }});transition:transform 120ms ease-out">›</span>Details</button>
+            <button type="button" data-lumina="details" aria-expanded="{{ exMore }}" onClick="{{ exMoreGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;align-self:flex-start;display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:8px;color:#9A958D;cursor:pointer" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-rot="1" style="display:inline-block;width:12px;text-align:center;transform:rotate({{ exMoreRot }});transition:transform 120ms ease-out">›</span>Details</button>
             <sc-if value="{{ exMore }}" hint-placeholder-val="{{ false }}">
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:32px;align-items:start">
+              <div data-lumina="ex-details" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:32px;align-items:start">
                 <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
                 <sc-if value="{{ exDbg }}" hint-placeholder-val="{{ false }}">
                 <div style="display:flex;flex-direction:column;gap:1px;border-radius:10px;overflow:hidden">
@@ -661,7 +681,7 @@ body:has([data-view=phone]){background:#111}
       <div style="position:relative;flex:{{ storeFlex }};min-width:0">
         <button type="button" data-lumina="storage" aria-label="Storage" aria-expanded="{{ storeOn }}" onClick="{{ storeToggle }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:6px;color:{{ storeFg }};cursor:pointer;background:{{ storeBg }};white-space:nowrap;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">{{ storeLine }}</span><span style="color:#9A958D">{{ storeArrow }}</span></button>
         <sc-if value="{{ storeOn }}" hint-placeholder-val="{{ false }}">
-          <div data-lumina="storage-rows" role="dialog" aria-label="Storage" style="position:absolute;right:0;bottom:34px;z-index:35;width:380px;max-height:calc(100vh - 120px);overflow-y:auto;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:14px;animation:fade 100ms ease-out;white-space:normal;line-height:1.45">
+          <div data-lumina="storage-rows" role="dialog" aria-label="Storage" style="position:absolute;right:0;bottom:34px;z-index:35;width:380px;max-height:calc(100vh - 120px);overflow-y:auto;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:14px;white-space:normal;line-height:1.45">
             <sc-for list="{{ storeRows }}" as="sr" hint-placeholder-count="1"><div data-store="{{ sr.k }}" style="display:flex;flex-direction:column;gap:6px">
               <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#EFECE6;font-weight:600">{{ sr.t }}</span><span data-lumina="storage-figure" style="color:{{ sr.figC }};white-space:nowrap">{{ sr.fig }}</span></div>
               <span style="color:#9A958D">{{ sr.sub }}</span>
@@ -964,6 +984,8 @@ class Component extends DCLogic {
     this._md = e => { this.tabFocus = false; const st = this.state; if (!st.sel.length && !st.box) return; const t = e.target; if (this.sc && this.sc.contains(t)) return; if (t.closest && t.closest('[data-well],[data-lumina="memory"],[data-lumina="progress"]')) return; this.setState({sel:[], box:null}); }; window.addEventListener('mousedown', this._md);
     this._vis = () => { if (!document.hidden) { const v = this.vidEl; if (v && this.vidWant != null && v.readyState >= 1) { try { v.currentTime = this.vidWant; } catch (x) {} this.vidAsk = 0; this.vidArm(); } this.bump(); } }; document.addEventListener('visibilitychange', this._vis);
     window.addEventListener('wheel', this._wh, {passive:false}); window.addEventListener('blur', this._bl);
+    // back from Finder: Export reads its folders again (quietly: only what changed shows)
+    this._fo = () => { if (this.state.step === 'export') this.wsLoad(); }; window.addEventListener('focus', this._fo);
     // WebKit (the app, Safari) sends a trackpad pinch as gesture events, Chromium as ⌃-wheel.
     this._gs = e => { e.preventDefault(); this.gsc = 1; }; this._gc = e => { e.preventDefault(); const r = e.scale / (this.gsc || 1); this.gsc = e.scale; if (this.state.step === 'export') return this.wsPinch(Math.log(r)); if (this.cvGrid() && this.state.step === 'skim' && !this.pinchHold) return this.cvPinch(Math.log(r), e); this.zoomBy(Math.log(r) * 1.6, e); }; this._ge = e => { e.preventDefault(); this.gsc = 1; this.pinchHold = false; if (this.pzOn) this.cvPinchEnd(); const zc = this.state.zc; if (Component.zoomSettle(zc) !== zc) this.setState({zc:1}); };
     window.addEventListener('gesturestart', this._gs, {passive:false}); window.addEventListener('gesturechange', this._gc, {passive:false}); window.addEventListener('gestureend', this._ge, {passive:false});
@@ -988,6 +1010,7 @@ class Component extends DCLogic {
   componentWillUnmount() {
     clearTimeout(this.kbT); window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
+    window.removeEventListener('focus', this._fo); clearInterval(this.plT); clearTimeout(this.exWT);
     window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); window.removeEventListener('beforeunload', this._bu); window.removeEventListener('pagehide', this._ph); this.dropVid();
     clearTimeout(this.propT); clearTimeout(this.flT); clearTimeout(this.pvCvT); this.dockUnmount(); this.touchOff();
   }
@@ -1076,6 +1099,9 @@ class Component extends DCLogic {
     if ((s0.lv === 1 || (s0.cv && s0.lv === 0)) && this.sc && (zk.lv !== s0.lv || this.sc.clientHeight !== s0.scH)) this.scScroll();
     if (zk.cur !== s0.cur || zk.lv !== s0.lv || zk.step !== s0.step) { const ps = zk, r = {}; if (s0.zc !== 1 && (ps.cur !== s0.cur || s0.lv < 2 || s0.step !== 'skim')) r.zc = 1; if (s0.noKeep && (s0.lv < 2 || s0.step !== 'skim')) r.noKeep = false; if (Object.keys(r).length) this.setState(r); }
     if (this.vidNew) { this.vidNew = false; this.setState(s => ({tick:(s.tick || 0) + 1})); }
+    { const wk = this._wk || {}; if (this.d && (wk.d !== this.d || wk.m !== s0.marks)) { this._wk = {d:this.d, m:s0.marks}; if (s0.step === 'skim') this.exWarmSoon(); } }
+    if (s0.step === 'export' && !this.plT) this.plT = setInterval(() => { if (!document.hidden && this.state.step === 'export') this.wsPlacesPoll(); }, 4000);
+    if (s0.step !== 'export' && this.plT) { clearInterval(this.plT); this.plT = null; }
     this.syncVid(); this.paintVid();
   }
   load() {
@@ -1831,7 +1857,7 @@ class Component extends DCLogic {
   esc() {
     const st = this.state;
     if (st.noKeep) return this.setState({noKeep:false});
-    if (st.progOn) return this.setState({progOn:false});
+    if (st.progOn) return this.progShut();
     if (st.lv >= 2 && st.zc > 1.01) return this.setState({zc:1});
     if (st.prop) { clearTimeout(this.propT); this.propFn = null; return this.setState({prop:null}); }
     if (this.dockFoc()) return this.dockLeave();
@@ -1867,8 +1893,8 @@ class Component extends DCLogic {
     if (k === 'Tab') this.tabFocus = true;
     if (meta && /^[123]$/.test(k)) { e.preventDefault(); return this.setStep(['import', 'skim', 'export'][+k - 1]); }
     if (meta && kl === 'o') { e.preventDefault(); this.setStep('import'); return setTimeout(() => this.pickFolder(), 60); }
-    if (st.memOn && k === 'Escape') return this.setState({memOn:false});
-    if (st.storeOn && k === 'Escape') return this.setState({storeOn:false});
+    if (st.memOn && k === 'Escape') return this.memShut();
+    if (st.storeOn && k === 'Escape') return this.storeShut();
     if (kl === 'r' && e.shiftKey && !meta && !e.altKey && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); return this.pvToggle(); }
     if (st.step !== 'skim') {
       if (st.step === 'export') { if (meta && k === 'Enter') { e.preventDefault(); return this.wsPlanN() ? this.wsApply() : this.download(); } if (this.wsKey(e)) return; if (k === 'Escape' && !(t && t.tagName === 'INPUT')) { e.preventDefault(); return this.setStep('skim'); } }
@@ -1897,7 +1923,7 @@ class Component extends DCLogic {
       if (k === 'Enter' && st.lv < 3) { e.preventDefault(); this.unfurl(); }
       return;
     }
-    if (kl === 'p' && !e.altKey) { e.preventDefault(); return this.setState({progOn:!st.progOn}); }
+    if (kl === 'p' && !e.altKey) { e.preventDefault(); return st.progOn ? this.progShut() : this.setState({progOn:true}); }
     if (!this.d.clips.length) return;
     switch (k) {
       case 'ArrowDown': e.preventDefault(); if (this.cvGrid()) return this.cvMoveRow(1); return e.shiftKey ? this.chapJump(1) : this.unfurl();
@@ -2285,7 +2311,7 @@ class Component extends DCLogic {
     // storage: the line and its rows (step 1: frames in memory)
     { const ms = this.memStats(), ts = this.thumbs.stats(), B = this.mp.budget, held = ms.frB + ts.bytes, of = B === 'all' || !B ? null : B * 1048576 + this.thumbs.budget, fb = b => this.fmtB(b);
       const far = st.storeOn ? this.farPlan() : null, busy = this.realReading(), said = this.storeSaid;
-      vals.storeOn = !!st.storeOn; vals.storeToggle = () => { if (st.storeOn) this.storeSaid = null; this.setState({storeOn:!st.storeOn}); }; vals.storeArrow = st.storeOn ? '▾' : '▴';
+      vals.storeOn = !!st.storeOn; vals.storeToggle = () => { if (this.state.storeOn) return this.storeShut(); this.setState({storeOn:true}); }; vals.storeArrow = st.storeOn ? '▾' : '▴';
       const cs = this.covSt, curK = this.storeKey(d), others = cs ? cs.shoots.filter(s => s.k !== curK) : [], othB = others.reduce((a, s) => a + s.bytes, 0), host = !!this.hostStore();
       const dr = this.drv, low = Component.lowSay(dr, fb);
       vals.storeLine = Component.storeShort(Component.storeLine([{t:'in memory', b:held, of}, {t:'saved', b:cs && cs.ok ? cs.bytes : null}, {t:'drive', free:dr ? dr.free : null}], fb) + (low ? ' · under 20% free' : ''), st.vw); vals.storeFlex = st.vw < 1100 ? 'none' : '0 4 auto'; vals.storeFg = (of && held > of) || low ? '#FFD27A' : '#B8B3AB'; vals.storeBg = st.storeOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)';   // under 1100 px the one word keeps its width; the cut line beside it gives way
@@ -2712,7 +2738,36 @@ class Component extends DCLogic {
         go:() => { if (on) return this.setStep('skim'); this.want = r.key; this.setState({impMsg:'Choose the clips from “' + r.name + '”, all or some. Their marks come back.'}); this.pickFolder(); }};
     });
   }
-  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const ex = this.state.ex, nm = this.d ? this.d.shoot.name : ''; if (s === 'export') this.exPlaceRead(); if (s === 'export') this.verFor = null; if (s === 'export') this.wsLoad(); this.setState({step:s, memOn:false, exDone:null, exRes:null, exVer:null, cutSay:null, ex:{...ex, ...(this.exPrefsIn ? {} : this.exPrefs()), event:ex.event || nm, trash:ex.rootFor === nm ? ex.trash : false, ...(ex.rootFor === nm ? {} : {root:this.rootSaved(nm), rootFor:nm})}, ...(ex.rootFor === nm ? {} : {ws:null})}); }
+  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const w = this.state.ws;
+    // Export opens on what exWarm prepared while you were in Skim (the places, the folders, the file and its checks); each
+    // is read again in the background and the screen changes only where something did. The app's verdict on the file
+    // stays until the new one lands (it is kept with the text it was for).
+    if (s === 'export') { clearTimeout(this.exWT); this.exPlaceRead(null, () => this.exPrep(true)); this.wsLoad(); }
+    this.setState({step:s, memOn:false, exDone:null, exRes:null, cutSay:null, ex:this.exFor(this.state.ex), ...(w && w.for !== this.wsFor() ? {ws:null} : {})}); }
+  // The dropdowns close the way they opened: Working memory folds up, Storage drops back down, Clips added slides out.
+  memShut() { this.foldShut('[data-lumina="memory"]', () => this.setState({memOn:false}), 'lmDropOut', 120); }
+  storeShut() { this.foldShut('[data-lumina="storage-rows"]', () => { this.storeSaid = null; this.setState({storeOn:false}); }, 'lmRiseOut', 120); }
+  progShut() { this.foldShut('[data-lumina="progress"]', () => this.setState({progOn:false}), 'lmSlideOut', 140); }
+  // Export's choices for the open shoot: the kept preferences, the event named after the shoot, its clips' folder.
+  exFor(ex) { const nm = this.d ? this.d.shoot.name : ''; return {...ex, ...(this.exPrefsIn ? {} : this.exPrefs()), event:ex.event || nm, trash:ex.rootFor === nm ? ex.trash : false, ...(ex.rootFor === nm ? {} : {root:this.rootSaved(nm), rootFor:nm})}; }
+  // ---- Export, made ready before it opens (LOCAL-CHANGES 267). A moment after the marks last changed in Skim, when the page is
+  // idle: the app's Save to and the shoot's folder, the places and drives, the saved files, Arrange's runs, the folders one
+  // level in (wsAhead), and the Final Cut file built and checked (page and app). So ⌘3 shows a finished page, not "Checking…"
+  // and "Reading…". Nothing here writes anything.
+  exWarmSoon() { clearTimeout(this.exWT); this.exWT = setTimeout(() => { const go = () => this.exWarm(); if (typeof requestIdleCallback === 'function') requestIdleCallback(go, {timeout:2000}); else go(); }, 1200); }
+  exWarm = () => {
+    if (!this.hasShoot() || !this.d || this.state.step === 'export') return;
+    const ex = this.state.ex, nm = this.d.shoot.name, w = this.state.ws, r = {};
+    if (ex.rootFor !== nm || !this.exPrefsIn) r.ex = this.exFor(ex);
+    if (w && w.for !== this.wsFor()) r.ws = null;
+    this.setState(r, () => { if (this.exHostApi()) { this.exPlaceRead(null, () => this.exPrep()); this.wsLoad(); } else this.exPrep(); });
+  };
+  // The file and both checks, ahead: the page's (checkSoon) and the app's (verifySoon; `force` asks again, the clip files on disk may have changed).
+  exPrep(force) {
+    const d = this.d, st = this.state; if (!d) return; const x = this.buildX(); if (!x.n) return;
+    const markN = {keep:0, maybe:0, cut:0}; d.clips.forEach(c => { const m = st.marks[c.id]; if (m) markN[m]++; });
+    this.checkSoon(x.text, Component.exGate(markN, d.clips.length, st.ex).n, x.kws); this.verifySoon(x.text, force);
+  }
   // Export's choices that are not about one shoot (ratings, keyword, scenes, LUT, Open in Final Cut, Clear working memory)
   // are kept for the next export. Move cut to Trash never is: it is chosen for each shoot.
   static EX_PREFS = ['rate', 'kw', 'scenes', 'lut', 'openFc', 'mem'];
@@ -2722,18 +2777,48 @@ class Component extends DCLogic {
   // The app's Save to: the folder it saves into (none: it asks each time), whether Final Cut Pro is there, and the folder the
   // shoot was read from, which the .fcpxml then points at (exportPlace). The browser has none of this.
   exHostApi() { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.exportSave ? v : null; }
-  exPlaceRead = (op) => { const v = this.exHostApi(); if (!v) return; Promise.resolve().then(() => (op === 'choose' ? v.exportChoose() : op === 'ask' ? v.exportAsk() : v.exportPlace())).then(r => { this.exHost = r || null; this.setState(s => ({tick:(s.tick || 0) + 1, exRes:op ? null : s.exRes})); }, () => {}); };
+  exPlaceRead = (op, then) => { const v = this.exHostApi(); if (!v) return; Promise.resolve().then(() => (op === 'choose' ? v.exportChoose() : op === 'ask' ? v.exportAsk() : v.exportPlace())).then(r => { const same = !op && JSON.stringify(r || null) === JSON.stringify(this.exHost || null); this.exHost = same ? this.exHost : r || null; if (!same) this.setState(s => ({tick:(s.tick || 0) + 1, exRes:op ? null : s.exRes})); if (then) then(); }, () => {}); };
   // ---- Export, below the shortcuts: the shoot's files and the folders around them as a list that unfurls (the drives on this Mac and
   // the folders Lumina has access to, from the app's skimPlaces; what is inside one, folders and files, from skimDirList), each
   // clip with its mark. Click, ⌘-click, ⇧-click and a drag over the rows select; selected clips drag onto a bucket to be
   // marked; the Final Cut file and the cut list drag onto a folder to be saved there; pinch sets the row size and a
   // sideways swipe unfurls or furls. Nothing here moves a clip file.
-  static WS0() { return {open:{}, kids:{}, sel:'', pick:{}, mk:null, hot:'', dst:{fcp:'', cut:''}, say:null, pl:null, z:1, only:'', opt:false, sum:false, box:null, plan:{}, rev:false, runs:null, ar:null, back:null, backHot:false, led:null, ledOpen:'', ledText:{}, ledSay:null, pvX:false}; }
-  wsSet(f) { this.setState(s => { const w = s.ws || Component.WS0(); return {ws:{...w, ...(typeof f === 'function' ? f(w) : f)}}; }); }
+  static WS0() { return {open:{}, kids:{}, sel:'', pick:{}, mk:null, hot:'', dst:{fcp:'', cut:''}, say:null, pl:null, z:1, only:'', opt:false, sum:false, box:null, plan:{}, rev:false, runs:null, ar:null, back:null, backHot:false, led:null, ledOpen:'', ledText:{}, ledSay:null, pvX:false, for:''}; }
+  wsSet(f, then) { this.setState(s => { const w = s.ws || {...Component.WS0(), for:this.wsFor()}; return {ws:{...w, ...(typeof f === 'function' ? f(w) : f)}}; }, then); }
+  // Whose workshop it is: the open shoot's (a new shoot starts a new one).
+  wsFor() { return this.d && this.hasShoot() ? this.storeKey(this.d) : ''; }
   exDir(kind) { const w = this.state.ws; return (w && w.dst && w.dst[kind]) || ''; }
   // The places, read again; the folders left open are read again too (their listing may have changed meanwhile).
-  wsLoad = () => { const v = this.exHostApi(); if (!v || !v.places) return; Promise.resolve().then(() => v.places()).then(pl => { if (!pl) return; const w = this.state.ws || Component.WS0(); this.wsSet({pl, kids:{}});
-    new Set(Object.keys(w.open).filter(k => w.open[k]).map(k => k.slice(k.indexOf('|') + 1))).forEach(p => this.wsKids(p)); }, () => {}); this.wsRunsLoad(); this.ledRead(); };
+  // What was read before stays on screen while it is read again (no "Reading…" flash), and changes only where the disk did.
+  wsLoad = () => { const v = this.exHostApi(); if (!v || !v.places) return; Promise.resolve().then(() => v.places()).then(pl => { if (!pl) return; const w = this.state.ws || Component.WS0();
+    if (JSON.stringify(pl) !== JSON.stringify(w.pl)) this.wsSet({pl}, () => this.wsAhead()); else this.wsAhead();
+    new Set(Object.keys(w.open).filter(k => w.open[k]).map(k => k.slice(k.indexOf('|') + 1))).forEach(p => this.wsKids(p, true)); }, () => {}); this.wsRunsLoad(); this.ledRead(); };
+  // The drives, again every few seconds while Export is open (one plugged in or ejected shows), and nothing else.
+  wsPlacesPoll() { const v = this.exHostApi(); if (!v || !v.places) return; Promise.resolve().then(() => v.places()).then(pl => { const w = this.state.ws; if (pl && w && JSON.stringify(pl) !== JSON.stringify(w.pl)) { this.wsSet({pl}); this.wsAhead(); } }, () => {}); }
+  // Reading ahead: the folders inside each root and inside each open folder, one listing at a time, so a folder unfurls with what
+  // is inside it already there. Folders already read are skipped, so it stops by itself; at most 48 listings a pass, and the
+  // results land on screen together, not one render each.
+  wsAhead() {
+    const v = this.exHostApi(), w = this.state.ws; if (!v || !v.dirList || !w || !w.pl) return;
+    const want = [], seen = new Set(this.wsQ || []), add = p => { if (p && !seen.has(p) && w.kids[p] === undefined) { seen.add(p); want.push(p); } }, dirsIn = (p, n) => { const ks = w.kids[p]; if (Array.isArray(ks)) ks.filter(f => !f.file && f.dirs).slice(0, n).forEach(f => add(f.path)); };
+    const P = (w.pl.places || []).filter(p => p && p.path), D = (w.pl.drives || []).filter(d => d && d.path && d.granted);
+    P.concat(D).forEach(p => add(p.path));
+    Object.keys(w.open).filter(k => w.open[k]).forEach(k => dirsIn(k.slice(k.indexOf('|') + 1), 24));
+    P.forEach(p => dirsIn(p.path, 12));
+    this.wsQ = (this.wsQ || []).concat(want).slice(0, 48); if (!this.wsQBusy) this.wsPump();
+  }
+  wsPump() {
+    const v = this.exHostApi(), p = this.wsQ && this.wsQ.shift();
+    if (!v || !p) { this.wsQBusy = false; this.wsAheadFlush(true); return; }
+    this.wsQBusy = true;
+    Promise.resolve().then(() => v.dirList(p, true)).then(ks => { if (Array.isArray(ks)) (this.wsGot || (this.wsGot = {}))[p] = ks; }, () => {}).then(() => { this.wsAheadFlush(false); this.wsPump(); });
+  }
+  wsAheadFlush(last) {
+    const got = this.wsGot; if (!got || !Object.keys(got).length) return;
+    if (!last && Date.now() - (this.wsGotAt || 0) < 150) return;
+    this.wsGot = null; this.wsGotAt = Date.now();
+    this.wsSet(x => { const kids = {...x.kids}; Object.keys(got).forEach(p => { if (!Array.isArray(kids[p])) kids[p] = got[p]; }); return {kids}; }, () => { if (last) this.wsAhead(); });
+  }
   // The rows, top to bottom: the folders first (the shoot's, Save to, the ones Lumina has access to), then the drives, each unfurled folder
   // followed by what is inside it (folders, then files). A row's key is its root's place in the list and its path, so the same
   // folder under two roots unfurls on its own. Notes ("Reading…", "Empty") are rows too.
@@ -2781,13 +2866,64 @@ class Component extends DCLogic {
     if (!r || r.note || r.file || r.made) return;
     if (!r.granted) { if (r.drive && !r.card) this.wsLetIn(r.path); return; }
     const w = this.state.ws || Component.WS0(), on = want == null ? !w.open[r.key] : want; if (on === !!w.open[r.key]) return;
-    this.wsSet(x => ({open:{...x.open, [r.key]:on}}));
-    if (on && !Array.isArray(w.kids[r.path])) this.wsKids(r.path);
+    this.wsChev(r.key);
+    if (!on) return this.wsFurl(r);
+    const had = Array.isArray(w.kids[r.path]);
+    this.wsSet(x => ({open:{...x.open, [r.key]:true}}), () => { if (had) this.wsUnfurlFx(r.path); this.wsAhead(); });
+    this.wsKids(r.path, had);
   }
-  wsKids(path) {
+  // A folder's listing. `quiet`: it is on screen already (read ahead or before), so it stays there while it is read again,
+  // and the screen changes only if the folder did.
+  wsKids(path, quiet) {
     const v = this.exHostApi(); if (!v || !v.dirList) return;
-    this.wsSet(x => ({kids:{...x.kids, [path]:Array.isArray(x.kids[path]) ? x.kids[path] : 'loading'}}));
-    Promise.resolve().then(() => v.dirList(path, true)).then(ks => this.wsSet(x => ({kids:{...x.kids, [path]:Array.isArray(ks) ? ks : {why:'Skim may not look inside this folder.'}}})), () => this.wsSet(x => ({kids:{...x.kids, [path]:{why:'The app did not answer.'}}})));
+    if (!quiet) this.wsSet(x => ({kids:{...x.kids, [path]:Array.isArray(x.kids[path]) ? x.kids[path] : 'loading'}}));
+    Promise.resolve().then(() => v.dirList(path, true)).then(ks => {
+      const w = this.state.ws, cur = w && w.kids[path], had = Array.isArray(cur);
+      if (Array.isArray(ks) && had && JSON.stringify(ks) === JSON.stringify(cur)) return;
+      this.wsSet(x => ({kids:{...x.kids, [path]:Array.isArray(ks) ? ks : {why:'Lumina has no access inside this folder.'}}}), () => { if (!had && Array.isArray(ks)) this.wsUnfurlFx(path); });
+    }, () => { if (!quiet) this.wsSet(x => ({kids:{...x.kids, [path]:{why:'The app did not answer.'}}})); });
+  }
+  // ---- Motion (LOCAL-CHANGES 267)
+  static motionOk() { try { return !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return true; } }
+  // Plays `name` on the elements, from the start, `delay` ms later; the inline animation goes when it ends.
+  static fx(els, name, ms, step) {
+    if (!els.length || !Component.motionOk()) return;
+    els.forEach(e => { e.style.animation = 'none'; }); void els[0].offsetWidth;
+    els.forEach((e, i) => { e.style.animation = name + ' ' + ms + 'ms cubic-bezier(0.2,0.8,0.2,1) ' + Math.min(i, 10) * (step || 0) + 'ms both';
+      const end = () => { e.style.animation = ''; e.removeEventListener('animationend', end); }; e.addEventListener('animationend', end); });
+  }
+  // Closing: the elements play `name` (a fold folds up by default) and then `done` takes them away. A second click while one
+  // is closing does nothing more; with Reduce motion, or nothing on screen, `done` runs at once.
+  foldShut(sel, done, name, ms) {
+    const els = (typeof sel === 'string' ? [...document.querySelectorAll(sel)] : sel || []).filter(Boolean);
+    if (!els.length || !Component.motionOk()) return done();
+    if (els.some(e => e.__lmShut)) return;
+    ms = ms || 140;
+    els.forEach(e => { e.__lmShut = true; e.style.pointerEvents = 'none'; e.style.animation = (name || 'lmFoldOut') + ' ' + ms + 'ms cubic-bezier(0.4,0,1,1) forwards'; });
+    setTimeout(() => {
+      const fs = window.ReactDOM && window.ReactDOM.flushSync; if (fs) fs(done); else done();
+      els.forEach(e => { e.__lmShut = false; e.style.pointerEvents = ''; e.style.animation = ''; });
+    }, ms);
+  }
+  // The rows under a folder in the tree, as elements (a row is reused for another once the list changes, so they are looked up when needed).
+  wsUnder(match) {
+    const tree = document.querySelector('[data-lumina="ws-tree"]'), rows = tree ? [...tree.querySelectorAll('[data-lumina="ws-row"]')] : [], out = [];
+    rows.forEach((e, i) => { if (!match(e)) return; const lv = +e.getAttribute('aria-level'); for (let j = i + 1; j < rows.length && +rows[j].getAttribute('aria-level') > lv; j++) out.push(rows[j]); });
+    return out;
+  }
+  // Unfurl: what a folder just showed slides down into place, a row at a time.
+  wsUnfurlFx(path) { if (!Component.motionOk()) return; requestAnimationFrame(() => Component.fx(this.wsUnder(e => e.getAttribute('data-path') === path && e.getAttribute('aria-expanded') === 'true').slice(0, 60), 'lmRowIn', 150, 8)); }
+  // Furl: the rows fold up, then the folder closes.
+  wsFurl(r) {
+    const done = () => this.wsSet(x => ({open:{...x.open, [r.key]:false}})), under = this.wsUnder(e => e.getAttribute('data-key') === r.key);
+    if (!under.length || under.length > 150) return done();
+    this.foldShut(under, done, 'lmRowOut', 130);
+  }
+  // The clicked folder's chevron turns (only that one: the rows below are reused for other folders as the list changes).
+  wsChev(key) {
+    if (!Component.motionOk()) return;
+    const row = [...document.querySelectorAll('[data-lumina="ws-row"]')].find(e => e.getAttribute('data-key') === key), ch = row && row.querySelector('[data-lumina="ws-chev"]'); if (!ch) return;
+    ch.style.setProperty('transition', 'transform 180ms cubic-bezier(0.2,0.8,0.2,1)', 'important'); clearTimeout(ch.__lmT); ch.__lmT = setTimeout(() => ch.style.removeProperty('transition'), 260);
   }
   wsFinder(path) { const v = this.exHostApi(); if (!v || !v.showInFinder || !path) return; Promise.resolve().then(() => v.showInFinder(path)).then(ok => { if (!ok) this.wsSet({say:{t:'Finder could not show ' + path.split('/').pop() + ': Lumina has no access there, or it is gone.', bad:true}}); }, () => {}); }
   wsLetIn(at) { const v = this.exHostApi(); if (!v || !v.placeAdd) return; Promise.resolve().then(() => v.placeAdd(at)).then(pl => { if (pl) this.wsSet({pl, kids:{}}); }, () => {}); }
@@ -3009,7 +3145,7 @@ class Component extends DCLogic {
     Promise.resolve().then(() => v[op](e.id)).then(r => { const ok = r === true || (r && r.ok); this.wsSet({ledSay:{t:after(ok, r), bad:!ok}}); this.ledRead(); }, () => this.wsSet({ledSay:{t:'The app did not answer.', bad:true}}));
   }
   ledPreview(e) {
-    const w = this.state.ws || Component.WS0(); if (w.ledOpen === e.id) { this.wsSet({ledOpen:''}); return; }
+    const w = this.state.ws || Component.WS0(); if (w.ledOpen === e.id) { this.foldShut('[data-lumina="ws-led-text"]', () => this.wsSet({ledOpen:''})); return; }
     this.wsSet({ledOpen:e.id}); const v = this.exHostApi(); if (!v || !v.exportsRead || w.ledText[e.id] != null) return;
     Promise.resolve().then(() => v.exportsRead(e.id)).then(t => this.wsSet(x => ({ledText:{...x.ledText, [e.id]:typeof t === 'string' ? t : null}})), () => {});
   }
@@ -3204,8 +3340,8 @@ class Component extends DCLogic {
     v.wsFiles = [{id:'ws-file-fcp', ext:'FCPXML', extBg:'#FFD27A', name:o.fname, meta:o.n ? this.plural(o.n, 'clip') + ' · ' + o.fsize : 'nothing in it yet', toId:'ws-to-fcp', to:where('fcp'), toC:w.dst.fcp ? '#FFD27A' : '#9A958D', ring:w.dst.fcp ? 'rgba(255,210,122,0.35)' : 'rgba(239,236,230,0.08)', op:o.n ? 1 : 0.55, tip:host ? 'Drag onto a folder' : '', btns:reset('fcp'), ...drag('fcp')}]
       .concat(cutN ? [{id:'ws-file-cut', ext:'TXT', extBg:'#FF8A7A', name:o.cname, meta:this.plural(cutN, 'cut clip') + ' · ' + fb(o.cutB), toId:'ws-to-cut', to:where('cut'), toC:w.dst.cut ? '#FF8A7A' : '#9A958D', ring:w.dst.cut ? 'rgba(255,138,122,0.35)' : 'rgba(239,236,230,0.08)', op:1, tip:host ? 'Drag onto a folder' : '',
         btns:reset('cut').concat([btn('cut-copy', 'Copy', 'Copy the list', true, this.cutCopy), btn('cut-save', host ? 'Save' : 'Download', 'Save the list as a text file', true, this.cutSave)]), ...drag('cut')}] : []);
-    v.wsOpt = !!w.opt; v.wsOptRot = w.opt ? '90deg' : '0deg'; v.wsOptGo = () => this.wsSet(x => ({opt:!x.opt}));
-    v.wsSum = !!w.sum; v.wsSumRot = w.sum ? '90deg' : '0deg'; v.wsSumGo = () => this.wsSet(x => ({sum:!x.sum}));
+    v.wsOpt = !!w.opt; v.wsOptRot = w.opt ? '90deg' : '0deg'; v.wsOptGo = () => (this.state.ws || {}).opt ? this.foldShut('[data-lumina="ws-options"]', () => this.wsSet({opt:false})) : this.wsSet({opt:true});
+    v.wsSum = !!w.sum; v.wsSumRot = w.sum ? '90deg' : '0deg'; v.wsSumGo = () => (this.state.ws || {}).sum ? this.foldShut('[data-lumina="export-summary"]', () => this.wsSet({sum:false})) : this.wsSet({sum:true});
     const ex = st.ex; v.wsOptSay = [ex.all ? 'everything' : ex.maybes ? 'selected + maybes' : 'selected', ex.rate !== false ? 'ratings' : '', ex.scenes ? 'scenes' : ''].filter(Boolean).join(', ');
   }
 
@@ -3442,7 +3578,7 @@ class Component extends DCLogic {
     let fillNote = '';
     if (readyOn) { loadLine = this.plural(C.filter(c => c.facts && c.facts.state === 'ready').length, 'clip') + ' ready' + (bad ? ' · ' + bad + ' can\u2019t read' : '');
       if (filling) { let full = 0; F.set.forEach(c => { if (c.thin || F.idled.has(c) && !F.busy.has(c) || !this.fillNeed(c).length) full++; }); if (full < F.n) fillNote = 'filling in detail · ' + full + ' of ' + F.n; } }
-    return {progOn:st.progOn && n > 0, progToggle:() => this.setState(s => ({progOn:!s.progOn})),
+    return {progOn:st.progOn && n > 0, progToggle:() => this.state.progOn ? this.progShut() : this.setState({progOn:true}),
       progGo:e => { const id = e.currentTarget.getAttribute('data-prog'); if (!this.byId || !this.byId[id]) return; this.wantScroll = ['[data-clip="' + id + '"]']; if (st.cv) { if (st.lv < 2) this.wantScroll = ['@cur']; return this.setState({step:'skim', lv:st.lv >= 2 ? 2 : 0, cur:id, sel:[], box:null}); } this.setState({step:'skim', lv:Math.max(1, Math.min(st.lv, 2)), cur:id, gi:this.gOfAll ? (this.gOfAll[id] ?? st.gi) : st.gi, sel:[], box:null}); },
       progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:e => { Component.letGo(e); this.setState(s => ({pfOn:!s.pfOn})); }, recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running && st.dbg ? ' · listed ' + (this.lastClock.listed != null ? this.lastClock.listed + ' ms' : '—') + ', covers and flags ' + this.fmtSec(this.lastClock.done) + (this.lastClock.filled != null ? ', detail ' + this.fmtSec(this.lastClock.filled) : this.lastClock.fillStop ? ', detail stopped at the frames limit' : '') : ''), unsupOn:(this.unsup || 0) + (this.skipped || 0) > 0, unsupLine:(this.unsup || 0) + (this.skipped || 0) > 0 ? ((this.skipped || 0) ? this.plural(this.skipped, 'clip') + ' skipped' : this.plural(this.unsup, 'clip') + ' to skip') + ' · a format this browser can\u2019t play' + (this.notSafari() ? ' · open in Safari' : '') : '', haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
       pauseOn:running && n > 0 && !this.halt, pauseGo:this.pauseToggle, pauseA:this.mp.pace === 'paused', pauseT:this.mp.pace === 'paused' ? 'Go on' : 'Pause', pauseBg:this.mp.pace === 'paused' ? '#FFD27A' : 'rgba(239,236,230,0.08)', pauseFg:this.mp.pace === 'paused' ? '#1E1D1B' : '#EFECE6', pauseFw:this.mp.pace === 'paused' ? 800 : 400,
@@ -3903,8 +4039,13 @@ class Component extends DCLogic {
     if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; }
     this.setState({step:'import', memOn:false, memConfirm:false, closeConfirm:false, marks:{}, dis:{}, cuts:null,  undo:[], redo:[], sel:[], box:null, cur:null, lv:0, gi:0, imp:null, impMsg:null, exDone:null});
   };
+  // The .fcpxml is built once per change (marks, choices, the clips' facts, the folder), not on every render of the page.
   buildX() {
     const st = this.state, d = this.d, ex = st.ex; if (!d) return {n:0, text:''};
+    let fp = 0; d.clips.forEach(c => { const t = [c.dur, c.nf, c.fd, c.fps, c.w, c.h, c.ltc, c.path, c.profile && c.profile.gamma, c.profile && c.profile.primaries].join('|'); for (let i = 0; i < t.length; i++) fp = (fp * 31 + t.charCodeAt(i)) | 0; });
+    const bk = [d, d.clips.length, fp, st.marks, JSON.stringify(ex), this.SC, this.G, JSON.stringify(this.exHost || null)], bm = this.bxM;
+    if (bm && bm.k.every((v, i) => v === bk[i])) return bm.x;
+    const bx = (() => {
     const xe = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const inc = c => { const m = st.marks[c.id]; return ex.all || m === 'keep' || (ex.maybes && m === 'maybe'); };
     // keywords: the maybe keyword as typed (none when cleared), and with Scenes on the clip's scene, so Final Cut's browser has
@@ -3947,6 +4088,8 @@ class Component extends DCLogic {
     });
     const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
     return {n:clips.length, text, kws:[...kws]};
+  })();
+    this.bxM = {k:bk, x:bx}; return bx;
   }
   // The line under the Folder field in Export: what Final Cut will do with what is typed there.
   static rootSay(root, tops, known) {
@@ -4220,7 +4363,7 @@ class Component extends DCLogic {
       closeGo:this.closeShoot, closeT:st.closeConfirm ? 'Close? Click again' : 'Close', closeFg:st.closeConfirm ? '#FFD27A' : '#9A958D', closeBg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.06)',
       closeTip:'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open. Marks are not saved: ' + (Object.keys(st.marks).length ? 'its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' go with it. Download for Final Cut first.' : 'nothing to lose.') + ' ⌘W',
       forgetOn:Component.KEEP_MARKS && has && (Object.keys(st.marks).length > 0 || !!st.memConfirm), forgetGo:this.forgetMarks, forgetT:'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + (st.memConfirm ? '? Click again' : ''), forgetFg:st.memConfirm ? '#FF8A7A' : '#9A958D', forgetBg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.06)',
-      memOn:st.memOn && !!st.dbg, memToggle:() => this.setState({memOn:!st.memOn, memConfirm:false, closeConfirm:false}), memBg:st.memOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)', memPill:this.fmtB(ms.tabB),
+      memOn:st.memOn && !!st.dbg, memToggle:() => this.state.memOn ? this.memShut() : this.setState({memOn:true, memConfirm:false, closeConfirm:false}), memBg:st.memOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)', memPill:this.fmtB(ms.tabB),
       memTab:(() => { const h = this.health ? this.effHealth() : null, rows = [], B = this.mp.budget, imp = st.imp, run = !!(imp && imp.done < imp.n);
         rows.push({k:'clips', v:ms.n ? ms.n + (d && d.shoot.bytes ? ' · ' + this.fmtB(d.shoot.bytes) + ' on disk' : '') : 'none'});
         if (ms.n) rows.push({k:'read', v:run ? (imp.pass === 2 ? 'all in · measuring ' : 'reading ') + imp.done + ' of ' + imp.n : ms.meas + ' of ' + ms.n});
@@ -4355,9 +4498,9 @@ class Component extends DCLogic {
             btns:markN.cut ? [].concat(hostV && vv && vv.showClips && d.shoot.real ? [btn('cut-finder', 'Delete in Finder…', 'A Finder window with the cut clips selected; delete them there', true, this.cutFinder)] : [],
               [btn('cut-copy', 'Copy list', 'The cut clips as plain text', true, this.cutCopy), btn('cut-save', hostV ? 'Save list' : 'Download list', 'The cut clips as a .txt file', true, this.cutSave)]) : []}]
           .concat(dr && dr.total ? [{id:'sto-drive', k:'Drive', t:(dr.name || 'This drive') + ' · ' + this.fmtB(dr.free) + ' free of ' + this.fmtB(dr.total), dot:dr.free < dr.total * 0.1 ? '#FFD27A' : 'rgba(239,236,230,0.3)', c:'#EFECE6', btns:[]}] : []);
-        const pvx = !!(st.ws && st.ws.pvX); v.pvXOn = pvx && !!x.n; v.pvXRot = pvx ? '90deg' : '0deg'; v.pvXGo = () => this.wsSet(z => ({pvX:!z.pvX}));
+        const pvx = !!(st.ws && st.ws.pvX); v.pvXOn = pvx && !!x.n; v.pvXRot = pvx ? '90deg' : '0deg'; v.pvXGo = () => (this.state.ws || {}).pvX ? this.foldShut('[data-lumina="ex-preview-text"]', () => this.wsSet({pvX:false})) : this.wsSet({pvX:true});
         v.pvXT = x.n ? 'Preview the file · ' + this.plural(x.n, 'clip') + ', ' + this.fmtB(new Blob([x.text]).size) : 'Preview the file'; }
-      v.exMore = !!st.exMore; v.exMoreRot = st.exMore ? '90deg' : '0deg'; v.exMoreGo = () => this.setState(s => ({exMore:!s.exMore}));
+      v.exMore = !!st.exMore; v.exMoreRot = st.exMore ? '90deg' : '0deg'; v.exMoreGo = () => this.state.exMore ? this.foldShut('[data-lumina="ex-details"]', () => this.setState({exMore:false})) : this.setState({exMore:true});
       const lines = x.text.split('\n'); v.exPreview = x.n ? lines.slice(0, 44).join('\n') + (lines.length > 44 ? '\n…' : '') : 'Select clips in Skim with K, or turn on Everything.';
       { const rt = String(ex.root || '').trim(), ok = rt[0] === '/' || /^file:\/\//.test(rt);
         v.exPathLine = !d.shoot.real ? 'Paths point at the card as the camera wrote it.' : ok ? 'Final Cut will look for the clips in ' + rt.replace(/\/+$/, '') + '.' : 'Paths assume the card is mounted at /Volumes/' + (d.shoot.base || d.shoot.name) + '. Opened a folder instead? Say where it is under Details.'; }
