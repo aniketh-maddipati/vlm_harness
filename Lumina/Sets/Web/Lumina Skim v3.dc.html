@@ -515,13 +515,13 @@ body:has([data-view=phone]){background:#111}
     </sc-if>
 
     <sc-if value="{{ lv2 }}" hint-placeholder-val="{{ false }}">
-      <div data-screen-label="Clip" style="flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:{{ lv2Cols }};align-content:start;gap:28px;padding:18px clamp(16px,2.2vw,40px) 28px;animation:unfurl 180ms ease-out">
-        <div onDoubleClick="{{ viewDbl }}" style="display:flex;flex-direction:column;gap:10px;min-width:0">
-          <div data-lumina="viewer-top" style="display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap">
+      <div data-screen-label="Clip" style="flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:{{ lv2Cols }};grid-template-rows:{{ lv2Rows }};align-content:start;gap:12px 28px;padding:12px clamp(16px,2.2vw,40px) 28px;animation:unfurl 180ms ease-out">
+        <div data-lumina="viewer-top" style="grid-column:{{ topCol }};grid-row:1;align-self:start;display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap">
             <button type="button" data-lumina="nav-back" title="Back to the canvas · ⏎ · esc · 2×click" onClick="{{ backClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:40px;box-sizing:border-box;padding:0 14px;border-radius:9px;display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:14px;font-weight:600;background:{{ backBg }};color:#EFECE6;cursor:pointer;animation:{{ backAnim }}" style-hover="background:rgba(239,236,230,0.16)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">‹ Canvas<span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-size:11px;font-weight:700">esc</span></button>
             <span style="flex:none;width:8px"></span>
-            <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><button type="button" data-well="{{ pk.m }}" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · on / off" onClick="{{ wClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;min-width:132px;height:40px;box-sizing:border-box;padding:0 16px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;font-size:14px;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:{{ pk.capBg }};display:grid;place-items:center;font-weight:700;color:{{ pk.capFg }}">{{ pk.k }}</span><span style="color:{{ pk.fg }};font-weight:{{ pk.fw }}">{{ pk.l }}</span></button></sc-for>
+            <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><button type="button" data-well="{{ pk.m }}" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · on / off" onClick="{{ wClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1 1 0;min-width:104px;height:40px;box-sizing:border-box;padding:0 16px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;font-size:14px;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:{{ pk.capBg }};display:grid;place-items:center;font-weight:700;color:{{ pk.capFg }}">{{ pk.k }}</span><span style="color:{{ pk.fg }};font-weight:{{ pk.fw }}">{{ pk.l }}</span></button></sc-for>
           </div>
+        <div onDoubleClick="{{ viewDbl }}" style="grid-column:1;grid-row:{{ picRow }};display:flex;flex-direction:column;gap:10px;min-width:0">
           <div data-lumina="clip-row" style="display:flex;align-items:flex-end;gap:12px;min-width:0">
             <sc-for list="{{ row.items }}" as="it" hint-placeholder-count="2">
               <div data-pic="1" data-clip="{{ it.id }}" draggable="{{ it.drag }}" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" onMouseDown="{{ picDown }}" onMouseMove="{{ picMove }}" onMouseLeave="{{ picLeave }}" onClick="{{ picClick }}" style="flex:none;width:{{ it.w }}px;display:flex;flex-direction:column;gap:6px;opacity:{{ it.op }};transition:opacity 120ms">
@@ -561,20 +561,21 @@ body:has([data-view=phone]){background:#111}
           </sc-if>
           
         </div>
-        <div data-lumina="info" style="position:{{ infoPos }};top:0;align-self:start;max-height:100%;overflow-y:auto;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;min-width:0;padding:14px;border-radius:12px;background:rgba(42,41,39,0.78);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 0 0 1px rgba(239,236,230,0.08),0 10px 30px rgba(0,0,0,0.35);font-size:14px">
-          <sc-if value="{{ nbOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="neighbours" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div data-lumina="info" style="grid-column:{{ infoCol }};grid-row:{{ infoRow }};position:{{ infoPos }};top:0;align-self:start;max-height:100%;overflow-y:auto;box-sizing:border-box;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));align-content:start;gap:10px;min-width:0;padding:10px;border-radius:12px;background:rgba(42,41,39,0.6);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 0 0 1px rgba(239,236,230,0.08),0 10px 30px rgba(0,0,0,0.35);font-size:14px">
+          <sc-if value="{{ nbOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="neighbours" style="order:3;align-self:start;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border-radius:9px;background:#161514">
             <sc-for list="{{ nbrs }}" as="nb" hint-placeholder-count="2"><button type="button" data-strip="{{ nb.id }}" title="{{ nb.tip }}" aria-label="{{ nb.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;color:inherit;text-align:left;-webkit-appearance:none;appearance:none;grid-column:{{ nb.col }};min-width:0;display:flex;flex-direction:column;gap:4px;cursor:pointer;opacity:{{ nb.op }}" style-hover="filter:brightness(1.12)"><div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#161514"><div style="position:absolute;inset:0;background:{{ nb.bg }};filter:{{ nb.flt }}"></div><div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ nb.edge }}"></div></div><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ nb.say }}</span></button></sc-for>
           </div></sc-if>
-          <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:26px">{{ cv.name }}</span><span style="color:#9A958D">{{ cv.when }}</span></div>
-          <div data-lumina="viewer-mark" style="display:flex;flex-direction:column;gap:7px">
-            <div style="display:flex;justify-content:space-between;gap:10px;white-space:nowrap"><span data-lumina="viewer-mark-now" style="color:{{ cv.markNowC }};font-weight:600">{{ cv.markNow }}</span><span data-lumina="viewer-cut" style="color:{{ cutC }}">{{ cutSoFar }}</span></div>
+          <div data-lumina="info-head" style="order:0;grid-column:1 / -1;display:flex;flex-direction:column;gap:8px;padding:10px 14px;border-radius:9px;background:{{ cv.hdBg }};box-shadow:inset 4px 0 0 {{ cv.markNowC }}">
+            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:26px;line-height:1.1">{{ cv.name }}</span><span style="color:#B8B3AB">{{ cv.when }}</span><span data-lumina="viewer-mark-now" style="margin-left:auto;color:{{ cv.markNowC }};font-weight:700;white-space:nowrap">{{ cv.markNow }}</span></div>
+            <div data-lumina="viewer-mark" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+              <sc-for list="{{ cv.chips }}" as="c" hint-placeholder-count="3"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for>
+              <span data-lumina="viewer-cut" style="margin-left:auto;color:{{ cutC }};white-space:nowrap">{{ cutSoFar }}</span>
+            </div>
           </div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;min-height:20px">
-            <sc-for list="{{ cv.chips }}" as="c" hint-placeholder-count="3"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px;line-height:1.45">
-            <sc-for list="{{ cv.facts }}" as="fl" hint-placeholder-count="10"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ fl.k }}</span><span style="color:{{ fl.c }};overflow-wrap:anywhere">{{ fl.v }}</span></div></sc-for>
-          </div>
+          <sc-for list="{{ cv.groups }}" as="gr" hint-placeholder-count="3"><div data-facts="{{ gr.key }}" style="order:{{ gr.order }};grid-column:{{ gr.span }};align-self:start;display:flex;flex-direction:column;gap:3px;line-height:1.45;padding:10px 12px;border-radius:9px;background:{{ gr.bg }};box-shadow:inset 0 0 0 1px {{ gr.line }}">
+            <span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:{{ gr.tc }}">{{ gr.t }}</span>
+            <sc-for list="{{ gr.rows }}" as="fl" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ fl.k }}</span><span style="color:{{ fl.c }};font-family:{{ fl.ff }};font-size:{{ fl.fs }};overflow-wrap:anywhere">{{ fl.v }}</span></div></sc-for>
+          </div></sc-for>
         </div>
       </div>
     </sc-if>
@@ -2252,7 +2253,7 @@ class Component extends DCLogic {
       stripOn:sk && !empty && st.lv === 1, takeStripOn:sk && !empty && st.lv >= 2,
       lv0:sk && !empty && !st.cv && st.lv === 0, lv1:sk && !empty && !st.cv && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
-      tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static',
+      tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static', lv2Rows:'auto', topCol:'1', picRow:'2', infoCol:'1', infoRow:'3',
       wClick:this.wClick, 
       scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef,
       grid42:true,
@@ -2393,10 +2394,16 @@ class Component extends DCLogic {
       facts.push({k:'recorded', v:c.t.slice(0, 10) + ' · ' + c.t.slice(11, 19)});
       facts.push({k:'path', v:c.path, c:'#9A958D'});
       facts.push({k:'mark', v:m ? this.W(m) : 'undecided', c:m ? MK[m] : '#9A958D'});
-      facts.forEach(x => { if (!x.c) x.c = '#EFECE6'; });
+      facts.forEach(x => { if (!x.c) x.c = '#EFECE6'; x.ff = x.k === 'path' ? 'ui-monospace,Menlo,monospace' : 'inherit'; x.fs = x.k === 'path' ? '12px' : '14px'; });
+      // the info in cards, one per kind of fact, each its own colour and texture so the eye finds it: what the clip looks like, the file, where it is
+      const GK = {look:['exposure', 'crushed', 'sharpness', 'motion', 'bump', 'measured', 'measuring', 'measures'], file:['rate', 'duration', 'size', 'format', 'profile'], where:['recorded', 'path']};
+      const groups = [['look', 'Picture', '#9DB8FF', 'repeating-linear-gradient(135deg,rgba(157,184,255,0.07) 0 2px,transparent 2px 8px),rgba(157,184,255,0.08)', 1, 'auto'],
+        ['file', 'File', '#E0C49A', 'radial-gradient(rgba(224,196,154,0.18) 1px,transparent 1.4px) 0 0/9px 9px,rgba(224,196,154,0.08)', 2, 'auto'],
+        ['where', 'Where', '#8FD3C7', 'repeating-linear-gradient(0deg,rgba(143,211,199,0.07) 0 1px,transparent 1px 7px),rgba(143,211,199,0.07)', 4, 'auto']]
+        .map(([key, t, tc, bg, order, span]) => ({key, t, tc, bg, order, span, line:tc + '30', rows:facts.filter(x => GK[key].includes(x.k))}));
       vals.cv = {name:c.name.replace(/\.\w+$/, ''), when:this.hm(c.t) + ' · ' + this.fmtDur(c.dur), bg:t.bg, flt:t.flt, edge:gm ? 'inset 0 0 0 3px ' + MK[gm] + '99' : m ? 'inset 0 0 0 3px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '',
         picks:[['keep', 'K'], ['maybe', 'M'], ['cut', 'C']].map(([pm, pk]) => ({m:pm, k:pk, l:this.W(pm), on:m === pm, fg:m === pm ? '#1E1D1B' : MK[pm], fw:m === pm ? 800 : 400, bg:m === pm ? MK[pm] : 'transparent', ring:'1px ' + MK[pm] + (m === pm ? '' : '80'), capBg:m === pm ? 'rgba(30,29,27,0.14)' : 'rgba(239,236,230,0.12)', capFg:m === pm ? '#1E1D1B' : '#EFECE6'})),
-        markNow:m ? this.W(m) : 'undecided', markNowC:m ? MK[m] : '#9A958D',
+        markNow:m ? this.W(m) : 'undecided', markNowC:m ? MK[m] : '#9A958D', groups, hdBg:m ? 'linear-gradient(90deg,' + MK[m] + '33,' + MK[m] + '0A 70%),rgba(239,236,230,0.04)' : 'rgba(239,236,230,0.06)',
         ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
         chips:ch.pending ? [this.pendV(), this.pendV(), this.pendV()] : ch.list.map(x => this.chipV(c, x))};
       { const i = this.flat.indexOf(c.id), P = this.flat[i - 1], N = this.flat[i + 1], nb = (id, col, arrow) => { const cc = this.byId[id], mm = st.marks[id], t0 = this.tone(cc, this.firstIdx()), nm = cc.name.replace(/\.\w+$/, '');
@@ -2406,8 +2413,12 @@ class Component extends DCLogic {
       vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
       // the row: this clip and as many of its chapter as fit, joined by a bracket
       const gq = G[curGi], list = gq ? (gq.vis.length ? gq.vis : gq.clips) : [c], ci = Math.max(0, list.findIndex(x => x.id === c.id));
-      const narrow = st.vw <= 640, vp = narrow ? null : Component.viewPlan(st.vw, st.vh - this.dockH() + 10), padX = narrow ? 10 : Math.min(40, Math.max(16, st.vw * 0.022)), W = narrow ? st.vw - 2 * padX : vp.W, Hh = narrow ? Math.max(160, st.vh * 0.42) : Math.max(st.vh <= 500 ? 130 : 0, vp.H); if (vp) vals.lv2Cols = vp.cols; vals.infoPos = vp && !vp.stack ? 'sticky' : 'static';
-      const fit = this.rowFit(narrow ? list.length : 1, W, Hh), k = fit.k, s0 = Math.max(0, Math.min(list.length - k, ci - Math.floor((k - 1) / 2)));
+      const narrow = st.vw <= 640, vp = narrow ? null : Component.viewPlan(st.vw, st.vh - this.dockH() + 64), padX = narrow ? 10 : Math.min(40, Math.max(16, st.vw * 0.022)), W = narrow ? st.vw - 2 * padX : vp.W, Hh = narrow ? Math.max(160, st.vh * 0.42) : Math.max(st.vh <= 500 ? 130 : 0, vp.H); if (vp) vals.lv2Cols = vp.cols; vals.infoPos = vp && !vp.stack ? 'sticky' : 'static';
+      const fit = this.rowFit(narrow ? list.length : 1, W, Hh), side = !!vp && !vp.stack;
+      // beside the picture, the info takes what the picture leaves (no gap between them), with the mark buttons over it
+      if (side) vals.lv2Cols = fit.wc + 'px minmax(240px,1fr)';
+      Object.assign(vals, side ? {lv2Rows:'auto minmax(0,1fr)', topCol:'2', picRow:'1 / span 2', infoCol:'2', infoRow:'2'} : {lv2Rows:'auto', topCol:'1', picRow:'2', infoCol:'1', infoRow:'3'});
+      const k = fit.k, s0 = Math.max(0, Math.min(list.length - k, ci - Math.floor((k - 1) / 2)));
       const shown = list.slice(s0, s0 + k);
       let x = 0; const centers = [];
       const items = shown.map(cc => {

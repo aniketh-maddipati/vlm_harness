@@ -183,9 +183,16 @@ test('Viewer in a narrow window: the facts go under the picture when that makes 
   assert.equal(viewPlan(720, 900).H, 900 - 480); assert.equal(viewPlan(1440, 900).H, 900 - 380);
   // never smaller than it would be beside the facts
   for (let vw = 640; vw <= 1600; vw += 20) for (const vh of [600, 800, 900, 1100]) { const p = viewPlan(vw, vh), padX = Math.min(40, Math.max(16, vw * 0.022)); const side = Math.min(Math.max(280, vw - 2 * padX - 328), Math.max(160, vh - 380) * 16 / 9); assert.ok(Math.min(p.W, Math.max(160, p.H) * 16 / 9) >= side - 0.01, vw + 'x' + vh); }
-  assert.match(pageSrc, /data-screen-label="Clip" style="[^"]*grid-template-columns:\{\{ lv2Cols \}\};align-content:start;/);
+  assert.match(pageSrc, /data-screen-label="Clip" style="[^"]*grid-template-columns:\{\{ lv2Cols \}\};(?:grid-template-rows:\{\{ lv2Rows \}\};)?align-content:start;/);
   // the three levels and mvp: the plan alone; the one grid (video/skim-condensed): the phone layout at 640 and under,
   // the plan above it with the dock's height taken from the picture's room
   assert.ok(/const vp = Component\.viewPlan\(st\.vw, st\.vh\), W = vp\.W, Hh = vp\.H; vals\.lv2Cols = vp\.cols;/.test(pageSrc)
     || /vp = narrow \? null : Component\.viewPlan\(st\.vw, st\.vh - this\.dockH\(\)(?: [-+] \d+)?\)[^;]*W = narrow \? [^:]+: vp\.W[^;]*: Math\.max\(st\.vh <= 500 \? 130 : 0, vp\.H\); if \(vp\) vals\.lv2Cols = vp\.cols;/.test(pageSrc));
+});
+
+test('Viewer beside the info: the info column starts where the picture ends, and the mark buttons sit over it', () => {
+  assert.match(pageSrc, /if \(side\) vals\.lv2Cols = fit\.wc \+ 'px minmax\(240px,1fr\)';/);
+  assert.match(pageSrc, /side \? \{lv2Rows:'auto minmax\(0,1fr\)', topCol:'2', picRow:'1 \/ span 2', infoCol:'2', infoRow:'2'\}/);
+  assert.match(pageSrc, /data-lumina="viewer-top" style="grid-column:\{\{ topCol \}\};grid-row:1;/);
+  for (const g of ["'look', 'Picture'", "'file', 'File'", "'where', 'Where'"]) assert.ok(pageSrc.includes(g), g);
 });
