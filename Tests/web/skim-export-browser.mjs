@@ -65,6 +65,10 @@ async function run(host) {
     const r = await text('[data-lumina="export-result"]');
     ok(/Downloaded .+\.fcpxml · 3 clips/.test(r) && /working memory/.test(r), 'browser: the result says what was done: ' + r.replace(/\n/g, ' | '));
     ok(await p.$('[data-lumina="export-close"]'), 'browser: Close this shoot is offered');
+    // what Tests/web/skim-engine-check.js does to read the file check: W opens the workshop, Summary unfolds it
+    await p.keyboard.press('w'); await p.waitForTimeout(300); await p.click('[data-lumina="ws-sum"]'); await p.waitForTimeout(300);
+    ok(/well formed/.test(await text('[data-lumina="sum-check"]')) && /\.fcpxml/.test(await text('[data-lumina="sum-file"]')), 'browser: the workshop\u2019s Summary shows the file check: ' + await text('[data-lumina="sum-check"]'));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
     if (shots) { await p.evaluate(() => { const e = document.querySelector('[data-screen-label="Export"]'); if (e) e.scrollTop = 0; }); await p.screenshot({path:path.join(shots, 'browser-done.png')}); }
   } else {
     ok(/Asks each time/.test(await text('[data-lumina="export-dest"]')), 'app: Save to starts on asking each time');
