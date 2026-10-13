@@ -194,6 +194,19 @@ async function run(host) {
     await p.keyboard.press('w'); await p.waitForTimeout(400); await p.click('[data-lumina="ws-run-undo-0"]'); await p.waitForTimeout(500);
     ok(/^Put back 2 clips/.test(await text('[data-lumina="ws-plan-say"]')) && /put back/.test(await text('[data-lumina="ws-plan-list"]')) && !await p.$('[data-lumina="ws-run-undo-0"]')
       && await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]'), 'app: Undo puts the run back, and the list says so: ' + await text('[data-lumina="ws-plan-say"]') + ' | ' + await text('[data-lumina="ws-plan-list"]') + ' | ' + (await rowsT()).join(' | '));
+    // Read back: the file as Final Cut might return it, the two favorites rejected; the clip Arrange moved and put
+    // back is found by its name
+    const fb = path.join(T, 'from Final Cut.fcpxml'); fs.writeFileSync(fb, savedF[2].replace(/value="favorite"/g, 'value="reject"'));
+    await p.setInputFiles('[data-lumina="ws-back"] input[type=file]', fb); await p.waitForTimeout(400);
+    const bs = await text('[data-lumina="ws-back-say"]'), bl = await text('[data-lumina="ws-back-list"]');
+    ok(/from Final Cut\.fcpxml: \d+ clips of this shoot\. 2 marks differ/.test(bs) && (bl.match(/selected\s*→\s*cut/g) || []).length === 2, 'app: Read back lists the marks the file changes, before anything changes: ' + bs + ' | ' + bl.replace(/\n/g, ' '));
+    ok((await marksOf([sel1]))[0].includes('selected'), 'app: reading changes no mark');
+    await p.click('[data-lumina="ws-back-use"]'); await p.waitForTimeout(300);
+    ok((await marksOf([sel1]))[0].includes('cut') && /^Used 2 marks/.test(await text('[data-lumina="ws-back-say"]')), 'app: Use these marks sets them: ' + await text('[data-lumina="ws-back-say"]'));
+    await p.keyboard.press('Meta+z'); await p.waitForTimeout(300);
+    ok((await marksOf([sel1]))[0].includes('selected'), 'app: ⌘Z takes them back');
+    await p.setInputFiles('[data-lumina="ws-back"] input[type=file]', {name:'notes.xml', mimeType:'text/xml', buffer:Buffer.from('<notes/>')}); await p.waitForTimeout(300);
+    ok(/notes\.xml is not a Final Cut XML file/.test(await text('[data-lumina="ws-back-say"]')), 'app: another XML file is refused');
   }
   ok(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();

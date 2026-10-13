@@ -297,6 +297,13 @@ body:has([data-view=phone]){background:#111}
                 <sc-for list="{{ wsFiles }}" as="f" hint-placeholder-count="2"><div data-lumina="{{ f.id }}" draggable="{{ f.drag }}" onDragStart="{{ f.start }}" onDragEnd="{{ f.end }}" title="{{ f.tip }}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;background:#1E1D1B;box-shadow:inset 0 0 0 1px {{ f.ring }};cursor:{{ f.cur }};opacity:{{ f.op }}"><span style="flex:none;color:#6E6A64;font-size:14px;display:{{ f.gripD }}">⠇</span><span style="flex:none;font-size:10px;font-weight:800;letter-spacing:0.04em;padding:3px 5px;border-radius:4px;background:{{ f.extBg }};color:#1E1D1B">{{ f.ext }}</span><span style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1"><span style="color:#EFECE6;overflow-wrap:anywhere">{{ f.name }}</span><span style="color:#9A958D;font-size:12px">{{ f.meta }}</span><span data-lumina="{{ f.toId }}" style="color:{{ f.toC }};font-size:12px;overflow-wrap:anywhere">{{ f.to }}</span></span><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end"><sc-for list="{{ f.btns }}" as="sb" hint-placeholder-count="1"><button type="button" data-lumina="{{ sb.id }}" aria-disabled="{{ sb.off }}" onClick="{{ sb.go }}" title="{{ sb.tip }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;opacity:{{ sb.op }};cursor:{{ sb.cur }};white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sb.t }}</button></sc-for></div></div></sc-for>
                 <sc-if value="{{ cutSayOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="cut-say" role="status" style="color:{{ cutSayC }}">{{ cutSay }}</span></sc-if>
               </div>
+              <div data-lumina="ws-back" onDragOver="{{ wbOver }}" onDragLeave="{{ wbLeave }}" onDrop="{{ wbDrop }}" style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:8px;background:#1E1D1B;box-shadow:inset 0 0 0 1px {{ wbRing }}">
+                <input ref="{{ wbRef }}" type="file" accept=".fcpxml,.xml" onChange="{{ wbIn }}" style="display:none"></input>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="flex:1 1 auto;min-width:0;color:#EFECE6">Marks from Final Cut</span><button type="button" data-lumina="ws-back-pick" onClick="{{ wbPick }}" title="An .fcpxml Skim saved, or one exported from Final Cut (File ▸ Export XML); a .fcpxmld can be dropped here" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">Read an .fcpxml…</button></div>
+                <span data-lumina="ws-back-say" role="status" style="color:{{ wbSayC }};font-size:12px;line-height:1.45;overflow-wrap:anywhere">{{ wbSay }}</span>
+                <sc-if value="{{ wbListOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-back-list" style="display:flex;flex-direction:column;gap:2px;max-height:200px;overflow:auto;font-size:12px"><sc-for list="{{ wbList }}" as="m" hint-placeholder-count="3"><span style="display:flex;gap:8px;align-items:center;min-height:22px"><span style="color:#EFECE6;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.n }}</span><span style="color:{{ m.fc }}">{{ m.f }}</span><span style="color:#6E6A64">→</span><span style="color:{{ m.tc }}">{{ m.t }}</span></span></sc-for></div></sc-if>
+                <sc-if value="{{ wbBtnsOn }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ wbBtns }}" as="sb" hint-placeholder-count="2"><button type="button" data-lumina="{{ sb.id }}" aria-disabled="{{ sb.off }}" onClick="{{ sb.go }}" title="{{ sb.tip }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;opacity:{{ sb.op }};cursor:{{ sb.cur }};white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sb.t }}</button></sc-for></div></sc-if>
+              </div>
               <sc-if value="{{ sumVerOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="sum-verify" role="status" style="display:flex;gap:8px;align-items:baseline;color:{{ sumVerC }};line-height:1.45"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:{{ sumVerC }}"></span><span style="overflow-wrap:anywhere">{{ sumVer }}</span></span></sc-if>
               <button type="button" data-lumina="ws-opts" aria-expanded="{{ wsOpt }}" onClick="{{ wsOptGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;align-self:flex-start;display:flex;align-items:center;gap:8px;padding:4px 8px 4px 2px;border-radius:6px;cursor:pointer;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:inline-block;width:12px;text-align:center;transform:rotate({{ wsOptRot }});transition:transform 120ms ease-out">›</span>Options<span style="text-transform:none;letter-spacing:0;font-size:12px;color:#6E6A64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ wsOptSay }}</span></button>
               <sc-if value="{{ wsOpt }}" hint-placeholder-val="{{ false }}">
@@ -2656,7 +2663,7 @@ class Component extends DCLogic {
   // clip with its mark. Click, ⌘-click, ⇧-click and a drag over the rows select; selected clips drag onto a bucket to be
   // marked; the Final Cut file and the cut list drag onto a folder to be saved there; pinch sets the row size and a
   // sideways swipe unfurls or furls. Nothing here moves a clip file.
-  static WS0() { return {open:{}, kids:{}, sel:'', pick:{}, mk:null, hot:'', dst:{fcp:'', cut:''}, say:null, pl:null, z:1, only:'', opt:false, sum:false, box:null, plan:{}, rev:false, runs:null, ar:null}; }
+  static WS0() { return {open:{}, kids:{}, sel:'', pick:{}, mk:null, hot:'', dst:{fcp:'', cut:''}, say:null, pl:null, z:1, only:'', opt:false, sum:false, box:null, plan:{}, rev:false, runs:null, ar:null, back:null, backHot:false}; }
   wsSet(f) { this.setState(s => { const w = s.ws || Component.WS0(); return {ws:{...w, ...(typeof f === 'function' ? f(w) : f)}}; }); }
   exDir(kind) { const w = this.state.ws; return (w && w.dst && w.dst[kind]) || ''; }
   exMode = full => { this.setState(s => ({exFull:!!full, ws:s.ws ? {...s.ws, mk:null, hot:'', box:null} : s.ws})); if (full) this.wsLoad(); };
@@ -2844,6 +2851,76 @@ class Component extends DCLogic {
         b:x.undone ? [] : [btn('ws-run-undo-' + i, 'Undo', 'Put this run\u2019s clips back where they were', !this.wsBusy, () => this.wsUndo(x.id))]}));
     }
   }
+  // Read back: an .fcpxml (Skim's own, or one Final Cut exported) as marks. Favorite → selected, Rejected → cut, the maybe keyword
+  // → maybe, nothing → undecided; a rating on part of a clip counts for the clip, and Favorite wins over Rejected. Each clip of
+  // the file is matched to the shoot by its file's path, else by its file name when only one clip of the shoot has it.
+  // Answers {matched, missing:[names not in the shoot], want:{id: mark or null}}, or null when the text is not an fcpxml.
+  // P: a DOMParser (the tests pass their own); abs: a clip's path on disk ('' when not known).
+  static readBack(text, clips, abs, P, kw) {
+    let doc = null; try { doc = new (P || DOMParser)().parseFromString(String(text || ''), 'application/xml'); } catch (e) {}
+    const tag = e => e.localName || e.tagName, root = doc && doc.documentElement;
+    const all = (e, t, out = []) => { Array.from(e.children || []).forEach(c => { if (tag(c) === t) out.push(c); all(c, t, out); }); return out; };
+    if (!root || tag(root) !== 'fcpxml') return null;
+    const path = v => { try { return decodeURIComponent(String(v || '').replace(/^file:\/\/[^\/]*/, '')); } catch (e) { return String(v || ''); } };
+    const src = {}; all(root, 'asset').forEach(a => { const mr = all(a, 'media-rep')[0]; src[a.getAttribute('id')] = path((mr || a).getAttribute('src')); });
+    const byAbs = {}, byName = {}; (clips || []).forEach(c => { const p = abs(c); if (p) byAbs[p] = c; const n = String(c.name || '').toLowerCase(); byName[n] = byName[n] ? 'many' : c; });
+    const KW = String(kw == null ? 'maybe' : kw).trim().toLowerCase(), rank = {keep:3, cut:2, maybe:1}, want = {}, seen = {}, miss = [];
+    const one = (el, ref) => {
+      const p = src[ref] || '', nm = p.split('/').pop(), hit = byAbs[p] || byName[nm.toLowerCase()], c = hit && hit !== 'many' ? hit : null;
+      if (!c) { const w = nm || el.getAttribute('name') || ''; if (w && miss.indexOf(w) < 0) miss.push(w); return; }
+      let m = null;
+      all(el, 'rating').concat(all(el, 'keyword')).forEach(k => { const v = k.getAttribute('value') || '', t = tag(k);
+        const got = t === 'rating' ? (v === 'favorite' ? 'keep' : v === 'reject' ? 'cut' : null) : KW && v.split(',').some(x => x.trim().toLowerCase() === KW) ? 'maybe' : null;
+        if (got && (!m || rank[got] > rank[m])) m = got; });
+      if (!seen[c.id] || (m && (!want[c.id] || rank[m] > rank[want[c.id]]))) want[c.id] = m;
+      seen[c.id] = true;
+    };
+    all(root, 'asset-clip').forEach(el => one(el, el.getAttribute('ref')));
+    all(root, 'clip').forEach(el => { const v = all(el, 'video')[0] || all(el, 'audio')[0]; if (v) one(el, v.getAttribute('ref')); });
+    return {matched:Object.keys(seen).length, missing:miss, want};
+  }
+  wbRef = el => { this.wbEl = el; };
+  wbPick = () => { if (this.wbEl) this.wbEl.click(); };
+  wbIn = e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) f.text().then(t => this.wbRead(f.name, t), () => this.wsSet({back:{name:f.name, bad:'That file could not be read.'}})); };
+  // A dropped .fcpxml, or a .fcpxmld (Final Cut's export bundle, a folder holding Info.fcpxml).
+  wbDrop = e => {
+    e.preventDefault(); this.wsSet({backHot:false});
+    const it = e.dataTransfer && e.dataTransfer.items && e.dataTransfer.items[0], en = it && it.webkitGetAsEntry && it.webkitGetAsEntry();
+    if (en && en.isDirectory) { en.getFile('Info.fcpxml', {}, fe => fe.file(f => f.text().then(t => this.wbRead(en.name, t))), () => this.wsSet({back:{name:en.name, bad:'No Info.fcpxml inside ' + en.name + '.'}})); return; }
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) f.text().then(t => this.wbRead(f.name, t));
+  };
+  wbRead(name, text) {
+    const d = this.d, st = this.state; if (!d) { this.wsSet({back:{name, bad:'Open a shoot first.'}}); return; }
+    const cm = this.wsClipMap(), absOf = {}; Object.keys(cm.byPath).forEach(p => { absOf[cm.byPath[p].id] = p; });
+    const r = Component.readBack(text, d.clips, c => absOf[c.id] || '', undefined, st.ex.kw == null ? 'maybe' : st.ex.kw);
+    if (!r) { this.wsSet({back:{name, bad:name + ' is not a Final Cut XML file.'}}); return; }
+    const ch = Object.keys(r.want).filter(id => (st.marks[id] || null) !== r.want[id]).map(id => ({id, from:st.marks[id] || null, to:r.want[id]}));
+    this.wsSet({back:{name, matched:r.matched, missing:r.missing, ch}});
+  }
+  // The differences, as marks: one undo step per mark they set.
+  wbUse = () => {
+    const b = (this.state.ws || {}).back; if (!b || !b.ch || !b.ch.length) return;
+    const by = {}; b.ch.forEach(c => { const k = c.to || ''; (by[k] = by[k] || []).push(c.id); });
+    Object.keys(by).forEach(k => this.doMark(by[k], k || null));
+    this.wsSet({back:{...b, ch:[], used:b.ch.length}});
+  };
+  wbVals(v, o) {
+    const w = this.state.ws || Component.WS0(), b = w.back, btn = o.btn, MK = Component.MK;
+    v.wbRef = this.wbRef; v.wbPick = this.wbPick; v.wbIn = this.wbIn; v.wbDrop = this.wbDrop;
+    v.wbOver = e => { e.preventDefault(); if (!(this.state.ws || {}).backHot) this.wsSet({backHot:true}); };
+    v.wbLeave = e => { if (e && e.currentTarget && e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return; this.wsSet({backHot:false}); };
+    v.wbRing = w.backHot ? '#FFD27A' : 'rgba(239,236,230,0.08)';
+    const W = m => m ? this.W(m) : 'undecided', C = m => m ? MK[m] : '#9A958D', ch = b && b.ch || [];
+    v.wbSay = !b ? 'Read an .fcpxml back to bring its ratings and the maybe keyword in as marks; nothing changes until you use them.'
+      : b.bad ? b.bad
+      : b.used ? 'Used ' + this.plural(b.used, 'mark') + ' from ' + b.name + '. ⌘Z takes them back.'
+      : b.name + ': ' + this.plural(b.matched, 'clip') + ' of this shoot' + (b.missing.length ? ', ' + b.missing.length + ' not in it (' + b.missing.slice(0, 3).join(', ') + (b.missing.length > 3 ? ', …' : '') + ')' : '') + '. ' + (ch.length ? this.plural(ch.length, 'mark') + ' differ' + (ch.length === 1 ? 's' : '') + ' from Skim\u2019s:' : 'Every mark matches Skim\u2019s.');
+    v.wbSayC = b && b.bad ? '#FFD27A' : b && b.used ? '#A9D18E' : '#9A958D';
+    v.wbListOn = ch.length > 0;
+    v.wbList = ch.slice(0, 200).map(c => { const k = this.byId[c.id]; return {n:k ? k.name : c.id, f:W(c.from), fc:C(c.from), t:W(c.to), tc:C(c.to)}; });
+    v.wbBtnsOn = ch.length > 0;
+    v.wbBtns = [btn('ws-back-use', 'Use these ' + this.plural(ch.length, 'mark'), 'Mark these clips as the file says', true, this.wbUse), btn('ws-back-dismiss', 'Dismiss', 'Keep Skim\u2019s marks', true, () => this.wsSet({back:null}))];
+  }
   // A click: select (⌘ adds or takes away, ⇧ selects the run from the last one); a plain click on a folder also unfurls
   // it, and a second click on the folder already selected furls it.
   wsClick(r, e) {
@@ -2947,7 +3024,7 @@ class Component extends DCLogic {
           if (this.state.ws && this.state.ws.hot !== r.key) { this.wsSet({hot:r.key}); clearTimeout(this.wsSpring); if (r.dirs && !open) this.wsSpring = setTimeout(() => { if (this.wsDrag && this.state.ws && this.state.ws.hot === r.key) this.wsToggle(r, true); }, 700); } },
         leave:e => { if (e && e.currentTarget && e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return; if (this.state.ws && this.state.ws.hot === r.key) this.wsSet({hot:''}); },
         drop:e => { e.preventDefault(); clearTimeout(this.wsSpring); const kind = this.wsDrag || (e.dataTransfer && e.dataTransfer.getData('text/x-lumina-skim')); this.wsDrag = null; if (kind === 'clips') { const cs = this.wsDragClips; this.wsDragClips = null; if (!Component.wsCanSave(r) || !this.wsPlanAdd(cs, r.path)) { this.wsSet({hot:''}); return; } if (!r.made) this.wsToggle(r, true); return; } this.wsPut(kind, r); }}; });
-    this.wsPlanVals(v, o);
+    this.wsPlanVals(v, o); this.wbVals(v, o);
     v.wsEmptyOn = !rows.length; v.wsEmpty = !host ? 'The Lumina app shows the drives and folders of this Mac here, with each clip and its mark. This browser saves to its download folder.' : !pl ? 'Reading the drives…' : w.only ? 'No ' + this.W(w.only) + ' clips in the folders open here.' : '';
     v.wsH = 'calc(100vh - 230px)'; v.wsPD = this.wsPD;
     v.wsBoxD = w.box ? 'block' : 'none'; v.wsBoxX = (w.box ? w.box.x : 0) + 'px'; v.wsBoxY = (w.box ? w.box.y : 0) + 'px'; v.wsBoxW = (w.box ? w.box.w : 0) + 'px'; v.wsBoxH = (w.box ? w.box.h : 0) + 'px';
@@ -3701,16 +3778,24 @@ class Component extends DCLogic {
     // Final Cut's own name for its built-in Sony conversion, as it writes it on a clip whose Camera LUT is set to
     // Sony S-Log3/S-Gamut3.Cine (read from an export of Final Cut Pro 12.4). Only that pair is known; other log clips get none.
     const lut = c => ex.lut !== false && c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine' ? ' customLUTOverride="35 (Sony_SLog3_SGamut3Cine_v2)"' : '';
+    // the camera's timecode as where the clip starts, so Final Cut shows the same in and out as the camera (and a relink by
+    // timecode finds the file): the Sony sidecar's first LtcChange, counted at the timecode's own rate (24 for 23.98, 30 for
+    // 29.97, non-drop as tcFormat says) times the frame length. 0s when the clip has none or it doesn't read as timecode.
+    // (the LtcChange value is eight digits, frames, seconds, minutes, hours as decimal pairs: "16324420" is 20:44:32:16)
+    const ltcF = (v, rate) => { const s = String(v || ''); if (!/^\d{8}$/.test(s) || !(rate > 0)) return 0; const ff = +s.slice(0, 2), ss = +s.slice(2, 4), mm = +s.slice(4, 6), hh = +s.slice(6, 8); return hh > 23 || mm > 59 || ss > 59 || ff >= rate ? 0 : ((hh * 60 + mm) * 60 + ss) * rate + ff; };
+    const t0 = (c, f) => { const fr = ltcF(c.ltc, Math.round(f.dd / f.n)); return fr ? fr * f.n + '/' + f.dd + 's' : '0s'; };
     const al = [], cl = [];
     clips.forEach((c, i) => {
-      const f = fmt(c), du = rt(c, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
-      al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="0s" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '"' + lut(c) + '>', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
+      const f = fmt(c), du = rt(c, f), s0 = t0(c, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
+      al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="' + s0 + '" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '"' + lut(c) + '>', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
       const kw = []; if (m === 'maybe' && kwM) kw.push(kwM); if (scOf[c.id] && kw.indexOf(scOf[c.id]) < 0) kw.push(scOf[c.id]); kw.forEach(k => kws.add(k));
       // Final Cut's own ratings: selected clips are favorites, cut ones rejected (hidden by Final Cut's Hide Rejected), the rest unrated
       const rate = ex.rate === false ? null : m === 'keep' ? 'favorite' : m === 'cut' ? 'reject' : null;
-      cl.push('      <asset-clip ref="a' + (i + 1) + '" name="' + nm + '" duration="' + du + '" format="' + f.id + '" tcFormat="NDF">');
-      if (kw.length) cl.push('        <keyword start="0s" duration="' + du + '" value="' + xe(kw.join(', ')) + '"/>');
-      if (rate) cl.push('        <rating start="0s" duration="' + du + '" value="' + rate + '"/>');
+      // the clip's own start is the asset's (the DTD gives asset-clip its own; left at 0 it would lie outside its media), and the
+      // keyword and rating ranges are in the clip's time, so they start there too
+      cl.push('      <asset-clip ref="a' + (i + 1) + '" name="' + nm + '"' + (s0 !== '0s' ? ' start="' + s0 + '"' : '') + ' duration="' + du + '" format="' + f.id + '" tcFormat="NDF">');
+      if (kw.length) cl.push('        <keyword start="' + s0 + '" duration="' + du + '" value="' + xe(kw.join(', ')) + '"/>');
+      if (rate) cl.push('        <rating start="' + s0 + '" duration="' + du + '" value="' + rate + '"/>');
       cl.push('      </asset-clip>');
     });
     const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
@@ -3814,7 +3899,8 @@ class Component extends DCLogic {
       if (!fmts[a.getAttribute('format')]) say(who + ' uses a format that is not in the file.');
       const src = (kids(a, 'media-rep')[0] || a).getAttribute('src') || '';
       if (!src) say(who + ' has no file location.'); else if (!/^file:\/\/[^\/]*\/./.test(src)) say(who + ' does not point at a file:// location.');
-      if (a.getAttribute('id')) assets[a.getAttribute('id')] = {du, f:a.getAttribute('format')};
+      if (a.getAttribute('start') != null && !time(a.getAttribute('start'))) say(who + ' has a start that cannot be read.');
+      if (a.getAttribute('id')) assets[a.getAttribute('id')] = {du, f:a.getAttribute('format'), s:a.getAttribute('start') || '0s'};
     });
     rk.forEach(r => { if (tag(r) !== 'format' && tag(r) !== 'asset') say('The resources hold something this page does not write.'); });
     const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip');
@@ -3828,9 +3914,10 @@ class Component extends DCLogic {
       else if (f && (du[0] * f[1]) % (du[1] * f[0])) say(who + ' has a length that is not a whole number of frames.');
       else if (a && a.du && du[0] * a.du[1] > a.du[0] * du[1]) say(who + ' is longer than its media.');
       ['offset', 'start'].forEach(k => { const t = c.getAttribute(k); if (t != null && !time(t)) say(who + ' has a position that cannot be read.'); });
-      let nr = 0, nk = 0;
+      let nr = 0, nk = 0; const cs = c.getAttribute('start') || '0s';
+      if (a && a.s && cs !== a.s) say(who + ' does not start where its media does.');
       kids(c).forEach(k => {
-        const t = tag(k), val = k.getAttribute('value'), whole = k.getAttribute('start') === '0s' && k.getAttribute('duration') === c.getAttribute('duration') && !kids(k).length;
+        const t = tag(k), val = k.getAttribute('value'), whole = k.getAttribute('start') === cs && k.getAttribute('duration') === c.getAttribute('duration') && !kids(k).length;
         if (t === 'rating') { nr++; if (!whole || (val !== 'favorite' && val !== 'reject')) say(who + ' carries a rating this page does not write.'); }
         else if (t === 'keyword') { nk++; if (!whole || !val || val.split(', ').some(w => (kws || ['maybe']).indexOf(w) < 0)) say(who + ' carries a keyword this page does not write.'); }
         else say(who + ' carries something this page does not write.');

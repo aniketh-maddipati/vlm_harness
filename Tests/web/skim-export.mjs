@@ -65,7 +65,7 @@ export function ctxFromFixture(fx, over = {}){
     d: {
       shoot: { name: fx.shoot.name, rate: fx.shoot.rate },
       clips: fx.clips.map(c => ({
-        id: c.id, name: c.name, path: c.path,
+        id: c.id, name: c.name, path: c.path, ltc: c.tcRaw,
         dur: c.durF * c.fpsDen / c.fpsNum, fps: c.fps, w: c.w, h: c.h,
       })),
     },
