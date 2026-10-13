@@ -75,7 +75,7 @@ test('the first K changes no layout: the Viewer keeps the slim strip height whil
   // A dock that grew from one line to a strip on the first K shrank the Viewer's picture, and the chapter's next clip
   // came in beside it. Under the grid the reflow put another tile under a still pointer, which took the current clip.
   assert.match(src, /return this\.dockIds\(\)\.length \|\| this\.dockSlim\(\) \|\| this\.cutN\(\) \? this\.dockPh\(\)/);
-  assert.match(src, /out\.dockFull = L\.length > 0 \|\| this\.dockSlim\(\) \|\| cutL\.length > 0; out\.dockHold = !L\.length;/);
+  assert.match(src, /out\.dockFull = L\.length > 0 \|\| this\.dockSlim\(\) \|\| cutL\.length > 0 \|\| !!st\.bk; out\.dockHold = !L\.length;/);
   assert.equal((src.match(/data-lumina="dock-hold"/g) || []).length, 1);
   const dm = src.slice(src.indexOf('  doMark(ids, m) {'), src.indexOf('  propose(t, fn) {'));
   assert.match(dm, /this\.kbAt = Date\.now\(\);/);

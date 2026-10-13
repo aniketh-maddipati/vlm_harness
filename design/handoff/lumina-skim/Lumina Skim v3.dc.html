@@ -504,7 +504,7 @@ button:focus:not(:focus-visible){outline:none}
 
   <sc-if value="{{ dockOn }}" hint-placeholder-val="{{ false }}">
   <div data-lumina="dock" aria-label="kept clips" style="flex:none;position:relative;z-index:3;margin-top:{{ dockMt }}px;display:flex;flex-direction:column;gap:6px;padding:8px 20px 10px;background:rgba(35,34,32,0.74);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);border-top:1px solid {{ dockLine }}">
-    <div style="display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden"><span style="flex:none;color:{{ dockHeadC }};font-weight:600">Selected · Maybe</span><span data-lumina="dock-sum" style="min-width:0;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ dockSum }}</span></div>
+    <div style="display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden"><sc-for list="{{ bkTabs }}" as="bt" hint-placeholder-count="4"><button type="button" data-bk="{{ bt.m }}" tabIndex="-1" onClick="{{ bkClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:22px;padding:0 9px;border-radius:6px;background:{{ bt.bg }};box-shadow:inset 0 0 0 1px {{ bt.ring }};color:{{ bt.fg }};font-weight:{{ bt.fw }};cursor:pointer" style-hover="filter:brightness(1.15)">{{ bt.l }}</button></sc-for><span data-lumina="dock-sum" style="min-width:0;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ dockSum }}</span></div>
     <sc-if value="{{ dockFull }}" hint-placeholder-val="{{ true }}">
     <div data-lumina="dock-row" style="display:flex;align-items:flex-start;gap:4px;overflow-x:auto;overflow-y:hidden;padding:3px 3px 4px;margin:-3px">
       <sc-if value="{{ dockHold }}" hint-placeholder-val="{{ false }}"><div data-lumina="dock-hold" aria-hidden="true" style="flex:none;width:{{ dockW }}px;min-height:44px;box-sizing:border-box;padding:4px"><div style="height:{{ dockPh }}px;border-radius:3px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.12)"></div></div></sc-if>
@@ -691,7 +691,7 @@ class Component extends DCLogic {
   static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
   W(m) { return m ? Component.WORD[m] || m : ''; }
   static LV = ['Scenes','Clips','Viewer'];
-  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,cutsOpen:false,backHit:false,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:''},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
+  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,bk:null,cutsOpen:false,backHit:false,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:''},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
   covers = (() => { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.coverGet ? new Component.HostCovers(v, 200e6) : new Component.CoverCache('lumina-skim-covers', 200e6); })();
@@ -1933,7 +1933,7 @@ class Component extends DCLogic {
   gDbl = e => { if (!this.state.held) this.unfurl(+e.currentTarget.getAttribute('data-gi')); };
   sClick = e => { this.setState({cur:e.currentTarget.getAttribute('data-strip'), fx:0}); };
   wM(e) { return e.currentTarget.getAttribute('data-well'); }
-  wClick = e => { const m = this.wM(e), st = this.state; if (this.cvGrid() && !st.sel.length) return this.cvMark(m); if (st.sel.length || st.lv === 0) return this.areaMark(this.targets(), m); this.quick(m); };
+  wClick = e => { const m = this.wM(e), st = this.state; if (!this.isTouch() && e.currentTarget.closest && e.currentTarget.closest('[data-lumina="footer"]')) { Component.letGo(e); return this.bkSet(m); } if (this.cvGrid() && !st.sel.length) return this.cvMark(m); if (st.sel.length || st.lv === 0) return this.areaMark(this.targets(), m); this.quick(m); };
   scrubMove = e => { const r = e.currentTarget.getBoundingClientRect(); this.setState({fx:Math.max(0, Math.min(7, (e.clientX - r.left) / r.width * 7))}); };
   picF(e) { const r = e.currentTarget.firstElementChild.getBoundingClientRect(); return Math.max(0, Math.min(0.999, (e.clientX - r.left) / Math.max(1, r.width))); }
   picMove = e => { const id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e), h = this.state.hv;
@@ -2026,11 +2026,21 @@ class Component extends DCLogic {
   // ‹ Canvas in the Viewer: it shows the press, then goes back to the canvas on the clip it was on.
   backClick = e => { Component.letGo(e); clearTimeout(this.backT); this.setState({backHit:true}); this.backT = setTimeout(() => { this.setState({backHit:false}); if (this.state.lv >= 2) this.furl(); }, 140); };
   pileClick = () => this.cutsToggle();
+  // A category in the footer (or the dock's header) fills the dock with its clips, the focus on the first of them so
+  // ← → scroll through them; the same one again goes back to Selected and Maybe.
+  bkSet(m) {
+    const st = this.state; if (!this.d || !this.d.clips.length || st.step !== 'skim') return;
+    if (st.bk === m) { const f = this.dockFoc(); this.setState({bk:null}, () => { if (f && !this.dockIn(st.marks[f])) this.dockLeave(); }); return; }
+    const first = this.d.clips.find(c => st.marks[c.id] === m);
+    this.setState({bk:m, cutsOpen:false}, () => first ? this.dockGo(first.id) : this.dockLeave());
+  }
+  bkClick = e => { Component.letGo(e); const m = e.currentTarget.getAttribute('data-bk'); if (m) this.bkSet(m); };
   cutN() { const m = this.state.marks; return this.d ? this.d.clips.reduce((a, c) => a + (m[c.id] === 'cut' ? 1 : 0), 0) : 0; }
   // Open: the dock's focus on the first cut clip (in the Viewer, that clip large), so ← → go through them. Folded again,
   // a focus on a cut clip leaves the dock.
   cutsToggle() {
     const st = this.state; if (!this.d || !this.d.clips.length || st.step !== 'skim') return;
+    if (st.bk) this.setState({bk:null});
     if (st.cutsOpen) { const f = this.dockFoc(), out = f && st.marks[f] === 'cut'; this.setState({cutsOpen:false}); if (out) this.dockLeave(); return; }
     const first = this.d.clips.find(c => st.marks[c.id] === 'cut'); if (!first) return this.flash('No cut clips yet · C cuts the clip you are on');
     this.setState({cutsOpen:true}, () => this.dockGo(first.id));
@@ -2126,7 +2136,7 @@ class Component extends DCLogic {
     vals.counts = st.flash || Component.countsLine(decided, und, st.vw);
     vals.handOffer = !st.prop && !empty && und === 0;
     vals.handOpen = () => this.setStep('export');
-    vals.wells = ['keep', 'maybe', 'cut'].map(m => ({m, l:this.W(m), n:markN[m], c:MK[m], bg:'rgba(239,236,230,0.05)', ring:'rgba(239,236,230,0.1)'}));
+    vals.wells = ['keep', 'maybe', 'cut'].map(m => ({m, l:this.W(m), n:markN[m], c:MK[m], bg:st.bk === m ? MK[m] + '33' : 'rgba(239,236,230,0.05)', ring:st.bk === m ? MK[m] : 'rgba(239,236,230,0.1)'}));
     vals.cutSoFar = Component.cutLine(markN.cut, markB.cut, b => this.fmtB(b), st.vw); vals.cutC = markN.cut ? '#B8B3AB' : '#9A958D';
     vals.freeTxt = ''; vals.freeOn = !!vals.freeTxt;   // the card line is not shown on the one grid (freeTxt stays empty)
     // storage: the line and its rows (step 1: frames in memory)
@@ -2293,8 +2303,9 @@ class Component extends DCLogic {
   // move through it: ↓ from the grid's last row (⇧↓ from any row) or from the Viewer enters it, ← → step along it, ↑ goes back,
   // ⏎ opens, K takes the clip out of it. `state.dk` is the clip the dock has focus on (null: it has none).
   // The plain functions are read out of the page by Tests/web/skim-dock.test.mjs.
-  static dockList(clips, marks, cuts) {
+  static dockList(clips, marks, cuts, only) {
     const out = [], put = (want, gap) => { let g = null, first = true; clips.forEach(c => { const m = marks[c.id]; if (!want(m)) return; out.push({id:c.id, g:c.g, m, brk:out.length > 0 && (first ? gap : c.g !== g)}); g = c.g; first = false; }); };
+    if (only) { put(m => m === only, false); return out; }
     put(m => m === 'keep' || m === 'maybe', false); if (cuts) put(m => m === 'cut', true); return out;
   }
   static dockStep(ids, id, d) { const i = ids.indexOf(id); if (i < 0) return ids[0] ?? null; return ids[Math.max(0, Math.min(ids.length - 1, i + d))]; }
@@ -2307,8 +2318,8 @@ class Component extends DCLogic {
   // In the Viewer the slim strip keeps its height while it is empty, so the first K does not shrink the picture
   // (a smaller picture let the chapter's neighbours in beside it, which read as K opening the next clip).
   dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; return this.dockIds().length || this.dockSlim() || this.cutN() ? this.dockPh() + (this.dockSlim() ? 49 : 68) : 35; }
-  dockIn(m) { return m === 'keep' || m === 'maybe' || (m === 'cut' && this.state.cutsOpen); }
-  dockIds() { const C = this.d ? this.d.clips : [], m = this.state.marks, K = C.filter(c => m[c.id] === 'keep' || m[c.id] === 'maybe').map(c => c.id); return this.state.cutsOpen ? K.concat(C.filter(c => m[c.id] === 'cut').map(c => c.id)) : K; }
+  dockIn(m) { const bk = this.state.bk; return bk ? m === bk : m === 'keep' || m === 'maybe' || (m === 'cut' && this.state.cutsOpen); }
+  dockIds() { const C = this.d ? this.d.clips : [], m = this.state.marks; if (this.state.bk) return C.filter(c => m[c.id] === this.state.bk).map(c => c.id); const K = C.filter(c => m[c.id] === 'keep' || m[c.id] === 'maybe').map(c => c.id); return this.state.cutsOpen ? K.concat(C.filter(c => m[c.id] === 'cut').map(c => c.id)) : K; }
   // While the dock has focus it follows the clip you are on when that clip is selected (an undo can move you).
   dockFoc() { const st = this.state, ok = id => id && this.byId && this.byId[id] && this.dockIn(st.marks[id]); return st.step === 'skim' && ok(st.dk) ? (ok(st.cur) ? st.cur : st.dk) : null; }
   dockMount() { this._dmd = e => { if (!this.state.dk) return; const t = e.target; if (t && t.closest && t.closest('[data-lumina="dock"],[data-well],[data-lumina="keybar"]')) return; this.setState({dk:null}); }; window.addEventListener('mousedown', this._dmd); }
@@ -2358,16 +2369,20 @@ class Component extends DCLogic {
     return false;
   }
   dockVals(v) {
-    const st = this.state, d = this.d, MK = Component.MK, out = {dockOn:false, dockFull:false, dockHold:false, dock:[], dockSum:'', dockMt:0, pileOn:false, pile:[], pileN:'', pileW:0, pileIn:0, pileWord:'', pileTip:'', cutsOpen:!!st.cutsOpen, pileClick:this.pileClick, dockLine:'rgba(239,236,230,0.08)', dockHeadC:'#B8B3AB', dockW:0, dockPh:0, dockClick:this.dockClick, dockDbl:this.dockDbl};
+    const st = this.state, d = this.d, MK = Component.MK, out = {bkTabs:[], bkClick:this.bkClick, dockOn:false, dockFull:false, dockHold:false, dock:[], dockSum:'', dockMt:0, pileOn:false, pile:[], pileN:'', pileW:0, pileIn:0, pileWord:'', pileTip:'', cutsOpen:!!st.cutsOpen, pileClick:this.pileClick, dockLine:'rgba(239,236,230,0.08)', dockHeadC:'#B8B3AB', dockW:0, dockPh:0, dockClick:this.dockClick, dockDbl:this.dockDbl};
     if (!v.isSkim || !d || !d.clips.length) return out;
-    const L = Component.dockList(d.clips.map(c => ({id:c.id, g:st.cv && this.scOf && this.scOf[c.id] != null ? this.scOf[c.id] : this.gOfAll[c.id]})), st.marks, !!st.cutsOpen), foc = this.dockFoc();
+    const L = Component.dockList(d.clips.map(c => ({id:c.id, g:st.cv && this.scOf && this.scOf[c.id] != null ? this.scOf[c.id] : this.gOfAll[c.id]})), st.marks, !!st.cutsOpen, st.bk), foc = this.dockFoc();
     const ph = this.dockPh(), slot = this.dockSl || (this.dockSl = {}), nm = c => c.name.replace(/\.\w+$/, '');
     const ids = L.map(x => x.id), dur = ids.reduce((a, id) => a + (this.byId[id].dur || 0), 0);
     const cutL = d.clips.filter(c => st.marks[c.id] === 'cut'), nC = L.filter(x => x.m === 'cut').length;
-    out.dockOn = true; out.dockFull = L.length > 0 || this.dockSlim() || cutL.length > 0; out.dockHold = !L.length; out.dockMt = st.lv >= 2 && st.vw > 640 ? -28 : 0; out.dockPh = ph; out.dockW = Math.round(ph * 16 / 9) + 8; out.dockText = !this.dockSlim();
+    out.dockOn = true; out.dockFull = L.length > 0 || this.dockSlim() || cutL.length > 0 || !!st.bk; out.dockHold = !L.length;
+    out.bkTabs = [[null, this.W('keep') + ' · ' + this.W('maybe')], ['keep', this.W('keep')], ['maybe', this.W('maybe')], ['cut', this.W('cut')]].map(([m, l]) => { const on = (st.bk || null) === m, n = m ? d.clips.reduce((a, c) => a + (st.marks[c.id] === m ? 1 : 0), 0) : null, col = m ? MK[m] : '#EFECE6';
+      return {m:m || st.bk || '', l:l + (n != null ? ' ' + n : ''), fg:on ? '#1E1D1B' : col, bg:on ? col : 'transparent', ring:on ? col : col + '55', fw:on ? 700 : 400}; });
+    out.dockMt = st.lv >= 2 && st.vw > 640 ? -28 : 0; out.dockPh = ph; out.dockW = Math.round(ph * 16 / 9) + 8; out.dockText = !this.dockSlim();
     const kN = L.filter(x => x.m === 'keep').length, mN = L.filter(x => x.m === 'maybe').length;
     out.dockSum = kN + mN ? kN + ' ' + this.W('keep') + ' · ' + mN + ' ' + this.W('maybe') + ' · ' + this.fmtDur(dur) + ' · ' + this.fmtB(this.bytesOf(ids)) + (nC ? ' · ' + nC + ' cut shown' : '') : nC ? nC + ' cut shown' : 'nothing yet · K or M puts the clip you are on here';
-    if (cutL.length) {
+    if (st.bk) out.dockSum = L.length ? this.plural(L.length, 'clip') + ' · ' + this.fmtDur(dur) + ' · ' + this.fmtB(this.bytesOf(ids)) + ' · click again for selected and maybe' : 'none yet';
+    if (cutL.length && !st.bk) {
       const sh = cutL.slice(-3), ns = sh.length;
       out.pileOn = true; out.pileW = out.dockW; out.pileIn = out.dockW - 8 - 12; out.pileN = cutL.length + ' cut';
       out.pileWord = st.cutsOpen ? 'fold' : 'unfurl'; out.pileTip = (st.cutsOpen ? 'Fold the cut clips' : 'Unfurl the cut clips') + ' · ⇧C';
