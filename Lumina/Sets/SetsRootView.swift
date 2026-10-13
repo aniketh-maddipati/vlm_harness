@@ -217,8 +217,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = "Export here"
-        panel.message = refusal ?? (label == "xmp" ? "Choose the folder for the .xmp sidecars." : label == "skim" ? "Choose the folder Skim saves its Final Cut files and cut lists in." : "Choose where the export goes.")
+        panel.message = refusal ?? (label == "xmp" ? "Choose the folder for the .xmp sidecars." : label == "skim" ? "Choose the folder Skim saves its Final Cut files and cut lists in." : label == "skim-place" ? "Let Skim into this drive or folder, so Export can show its folders and save there. Skim only adds files you save." : "Choose where the export goes.")
         if label == "skim" { panel.prompt = "Save Here" }
+        if label == "skim-place" { panel.prompt = "Let Skim In" }
         panel.directoryURL = suggested
         return await run(panel)
     }

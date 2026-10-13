@@ -133,8 +133,14 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `skimExportPlace` | `skim/export.json` (the Save to folder's bookmark) and whether Final Cut Pro is installed; the open shoot's folder path, for the .fcpxml (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimExportChoose` | — | the folder panel after the user's click; the folder picked is kept as a security-scoped bookmark in `skim/export.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportAsk` | — | removes `skim/export.json`, so each save asks with the save panel (Debug builds with `LUMINA_PAGE=skim` only) |
-| `skimExportSave` | the file just written, read back | one new `.fcpxml` or `.txt` (the page's text, at most 16 MB) in the Save to folder under a free name, or where the user put it in the save panel; never over an existing file (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimExportSave` | the file just written, read back | one new `.fcpxml` or `.txt` (the page's text, at most 16 MB) in the folder the workshop names (inside one the user let Skim into) or the Save to folder, under a free name, or where the user put it in the save panel; never over an existing file (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportCheck` | whether each clip file a .fcpxml points at is on disk (inside the opened folder only), and Final Cut Pro's own FCPXML DTD from its app bundle (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimPlaces` | the drives mounted (name, size, free space, card or read only) and `skim/places.json` (the folders the user let Skim into); nothing inside a drive (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimPlaceAdd` | — | the folder panel after the user's click, opened at the drive or folder named; the folder picked is kept as a security-scoped bookmark in `skim/places.json` (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimPlaceRemove` | — | takes a folder off `skim/places.json`; the folder is not touched (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimDirList` | the folder names (no files, nothing hidden) directly inside one folder, only inside a folder the user let Skim into (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimDirMake` | — | one new, empty folder with a plain name inside a folder the user let Skim into, after his click; never on a camera card, never over a folder (Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimExportDefault` | — | `skim/export.json`: a folder of the workshop's tree becomes the Save to folder (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportReveal` | — | — (Finder, with a file this run's Export saved selected; Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimOpenInFinalCut` | — | — (hands a `.fcpxml` this run's Export saved to Final Cut Pro, which asks where to import it, after the user's click or the Export option he turned on; Debug builds with `LUMINA_PAGE=skim` only) |
 | `openSettings` | — | — (opens System Settings ▸ Privacy & Security ▸ Files and Folders) |
@@ -204,6 +210,8 @@ Not checked by the script; keep it current by hand.
 | Container `skim/store.json` (Debug builds' Skim only) | Skim's marks per shoot, with the folder's name, clip count, size and days | Forget marks in Skim's Working memory |
 | Container `skim/covers/` (Debug builds' Skim only) | Skim's covers (the page's JPEGs of the clips' first frame) and first measures per shoot, capped at 200 MB | Clear for shoots not open, Re-measure this shoot, and the cap |
 | Container `skim/export.json` (Debug builds' Skim only) | the bookmark of the folder Skim's Export saves into | Export ▸ Save to ▸ Ask each time |
+| Container `skim/places.json` (Debug builds' Skim only) | bookmarks of the drives and folders the user let Skim's Export workshop into, at most 24 | Remove in the workshop's tree |
+| A folder the user let Skim into (Debug builds' Skim only) | new empty folders made with New folder in Export's workshop | the user, in Finder |
 | Folder chosen under Export ▸ Save to, or picked in the save panel (Debug builds' Skim only) | new `.fcpxml` and cut-list `.txt` files, never over one that is there | the user, in Finder |
 | Container `skim/trash.json` (Debug builds' Skim only) | where each clip Skim moved to the Trash came from and where it went, for Put back | Put back, and dropped from the list once a file is no longer in the Trash |
 | Opened Skim folder (Debug builds' Skim only) | nothing written; cut clips and their sidecars moved to the system Trash after two clicks | the user, from the Trash (Put Back) |

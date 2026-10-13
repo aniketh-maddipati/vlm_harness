@@ -174,7 +174,7 @@ test('the one grid shows less: no level tabs, no scene slider, the raw file only
   assert.ok(!grid.includes('aria-label="scenes"') && !grid.includes('data-lumina="fold-strip"'), 'no scene slider and no size strip over the grid');
   for (const k of ['By scene</span>', 'The .fcpxml</span>', '{{ exRows }}']) { const at = tpl.indexOf(k), on = tpl.lastIndexOf('<sc-if value="{{ exDbg }}"', at); assert.ok(on > 0 && !tpl.slice(on, at).includes('</sc-if>'), k); }
   assert.ok(!/data-lumina="export-problems"[\s\S]{0,40}exDbg/.test(tpl) && tpl.indexOf('export-problems') > 0, 'a failed check still shows');
-  assert.match(src, /const sheet = !!st\.cv && st\.step === 'export' && this\.hasShoot\(\), sk = st\.step === 'skim' \|\| sheet;/);
+  assert.match(src, /const sheet = !!st\.cv && st\.step === 'export' && this\.hasShoot\(\) && !st\.exFull, sk = st\.step === 'skim' \|\| sheet;/);   // the workshop is a page of its own
   assert.match(src, /isSkim:st\.step === 'skim' \|\| sheet/);
   assert.match(src, /exOut:e => \{ if \(e\.target === e\.currentTarget\) this\.setStep\('skim'\); \}/, 'a click beside the sheet goes back');
   assert.doesNotMatch(src, /'nothing to note'/);

@@ -28,7 +28,14 @@ async function run(host) {
       exportPlace: () => ask(place),
       exportChoose: () => { place = {...place, ask:false, path:'/Users/sam/Movies/Exports', name:'Exports'}; return ask(place); },
       exportAsk: () => { place = {ask:true, finalCut:true, clips:place.clips}; return ask(place); },
-      exportSave: (name, text) => { window.__calls.push(['save', name, text]); return ask({ok:true, path:'/Users/sam/Movies/Exports/' + name, name, folder:'/Users/sam/Movies/Exports'}); },
+      exportSave: (name, text, dir) => { window.__calls.push(['save', name, text, dir]); const f = dir || '/Users/sam/Movies/Exports'; return ask({ok:true, path:f + '/' + name, name, folder:f}); },
+      exportDefault: p => { place = {...place, ask:false, path:p, name:p.split('/').pop()}; return ask(place); },
+      places: () => ask({saveTo:place.ask ? null : place.path, home:'/Users/sam',
+        places:[{name:'dump', path:'/Users/sam/Desktop/dump', kind:'shoot', card:false}].concat(place.ask ? [] : [{name:place.name, path:place.path, kind:'saveTo', card:false}]),
+        drives:[{name:'Macintosh HD', path:'/', granted:false, card:false, readOnly:false, free:2e11}, {name:'T7', path:'/Volumes/T7', granted:true, card:false, readOnly:false, free:1.5e11}, {name:'SONY', path:'/Volumes/SONY', granted:false, card:true, readOnly:false, free:3e10}]}),
+      dirList: p => { window.__calls.push(['list', p]); const D = window.__dirs = window.__dirs || {'/Volumes/T7':[{name:'Projects', path:'/Volumes/T7/Projects', dirs:true}], '/Volumes/T7/Projects':[]}; return ask(D[p] || []); },
+      dirMake: (parent, name) => { window.__calls.push(['mkdir', parent, name]); const D = window.__dirs; const q = parent + '/' + name; (D[parent] = D[parent] || []).push({name, path:q, dirs:false}); D[q] = []; return ask({ok:true, path:q}); },
+      placeAdd: () => ask(null), placeRemove: () => ask(null),
       exportCheck: text => { window.__calls.push(['check']); const m = [...text.matchAll(/src="file:\/\/([^"]+)"/g)].map(x => decodeURIComponent(x[1])); return ask({dtd:'ok', errors:[], unchecked:0, missing:m.filter(p => /C0002/.test(p))}); },
       exportReveal: p => { window.__calls.push(['reveal', p]); return ask(true); },
       openInFinalCut: p => { window.__calls.push(['fcp', p]); return ask({ok:true, app:'Final Cut Pro'}); },
@@ -62,20 +69,53 @@ async function run(host) {
     ok(/Asks each time/.test(await text('[data-lumina="export-dest"]')), 'app: Save to starts on asking each time');
     await p.click('[data-lumina="dest-choose"]'); await p.waitForTimeout(300);
     ok(/~\/Movies\/Exports/.test(await text('[data-lumina="export-dest"]')) && await p.$('[data-lumina="dest-ask"]'), 'app: a folder chosen shows, with Ask each time');
-    for (const id of ['ex-scenes', 'ex-openfc', 'ex-trash', 'ex-mem']) await p.click('[data-lumina="' + id + '"]'), await p.waitForTimeout(150);
+    ok(await p.$('[data-lumina="ex-scope-maybes"][aria-checked="true"]') && !await p.$('[data-lumina="export-summary"]') && !await p.$('[data-lumina="ex-scenes"]'), 'app: quick export: clips as three choices, no summary, no Final Cut options');
+    for (const id of ['ex-openfc', 'ex-trash', 'ex-mem']) await p.click('[data-lumina="' + id + '"]'), await p.waitForTimeout(150);
     await p.waitForTimeout(600);
     ok(/missing on disk: C0002/.test(await text('[data-lumina="sum-verify"]')), 'app: the background check flags the missing clip file before saving: ' + await text('[data-lumina="sum-verify"]'));
     const plan = await text('[data-lumina="export-then"]');
     ok(/saves .+\.fcpxml to ~\/Movies\/Exports, opens it in Final Cut, moves 2 cut clips .+ to the Trash and clears .+ of working memory\./.test(plan) || /saves .+ to ~\/Movies\/Exports, opens it in Final Cut and moves 2 cut clips/.test(plan), 'app: the plan line: ' + plan);
     if (shots) await p.screenshot({path:path.join(shots, 'app-export-on.png'), fullPage:true});
+    // the workshop: W opens it; the tree, unfurled by a click and the arrows; a new folder; the Final Cut file dropped on it
+    await p.keyboard.press('w'); await p.waitForTimeout(400);
+    ok(await p.$('[data-lumina="workshop"]') && /Export workshop/.test(await text('[data-screen-label="Export"]')), 'app: W opens the workshop');
+    const rowsT = async () => (await p.$$eval('[data-lumina="ws-row"]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim())));
+    let rows = await rowsT();
+    ok(rows.some(r => /^› dump/.test(r) || /dump/.test(r)) && rows.some(r => /T7/.test(r) && /free/.test(r)) && rows.some(r => /SONY/.test(r) && /camera card/.test(r)) && rows.some(r => /Macintosh HD/.test(r) && /not let in/.test(r)), 'app: the tree has the shoot folder, Save to and the drives: ' + rows.join(' | '));
+    await p.click('[data-lumina="ex-scenes"]'); await p.waitForTimeout(150);
+    await p.click('[data-lumina="ws-row"][data-path="/Volumes/T7"]'); await p.waitForTimeout(300);
+    ok(await p.$('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]') && await p.$eval('[data-lumina="ws-row"][data-path="/Volumes/T7"]', e => e.getAttribute('aria-expanded')) === 'true', 'app: a click unfurls a drive');
+    await p.keyboard.press('ArrowDown'); await p.waitForTimeout(100); await p.keyboard.press('ArrowRight'); await p.waitForTimeout(300);
+    ok(/No folders inside/.test(await text('[data-lumina="ws-tree"]')) && await p.$eval('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]', e => e.getAttribute('aria-selected')) === 'true', 'app: ↓ and → select and unfurl the next folder');
+    await p.keyboard.press('n'); await p.waitForTimeout(200);
+    ok(await p.$('[data-lumina="ws-new-name"]'), 'app: N asks for a folder name');
+    await p.fill('[data-lumina="ws-new-name"]', 'Tuesday export'); await p.keyboard.press('Enter'); await p.waitForTimeout(400);
+    const made = '/Volumes/T7/Projects/Tuesday export';
+    ok(await p.$('[data-lumina="ws-row"][data-path="' + made + '"][aria-selected="true"]') && /Made .+Tuesday export/.test(await text('[data-lumina="ws-say"]')), 'app: the new folder is made, listed and selected');
+    await p.keyboard.press('ArrowLeft'); await p.keyboard.press('ArrowLeft'); await p.waitForTimeout(250);
+    ok(!await p.$('[data-lumina="ws-row"][data-path="' + made + '"]'), 'app: ← goes out to the parent and furls it');
+    await p.keyboard.press('ArrowRight'); await p.waitForTimeout(250);
+    await p.dragAndDrop('[data-lumina="ws-file-fcp"]', '[data-lumina="ws-row"][data-path="/Volumes/SONY"]'); await p.waitForTimeout(250);
+    ok(!/SONY/.test(await text('[data-lumina="ws-to-fcp"]')), 'app: a camera card takes no drop');
+    await p.dragAndDrop('[data-lumina="ws-file-fcp"]', '[data-lumina="ws-row"][data-path="' + made + '"]'); await p.waitForTimeout(300);
+    ok(/Tuesday export/.test(await text('[data-lumina="ws-to-fcp"]')) && /Final Cut file/.test(await text('[data-lumina="ws-row"][data-path="' + made + '"]')), 'app: the Final Cut file dropped on the new folder goes there: ' + await text('[data-lumina="ws-to-fcp"]'));
+    await p.dragAndDrop('[data-lumina="ws-file-cut"]', '[data-lumina="ws-row"][data-path="/Volumes/T7"]'); await p.waitForTimeout(300);
+    ok(/\/Volumes\/T7$/.test((await text('[data-lumina="ws-to-cut"]')).trim()), 'app: the cut list can go somewhere else: ' + await text('[data-lumina="ws-to-cut"]'));
+    ok(/to \/Volumes\/T7\/Projects\/Tuesday export/.test(await text('[data-lumina="export-then"]')), 'app: the plan line names the folder: ' + await text('[data-lumina="export-then"]'));
+    if (shots) await p.screenshot({path:path.join(shots, 'app-workshop.png'), fullPage:true});
+    await p.click('[data-lumina="cut-save"]'); await p.waitForTimeout(300);
     await p.keyboard.press('Meta+Enter'); await p.waitForTimeout(900);
     const calls = await p.evaluate(() => window.__calls), r = await text('[data-lumina="export-result"]');
     const saved = calls.find(c => c[0] === 'save');
-    ok(saved && /<keyword [^>]*value="[^"]*Scene 1/.test(saved[2]) && /file:\/\/\/Users\/sam\/Desktop\/dump\//.test(saved[2]), 'app: the file has scene keywords and points at the folder the app read');
-    ok(calls.map(c => c[0]).filter(c => c !== 'check').join(' ') === 'save fcp trash', 'app: save, then Final Cut, then the Trash: ' + calls.map(c => c[0]).join(' '));
+    const savedF = calls.filter(c => c[0] === 'save' && /\.fcpxml$/.test(c[1])).pop(), savedT = calls.find(c => c[0] === 'save' && /cut clips\.txt$/.test(c[1]));
+    ok(savedF && /<keyword [^>]*value="[^"]*Scene 1/.test(savedF[2]) && /file:\/\/\/Users\/sam\/Desktop\/dump\//.test(savedF[2]), 'app: the file has scene keywords and points at the folder the app read');
+    ok(savedF && savedF[3] === made && savedT && savedT[3] === '/Volumes/T7', 'app: each file is saved in the folder it was dropped on');
+    ok(calls.map(c => c[0]).filter(c => !/check|list|mkdir/.test(c)).join(' ') === 'save save fcp trash', 'app: (cut list), save, then Final Cut, then the Trash: ' + calls.map(c => c[0]).join(' '));
     ok(/clip file missing on disk: C0002\.MP4/.test(r) && /missing on disk/.test(await text('[data-lumina="sum-verify"]')), 'app: a missing clip file is flagged in the result and the summary');
-    ok(/Saved .+ in ~\/Movies\/Exports/.test(r) && /Opened in Final Cut Pro/.test(r) && /Moved 2 cut clips/.test(r) && /working memory/.test(r), 'app: the result: ' + r.replace(/\n/g, ' | '));
+    ok(/Saved .+ in \/Volumes\/T7\/Projects\/Tuesday export/.test(r) && /Opened in Final Cut Pro/.test(r) && /Moved 2 cut clips/.test(r) && /working memory/.test(r), 'app: the result: ' + r.replace(/\n/g, ' | '));
     if (shots) { await p.evaluate(() => { const e = document.querySelector('[data-screen-label="Export"]'); if (e) e.scrollTop = 0; }); await p.screenshot({path:path.join(shots, 'app-done.png')}); }
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+    ok(/Tuesday export/.test(await text('[data-lumina="dest-line"]')) && await p.$('[data-lumina="dest-unpin"]'), 'app: esc goes back to the quick export, which shows the folder the workshop picked');
     await p.click('[data-lumina="export-reveal"]'); await p.click('[data-lumina="export-putback"]'); await p.waitForTimeout(400);
     const c2 = await p.evaluate(() => window.__calls.map(c => c[0]).join(' '));
     ok(/reveal/.test(c2) && /putback/.test(c2) && /Put back 2 clips/.test(await text('[data-lumina="export-result"]')), 'app: Show in Finder and Put back answer from the result');
