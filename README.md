@@ -1,51 +1,47 @@
 # Lumina
 
-Lumina is a Mac app for culling Sony ARW shoots quickly. Open a card or a folder, work through the
-shoot with the keyboard, and keep the frames you want. Everything else stays where it was.
+Lumina is a Mac app for culling RAW shoots: Sony ARW, and DNG from phones. Open a card or a
+folder, pick the frames you want with the keyboard, and save ratings Lightroom Classic and
+Capture One can read. Your files stay where they are.
 
 ![Culling a shoot by time rows](docs/screenshots/cull-row.png)
 
-## How culling works
+## How it works
 
-**Open a shoot.** Choose File ▸ Open (⌘O) and pick a folder, or insert a Sony card and press
-**Return** when the open screen offers to cull it. Lumina remembers each shoot, so if you reopen it
-later you pick up where you left off.
+There are four steps, each on a key: Open (⌘1), Pick (⌘2), Edit (⌘3) and Save (⌘4).
 
-**The shoot is split into rows by time.** A new row starts after a break of more than 90 seconds,
-and each row is labeled with its start time, such as 06:48 or 08:12. Inside a row, frames shot less
-than a second apart form a **burst** (or a **bracket**, if the exposures step from under to over),
-and the rest are listed as **singles**.
+**Open.** Press ⌘O and choose a card or a folder, or drop files on the window. Lumina remembers
+each shoot, so reopening one picks up where you stopped. Photos you already decided on in another
+shoot keep that decision.
 
-**Lumina suggests what to keep.** In a burst it suggests the sharpest frame that isn't blown, soft,
-or shaky. It suggests every frame of a bracket, and each single that has none of those problems. A
-dot in a frame's corner means that frame is likely out.
+**Rows and stacks.** The shoot is split into rows by time: a new row starts after a long gap, or
+when the lens, focal length, mode, white balance, flash or ISO changes. Similar frames shot close
+together form a stack, which counts as one photo until you open it.
 
-**Work a whole row at once.** Use ↑ ↓ to move between rows. Press **R** to keep the suggested frames
-or **X** to reject the entire row. Hold **L** to also see the frames Lumina didn't suggest.
-
-**Or go one photo at a time.** Press → to step into a row. Then **R** keeps a photo, **X** rejects it,
-and ← → moves through the frames. Lumina tags frames that have a problem, such as **blown** or
-**soft**, and points out the **sharpest** frame in a burst.
+**Pick.** ⏎ keeps a photo and moves on, R marks it not kept, and → passes without deciding. Hold ⇧
+to do the same going back. ⇧→ opens a stack, ⇧←→ steps through its frames (the one with the most
+detail is marked in gold), and ⇧K or ⇧R decides every frame at once.
 
 ![A single photo selected, tagged "blown"](docs/screenshots/cull-photo.png)
 
-**The frames you keep collect in the strip at the bottom.** The count in the top bar updates as you
-go, and your work is saved on its own. **Q** or ⌘Z undoes the last action. Press **Space** to see a
-photo large, hold **G** for 100%, or press **W** to compare the frames of a burst.
+**Look closer.** Hold Space for the large view and Z for 100%. In the large view, hold F to show
+sharp edges in red and E to show clipped highlights and shadows.
+
+**Nothing is final.** Q or ⌘Z undoes, ⇧Q redoes. When a pass is done, ⇧P starts the next one with
+only the photos you kept. Nothing is deleted.
 
 ![Keeping the first frame of a burst; it lands in the kept strip](docs/screenshots/cull-kept.png)
 
-**Auto** is an automatic look (exposure, contrast, highlights, shadows and white
-balance) that Lumina works out for each photo. While you cull, press **V** to preview it on a row or
-group, or hold **A** to compare one photo with and without it. A preview changes nothing until you apply it in Edit.
+**Edit** (optional). Adjust exposure, white balance, contrast, tone, colour and crop on the photos
+you kept. A applies an automatic exposure and white balance. Every change can be undone.
+
+**Save.** ⌘⏎ writes an `.xmp` sidecar with a rating next to each ARW you kept. Phone DNGs you kept
+are copied to a Picks folder instead, because Lightroom ignores sidecars for DNG. Export writes
+JPEGs with your edits.
 
 Press **?** to list every key.
 
 ![Every culling key](docs/screenshots/cull-keys.png)
-
-When you finish culling, press **Tab** to move on to **edit** (optional touch-ups) and then **export**.
-Save writes XMP sidecars with your ratings beside the RAWs, for Lightroom Classic or Capture One;
-export writes JPEGs of your edits.
 
 ## What it won't do
 
@@ -161,12 +157,12 @@ Most likely first:
 
 ### Not yet verified
 
-- A fresh install on macOS 14, 15 and 26, from TestFlight and from the dmg.
+- A fresh install on macOS 15 and 26, from TestFlight and from the dmg.
 - Long runs: 8 hours of use, 10,000-photo shoots, repeated kills.
 
 ## Run it
 
-You need Xcode 16.4 or later, an Apple silicon Mac, and macOS 14 or later.
+You need Xcode 16.4 or later, an Apple silicon Mac, and macOS 15 or later.
 
 ```bash
 open Lumina.xcodeproj

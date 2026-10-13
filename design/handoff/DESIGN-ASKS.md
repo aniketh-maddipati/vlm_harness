@@ -1382,3 +1382,38 @@ The app draws these on the photo now (2026-10-08), so this does not need a new p
 light hairline (`rgba(239,236,230,0.5)`) you can see the picture through. The dotted gold axis
 (`#FFD27A`, dash 7 5) is drawn in front of the photo, including once it has turned. Neither is a
 hole in the canvas. The page's own strokes are unchanged and sit under the photo.
+
+## Prompt 27 — One word per action, and shorter copy (paste into Claude Design)
+
+Copy only: no layout, key or logic changes. Fix these strings in `Lumina Sets v12.dc.html`
+(`TOUR`, `GRAM`, `ISSUES`, the key bar, the ? sheet) and `lumina-v4-data.js` (`FAQ`).
+
+1. **One word for R.** The page calls the same action "remove", "not kept", "un-keeps", "drops",
+   "set aside" and "skip". Use **keep** for ⏎, **set aside** for R and **pass** for →, everywhere:
+   - key bar and ? sheet: `remove` → `set aside`, `removed` → `set aside`, `remove all` /
+     `remove every frame` → `set all aside`, `not kept · next` → `set aside · next`.
+   - TOUR "Pick": `Similar frames stack. Keep the good ones, skip the rest.` →
+     `Similar frames stack. Keep the good ones, set the rest aside.`
+   - GRAM "The rule": `A photo is kept or not. ⏎ keeps and moves on, R un-keeps and moves on. Hold ⇧
+     to do the same going back. Arrows just pass.` → `⏎ keeps a photo and R sets it aside, then
+     both move on. Hold ⇧ to go back instead. Arrows pass without deciding.`
+   - GRAM "Nothing is final": `Kept one you meant to pass? ⇧R steps back and un-keeps it. Nothing is
+     thrown away: Save lists what wasn’t kept, and you can go round again as often as you like.` →
+     `Kept one by mistake? ⇧R steps back and sets it aside. Nothing is deleted: Save lists what
+     wasn’t kept, and you can do another pass.`
+   - GRAM "Passes": `⏎ keeps, R drops.` → cut the sentence (the rule already says it).
+   - ISSUES: `No delete. Removed photos are only hidden.` → `Nothing is deleted. Photos set aside
+     are only hidden.`
+   - The stray-key hint `U not used · K keeps, R removes` → `U not used · ⏎ keeps, R sets aside`.
+2. **TOUR "Open a card":** `Lumina reads RAWs straight off the card, camera or phone. Nothing is
+   changed, nothing leaves your Mac, no account.` → `Lumina reads RAWs from a card, camera or
+   phone. It changes nothing and sends nothing off your Mac.`
+3. **Watch Downloads:** `Waiting. New RAWs pop up while you cull.` → `Waiting for AirDrop. New RAWs
+   appear while you cull.`
+4. **? sheet, CONTACT:** the FAQ line says `files, privacy, AI`, but the FAQ has no question about
+   AI. Make it `files, privacy`.
+5. **Edit intro:** `Five things worth knowing. Everything can be undone.` → `Five things to know.
+   Everything can be undone.`
+
+Reply with each changed string in place, as the full `TOUR`, `GRAM`, `ISSUES` and `FAQ` constants
+and the changed key-bar lines.
