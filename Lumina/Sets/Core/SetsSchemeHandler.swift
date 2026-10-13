@@ -290,7 +290,7 @@ nonisolated enum SetsPage: String, Sendable {
         places: () => post('skimPlaces'),
         placeAdd: (at) => post('skimPlaceAdd', { at: at ? String(at) : null }),
         placeRemove: (path) => post('skimPlaceRemove', { path: String(path) }),
-        dirList: (path) => post('skimDirList', { path: String(path) }),
+        dirList: (path, files) => post('skimDirList', { path: String(path), files: !!files }),
         dirMake: (parent, name) => post('skimDirMake', { parent: String(parent), name: String(name) }),
         exportReveal: (path) => post('skimExportReveal', { path: String(path) }),
         exportCheck: (text) => post('skimExportCheck', { text: String(text) }),

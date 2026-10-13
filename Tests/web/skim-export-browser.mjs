@@ -33,7 +33,8 @@ async function run(host) {
       places: () => ask({saveTo:place.ask ? null : place.path, home:'/Users/sam',
         places:[{name:'dump', path:'/Users/sam/Desktop/dump', kind:'shoot', card:false}].concat(place.ask ? [] : [{name:place.name, path:place.path, kind:'saveTo', card:false}]),
         drives:[{name:'Macintosh HD', path:'/', granted:false, card:false, readOnly:false, free:2e11}, {name:'T7', path:'/Volumes/T7', granted:true, card:false, readOnly:false, free:1.5e11}, {name:'SONY', path:'/Volumes/SONY', granted:false, card:true, readOnly:false, free:3e10}]}),
-      dirList: p => { window.__calls.push(['list', p]); const D = window.__dirs = window.__dirs || {'/Volumes/T7':[{name:'Projects', path:'/Volumes/T7/Projects', dirs:true}], '/Volumes/T7/Projects':[]}; return ask(D[p] || []); },
+      dirList: (p, files) => { window.__calls.push(['list', p, !!files]); const D = window.__dirs = window.__dirs || {'/Volumes/T7':[{name:'Projects', path:'/Volumes/T7/Projects', dirs:true}], '/Volumes/T7/Projects':[],
+        '/Users/sam/Desktop/dump':Array.from({length:8}, (_, i) => ({name:'C000' + (i + 1) + '.MP4', path:'/Users/sam/Desktop/dump/C000' + (i + 1) + '.MP4', file:true, bytes:2e6}))}; return ask(D[p] || []); },
       dirMake: (parent, name) => { window.__calls.push(['mkdir', parent, name]); const D = window.__dirs; const q = parent + '/' + name; (D[parent] = D[parent] || []).push({name, path:q, dirs:false}); D[q] = []; return ask({ok:true, path:q}); },
       placeAdd: () => ask(null), placeRemove: () => ask(null),
       exportCheck: text => { window.__calls.push(['check']); const m = [...text.matchAll(/src="file:\/\/([^"]+)"/g)].map(x => decodeURIComponent(x[1])); return ask({dtd:'ok', errors:[], unchecked:0, missing:m.filter(p => /C0002/.test(p))}); },
@@ -81,12 +82,40 @@ async function run(host) {
     ok(await p.$('[data-lumina="workshop"]') && /Export workshop/.test(await text('[data-screen-label="Export"]')), 'app: W opens the workshop');
     const rowsT = async () => (await p.$$eval('[data-lumina="ws-row"]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim())));
     let rows = await rowsT();
-    ok(rows.some(r => /^› dump/.test(r) || /dump/.test(r)) && rows.some(r => /T7/.test(r) && /free/.test(r)) && rows.some(r => /SONY/.test(r) && /camera card/.test(r)) && rows.some(r => /Macintosh HD/.test(r) && /not let in/.test(r)), 'app: the tree has the shoot folder, Save to and the drives: ' + rows.join(' | '));
+    ok(rows.some(r => /dump/.test(r) && /selected/.test(r) === false && /2/.test(r)) && rows.some(r => /T7/.test(r) && /free/.test(r)) && rows.some(r => /SONY/.test(r) && /card/.test(r)) && rows.some(r => /Macintosh HD/.test(r)), 'app: the list has the shoot folder (with its marks), Save to and the drives: ' + rows.join(' | '));
+    await p.click('[data-lumina="ws-opts"]'); await p.waitForTimeout(150);
     await p.click('[data-lumina="ex-scenes"]'); await p.waitForTimeout(150);
+    // the shoot's folder: each clip file with its mark; drag select, K M C, ⌘Z, and clips dropped on a bucket
+    await p.click('[data-lumina="ws-row"][data-path="/Users/sam/Desktop/dump"]'); await p.waitForTimeout(300);
+    const clipRows = async () => p.$$eval('[data-lumina="ws-row"][data-kind="clip"]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()));
+    let cr = await clipRows();
+    ok(cr.length === 8 && cr.filter(r => /selected/.test(r)).length === 2 && cr.filter(r => /cut/.test(r)).length === 2 && cr.filter(r => /maybe/.test(r)).length === 1, 'app: unfurling the shoot folder lists each clip with its mark: ' + cr.join(' | '));
+    const box = async (a, b) => { const r1 = await p.locator('[data-lumina="ws-row"][data-path$="' + a + '"]').boundingBox(), r2 = await p.locator('[data-lumina="ws-row"][data-path$="' + b + '"]').boundingBox();
+      await p.mouse.move(r1.x + r1.width - 30, r1.y + 4); await p.mouse.down(); await p.mouse.move(r1.x + r1.width - 40, r1.y + 20, {steps:4}); await p.mouse.move(r2.x + r2.width - 40, r2.y + r2.height - 4, {steps:6}); await p.mouse.up(); await p.waitForTimeout(150); };
+    const marksOf = async names => p.evaluate(ns => ns.map(n => document.querySelector('[data-lumina="ws-row"][data-path$="/' + n + '"]').innerText.replace(/\s+/g, ' ')), names);
+    const undec = cr.map((r, i) => /undecided/.test(r) ? 'C000' + (i + 1) + '.MP4' : '').filter(Boolean);
+    await box(undec[0], undec[undec.length - 1]);
+    const picked = await p.$$eval('[data-lumina="ws-row"][aria-selected="true"]', es => es.length);
+    ok(picked >= 2 && /clips/.test(await text('[data-lumina="ws-bar"]')), 'app: a drag over the rows selects them: ' + picked + ' · ' + await text('[data-lumina="ws-bar"]'));
+    await p.keyboard.press('m'); await p.waitForTimeout(200);
+    ok((await marksOf([undec[0]]))[0].includes('maybe'), 'app: M marks the selected clips maybe');
+    await p.keyboard.press('Meta+z'); await p.waitForTimeout(200);
+    ok((await marksOf([undec[0]]))[0].includes('undecided'), 'app: ⌘Z takes it back');
+    await p.click('[data-lumina="ws-row"][data-path$="/' + undec[0] + '"]'); await p.waitForTimeout(150);
+    await p.dragAndDrop('[data-lumina="ws-row"][data-path$="/' + undec[0] + '"]', '[data-lumina="ws-bucket-keep"]'); await p.waitForTimeout(250);
+    ok((await marksOf([undec[0]]))[0].includes('selected') && /^Selected\s*3/.test((await text('[data-lumina="ws-bucket-keep"]')).trim()), 'app: a clip dropped on the Selected bucket is selected: ' + (await text('[data-lumina="ws-bucket-keep"]')).replace(/\s+/g, ' '));
+    await p.keyboard.press('Meta+z'); await p.waitForTimeout(200);
+    await p.click('[data-lumina="ws-bucket-cut"]'); await p.waitForTimeout(200);
+    cr = await clipRows(); ok(cr.length === 2 && cr.every(r => /cut/.test(r)), 'app: clicking the Cut bucket lists only the cut clips: ' + cr.join(' | '));
+    await p.click('[data-lumina="ws-bucket-cut"]'); await p.waitForTimeout(150);
+    await p.hover('[data-lumina="ws-tree"]'); await p.keyboard.down('Control'); await p.mouse.wheel(0, -60); await p.keyboard.up('Control'); await p.waitForTimeout(200);
+    ok(await p.$('[data-lumina="ws-z-2"][aria-checked="true"]'), 'app: a pinch (⌃-wheel) makes the rows large, with each clip\u2019s picture');
+    if (shots) await p.screenshot({path:path.join(shots, 'app-workshop-clips.png'), fullPage:false});
+    await p.click('[data-lumina="ws-z-1"]'); await p.click('[data-lumina="ws-row"][data-path="/Users/sam/Desktop/dump"]'); await p.click('[data-lumina="ws-row"][data-path="/Users/sam/Desktop/dump"]'); await p.waitForTimeout(200);
     await p.click('[data-lumina="ws-row"][data-path="/Volumes/T7"]'); await p.waitForTimeout(300);
     ok(await p.$('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]') && await p.$eval('[data-lumina="ws-row"][data-path="/Volumes/T7"]', e => e.getAttribute('aria-expanded')) === 'true', 'app: a click unfurls a drive');
     await p.keyboard.press('ArrowDown'); await p.waitForTimeout(100); await p.keyboard.press('ArrowRight'); await p.waitForTimeout(300);
-    ok(/No folders inside/.test(await text('[data-lumina="ws-tree"]')) && await p.$eval('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]', e => e.getAttribute('aria-selected')) === 'true', 'app: ↓ and → select and unfurl the next folder');
+    ok(/Empty/.test(await text('[data-lumina="ws-tree"]')) && await p.$eval('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]', e => e.getAttribute('aria-selected')) === 'true', 'app: ↓ and → select and unfurl the next folder');
     await p.keyboard.press('n'); await p.waitForTimeout(200);
     ok(await p.$('[data-lumina="ws-new-name"]'), 'app: N asks for a folder name');
     await p.fill('[data-lumina="ws-new-name"]', 'Tuesday export'); await p.keyboard.press('Enter'); await p.waitForTimeout(400);

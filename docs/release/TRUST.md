@@ -138,7 +138,7 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `skimPlaces` | the drives mounted (name, size, free space, card or read only) and `skim/places.json` (the folders the user let Skim into); nothing inside a drive (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimPlaceAdd` | — | the folder panel after the user's click, opened at the drive or folder named; the folder picked is kept as a security-scoped bookmark in `skim/places.json` (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimPlaceRemove` | — | takes a folder off `skim/places.json`; the folder is not touched (Debug builds with `LUMINA_PAGE=skim` only) |
-| `skimDirList` | the folder names (no files, nothing hidden) directly inside one folder, only inside a folder the user let Skim into (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimDirList` | the folder names, and with `files` the file names and sizes (nothing hidden, nothing opened), directly inside one folder, only inside a folder the user let Skim into (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimDirMake` | — | one new, empty folder with a plain name inside a folder the user let Skim into, after his click; never on a camera card, never over a folder (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportDefault` | — | `skim/export.json`: a folder of the workshop's tree becomes the Save to folder (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportReveal` | — | — (Finder, with a file this run's Export saved selected; Debug builds with `LUMINA_PAGE=skim` only) |

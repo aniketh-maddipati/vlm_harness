@@ -50,6 +50,21 @@ final class SkimPlacesTests: XCTestCase {
         XCTAssertNil(SkimPlaces.folders(in: tmp.appendingPathComponent("gone")))
     }
 
+    func testEntriesListFoldersThenFilesWithSizes() throws {
+        let fm = FileManager.default
+        for d in ["Z", "a/inner", ".hidden"] { try fm.createDirectory(at: tmp.appendingPathComponent(d), withIntermediateDirectories: true) }
+        try Data(count: 1234).write(to: tmp.appendingPathComponent("C0002.MP4"))
+        try Data(count: 10).write(to: tmp.appendingPathComponent("C0001M01.XML"))
+        try Data().write(to: tmp.appendingPathComponent(".DS_Store"))
+        try fm.createSymbolicLink(at: tmp.appendingPathComponent("link"), withDestinationURL: tmp.appendingPathComponent("Z"))
+        let got = try XCTUnwrap(SkimPlaces.entries(in: tmp))
+        XCTAssertEqual(got.map(\.name), ["a", "Z", "C0001M01.XML", "C0002.MP4"], "folders first, then files, by name; nothing hidden, no links")
+        XCTAssertEqual(got.first { $0.name == "C0002.MP4" }?.bytes, 1234)
+        XCTAssertEqual(got.first { $0.name == "a" }?.dirs, true)
+        XCTAssertEqual(got.first { $0.name == "Z" }?.dirs, false)
+        XCTAssertNil(SkimPlaces.entries(in: tmp.appendingPathComponent("gone")))
+    }
+
     func testANewFolderHasAPlainNameAndNeverReplacesOne() throws {
         XCTAssertEqual(SkimPlaces.folderName("  Tuesday / export: ok "), "Tuesday  export ok")
         XCTAssertEqual(SkimPlaces.folderName("...dots"), "dots")

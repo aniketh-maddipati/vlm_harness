@@ -35,6 +35,8 @@ window.__skimEngineCheck = async function (names) {
     if (tab) tab.click();
     // Export opens as the quick sheet; the summary (and the file check) live in the workshop, which W opens.
     if (!await until(() => $('[data-lumina="export-summary"]'), 800)) for (const type of ['keydown', 'keyup']) (document.activeElement || document).dispatchEvent(new KeyboardEvent(type, {key: 'w', bubbles: true, cancelable: true}));
+    // In the workshop the summary sits folded under its own button.
+    if (!await until(() => $('[data-lumina="export-summary"]'), 800)) { const b = await until(() => $('[data-lumina="ws-sum"]'), 2000); if (b) b.click(); }
     // The check runs after the summary draws ("Checking the file…"): wait for its verdict.
     const sum = await until(() => { const t = $('[data-lumina="export-summary"]') && text('[data-lumina="sum-check"]'); return t && !/^Checking/.test(t) && t; }, 15000) || text('[data-lumina="sum-check"]');
     ok(sum && /well formed/.test(sum) && /\.fcpxml/.test(text('[data-lumina="sum-file"]')), 'Export builds the Final Cut file: ' + (sum || 'no summary'));

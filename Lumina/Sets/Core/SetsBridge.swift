@@ -705,10 +705,11 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             if let u = skimOpenPlaces.removeValue(forKey: path) { u.stopAccessingSecurityScopedResource() }
             return (skimPlacesJSON(), nil)
         case "skimDirList":
-            // The folders inside one folder of the tree, only inside a folder Skim was let into.
+            // The folders (with `files`, also the files and their sizes) inside one folder of the tree, only inside a folder Skim was let into.
             guard let path = body["path"] as? String, skimGranted(path) else { return (NSNull(), nil) }
             let dir = URL(fileURLWithPath: path, isDirectory: true)
-            return (await Task.detached(priority: .userInitiated) { SkimPlaces.folders(in: dir)?.map(\.json) }.value ?? NSNull(), nil)
+            if body["files"] as? Bool == true { return (await Task.detached(priority: .userInitiated) { SkimPlaces.entries(in: dir) }.value?.map(\.json) ?? NSNull(), nil) }
+            return (await Task.detached(priority: .userInitiated) { SkimPlaces.folders(in: dir) }.value?.map(\.json) ?? NSNull(), nil)
         case "skimDirMake":
             // New folder: one plain name inside a folder Skim was let into; never on a camera card, never over a folder.
             guard let parent = body["parent"] as? String, let name = body["name"] as? String, skimGranted(parent) else { return (["ok": false, "why": "Skim may not make a folder there."], nil) }

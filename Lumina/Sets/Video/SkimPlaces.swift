@@ -3,7 +3,7 @@ import Foundation
 /// Export's workshop (the folder tree): the drives mounted on this Mac, the folders the user has let Skim into, and the
 /// folders inside those. macOS lets a sandboxed app name a drive but not look inside it until the user picks it (or a
 /// folder on it) in the folder panel once; each folder picked is kept as a security-scoped bookmark in
-/// `skim/places.json`. Listing shows folders only (no files, nothing hidden) and never leaves a granted folder; a new
+/// `skim/places.json`. Listing shows folders (and, for the file view, files with their sizes; nothing hidden) and never leaves a granted folder; a new
 /// folder is made only inside one, with a plain name. Nothing here moves, renames or deletes. Foundation only.
 nonisolated struct SkimPlaces: Sendable {
     struct Place: Codable, Equatable, Sendable {
@@ -62,6 +62,34 @@ nonisolated struct SkimPlaces: Sendable {
             if out.count >= maxListed { break }
         }
         return out.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    /// One entry of the workshop's file view: a folder (with whether it has folders or files inside) or a file with its size.
+    struct Entry: Equatable, Sendable {
+        var name: String; var path: String; var dir: Bool; var dirs: Bool; var bytes: Int64
+        var json: [String: Any] { dir ? ["name": name, "path": path, "dirs": dirs] : ["name": name, "path": path, "file": true, "bytes": bytes] }
+    }
+    static let maxEntries = 2000
+
+    /// What is directly inside `dir`, folders first, then files, each by name; hidden ones and links are left out, a
+    /// package (an .fcpbundle, an .app) is listed as a file. Nothing is opened or read beyond the folder's listing.
+    static func entries(in dir: URL) -> [Entry]? {
+        let fm = FileManager.default, keys: [URLResourceKey] = [.isDirectoryKey, .isPackageKey, .isSymbolicLinkKey, .fileSizeKey, .totalFileAllocatedSizeKey]
+        guard let names = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) else { return nil }
+        var dirs: [Entry] = [], files: [Entry] = []
+        for u in names {
+            let v = try? u.resourceValues(forKeys: Set(keys))
+            if v?.isSymbolicLink == true { continue }
+            if v?.isDirectory == true && v?.isPackage != true {
+                let kids = (try? fm.contentsOfDirectory(at: u, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
+                dirs.append(Entry(name: u.lastPathComponent, path: u.path, dir: true, dirs: !kids.isEmpty, bytes: 0))
+            } else {
+                files.append(Entry(name: u.lastPathComponent, path: u.path, dir: false, dirs: false, bytes: Int64(v?.fileSize ?? v?.totalFileAllocatedSize ?? 0)))
+            }
+            if dirs.count + files.count >= maxEntries { break }
+        }
+        let byName: (Entry, Entry) -> Bool = { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        return dirs.sorted(by: byName) + files.sorted(by: byName)
     }
 
     /// A new folder's name as typed: one plain name (no slash, no colon, no leading dot, no control characters), at
