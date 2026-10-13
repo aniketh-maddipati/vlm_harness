@@ -15,8 +15,9 @@ export const LuminaCore = createRequire(import.meta.url)(CORE_FILE);
 export const sha = s => crypto.createHash('sha256').update(s).digest('hex').slice(0, 16);
 export const coreHash = () => sha(fs.readFileSync(CORE_FILE));
 
-// list: what the page's readOne returns per photo ({name, path, date, exp, fl, ev, iso, lens, serial,
-// program, wb, flash, seqImage, seqLength, releaseMode2, portrait, dhash, lum, focus, clip, nopv}).
+// list: what the page's readOne returns per photo ({name, path, date, exp, fl, ev, iso, model, make, lens,
+// serial, program, wb, flash, seqImage, seqLength, releaseMode2, portrait, dhash, lum, focus, clip, nopv};
+// a phone's model, lens and fl as readOne remaps them, lib/measure.mjs recordOf).
 // Returns, keyed by path:
 //   stack    Map path → stack label (a single is its own stack)      row   Map path → row label
 //   stacks   [{ids, kind, pick, sug}]  pick = what P on the closed stack keeps (the sharpest;

@@ -23,9 +23,14 @@ its last section ("Worst disagreements") names files.
 
 ## What is compared
 
-**Lumina's side.** For every RAW the page's own `parseHead` reads the first 256 KB, and the page's
-own `measure` runs on the embedded preview at 360 px in Chromium (`lib/measure.mjs` repeats the
-page's `readOne`; the test fails when a design sync changes that method, so the copy gets reviewed).
+**Lumina's side.** The files are the ones the page reads: ARW and DNG (`RAW_FILE` in
+`lib/measure.mjs`, the one matcher). For every RAW the page's own `parseHead` reads the first 256 KB,
+and the page's own `measure` runs on the embedded preview at 360 px in Chromium (`lib/measure.mjs`
+repeats the page's `readOne`; the test fails when a design sync changes that method, so the copy gets
+reviewed). As in the page, a phone (told by `LuminaCore.phoneOf` from EXIF Make/Model, never from the
+extension) gets its 35 mm focal length as `fl`, its short name as `model` and its zoom label
+(`1× camera`) as `lens`, so rows and stacks see what the page sees; `make` is kept on every record.
+The truth side below still reads the real focal length and lens through exiftool.
 `LuminaCore.buildShoot` then gives rows, stacks, flags (soft, blown, shake), the sharpest frame of
 each stack (what P keeps on a closed stack) and the core's suggested keeps (`sugKeep`).
 
@@ -103,7 +108,8 @@ direction: the report leads with recall on picks, each flag word's false alarms 
 bursts with exactly one pick, whether it is the frame ranked first. Only days with at least one
 pick are scored: a day never exported from is unlabeled, not "all rejected". Until DESIGN-ASKS
 Prompt 2 A lands the page reads no drive data from an ARW, so a dump holds almost no camera bursts
-and the burst lines say nothing yet.
+and the burst lines say nothing yet. It reads none from a phone DNG either (its drive data is
+read from Sony maker notes only), so a phone's bursts are stacked by time and look alone.
 
 `--out report.md` also writes `report.json` and `labeled.json` (the scored photos, each with its
 dump's name and whether it was picked) beside it. Keep them under `~/LuminaEvidence/culling-eval`:
@@ -128,7 +134,7 @@ python3 Tools/culleval/signals/rank_signals.py --signals signals.jsonl --out sig
 |---|---|
 | `culleval.mjs` | the command: config → metadata → the core → scores → `report.md`, `report.json`, `local-worst.json` |
 | `lib/core.mjs` | loads `lumina-core`, runs `buildShoot`, turns truth groups into the page's `cuts` |
-| `lib/measure.mjs` | the page's header read and preview measures, cached |
+| `lib/measure.mjs` | the page's header read, its phone remap (`recordOf`) and preview measures, cached; the file matcher |
 | `lib/truth.mjs` | truth groups from camera metadata; exports matched to RAWs |
 | `lib/score.mjs` | the metrics (pure) |
 | `lib/report.mjs` | the Markdown report |

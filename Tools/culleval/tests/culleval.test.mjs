@@ -6,7 +6,7 @@ import path from 'node:path';
 import { pairwise, splits, cutBy, picks, bestOf, pool, prf } from '../lib/score.mjs';
 import { seconds, truthGroups, sameFraming, matchExports } from '../lib/truth.mjs';
 import { run, cutsFor, DESIGN } from '../lib/core.mjs';
-import { READONE, readOneHash } from '../lib/measure.mjs';
+import { READONE, readOneHash, recordOf, RAW_FILE } from '../lib/measure.mjs';
 import { markdown } from '../lib/report.mjs';
 import * as app from '../lib/app.mjs';
 
@@ -160,8 +160,25 @@ test('core: cutsFor stacks a truth group the page left as singles', () => {
   assert.deepEqual(g.ids, ['x/1', 'x/2', 'x/3']); assert.equal(g.pick, 'x/2');
 });
 
+test('measure: a phone is shown as readOne shows it, a camera is unchanged', () => {
+  const phone = recordOf({ make: 'Apple', model: 'iPhone 15 Pro', fl: 6.86, fl35: 24, lens: 'iPhone 15 Pro back triple camera 6.86mm f/1.78', date: '2026:05:19 10:00:00', exp: 0.01, iso: 64 }, '/s/IMG_0001.DNG', 1000);
+  assert.deepEqual([phone.make, phone.model, phone.lens, phone.fl, phone.name], ['Apple', 'iPhone 15 Pro', '1× camera', 24, 'IMG_0001.DNG']);
+  assert.equal(recordOf({ make: 'Apple', model: 'iPhone 15 Pro', fl: 6.86, lens: 'back camera' }, 'x.DNG', 1).fl, 6.86, 'no 35 mm focal length: the real one stays, and so does the lens');
+  assert.equal(recordOf({ make: 'Apple', model: 'iPhone 15 Pro', fl: 6.86, lens: 'back camera' }, 'x.DNG', 1).lens, 'back camera');
+  const sony = { make: 'SONY', model: 'ILCE-7M3', fl: 35, fl35: 35, lens: 'FE 35mm F1.8', date: '2026:05:19 10:00:00', exp: 0.004, iso: 100 };
+  for (const f of ['/s/DSC00001.ARW', '/s/DSC00001.DNG']) {
+    const r = recordOf(sony, f, 1000);
+    assert.deepEqual([r.make, r.model, r.lens, r.fl], ['SONY', 'ILCE-7M3', 'FE 35mm F1.8', 35], 'a Sony camera is not a phone, whatever the extension');
+  }
+  assert.equal(recordOf({ model: 'ILCE-7M3', fl: 35 }, 'x.ARW', 1).make, null);
+});
+
+test('measure: the eval reads the files the page reads', () => {
+  assert.deepEqual(['a.ARW', 'b.arw', 'c.DNG', 'd.dng', 'e.JPG', 'f.xmp', 'g.HEIC', 'h.ARW.xmp'].filter(n => RAW_FILE.test(n)), ['a.ARW', 'b.arw', 'c.DNG', 'd.dng']);
+});
+
 test('measure: the page\'s readOne is the one lib/measure.mjs repeats', () => {
-  assert.equal(readOneHash(), READONE, 'the design\'s readOne changed: review IN_PAGE in Tools/culleval/lib/measure.mjs, then update READONE');
+  assert.equal(readOneHash(), READONE, 'the design\'s readOne changed: review IN_PAGE and recordOf in Tools/culleval/lib/measure.mjs, then update READONE');
 });
 
 test('report: file names stay below the "Worst" heading', () => {

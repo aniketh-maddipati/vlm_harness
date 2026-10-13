@@ -15,6 +15,17 @@ export function readOneHash() {
   return a < 0 || b < 0 ? null : sha(html.slice(a, b));
 }
 
+// The files the page reads (onDir / addSource). The one matcher: culleval.mjs walks with it.
+export const RAW_FILE = /\.(arw|dng)$/i;
+
+// What readOne builds from parseHead's m before it looks at pixels: a phone (LuminaCore.phoneOf, from
+// EXIF Make/Model) is shown with its 35 mm focal length, its short name and its zoom label as the lens.
+export function recordOf(parsed, file, size) {
+  const m = { ...parsed }, ph = LuminaCore.phoneOf(m);
+  if (ph) { m.flReal = m.fl; if (m.fl35) m.fl = m.fl35; m.model = ph.short; m.lens = ph.zoom ? ph.zoom + ' camera' : m.lens; }
+  return { lowpv: false, wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, name: path.basename(file), path: file, bytes: size, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso, model: m.model || null, make: m.make || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, lens: m.lens || null, serial: m.serial || null, program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null };
+}
+
 const HEAD = 262144;
 export const keyOf = f => { const s = fs.statSync(f); return f + '|' + s.size + '|' + Math.round(s.mtimeMs); };
 
@@ -34,8 +45,6 @@ function head(file) {
       if (pb[0] !== 0xFF || pb[1] !== 0xD8) continue;
       preview = pb; break;
     }
-    const ph = LuminaCore.phoneOf ? LuminaCore.phoneOf(m) : null;
-    if (ph) { m.flReal = m.fl; if (m.fl35) m.fl = m.fl35; m.model = ph.short; m.lens = ph.zoom ? ph.zoom + ' camera' : m.lens; }
     return { m, size, preview };
   } finally { fs.closeSync(fd); }
 }
@@ -85,7 +94,7 @@ export async function measureAll(files, cacheFile, { jobs = 4, log = () => {} } 
         const f = todo[i]; let rec;
         try {
           const h = head(f); if (!h) throw new Error('unreadable');
-          const m = h.m, base = { lowpv: false, wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, make: m.make || null, name: path.basename(f), path: f, bytes: h.size, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso, model: m.model || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, lens: m.lens || null, serial: m.serial || null, program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null };
+          const m = h.m, base = recordOf(m, f, h.size);
           let me = null;
           if (h.preview) { bytes.set('/p/' + i, h.preview); me = await page.evaluate(IN_PAGE, { url: '/p/' + i, ori: m.orient || 1 }); }
           rec = me ? { ...base, ...me } : { ...base, nopv: true, portrait: false, lum: null, focus: 0, clip: 0, dhash: null };

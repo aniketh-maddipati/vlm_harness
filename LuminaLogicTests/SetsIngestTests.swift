@@ -4,6 +4,27 @@ import UniformTypeIdentifiers
 import XCTest
 @testable import Lumina
 
+/// A cache that keeps everything it is given. The reader's own NSCache may drop an entry at any
+/// moment under memory pressure (seen with the whole logic suite running: the head was gone between
+/// `head` and `preview`, so the "not read twice" counts were off). What the reader does with an
+/// entry it still holds is tested with this one; what it does without, with `DroppingCache`.
+private final class KeepingCache: NSCache<NSString, NSData>, @unchecked Sendable {
+    private var held: [NSString: NSData] = [:]
+    private let lock = NSLock()
+    override func object(forKey key: NSString) -> NSData? { lock.withLock { held[key] } }
+    override func setObject(_ obj: NSData, forKey key: NSString) { lock.withLock { held[key] = obj } }
+    override func setObject(_ obj: NSData, forKey key: NSString, cost g: Int) { lock.withLock { held[key] = obj } }
+    override func removeObject(forKey key: NSString) { lock.withLock { held[key] = nil } }
+    override func removeAllObjects() { lock.withLock { held.removeAll() } }
+}
+
+/// A cache under the worst memory pressure: it holds nothing.
+private final class DroppingCache: NSCache<NSString, NSData>, @unchecked Sendable {
+    override func object(forKey key: NSString) -> NSData? { nil }
+    override func setObject(_ obj: NSData, forKey key: NSString) {}
+    override func setObject(_ obj: NSData, forKey key: NSString, cost g: Int) {}
+}
+
 /// The native reader behind the page's folder open: what it lists, what it reads, what it refuses,
 /// and that a pulled card stops it.
 final class SetsIngestTests: XCTestCase {
@@ -17,6 +38,9 @@ final class SetsIngestTests: XCTestCase {
     }
 
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: dir) }
+
+    /// A reader whose caches hold (see `KeepingCache`).
+    private func reader(workers: Int) -> SetsIngest { SetsIngest(workers: workers, previews: KeepingCache(), heads: KeepingCache()) }
 
     private func put(_ rel: String, _ data: Data) throws {
         let url = root.appendingPathComponent(rel)
@@ -62,7 +86,7 @@ final class SetsIngestTests: XCTestCase {
         let big = Data((0..<400_000).map { UInt8($0 % 251) })
         try put("100MSDCF/BIG.ARW", big)
         try put("100MSDCF/SMALL.ARW", Data([1, 2, 3]))
-        let ingest = SetsIngest(workers: 2)
+        let ingest = reader(workers: 2)
         ingest.register(root)
         XCTAssertEqual(try ingest.head("shoot/100MSDCF/BIG.ARW"), big.prefix(SetsIngest.headBytes))
         XCTAssertEqual(try ingest.head("shoot/100MSDCF/SMALL.ARW"), Data([1, 2, 3]))
@@ -73,7 +97,7 @@ final class SetsIngestTests: XCTestCase {
         let jpg = jpeg(64, 32)
         var raw = Data(count: 1000); raw.append(jpg); raw.append(Data(count: 5000))
         try put("100MSDCF/DSC00001.ARW", raw)
-        let ingest = SetsIngest(workers: 2)
+        let ingest = reader(workers: 2)
         ingest.register(root)
         let as1 = try ingest.preview(.init(rel: "shoot/100MSDCF/DSC00001.ARW", offset: 1000, length: jpg.count, orientation: 1))
         XCTAssertEqual(as1, jpg, "orientation 1: the embedded bytes as stored")
@@ -90,7 +114,7 @@ final class SetsIngestTests: XCTestCase {
         let raw = Data((0..<600_000).map { UInt8(($0 &* 31 &+ $0 / 7) % 251) })
         try put("100MSDCF/DSC00001.ARW", raw)
         let rel = "shoot/100MSDCF/DSC00001.ARW", head = SetsIngest.headBytes
-        let ingest = SetsIngest(workers: 2)
+        let ingest = reader(workers: 2)
         ingest.register(root)
         _ = try ingest.head(rel)
         let pv = try ingest.preview(.init(rel: rel, offset: 130_000, length: 400_000, orientation: 1))
@@ -107,10 +131,33 @@ final class SetsIngestTests: XCTestCase {
         XCTAssertEqual(ingest.snapshot.bytesRead, before + 300_000)
     }
 
+    func testACacheThatDropsEverythingCostsReadsNeverBytes() throws {
+        // Memory pressure at its worst: nothing read is held. Every ask goes to the card and gives the same bytes.
+        let jpg = jpeg(64, 32)
+        var raw = Data((0..<130_000).map { UInt8($0 % 251) }); raw.append(jpg); raw.append(Data(count: 300_000))
+        try put("100MSDCF/DSC00001.ARW", raw)
+        let rel = "shoot/100MSDCF/DSC00001.ARW"
+        let ingest = SetsIngest(workers: 2, previews: DroppingCache(), heads: DroppingCache())
+        ingest.register(root)
+        XCTAssertEqual(try ingest.head(rel), raw.prefix(SetsIngest.headBytes))
+        let p = SetsIngest.Preview(rel: rel, offset: 130_000, length: jpg.count, orientation: 1)
+        XCTAssertEqual(try ingest.preview(p), jpg, "the head is gone: the whole range comes off the card")
+        XCTAssertEqual(try ingest.preview(p), jpg)
+        XCTAssertTrue(size(try ingest.thumb(p)) == (64, 32))
+        XCTAssertTrue(size(try ingest.preview(.init(rel: rel, offset: 130_000, length: jpg.count, orientation: 6))) == (32, 64))
+        let s = ingest.snapshot
+        XCTAssertEqual(s.bytesRead, Int64(SetsIngest.headBytes + 4 * jpg.count), "the head once, the preview range four times")
+        XCTAssertEqual(s.bytesFromHead, 0)
+        XCTAssertEqual(s.cacheHits, 0)
+        // A pulled card is still refused when nothing is held.
+        XCTAssertFalse(ingest.markGone(volume: dir).isEmpty)
+        XCTAssertThrowsError(try ingest.preview(p))
+    }
+
     func testAPreviewInsideTheHeadOfAPulledCardIsRefused() throws {
         try put("100MSDCF/DSC00001.ARW", Data(count: 300_000))
         let rel = "shoot/100MSDCF/DSC00001.ARW"
-        let ingest = SetsIngest(workers: 1)
+        let ingest = reader(workers: 1)
         ingest.register(root)
         _ = try ingest.head(rel)
         XCTAssertFalse(ingest.markGone(volume: dir).isEmpty)
@@ -121,7 +168,7 @@ final class SetsIngestTests: XCTestCase {
         let big = jpeg(1616, 1080), small = jpeg(640, 427)
         var raw = Data(count: 1000); raw.append(big); raw.append(small); raw.append(Data(count: 5000))
         try put("100MSDCF/DSC00001.ARW", raw)
-        let ingest = SetsIngest(workers: 2)
+        let ingest = reader(workers: 2)
         ingest.register(root)
         let rel = "shoot/100MSDCF/DSC00001.ARW"
         // The page reads the preview as stored first; the thumbnail then comes from the cache.
@@ -139,14 +186,14 @@ final class SetsIngestTests: XCTestCase {
 
     func testAPreviewPastTheEndOfTheFileIsRefused() throws {
         try put("100MSDCF/CUT.ARW", Data(count: 4096))
-        let ingest = SetsIngest(workers: 1)
+        let ingest = reader(workers: 1)
         ingest.register(root)
         XCTAssertThrowsError(try ingest.preview(.init(rel: "shoot/100MSDCF/CUT.ARW", offset: 3000, length: 5000, orientation: 1)))
     }
 
     func testPathsOutsideAnOpenedFolderAreRefused() throws {
         try Data("secret".utf8).write(to: dir.appendingPathComponent("outside.ARW"))
-        let ingest = SetsIngest(workers: 1)
+        let ingest = reader(workers: 1)
         ingest.register(root)
         XCTAssertNil(ingest.resolve("shoot/../outside.ARW"))
         XCTAssertNil(ingest.resolve("other/DSC00001.ARW"))
@@ -156,7 +203,7 @@ final class SetsIngestTests: XCTestCase {
     /// A file that was renamed or deleted still resolves (so an export can say what happened),
     /// even under /private/tmp where its existing folder's path loses the /private prefix.
     func testAMissingFileStillResolvesInsideItsFolder() throws {
-        let ingest = SetsIngest(workers: 1)
+        let ingest = reader(workers: 1)
         ingest.register(root)
         XCTAssertNotNil(ingest.resolve("shoot/100MSDCF/GONE.ARW"))
         XCTAssertNil(ingest.resolve("shoot/100MSDCF/../../GONE.ARW"))
@@ -164,7 +211,7 @@ final class SetsIngestTests: XCTestCase {
 
     func testAPulledCardStopsEveryReadWithoutOpeningFiles() throws {
         try put("100MSDCF/DSC00001.ARW", Data(count: 1000))
-        let ingest = SetsIngest(workers: 1)
+        let ingest = reader(workers: 1)
         ingest.register(root)
         XCTAssertEqual(ingest.markGone(volume: dir), ["shoot"])
         XCTAssertThrowsError(try ingest.head("shoot/100MSDCF/DSC00001.ARW")) { e in
@@ -179,7 +226,7 @@ final class SetsIngestTests: XCTestCase {
 
     func testAFolderThatVanishesMidReadIsReportedGone() throws {
         try put("100MSDCF/DSC00001.ARW", Data(count: 1000))
-        let ingest = SetsIngest(workers: 1)
+        let ingest = reader(workers: 1)
         ingest.register(root)
         try FileManager.default.removeItem(at: root)
         XCTAssertThrowsError(try ingest.head("shoot/100MSDCF/DSC00001.ARW")) { e in

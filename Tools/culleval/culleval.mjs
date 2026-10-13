@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { run, cutsFor, coreHash } from './lib/core.mjs';
-import { measureAll, keyOf, READONE, readOneHash } from './lib/measure.mjs';
+import { measureAll, keyOf, READONE, readOneHash, RAW_FILE } from './lib/measure.mjs';
 import { seconds, truthGroups, matchExports, inOrder } from './lib/truth.mjs';
 import { pairwise, splits, cutBy, picks, bestOf, pool, prf, members } from './lib/score.mjs';
 import { markdown } from './lib/report.mjs';
@@ -52,7 +52,7 @@ const day = d => (d || '').slice(0, 10).replace(/:/g, '-');
 async function shoot(sh) {
   const dir = home(sh.raws);
   if (!fs.existsSync(dir)) return { id: sh.id, skipped: 'folder not found' };
-  const all = walk(dir, /\.arw$/i), ex = exif(all), seen = new Set();
+  const all = walk(dir, RAW_FILE), ex = exif(all), seen = new Set();
   // dates / datesExclude pick days; from / to ("2026-02-08 14:00:00") pick a stretch of capture time.
   const stamp = d => (d || '').replace(/^(\d{4}):(\d{2}):/, '$1-$2-');
   const inShoot = d => !(sh.dates && !sh.dates.includes(day(d))) && !(sh.datesExclude && sh.datesExclude.includes(day(d))) && !(sh.from && stamp(d) < sh.from) && !(sh.to && stamp(d) > sh.to);

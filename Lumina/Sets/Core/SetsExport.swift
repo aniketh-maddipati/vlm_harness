@@ -113,7 +113,7 @@ nonisolated struct SetsExportJob {
     static func isDiskFull(_ error: Error) -> Bool {
         var e: NSError? = error as NSError
         while let n = e {
-            if (n.domain == NSPOSIXErrorDomain && n.code == Int(ENOSPC)) || (n.domain == NSCocoaErrorDomain && n.code == NSFileWriteOutOfSpaceError) { return true }
+            if (n.domain == NSPOSIXErrorDomain && (n.code == Int(ENOSPC) || n.code == Int(EDQUOT))) || (n.domain == NSCocoaErrorDomain && n.code == NSFileWriteOutOfSpaceError) { return true }
             e = n.userInfo[NSUnderlyingErrorKey] as? NSError
         }
         return false
@@ -180,7 +180,11 @@ nonisolated struct SetsExportJob {
                 if let src = item.source, !FileManager.default.fileExists(atPath: src.path) {
                     r.failed.append(Self.missing(src))
                 } else if Self.isDiskFull(error) {
+                    // A full disk ends the job: nothing after this file can land either.
                     r.failed.append("\(destination.lastPathComponent) is full · every file written before this one is complete and checked")
+                    r.errors += items[(i + 1)...].map { Failed(name: $0.name, reason: "disk full") }
+                    journal?.finish(ok: false)
+                    return r
                 } else {
                     r.failed.append("\(item.name): \(error)")
                 }
