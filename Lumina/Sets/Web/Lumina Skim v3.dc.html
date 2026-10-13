@@ -555,7 +555,7 @@ body:has([data-view=phone]){background:#111}
     <div data-lumina="hints" style="flex:1;min-width:0;height:30px;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:center;column-gap:16px;overflow:hidden">
       <span data-lumina="where" style="flex:none;height:30px;display:flex;align-items:center;color:#EFECE6;font-weight:600">{{ hintLead }}</span>
       <sc-for list="{{ hints }}" as="hk" hint-placeholder-count="6">
-        <span style="flex:none;height:30px;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">{{ hk.k }}</span>{{ hk.t }}</span>
+        <span style="flex:none;height:30px;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:{{ hk.bg }};transition:background-color 240ms ease-out;display:grid;place-items:center;font-weight:700;color:#EFECE6">{{ hk.k }}</span>{{ hk.t }}</span>
       </sc-for>
     </div>
     <button type="button" data-lumina="progress-pill" aria-expanded="{{ progOn }}" onClick="{{ progToggle }}" title="Clips added · P" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:28px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:{{ progPillC }};cursor:pointer;background:{{ progPillBg }}" style-hover="background:rgba(239,236,230,0.08)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span style="width:6px;height:6px;border-radius:50%;background:{{ progDot }};animation:{{ progAnim }}"></span><span>{{ progPill }}</span><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">P</span></button>
@@ -900,7 +900,7 @@ class Component extends DCLogic {
     if (!document.getElementById('lumina-pv-filters')) document.body.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" id="lumina-pv-filters" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><filter id="lumina-slog3" color-interpolation-filters="sRGB" x="0" y="0" width="1" height="1"><feComponentTransfer><feFuncR type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncG type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncB type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/></feComponentTransfer><feColorMatrix type="matrix" values="1.9014 -0.8790 -0.0434 0.0000 0.0067 -0.1553 1.3955 -0.2447 0.0000 0.0003 0.0021 -0.3185 1.3129 0.0000 -0.0011 0 0 0 1 0"/></filter></svg>');
   }
   componentWillUnmount() {
-    window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
+    clearTimeout(this.kbT); window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
     window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); window.removeEventListener('beforeunload', this._bu); this.dropVid();
     clearTimeout(this.propT); clearTimeout(this.flT); clearTimeout(this.pvCvT); this.dockUnmount(); this.touchOff();
@@ -1756,11 +1756,28 @@ class Component extends DCLogic {
   }
 
   // input
+  // A key that arrives lights its hint in the key bar for a moment: a quiet sign that the keyboard, or a
+  // controller mapped to keys (a TourBox), reaches the page. Nothing changes for a key the bar does not show.
+  static kbTok(e) {
+    const k = e.key || '', ar = {ArrowLeft:'←', ArrowRight:'→', ArrowUp:'↑', ArrowDown:'↓'}[k];
+    const base = ar || {Enter:'⏎', Escape:'esc', ' ':'space', '-':'−', '_':'−', '+':'='}[k] || (k.length === 1 ? k.toUpperCase() : null);
+    if (!base) return [];
+    if (e.metaKey || e.ctrlKey) return ['⌘' + base];
+    if (e.shiftKey && base !== '−' && base !== '=') return ar || base === '⏎' ? ['⇧' + base, base] : ['⇧' + base];
+    return [base];
+  }
+  static kbLit(hk, toks) { if (!toks || !toks.length) return false; const parts = String(hk).split(' '); return toks.some(t => parts.includes(t)); }
+  kbNote(e) {
+    const toks = Component.kbTok(e); if (!toks.length) return;
+    clearTimeout(this.kbT); this.kbT = setTimeout(() => this.setState({kbLit:null}), 260);
+    this.setState({kbLit:toks});
+  }
   isCtl(t) { if (!t || t === document.body || !t.getAttribute) return false; return ['button', 'switch', 'tab', 'menuitem', 'checkbox'].includes(t.getAttribute('role')) || t.tagName === 'BUTTON' || t.tagName === 'A'; }
   kd(e) {
     const st = this.state; if (!st.ready) return;
     const k = e.key, kl = k.length === 1 ? k.toLowerCase() : k, meta = e.metaKey || e.ctrlKey, t = e.target;
     if (k === 'Shift' || k === 'Meta' || k === 'Alt' || k === 'Control') return;
+    this.kbNote(e);
     if (k === 'Tab') this.tabFocus = true;
     if (meta && /^[123]$/.test(k)) { e.preventDefault(); return this.setStep(['import', 'skim', 'export'][+k - 1]); }
     if (meta && kl === 'o') { e.preventDefault(); this.setStep('import'); return setTimeout(() => this.pickFolder(), 60); }
@@ -2335,6 +2352,7 @@ class Component extends DCLogic {
     }
     Object.assign(vals, this.extraVals(markN, markB, und));
     Object.assign(vals, this.dockVals(vals));
+    vals.hints = (vals.hints || []).map(h => ({...h, bg:Component.kbLit(h.k, st.kbLit) ? 'rgba(239,236,230,0.34)' : 'rgba(239,236,230,0.12)'}));
     vals.skimBarD = st.lv >= 2 && !vals.loadOn && !vals.unsupOn && !vals.recNoteOn && !vals.pauseOn && !vals.haltOn && !vals.lvTabsOn ? 'none' : 'flex';
     return vals;
   }
