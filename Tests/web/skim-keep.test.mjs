@@ -77,7 +77,7 @@ test('dropped clips are not reloaded', () => {
   assert.match(src, /dropHot:false\}\); this\.pickNext = false;/);
 });
 
-// Safari (LOCAL-CHANGES 261): the tab keeps the shoot across a reload; choosing the same folder brings the marks back.
+// Safari (LOCAL-CHANGES 266): the tab keeps the shoot across a reload; choosing the same folder brings the marks back.
 test('Safari: a reload keeps the marks for the tab and the same folder brings them back', () => {
   tab.clear();
   const a = page(['F0001', 'F0002'], {marks:{F0002:'keep'}, cur:'F0002', lv:2}); a.picked = false;

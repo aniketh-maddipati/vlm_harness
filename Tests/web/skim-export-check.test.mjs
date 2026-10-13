@@ -21,6 +21,8 @@ const marked = (f, mark) => ({ ...f, clips: f.clips.map(c => ({ ...c, mark: type
 const good = build({ all: false, maybes: true });
 /** one change to the good file, which must take */
 const broke = (from, to) => { assert.ok(good.text.includes(from), 'the file has: ' + from); return good.text.replace(from, to); };
+// C0002 has camera timecode, so its asset and clip start there (and its rating with them)
+const st = /<asset-clip ref="a1" name="C0002" start="([^"]+)"/.exec(good.text)[1];
 const fails = (text, sentence, n = good.n) => {
   const r = check(text, n);
   assert.equal(r.ok, false);
@@ -68,15 +70,16 @@ test('a clip pointing at media that is not in the file', () => {
 });
 
 test('a zero or missing length', () => {
-  const du = /<asset-clip ref="a1" name="C0002" duration="([^"]+)"/.exec(good.text)[1];
-  fails(broke(`<asset-clip ref="a1" name="C0002" duration="${du}"`, '<asset-clip ref="a1" name="C0002" duration="0s"'), 'Clip “C0002” has no length.');
-  fails(broke(`<asset-clip ref="a1" name="C0002" duration="${du}"`, '<asset-clip ref="a1" name="C0002"'), 'Clip “C0002” has no length.');
-  fails(broke(`<asset id="a1" name="C0002" start="0s" duration="${du}"`, '<asset id="a1" name="C0002" start="0s" duration="0/24000s"'), 'The media entry for “C0002” has no length.');
+  const du = /<asset-clip ref="a1" name="C0002" start="[^"]+" duration="([^"]+)"/.exec(good.text)[1];
+  const clip = `<asset-clip ref="a1" name="C0002" start="${st}" duration="${du}"`;
+  fails(broke(clip, `<asset-clip ref="a1" name="C0002" start="${st}" duration="0s"`), 'Clip “C0002” has no length.');
+  fails(broke(clip, `<asset-clip ref="a1" name="C0002" start="${st}"`), 'Clip “C0002” has no length.');
+  fails(broke(`<asset id="a1" name="C0002" start="${st}" duration="${du}"`, `<asset id="a1" name="C0002" start="${st}" duration="0/24000s"`), 'The media entry for “C0002” has no length.');
 });
 
 test('a length that is not whole frames, or longer than the media', () => {
-  const du = /<asset-clip ref="a1" name="C0002" duration="(\d+)\/24000s"/.exec(good.text)[1];
-  const swap = to => good.text.replace(`<asset-clip ref="a1" name="C0002" duration="${du}/24000s"`, `<asset-clip ref="a1" name="C0002" duration="${to}"`).replace(`<rating start="0s" duration="${du}/24000s"`, `<rating start="0s" duration="${to}"`);
+  const du = /<asset-clip ref="a1" name="C0002" start="[^"]+" duration="(\d+)\/24000s"/.exec(good.text)[1];
+  const swap = to => good.text.replace(`<asset-clip ref="a1" name="C0002" start="${st}" duration="${du}/24000s"`, `<asset-clip ref="a1" name="C0002" start="${st}" duration="${to}"`).replace(`<rating start="${st}" duration="${du}/24000s"`, `<rating start="${st}" duration="${to}"`);
   fails(swap((+du - 1) + '/24000s'), 'Clip “C0002” has a length that is not a whole number of frames.');
   fails(swap((+du + 1001) + '/24000s'), 'Clip “C0002” is longer than its media.');
   assert.equal(check(swap((+du - 1001) + '/24000s'), good.n).problems.join(), '', 'one frame shorter is still whole frames');
@@ -109,7 +112,14 @@ test('the count must be the one the button shows', () => {
 
 test('ratings and keywords only as buildX writes them', () => {
   fails(broke('value="favorite"', 'value="loved"'), 'Clip “C0002” carries a rating this page does not write.');
-  fails(broke('<rating start="0s"', '<rating start="1s"'), 'Clip “C0002” carries a rating this page does not write.');
+  fails(broke(`<rating start="${st}"`, '<rating start="1s"'), 'Clip “C0002” carries a rating this page does not write.');
+});
+
+test('camera timecode: the clip starts where its media does, and a start that does not read fails', () => {
+  assert.notEqual(st, '0s', 'the fixture has timecode');
+  fails(broke(`<asset-clip ref="a1" name="C0002" start="${st}"`, '<asset-clip ref="a1" name="C0002" start="0s"'), 'Clip “C0002” does not start where its media does.');
+  const r = check(broke(`<asset id="a1" name="C0002" start="${st}"`, '<asset id="a1" name="C0002" start="soon"'), good.n);
+  assert.equal(r.ok, false);
   fails(broke('value="maybe"', 'value="b-roll"'), 'Clip “C0019” carries a keyword this page does not write.');
   fails(broke('      </asset-clip>', '        <note>x</note>\n      </asset-clip>'), 'Clip “C0002” carries something this page does not write.');
 });

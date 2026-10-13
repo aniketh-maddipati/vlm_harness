@@ -165,7 +165,7 @@ test('marks are never stored: nothing read back, nothing written, old entries dr
   assert.match(src, /forgetOn:Component\.KEEP_MARKS && /, 'no Forget marks button');
 });
 
-test('the one grid shows less: no level tabs, no scene slider, the raw file only in debug mode, Export as a sheet over the grid', () => {
+test('the one grid shows less: no level tabs, no scene slider, the raw file only in debug mode, Export as a page of its own', () => {
   const tpl = src.slice(0, src.indexOf('class Component'));
   const tabs = tpl.indexOf('data-lumina="levels"'), tabsIf = tpl.lastIndexOf('<sc-if value="{{ lvTabsOn }}"', tabs);
   assert.ok(tabsIf > 0 && !tpl.slice(tabsIf, tabs).includes('</sc-if>'), 'the level tabs sit inside lvTabsOn');
@@ -174,8 +174,7 @@ test('the one grid shows less: no level tabs, no scene slider, the raw file only
   assert.ok(!grid.includes('aria-label="scenes"') && !grid.includes('data-lumina="fold-strip"'), 'no scene slider and no size strip over the grid');
   for (const k of ['By scene</span>', 'The .fcpxml</span>', '{{ exRows }}']) { const at = tpl.indexOf(k), on = tpl.lastIndexOf('<sc-if value="{{ exDbg }}"', at); assert.ok(on > 0 && !tpl.slice(on, at).includes('</sc-if>'), k); }
   assert.ok(!/data-lumina="export-problems"[\s\S]{0,40}exDbg/.test(tpl) && tpl.indexOf('export-problems') > 0, 'a failed check still shows');
-  assert.match(src, /const sheet = !!st\.cv && st\.step === 'export' && this\.hasShoot\(\) && !st\.exFull, sk = st\.step === 'skim' \|\| sheet;/);   // the workshop is a page of its own
-  assert.match(src, /isSkim:st\.step === 'skim' \|\| sheet/);
-  assert.match(src, /exOut:e => \{ if \(e\.target === e\.currentTarget\) this\.setStep\('skim'\); \}/, 'a click beside the sheet goes back');
+  assert.match(src, /const sk = st\.step === 'skim';/);   // Export: the shortcuts on top, the files and folders below, one page
+  assert.doesNotMatch(src, /exFull|exQuick|export-workshop/, 'no second Export mode');
   assert.doesNotMatch(src, /'nothing to note'/);
 });

@@ -1382,3 +1382,79 @@ The app draws these on the photo now (2026-10-08), so this does not need a new p
 light hairline (`rgba(239,236,230,0.5)`) you can see the picture through. The dotted gold axis
 (`#FFD27A`, dash 7 5) is drawn in front of the photo, including once it has turned. Neither is a
 hole in the canvas. The page's own strokes are unchanged and sit under the photo.
+
+## Prompt 27 — Handoff is one page: shortcuts on top, your files below (paste into Claude Design)
+
+Pick's Handoff step in Sets v12 (`data-screen-label="2 Handoff"`) becomes the place where a
+photographer controls where everything goes and gets space back early. Skim's Export works this
+way now; this brings the same model to stills. Nothing in Cull or Edit changes.
+
+**1. One page, two parts.** The top of the page holds the shortcuts: the save button
+(`handoff-primary`, ⌘⏎), the result, and a short settings block with three lines laid out as a
+label column and a value column:
+- **Save to** shows where the sidecars and any JPEGs go, with Change… and Ask each time.
+- **Photos** offers Picks, Picks + maybes, or Everything.
+- **Then** has switches: Also export JPEGs with the look (the size choice stays), Open in
+  Lightroom, and Clear working files.
+Everything else sits below, in the same page, with no second mode and no toggle key: the file
+view, the drafted moves, Saved files, and Storage. Esc goes back to Pick.
+
+**2. The file view (replaces `handoff-tree`).** This is a tree of drives and folders, in Lumina's
+own style, that the user works in directly:
+- **Rows.** Rows open with a click or →. Each folder shows the picks under it as coloured counts
+  (kept, maybe, rejected). Each photo shows its stars.
+- **Selecting.** Drag to select, ⌘ or ⇧ to add, and K / M / X to mark the selection.
+- **Bar.** A bar above the tree shows what can be done with the current selection: New folder (N),
+  Sidecars here, JPEGs here, Make it Save to, **Show in Finder** (⌥⌘R, Finder’s own shortcut, on any row, for the folder
+  or file you are on), and Remove access.
+- **Access.** A drive Lumina has no access to says "No access yet". Its button reads **Give
+  access…** and opens the system folder panel at that drive. Never write "Let Lumina in" or similar.
+- **Drafted moves.** Dragging photos onto a folder adds a drafted move. The photo shows as a
+  ghost in its new place, and its old row says "→ folder". One line says "12 moves waiting ·
+  31 GB" with Review, Apply (⌘⏎ while moves wait) and Discard. Each run that was applied stays
+  in a short list with Undo.
+
+**3. Saved files.** This is a list of every sidecar batch and JPEG export Lumina saved for this
+shoot. Each row shows a coloured dot, its name, its folder and when it was saved, plus one state:
+- **Current**;
+- **Out of date** (with what changed: "3 ratings changed, 2 photos moved");
+- **Replaced** by a newer save;
+- **Edited since saved**;
+- **Missing**;
+- **In the Trash**.
+Clicking the name opens a preview of the file (the XMP text for a sidecar batch, or the photos
+for a JPEG export). The row's buttons depend on its state: Show in Finder, Open in Lightroom,
+**Update** (saves a new copy with today's ratings next to the old one, and never writes over it),
+Move to Trash (only for a file nothing changed since it was saved), Put back, and Forget (the
+file stays where it is). A short line at the top counts them: "2 current · 1 out of date ·
+1 replaced".
+
+**4. Storage, the funnel (replaces `handoff-cache`, kept simple).** Three lines, each with a dot,
+one sentence and at most two buttons:
+- **Memory** says "1.2 GB of previews held for 340 photos", with Clear.
+- **Rejected** says "86 rejected photos · 4.1 GB you can free", with **Delete in Finder…**. That
+  opens a Finder window with those RAWs selected and says "Finder has them selected: press ⌘⌫ to
+  move them to the Trash." Lumina itself deletes nothing for now.
+- **Drive** says "T7 · 150 GB free of 1 TB". The dot turns amber under 10 % free.
+The goal is that loading a card, culling and handing off leaves the Mac with less held, not more.
+
+**5. Preview what will be saved.** A fold under the shortcuts, "Preview the sidecars", shows what
+⌘⏎ will write: the photo count, the first XMP in full, and the folder each one goes to. Clicking a
+photo name in the preview selects that photo in the file view.
+
+**Clickable, and only these:** row names and chevrons in the tree, the bar's buttons, a Saved files
+name (for its preview), each Saved files button, each Storage button, the preview fold, and the
+three settings lines. Counts, sizes and states are text and do not respond to clicks.
+
+### How Prompt 27 is checked once its handoff lands
+
+- Handoff opens with the shortcuts above the file view on one page. No toggle key, no second title.
+- ⌥⌘R on any row of the tree opens Finder with it selected. A drive with no access says "No access
+  yet" and its button says "Give access…".
+- Save twice with a rating changed in between. The first save reads Out of date, then Replaced
+  after Update. Its preview shows the XMP text. Move to Trash, then Put back, returns it.
+- Delete in Finder… selects the rejected RAWs in Finder, and Lumina deletes nothing.
+
+Reply with the complete Handoff block (`data-screen-label="2 Handoff"`) and every function you
+changed or added, as full functions, not a description and not a partial diff. List any new
+`window.lumina` call the page makes, with its arguments and the answer it expects.

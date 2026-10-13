@@ -28,7 +28,20 @@ async function run(host) {
       exportPlace: () => ask(place),
       exportChoose: () => { place = {...place, ask:false, path:'/Users/sam/Movies/Exports', name:'Exports'}; return ask(place); },
       exportAsk: () => { place = {ask:true, finalCut:true, clips:place.clips}; return ask(place); },
-      exportSave: (name, text, dir) => { window.__calls.push(['save', name, text, dir]); const f = dir || '/Users/sam/Movies/Exports'; return ask({ok:true, path:f + '/' + name, name, folder:f}); },
+      exportSave: (name, text, dir, note) => { window.__calls.push(['save', name, text, dir, note]); const f = dir || '/Users/sam/Movies/Exports', L = window.__led = window.__led || [];
+        let nm = name; for (let k = 2; L.some(e => e.path === f + '/' + nm); k++) nm = name.replace(/(\.\w+)$/, ' ' + k + '$1');
+        if (note) L.push({id:'e' + L.length, path:f + '/' + nm, name:nm, folder:f, kind:note.kind, at:Date.now() + L.length, bytes:text.length, clips:note.clips, opts:note.opts, state:'here', text});
+        return ask({ok:true, path:f + '/' + nm, name:nm, folder:f}); },
+      // Saved files: the stand-in keeps what exportSave noted, as skimExportsList / Trash / PutBack / Forget / Read do
+      exportsList: () => ask((window.__led || []).map(({text, ...e}) => e)),
+      exportsRead: id => ask(((window.__led || []).find(e => e.id === id) || {}).text || null),
+      exportsTrash: id => { window.__calls.push(['ledTrash', id]); const e = (window.__led || []).find(x => x.id === id); if (e) e.state = 'trashed'; return ask({ok:!!e, why:''}); },
+      exportsPutBack: id => { const e = (window.__led || []).find(x => x.id === id); if (e) e.state = 'here'; return ask({ok:!!e, why:''}); },
+      exportsForget: id => { window.__led = (window.__led || []).filter(x => x.id !== id); return ask(true); },
+      exportsReveal: id => { window.__calls.push(['ledReveal', id]); return ask({ok:true}); },
+      exportsOpen: id => ask({ok:true, app:'Final Cut Pro'}),
+      showInFinder: path => { window.__calls.push(['finder', path]); return ask(true); },
+      showClips: paths => { window.__calls.push(['showClips', paths]); return ask(paths.length); },
       exportDefault: p => { place = {...place, ask:false, path:p, name:p.split('/').pop()}; return ask(place); },
       places: () => ask({saveTo:place.ask ? null : place.path, home:'/Users/sam',
         places:[{name:'dump', path:'/Users/sam/Desktop/dump', kind:'shoot', card:false}].concat(place.ask ? [] : [{name:place.name, path:place.path, kind:'saveTo', card:false}]),
@@ -75,10 +88,9 @@ async function run(host) {
     const r = await text('[data-lumina="export-result"]');
     ok(/Downloaded .+\.fcpxml · 3 clips/.test(r) && /working memory/.test(r), 'browser: the result says what was done: ' + r.replace(/\n/g, ' | '));
     ok(await p.$('[data-lumina="export-close"]'), 'browser: Close this shoot is offered');
-    // what Tests/web/skim-engine-check.js does to read the file check: W opens the workshop, Summary unfolds it
-    await p.keyboard.press('w'); await p.waitForTimeout(300); await p.click('[data-lumina="ws-sum"]'); await p.waitForTimeout(300);
-    ok(/well formed/.test(await text('[data-lumina="sum-check"]')) && /\.fcpxml/.test(await text('[data-lumina="sum-file"]')), 'browser: the workshop\u2019s Summary shows the file check: ' + await text('[data-lumina="sum-check"]'));
-    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    // what Tests/web/skim-engine-check.js does to read the file check: Summary, below the shortcuts, unfolds it
+    await p.click('[data-lumina="ws-sum"]'); await p.waitForTimeout(300);
+    ok(/well formed/.test(await text('[data-lumina="sum-check"]')) && /\.fcpxml/.test(await text('[data-lumina="sum-file"]')), 'browser: Summary shows the file check: ' + await text('[data-lumina="sum-check"]'));
     if (shots) { await p.evaluate(() => { const e = document.querySelector('[data-screen-label="Export"]'); if (e) e.scrollTop = 0; }); await p.screenshot({path:path.join(shots, 'browser-done.png')}); }
   } else {
     ok(/Asks each time/.test(await text('[data-lumina="export-dest"]')), 'app: Save to starts on asking each time');
@@ -91,9 +103,10 @@ async function run(host) {
     const plan = await text('[data-lumina="export-then"]');
     ok(/saves .+\.fcpxml to ~\/Movies\/Exports, opens it in Final Cut, moves 2 cut clips .+ to the Trash and clears .+ of working memory\./.test(plan) || /saves .+ to ~\/Movies\/Exports, opens it in Final Cut and moves 2 cut clips/.test(plan), 'app: the plan line: ' + plan);
     if (shots) await p.screenshot({path:path.join(shots, 'app-export-on.png'), fullPage:true});
-    // the workshop: W opens it; the tree, unfurled by a click and the arrows; a new folder; the Final Cut file dropped on it
-    await p.keyboard.press('w'); await p.waitForTimeout(400);
-    ok(await p.$('[data-lumina="workshop"]') && /Export workshop/.test(await text('[data-screen-label="Export"]')), 'app: W opens the workshop');
+    // one page: the shortcuts on top, the files and folders below; the tree, unfurled by a click and the arrows; a new folder; the Final Cut file dropped on it
+    ok(await p.$('[data-lumina="export-top"] [data-lumina="export-plan"]') && await p.$('[data-lumina="workshop"]') && !await p.$('[data-lumina="export-workshop"]')
+      && await p.evaluate(() => document.querySelector('[data-lumina="export-top"]').getBoundingClientRect().bottom <= document.querySelector('[data-lumina="workshop"]').getBoundingClientRect().top),
+      'app: one Export page, the shortcuts above the files and folders');
     const rowsT = async () => (await p.$$eval('[data-lumina="ws-row"]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim())));
     let rows = await rowsT();
     ok(rows.some(r => /dump/.test(r) && /selected/.test(r) === false && /2/.test(r)) && rows.some(r => /T7/.test(r) && /free/.test(r)) && rows.some(r => /SONY/.test(r) && /card/.test(r)) && rows.some(r => /Macintosh HD/.test(r)), 'app: the list has the shoot folder (with its marks), Save to and the drives: ' + rows.join(' | '));
@@ -116,6 +129,8 @@ async function run(host) {
     await p.keyboard.press('Meta+z'); await p.waitForTimeout(200);
     ok((await marksOf([undec[0]]))[0].includes('undecided'), 'app: ⌘Z takes it back');
     await p.click('[data-lumina="ws-row"][data-path$="/' + undec[0] + '"]'); await p.waitForTimeout(150);
+    // the files and folders sit under the shortcuts: bring them up so the row and the bucket are both on screen for the drag
+    await p.evaluate(() => document.querySelector('[data-lumina="workshop"]').scrollIntoView({block:'start'})); await p.waitForTimeout(100);
     await p.dragAndDrop('[data-lumina="ws-row"][data-path$="/' + undec[0] + '"]', '[data-lumina="ws-bucket-keep"]'); await p.waitForTimeout(250);
     ok((await marksOf([undec[0]]))[0].includes('selected') && /^Selected\s*3/.test((await text('[data-lumina="ws-bucket-keep"]')).trim()), 'app: a clip dropped on the Selected bucket is selected: ' + (await text('[data-lumina="ws-bucket-keep"]')).replace(/\s+/g, ' '));
     await p.keyboard.press('Meta+z'); await p.waitForTimeout(200);
@@ -185,15 +200,59 @@ async function run(host) {
     ok(/clip file missing on disk: C0002\.MP4/.test(r) && /missing on disk/.test(await text('[data-lumina="sum-verify"]')), 'app: a missing clip file is flagged in the result and the summary');
     ok(/Saved .+ in \/Volumes\/T7\/Projects\/Tuesday export/.test(r) && /Opened in Final Cut Pro/.test(r) && /Moved 2 cut clips/.test(r) && /working memory/.test(r), 'app: the result: ' + r.replace(/\n/g, ' | '));
     if (shots) { await p.evaluate(() => { const e = document.querySelector('[data-screen-label="Export"]'); if (e) e.scrollTop = 0; }); await p.screenshot({path:path.join(shots, 'app-done.png')}); }
-    await p.keyboard.press('Escape'); await p.waitForTimeout(300);
-    ok(/Tuesday export/.test(await text('[data-lumina="dest-line"]')) && await p.$('[data-lumina="dest-unpin"]'), 'app: esc goes back to the quick export, which shows the folder the workshop picked');
+    ok(/Tuesday export/.test(await text('[data-lumina="dest-line"]')) && await p.$('[data-lumina="dest-unpin"]'), 'app: Save to at the top shows the folder picked below');
     await p.click('[data-lumina="export-reveal"]'); await p.click('[data-lumina="export-putback"]'); await p.waitForTimeout(400);
     const c2 = await p.evaluate(() => window.__calls.map(c => c[0]).join(' '));
     ok(/reveal/.test(c2) && /putback/.test(c2) && /Put back 2 clips/.test(await text('[data-lumina="export-result"]')), 'app: Show in Finder and Put back answer from the result');
     // Undo: the run on the workshop's list puts its clips back, and their paths follow
-    await p.keyboard.press('w'); await p.waitForTimeout(400); await p.click('[data-lumina="ws-run-undo-0"]'); await p.waitForTimeout(500);
+    await p.click('[data-lumina="ws-run-undo-0"]'); await p.waitForTimeout(500);
     ok(/^Put back 2 clips/.test(await text('[data-lumina="ws-plan-say"]')) && /put back/.test(await text('[data-lumina="ws-plan-list"]')) && !await p.$('[data-lumina="ws-run-undo-0"]')
       && await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]'), 'app: Undo puts the run back, and the list says so: ' + await text('[data-lumina="ws-plan-say"]') + ' | ' + await text('[data-lumina="ws-plan-list"]') + ' | ' + (await rowsT()).join(' | '));
+    // Read back: the file as Final Cut might return it, the two favorites rejected; the clip Arrange moved and put
+    // back is found by its name
+    const fb = path.join(T, 'from Final Cut.fcpxml'); fs.writeFileSync(fb, savedF[2].replace(/value="favorite"/g, 'value="reject"'));
+    await p.setInputFiles('[data-lumina="ws-back"] input[type=file]', fb); await p.waitForTimeout(400);
+    const bs = await text('[data-lumina="ws-back-say"]'), bl = await text('[data-lumina="ws-back-list"]');
+    ok(/from Final Cut\.fcpxml: \d+ clips of this shoot\. 2 marks differ/.test(bs) && (bl.match(/selected\s*→\s*cut/g) || []).length === 2, 'app: Read back lists the marks the file changes, before anything changes: ' + bs + ' | ' + bl.replace(/\n/g, ' '));
+    ok((await marksOf([sel1]))[0].includes('selected'), 'app: reading changes no mark');
+    await p.click('[data-lumina="ws-back-use"]'); await p.waitForTimeout(300);
+    ok((await marksOf([sel1]))[0].includes('cut') && /^Used 2 marks/.test(await text('[data-lumina="ws-back-say"]')), 'app: Use these marks sets them: ' + await text('[data-lumina="ws-back-say"]'));
+    await p.keyboard.press('Meta+z'); await p.waitForTimeout(300);
+    ok((await marksOf([sel1]))[0].includes('selected'), 'app: ⌘Z takes them back');
+    await p.setInputFiles('[data-lumina="ws-back"] input[type=file]', {name:'notes.xml', mimeType:'text/xml', buffer:Buffer.from('<notes/>')}); await p.waitForTimeout(300);
+    ok(/notes\.xml is not a Final Cut XML file/.test(await text('[data-lumina="ws-back-say"]')), 'app: another XML file is refused');
+    // Saved files: the .fcpxml and the cut list Export saved, Current until a mark changes; a preview; Update saves beside it
+    await p.evaluate(() => document.querySelector('[data-lumina="ws-led"]')?.scrollIntoView({block:'center'}));
+    const led = async () => p.$$eval('[data-lumina="ws-led-row"]', es => es.map(e => e.getAttribute('data-state') + ' ' + e.innerText.replace(/\s+/g, ' ')));
+    let lr = await led(); const old = lr.findIndex(r => /^old /.test(r) && /\.fcpxml/.test(r));
+    // the .fcpxml points at Selected/, and Undo put the clips back since: it is out of date, and says why; the cut list is current
+    ok(lr.length === 2 && old >= 0 && /Out of date · 2 clips moved/.test(lr[old]) && lr.some(r => /^cur .*cut clips\.txt/.test(r)) && /1 current · 1 out of date/.test(await text('[data-lumina="ws-led-sum"]')),
+      'app: Saved files lists what Export saved: the cut list current, the .fcpxml out of date since Undo moved its clips back: ' + lr.join(' | '));
+    await p.click('[data-lumina="ws-led-name-' + old + '"]'); await p.waitForTimeout(250);
+    ok(/<fcpxml version=/.test(await text('[data-lumina="ws-led-text"]')), 'app: a click on its name previews the file');
+    await p.click('[data-lumina="ws-led-finder-' + old + '"]'); await p.waitForTimeout(150);
+    ok((await p.evaluate(() => window.__calls.some(c => c[0] === 'ledReveal'))) && /Finder has .+ selected/.test(await text('[data-lumina="ws-led-say"]')), 'app: Show in Finder answers from Saved files');
+    await p.click('[data-lumina="ws-led-update-' + old + '"]'); await p.waitForTimeout(500);
+    lr = await led();
+    ok(lr.length === 3 && lr.some(r => /^replaced /.test(r)) && /Saved .+ 2\.fcpxml beside/.test(await text('[data-lumina="ws-led-say"]')), 'app: Update saves a new file beside it and the old one reads Replaced: ' + lr.join(' | '));
+    const rep = lr.findIndex(r => /^replaced /.test(r));
+    await p.click('[data-lumina="ws-led-trash-' + rep + '"]'); await p.waitForTimeout(400);
+    lr = await led(); const tr = lr.findIndex(r => /^trash /.test(r));
+    ok(tr >= 0 && await p.$('[data-lumina="ws-led-back-' + tr + '"]'), 'app: Move to Trash takes the replaced file, with Put back: ' + lr.join(' | '));
+    // Show in Finder wherever you are: the bar, and ⌥⌘R on the row selected
+    await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '"]'); await p.waitForTimeout(200);
+    await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '"]'); await p.waitForTimeout(200);
+    ok(await p.$('[data-lumina="ws-finder"]'), 'app: the bar offers Show in Finder for the row selected');
+    await p.keyboard.press('Alt+Meta+r'); await p.waitForTimeout(200);
+    ok((await p.evaluate(() => window.__calls.filter(c => c[0] === 'finder').map(c => c[1]))).includes(dumpP), 'app: ⌥⌘R shows it in Finder');
+    ok(/Give access/.test(await p.evaluate(() => document.querySelector('[data-lumina="ws-row"][data-path="/"]')?.title || '')) || /No access yet/.test(await p.evaluate(() => document.querySelector('[data-lumina="ws-row"][data-path="/"]')?.title || '')), 'app: a drive with no access says so in plain words');
+    // Storage: memory, the cut clips with Delete in Finder…, and the drive
+    await p.evaluate(() => document.querySelector('[data-lumina="ex-storage"]').scrollIntoView({block:'center'}));
+    ok(/memory/i.test(await text('[data-lumina="sto-mem"]')) && /cut clip/.test(await text('[data-lumina="sto-cut"]')) && /T7 · 150\.0 GB free of 1000\.0 GB/.test(await text('[data-lumina="sto-drive"]')), 'app: Storage says what memory holds, the cut clips, and the drive: ' + [await text('[data-lumina="sto-mem"]'), await text('[data-lumina="sto-cut"]'), await text('[data-lumina="sto-drive"]')].join(' | ').replace(/\n/g, ' '));
+    await p.click('[data-lumina="cut-finder"]'); await p.waitForTimeout(250);
+    ok((await p.evaluate(() => window.__calls.some(c => c[0] === 'showClips' && c[1].length > 0))) && /Finder has .+ selected: press ⌘⌫ there/.test(await text('[data-lumina="cut-say"]')), 'app: Delete in Finder… selects the cut clips in Finder: ' + await text('[data-lumina="cut-say"]'));
+    await p.click('[data-lumina="ex-preview"]'); await p.waitForTimeout(200);
+    ok(/<fcpxml version=/.test(await text('[data-lumina="ex-preview-text"]')), 'app: Preview the file shows what ⌘⏎ saves');
   }
   ok(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();
