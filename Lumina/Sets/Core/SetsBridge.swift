@@ -925,3 +925,26 @@ enum SetsWebView {
         return (wv, scheme)
     }
 }
+
+// Read here, not in Look: Look is also compiled without Core (Tools/parity/lumina-render), and
+// every number the page sends goes through SetsNumber.
+extension LookCanvasController.Guide {
+    /// `canvasZoom`'s `guides`: viewport CSS px. `k` is `axis`, `level` or `grid`. At most 24.
+    static func parse(_ value: Any?) -> [LookCanvasController.Guide] {
+        guard let list = value as? [Any] else { return [] }
+        return list.prefix(24).compactMap { item in
+            guard let d = item as? [String: Any],
+                  let x0 = SetsNumber.double(d["x0"], in: -20_000...20_000),
+                  let y0 = SetsNumber.double(d["y0"], in: -20_000...20_000),
+                  let x1 = SetsNumber.double(d["x1"], in: -20_000...20_000),
+                  let y1 = SetsNumber.double(d["y1"], in: -20_000...20_000) else { return nil }
+            let kind: Kind
+            switch d["k"] as? String {
+            case "axis": kind = .axis
+            case "level": kind = .level
+            default: kind = .grid
+            }
+            return LookCanvasController.Guide(kind: kind, a: CGPoint(x: x0, y: y0), b: CGPoint(x: x1, y: y1))
+        }
+    }
+}

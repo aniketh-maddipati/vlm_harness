@@ -133,3 +133,56 @@ test('500 clips lay out in under 2 ms (Node)', () => {
     assert.ok(med < 2, name + ' median ' + med.toFixed(3) + ' ms');
   }
 });
+
+// ---- the Viewer's row: the clip you are on comes first ----
+import fs from 'node:fs';
+import { PAGE, extractMethod } from './skim-export.mjs';
+const rowFit = new Function('return function ' + extractMethod(fs.readFileSync(PAGE, 'utf8'), 'rowFit', 'rowFit(n, W, H) {'))();
+// the window as the page works it out: the width left of the facts column, the height under the bars
+const pageSrc = fs.readFileSync(PAGE, 'utf8');
+const viewPlan = new Function('return function ' + extractMethod(pageSrc, 'viewPlan', 'static viewPlan(vw, vh) {').replace(/^static /, ''))();
+const room = (vw, vh) => { const p = viewPlan(vw, vh); return [p.W, p.H]; };
+
+test('Viewer: the current clip keeps its full size when a neighbour fits beside it, and 88% of it at least otherwise', () => {
+  for (const [vw, vh] of [[720, 900], [800, 600], [1024, 640], [1180, 760], [1280, 800], [1440, 900], [1512, 982], [1728, 1117], [1920, 1080], [2560, 1440], [3008, 1692], [3440, 1440]])
+    for (const n of [1, 2, 3, 5, 9]) {
+      const [W, H] = room(vw, vh), alone = Math.floor(Math.min(W, Math.max(160, H) * 16 / 9)), f = rowFit(n, W, H);
+      assert.ok(f.wc >= Math.floor(alone * 0.88) - 1, `${vw}x${vh}, ${n} clips: ${f.wc} of ${alone}`);
+      assert.ok(f.wc <= alone, 'never taller than the room');
+      assert.ok(f.wc + (f.k - 1) * (f.wo + f.gap) <= W, `${vw}x${vh}, ${n} clips: the row fits the width`);
+      assert.ok(f.k >= 1 && f.k <= Math.min(n, 7));
+    }
+});
+
+test('Viewer: bigger than before on the common windows (it was 639, 925 and 1320 px wide)', () => {
+  assert.ok(rowFit(3, ...room(1440, 900)).wc >= 840);
+  assert.ok(rowFit(3, ...room(1920, 1080)).wc >= 1200);
+  assert.ok(rowFit(3, ...room(2560, 1440)).wc >= 1740);
+});
+
+test('Viewer: neighbours are shown only at a useful size, and never wider than half the current clip', () => {
+  for (const [vw, vh] of [[1024, 640], [1440, 900], [1920, 1080], [2560, 1440], [3440, 1440]]) {
+    const f = rowFit(9, ...room(vw, vh));
+    if (f.k > 1) { assert.ok(f.wo >= 160, `${vw}: ${f.wo}`); assert.ok(f.wo >= f.wc * 0.19, `${vw}: a fifth of the current one`); assert.ok(f.wo <= f.wc * 0.5 + 1, `${vw}: ${f.wo} beside ${f.wc}`); }
+  }
+  assert.deepEqual(rowFit(1, ...room(1440, 900)).k, 1);
+  assert.equal(rowFit(5, 360, 300).k, 1, 'no room beside it: alone');
+  assert.equal(rowFit(5, 360, 520).wc, 360);
+});
+
+test('Viewer in a narrow window: the facts go under the picture when that makes it a quarter wider', () => {
+  const pic = (vw, vh) => rowFit(3, ...room(vw, vh)).wc;
+  // narrow and tall: under it, and the picture has the window's width (it was 360 wide beside the facts)
+  assert.equal(viewPlan(720, 900).stack, true); assert.equal(viewPlan(720, 900).cols, 'minmax(0,1fr)'); assert.equal(pic(720, 900), 688);
+  assert.equal(viewPlan(800, 1000).stack, true); assert.ok(pic(800, 1000) >= 760);
+  // wide enough, or too short for it to help: beside it, as before
+  for (const [vw, vh] of [[1024, 640], [1180, 760], [1280, 800], [1440, 900], [1920, 1080], [2560, 1440], [800, 600]]) { assert.equal(viewPlan(vw, vh).stack, false, vw + 'x' + vh); assert.equal(viewPlan(vw, vh).cols, 'minmax(0,1fr) minmax(240px,300px)'); }
+  assert.equal(pic(800, 600), 391, 'a short window is limited by its height either way');
+  assert.equal(pic(1440, 900), 851);
+  // under the picture, 100 px of height are kept for the name and the mark buttons
+  assert.equal(viewPlan(720, 900).H, 900 - 480); assert.equal(viewPlan(1440, 900).H, 900 - 380);
+  // never smaller than it would be beside the facts
+  for (let vw = 640; vw <= 1600; vw += 20) for (const vh of [600, 800, 900, 1100]) { const p = viewPlan(vw, vh), padX = Math.min(40, Math.max(16, vw * 0.022)); const side = Math.min(Math.max(280, vw - 2 * padX - 328), Math.max(160, vh - 380) * 16 / 9); assert.ok(Math.min(p.W, Math.max(160, p.H) * 16 / 9) >= side - 0.01, vw + 'x' + vh); }
+  assert.match(pageSrc, /data-screen-label="Clip" style="[^"]*grid-template-columns:\{\{ lv2Cols \}\};align-content:start;/);
+  assert.match(pageSrc, /const vp = Component\.viewPlan\(st\.vw, st\.vh\), W = vp\.W, Hh = vp\.H; vals\.lv2Cols = vp\.cols;/);
+});
