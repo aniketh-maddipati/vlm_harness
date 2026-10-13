@@ -2341,7 +2341,11 @@ class Component extends DCLogic {
   // A stored entry that holds marks: a shoot's entry ('lumina-skim:<shoot>'), not the read clock or the folder locations.
   static isMarkKey(k) { return typeof k === 'string' && k.indexOf('lumina-skim:') === 0 && k !== 'lumina-skim:clock'; }
   keepTake() {
+    // still coming back from the last reload: the shoot as it was kept, not the half-read one
+    if (this.kept) return JSON.stringify(this.kept);
     const d = this.d, st = this.state; if (!d || !d.shoot || !d.shoot.real || !d.clips.length) return null;
+    // dropped clips can't be handed back (the app never learns where they are): the app doesn't reload
+    if (this.picked === false) return JSON.stringify({dropped:true});
     const K = id => this.byId[id] ? this.clipKey(this.byId[id]) : null, by = o => { const out = {}; Object.keys(o || {}).forEach(id => { const k = K(id); if (k) out[k] = o[id]; }); return out; };
     return JSON.stringify({name:d.shoot.name, marks:by(st.marks), dis:by(st.dis), cuts:st.cuts ? st.cuts.map(K).filter(Boolean) : null, nCut:st.nCut, userCut:!!this.userCut, cur:K(st.cur), step:st.step, lv:st.lv, gi:st.gi, zl:st.zl, ex:st.ex});
   }
@@ -2585,11 +2589,11 @@ class Component extends DCLogic {
   // one button below. Neither shows a folder picker where the browser has none (iOS Safari before 18.4).
   canFolder() { return typeof document !== 'undefined' && 'webkitdirectory' in document.createElement('input') && !/iPhone|iPod/.test(navigator.userAgent); }
   pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) el.click(); };
-  filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.importFiles(fs); };
+  filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.pickNext = true; this.importFiles(fs); };
   dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
   dropLeave = () => this.setState({dropHot:false});
   dropIn = async e => {
-    e.preventDefault(); this.setState({dropHot:false});
+    e.preventDefault(); this.setState({dropHot:false}); this.pickNext = false;
     const rel = this.rel = new Map(), out = [];
     const walk = (en, p) => new Promise(res => {
       if (en.isFile) en.file(f => { rel.set(f, p + f.name); out.push(f); res(); }, () => res());
@@ -2607,6 +2611,7 @@ class Component extends DCLogic {
     const vids = files.filter(f => Component.isClip(f));
     const photos = files.filter(f => /\.(arw|dng|cr3|cr2|nef|raf|orf|rw2|jpe?g|heic)$/i.test(f.name)).length;
     if (!vids.length) { this.kept = null; this.keepAt = 'done'; this.setState({impMsg:photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
+    this.picked = !!this.pickNext; this.pickNext = false;
     const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
     // Listing: every clip's name, size, date and (Sony) length, capture time, camera, profile and timecode, from small
     // reads only, 16 files at a time, before any picture is decoded. The scenes can be moved as soon as this is done.
