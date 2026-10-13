@@ -58,3 +58,17 @@ test('the page offers the hook and applies it after the reopened clips are liste
   assert.match(src, /this\.loadData\(d, 'skim'\);[^\n]*\n    if \(this\.kept\) this\.keepApply\(\);/);
   assert.match(src, /if \(!vids\.length\) \{ this\.kept = null; this\.keepAt = 'done';/);
 });
+
+test('a reload while the last one is coming back keeps the shoot as it was kept', () => {
+  const a = page(['F0001'], {marks:{F0001:'keep'}});
+  const b = page([]); b.fileEl = {click() {}}; b.keepReopen(a.keepTake());
+  assert.deepEqual(JSON.parse(b.keepTake()).marks, {'C0000.MP4@2026-10-01T10:00:00':'keep'});
+});
+
+test('dropped clips are not reloaded', () => {
+  const a = page(['F0001'], {marks:{F0001:'keep'}}); a.picked = false;
+  assert.deepEqual(JSON.parse(a.keepTake()), {dropped:true});
+  assert.match(src, /this\.picked = !!this\.pickNext;/);
+  assert.match(src, /this\.pickNext = true; this\.importFiles\(fs\);/);
+  assert.match(src, /dropHot:false\}\); this\.pickNext = false;/);
+});

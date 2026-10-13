@@ -149,13 +149,18 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     /// Reloads the page from the app's files and puts the open shoot back: the same clips, marks and view.
     /// The old picture stays over the window, dims a little while the page reloads, and fades out once the
-    /// shoot is back (or after 8 s, whatever the page says).
+    /// shoot is back (or after 8 s, whatever the page says). Clips dropped on the page have no file locations, so then
+    /// it doesn't reload at all.
     func reloadSkimKeeping() {
         guard let webView else { return }
         webView.evaluateJavaScript("window.luminaSkimKeep ? luminaSkimKeep.take() : null") { [weak self] kept, _ in
             MainActor.assumeIsolated {
                 guard let self, let webView = self.webView else { return }
-                self.skimKept = (kept as? String).flatMap { self.skimURLs == nil ? nil : $0 }
+                let fresh = (kept as? String).flatMap { self.skimURLs == nil ? nil : $0 }
+                // Clips dropped on the page can't be handed back: no reload, the work stays.
+                if let fresh, fresh.contains("\"dropped\":true") { LuminaLog.app.notice("skim: no reload, the open clips were dropped on the page"); return }
+                // A reload while the last one is still coming back, before the page holds the kept shoot: keep that one.
+                if fresh != nil || self.skimCurtain == nil { self.skimKept = fresh }
                 webView.takeSnapshot(with: nil) { image, _ in
                     MainActor.assumeIsolated {
                         self.raiseSkimCurtain(image)
