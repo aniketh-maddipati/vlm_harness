@@ -717,6 +717,27 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             if SetsFileOps.isCard(dir) { return (["ok": false, "why": Self.skimCardRefusal], nil) }
             let r = SkimPlaces.make(name, in: dir)
             return (r.ok ? ["ok": true, "path": r.path] : ["ok": false, "why": r.why, "path": r.path], nil)
+        case "skimArrangeApply":
+            // Arrange: the clips the user dragged onto folders in the workshop, moved there after his Apply, with their Sony
+            // sidecars, on the same drive only (a rename), inside the folders Skim was let into, never on a camera card or a
+            // read-only drive, never over a file; the run is noted in `skim/arrange.json` before anything moves (SkimArrange).
+            guard let shoot = body["shoot"] as? String, let list = body["moves"] as? [[String: Any]], list.count <= SkimArrange.maxMoves else { return (["run": NSNull(), "moves": [Any]()], nil) }
+            let moves = list.map { SkimArrange.Move(from: $0["from"] as? String ?? "", dir: $0["dir"] as? String ?? "") }
+            let roots = skimRoots(), log = skimArrangeLog
+            let r = await Task.detached(priority: .userInitiated) {
+                SkimArrange(log: log).apply(moves, shoot: shoot, allowed: { p in roots.contains { SkimPlaces.inside(p, root: $0) } }, refuse: SetsBridge.skimMoveRefusal)
+            }.value
+            if let id = r.run { onEvent?("skim arrange \(id)") }
+            return (["run": r.run.map { $0 as Any } ?? NSNull(), "moves": r.answers.map(\.json)], nil)
+        case "skimArrangeUndo":
+            // Undo a run: each file put back only if it is still where Skim put it, unchanged, and its old place is free.
+            guard let id = body["id"] as? String else { return ([], nil) }
+            _ = skimRoots()   // the folders let in, opened for this run of the app
+            let log = skimArrangeLog
+            return (await Task.detached(priority: .userInitiated) { SkimArrange(log: log).undo(id: id) }.value.map(\.json), nil)
+        case "skimArrangeList":
+            // The runs Arrange kept (newest first), for Undo after a quit.
+            return (skimArrangeLogRuns(), nil)
         case "skimExportDefault":
             // Make a folder of the tree the Save to folder.
             guard let path = body["path"] as? String, skimGranted(path), !SetsFileOps.isCard(URL(fileURLWithPath: path)),
@@ -869,6 +890,16 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) { return u }
         }
         return nil
+    }
+
+    /// Arrange's note of its runs (SkimArrange), in the container.
+    private var skimArrangeLog: URL { supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("arrange.json") }
+    private func skimArrangeLogRuns() -> [[String: Any]] { SkimArrange(log: skimArrangeLog).runs().reversed().prefix(20).map(\.json) }
+
+    /// Why a clip may not be moved from or to `path`: a camera card (or a card's `PRIVATE/M4ROOT`) or a read-only drive.
+    nonisolated static func skimMoveRefusal(_ path: String) -> String? {
+        let u = URL(fileURLWithPath: path), ro = (try? u.resourceValues(forKeys: [.volumeIsReadOnlyKey]))?.volumeIsReadOnly ?? false
+        return SkimDrive.refusal(path: path, readOnly: ro, card: SetsFileOps.isCard(u))
     }
 
     /// Skim's note of the files it moved to the Trash, in the container.

@@ -289,6 +289,7 @@ body:has([data-view=phone]){background:#111}
               <div data-lumina="ws-keys" style="display:flex;flex-wrap:wrap;gap:4px 12px;color:#9A958D;font-size:12px"><sc-for list="{{ wsKeys }}" as="h" hint-placeholder-count="6"><span style="display:flex;align-items:center;gap:5px;white-space:nowrap"><span data-kbd="1" style="padding:1px 5px;border-radius:4px;background:rgba(239,236,230,0.1);color:#EFECE6;font-weight:700;font-size:11px">{{ h.k }}</span>{{ h.t }}</span></sc-for></div>
             </div>
             <div style="flex:0 1 320px;display:flex;flex-direction:column;gap:14px;min-width:0">
+              <sc-if value="{{ wpOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-plan" role="region" aria-label="Moves" style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:10px;background:#1E1D1B;box-shadow:inset 0 0 0 1px {{ wpRing }}"><span data-lumina="ws-plan-say" role="status" style="color:#EFECE6;line-height:1.45;overflow-wrap:anywhere">{{ wpSay }}</span><span data-lumina="ws-plan-sub" style="color:#9A958D;font-size:12px;line-height:1.45;overflow-wrap:anywhere">{{ wpSub }}</span><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ wpBtns }}" as="sb" hint-placeholder-count="3"><button type="button" data-lumina="{{ sb.id }}" aria-disabled="{{ sb.off }}" onClick="{{ sb.go }}" title="{{ sb.tip }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;opacity:{{ sb.op }};cursor:{{ sb.cur }};white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sb.t }}</button></sc-for></div><sc-if value="{{ wpListOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-plan-list" style="display:flex;flex-direction:column;gap:2px;max-height:240px;overflow:auto"><sc-for list="{{ wpList }}" as="m" hint-placeholder-count="3"><div style="display:flex;gap:6px;align-items:center;justify-content:space-between;font-size:12px;min-height:28px"><span style="color:{{ m.c }};overflow-wrap:anywhere;min-width:0">{{ m.t }}</span><sc-for list="{{ m.b }}" as="sb" hint-placeholder-count="1"><button type="button" data-lumina="{{ sb.id }}" aria-disabled="{{ sb.off }}" onClick="{{ sb.go }}" title="{{ sb.tip }}" style="flex:none;box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;opacity:{{ sb.op }};cursor:{{ sb.cur }};white-space:nowrap" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sb.t }}</button></sc-for></div></sc-for></div></sc-if></div></sc-if>
               <div data-lumina="ws-buckets" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
                 <sc-for list="{{ wsBk }}" as="b" hint-placeholder-count="3"><button type="button" data-lumina="{{ b.id }}" aria-pressed="{{ b.on }}" onClick="{{ b.go }}" onDragOver="{{ b.over }}" onDragLeave="{{ b.leave }}" onDrop="{{ b.drop }}" title="{{ b.tip }}" style="text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:border-box;min-height:64px;padding:8px 10px;border-radius:10px;display:flex;flex-direction:column;gap:2px;background:{{ b.bg }};box-shadow:inset 0 0 0 {{ b.ring }};color:#EFECE6;cursor:pointer;transition:background 80ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:{{ b.c }}"><span style="width:8px;height:8px;border-radius:50%;background:{{ b.c }}"></span>{{ b.t }}</span><span style="font-size:18px">{{ b.n }}</span><span style="font-size:11px;color:#9A958D">{{ b.sz }}</span></button></sc-for>
               </div>
@@ -1847,7 +1848,7 @@ class Component extends DCLogic {
     if (st.storeOn && k === 'Escape') return this.setState({storeOn:false});
     if (kl === 'r' && e.shiftKey && !meta && !e.altKey && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); return this.pvToggle(); }
     if (st.step !== 'skim') {
-      if (st.step === 'export') { if (meta && k === 'Enter') { e.preventDefault(); return this.download(); } if (this.wsKey(e)) return; if (k === 'Escape' && !(t && t.tagName === 'INPUT')) { e.preventDefault(); return st.exFull ? this.exMode(false) : this.setStep('skim'); } }
+      if (st.step === 'export') { if (meta && k === 'Enter') { e.preventDefault(); return st.exFull && this.wsPlanN() ? this.wsApply() : this.download(); } if (this.wsKey(e)) return; if (k === 'Escape' && !(t && t.tagName === 'INPUT')) { e.preventDefault(); return st.exFull ? this.exMode(false) : this.setStep('skim'); } }
       if ((k === 'Enter' || k === ' ') && this.isCtl(t)) { e.preventDefault(); t.click(); }
       return;
     }
@@ -2655,25 +2656,34 @@ class Component extends DCLogic {
   // clip with its mark. Click, ⌘-click, ⇧-click and a drag over the rows select; selected clips drag onto a bucket to be
   // marked; the Final Cut file and the cut list drag onto a folder to be saved there; pinch sets the row size and a
   // sideways swipe unfurls or furls. Nothing here moves a clip file.
-  static WS0() { return {open:{}, kids:{}, sel:'', pick:{}, mk:null, hot:'', dst:{fcp:'', cut:''}, say:null, pl:null, z:1, only:'', opt:false, sum:false, box:null}; }
+  static WS0() { return {open:{}, kids:{}, sel:'', pick:{}, mk:null, hot:'', dst:{fcp:'', cut:''}, say:null, pl:null, z:1, only:'', opt:false, sum:false, box:null, plan:{}, rev:false, runs:null, ar:null}; }
   wsSet(f) { this.setState(s => { const w = s.ws || Component.WS0(); return {ws:{...w, ...(typeof f === 'function' ? f(w) : f)}}; }); }
   exDir(kind) { const w = this.state.ws; return (w && w.dst && w.dst[kind]) || ''; }
   exMode = full => { this.setState(s => ({exFull:!!full, ws:s.ws ? {...s.ws, mk:null, hot:'', box:null} : s.ws})); if (full) this.wsLoad(); };
-  wsLoad = () => { const v = this.exHostApi(); if (!v || !v.places) return; Promise.resolve().then(() => v.places()).then(pl => { if (pl) this.wsSet(w => ({pl, kids:{}})); }, () => {}); };
+  // The places, read again; the folders left open are read again too (their listing may have changed meanwhile).
+  wsLoad = () => { const v = this.exHostApi(); if (!v || !v.places) return; Promise.resolve().then(() => v.places()).then(pl => { if (!pl) return; const w = this.state.ws || Component.WS0(); this.wsSet({pl, kids:{}});
+    new Set(Object.keys(w.open).filter(k => w.open[k]).map(k => k.slice(k.indexOf('|') + 1))).forEach(p => this.wsKids(p)); }, () => {}); this.wsRunsLoad(); };
   // The rows, top to bottom: the folders first (the shoot's, Save to, the ones let in), then the drives, each unfurled folder
   // followed by what is inside it (folders, then files). A row's key is its root's place in the list and its path, so the same
   // folder under two roots unfurls on its own. Notes ("Reading…", "Empty") are rows too.
-  static wsFlat(pl, open, kids) {
+  // gh: the draft's clips by the folder they are going to ({folder: [{name, path, bytes, ghost:id}]}). They show in that folder
+  // (and a folder the draft would make shows, open, with them inside) until Apply moves them or Discard drops them.
+  static wsFlat(pl, open, kids, gh) {
     if (!pl) return [];
-    const out = [], P = (pl.places || []).filter(p => p && p.path), D = (pl.drives || []).filter(p => p && p.path);
-    const walk = (ri, key, path, depth) => {
-      if (!open[key]) return;
-      const ks = kids[path];
+    gh = gh || {};
+    const out = [], P = (pl.places || []).filter(p => p && p.path), D = (pl.drives || []).filter(p => p && p.path), G = Object.keys(gh);
+    const walk = (ri, key, path, depth, made) => {
+      if (!open[key] && !made) return;
+      const ks = made ? [] : kids[path];
       if (!Array.isArray(ks)) { out.push({key:key + '#', note:true, depth, name:ks && ks.why ? ks.why : 'Reading…'}); return; }
-      if (!ks.length) out.push({key:key + '#', note:true, depth, name:'Empty'});
+      const pre = path.replace(/\/+$/, '') + '/', names = new Set(ks.map(f => f.name)), gf = gh[path] || [];
+      const gd = [...new Set(G.filter(g => g.indexOf(pre) === 0).map(g => g.slice(pre.length).split('/')[0]))].filter(n => n && !names.has(n)).sort();
+      if (!ks.length && !gd.length && !gf.length) out.push({key:key + '#', note:true, depth, name:'Empty'});
       ks.forEach(f => { const k = ri + '|' + f.path;
         if (f.file) { out.push({key:k, path:f.path, name:f.name, depth, file:true, bytes:f.bytes || 0, granted:true, parent:key}); return; }
         out.push({key:k, path:f.path, name:f.name, depth, dirs:!!f.dirs, granted:true, parent:key}); walk(ri, k, f.path, depth + 1); });
+      gd.forEach(n => { const p = pre + n, k = ri + '|' + p; out.push({key:k, path:p, name:n, depth, dirs:true, granted:true, parent:key, made:true}); walk(ri, k, p, depth + 1, true); });
+      gf.forEach(f => out.push({key:ri + '|' + f.path + '#to', path:f.path, name:f.name, depth, file:true, bytes:f.bytes || 0, granted:true, parent:key, ghost:f.ghost}));
     };
     P.forEach((p, i) => { const key = i + '|' + p.path; out.push({key, path:p.path, name:p.name || p.path.split('/').pop(), depth:0, root:true, kind:p.kind, card:!!p.card, granted:true, dirs:true, hd:i === 0 ? 'Folders' : ''}); walk(i, key, p.path, 1); });
     D.forEach((p, j) => { const i = P.length + j, key = i + '|' + p.path; out.push({key, path:p.path, name:p.name || p.path, depth:0, root:true, drive:true, card:!!p.card, readOnly:!!p.readOnly, granted:!!p.granted, dirs:!!p.granted, free:p.free, total:p.total, hd:j === 0 ? 'Drives' : ''}); walk(i, key, p.path, 1); });
@@ -2697,7 +2707,7 @@ class Component extends DCLogic {
   wsRow(key) { return (this.wsRows || []).find(r => r.key === key) || null; }
   wsSel(key) { this.wsSet({sel:key}); setTimeout(() => { const e = document.querySelector('[data-lumina="ws-row"][data-key="' + (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]'); if (e && e.scrollIntoView) e.scrollIntoView({block:'nearest'}); }, 0); }
   wsToggle(r, want) {
-    if (!r || r.note || r.file) return;
+    if (!r || r.note || r.file || r.made) return;
     if (!r.granted) { if (r.drive && !r.card) this.wsLetIn(r.path); return; }
     const w = this.state.ws || Component.WS0(), on = want == null ? !w.open[r.key] : want; if (on === !!w.open[r.key]) return;
     this.wsSet(x => ({open:{...x.open, [r.key]:on}}));
@@ -2741,6 +2751,98 @@ class Component extends DCLogic {
     this.doMark(ids, off ? null : m);
     this.wsSet({say:{t:(off ? 'Unmarked ' : this.W(m) + ' · ') + this.plural(ids.length, 'clip')}});
     return true;
+  }
+  // Arrange, the draft layer: clips dragged onto a folder (or sorted by mark into folders) are a plan, drawn on the tree, and
+  // nothing on disk changes until Apply (⌘⏎). The app moves them on the same drive, with their sidecars, notes the run, and
+  // Undo puts a run back, also after a quit. A moved clip's path follows it, so the Final Cut file and the cut list point at
+  // the new place.
+  wsPlanN() { const w = this.state.ws; return w && w.plan ? Object.keys(w.plan).length : 0; }
+  // A clip's path on disk (as the .fcpxml names it), and the reverse: a path on disk as the page keeps it (inside the opened
+  // folder: the folder's name first, as the folder pick gave it; elsewhere the whole path).
+  wsAbs(c) { const cm = this.wsClipMap(); for (const p in cm.byPath) if (cm.byPath[p] === c) return p; return ''; }
+  wsRel(abs) {
+    const d = this.d, root = String((this.exHost && this.exHost.clips) || '').replace(/\/+$/, ''); if (!d || !root || abs.indexOf(root + '/') !== 0) return abs;
+    const tops = new Set(d.clips.map(c => { const p = c.path || c.name, i = p.indexOf('/'); return p[0] !== '/' && i > 0 ? p.slice(0, i) : ''; }).filter(Boolean));
+    return tops.size === 1 ? [...tops][0] + '/' + abs.slice(root.length + 1) : abs;
+  }
+  static wsCap(t) { return t ? t[0].toUpperCase() + t.slice(1) : t; }
+  static wsDirOf(p) { const i = p.lastIndexOf('/'); return i > 0 ? p.slice(0, i) : '/'; }
+  // Clips into a folder: each clip's plan is replaced; a clip dragged back to the folder it is in comes off the plan.
+  wsPlanAdd(cs, dir) {
+    const w = this.state.ws || Component.WS0(), plan = {...(w.plan || {})}; let n = 0, back = 0;
+    (cs || []).forEach(c => { const from = this.wsAbs(c); if (!from) return; if (Component.wsDirOf(from) === dir) { if (plan[c.id]) { delete plan[c.id]; back++; } return; } plan[c.id] = {from, dir}; n++; });
+    if (!n && !back) return false;
+    const N = Object.keys(plan).length;
+    this.wsSet({plan, ar:null, hot:'', say:{t:(n ? this.plural(n, 'clip') + ' → ' + this.tilde(dir) : this.plural(back, 'clip') + ' left where ' + (back === 1 ? 'it is' : 'they are')) + ' · ' + (N ? this.plural(N, 'move') + ' waiting · ⌘⏎ applies' : 'nothing waiting')}});
+    return true;
+  }
+  // Sort by mark: the shoot's selected and maybe clips into a Selected and a Maybe folder inside this one (made by Apply).
+  wsSortBy(r) {
+    const d = this.d, st = this.state; if (!d || !Component.wsCanSave(r)) return;
+    const by = {keep:[], maybe:[]}; d.clips.forEach(c => { const m = st.marks[c.id]; if (by[m]) by[m].push(c); });
+    const base = r.path.replace(/\/+$/, ''); let n = 0;
+    ['keep', 'maybe'].forEach(m => { if (by[m].length && this.wsPlanAdd(by[m], base + '/' + Component.wsCap(this.W(m)))) n += by[m].length; });
+    if (!n) { this.wsSet({say:{t:'No selected or maybe clips to sort.', bad:true}}); return; }
+    this.wsSet(x => ({open:{...x.open, [r.key]:true}, say:{t:'Sorted by mark into ' + this.tilde(base) + ' · ' + this.plural(Object.keys(x.plan).length, 'move') + ' waiting · nothing moves until Apply'}}));
+    if (!Array.isArray((this.state.ws || {}).kids[r.path])) this.wsKids(r.path);
+  }
+  wsPlanDrop(id) { this.wsSet(x => { const plan = {...x.plan}; delete plan[id]; return {plan}; }); }
+  wsDiscard = () => this.wsSet({plan:{}, rev:false, say:{t:'Discarded the moves; nothing was moved.'}});
+  wsRunsLoad() { const v = this.exHostApi(); if (!v || !v.arrangeList) return; Promise.resolve().then(() => v.arrangeList()).then(runs => { if (Array.isArray(runs)) this.wsSet({runs}); }, () => {}); }
+  // The folders whose listing a move changed, read again.
+  wsReread(paths, also) { const w = this.state.ws || Component.WS0(), more = new Set(also || []); new Set([...paths, ...more]).forEach(p => { if (more.has(p) || Array.isArray(w.kids[p]) || w.kids[p]) this.wsKids(p); }); }
+  wsApply = () => {
+    const v = this.exHostApi(), w = this.state.ws, d = this.d; if (!v || !v.arrangeApply || !w || !d || this.wsBusy) return;
+    const moves = Object.keys(w.plan || {}).map(id => ({id, from:w.plan[id].from, dir:w.plan[id].dir})); if (!moves.length) return;
+    this.wsBusy = true; this.wsSet({ar:{t:'Moving ' + this.plural(moves.length, 'clip') + '…'}});
+    Promise.resolve().then(() => v.arrangeApply(this.storeKey(d), moves)).then(r => {
+      this.wsBusy = false;
+      const res = (r && r.moves) || [], left = {}, bad = [], dirs = new Set(), touched = []; let n = 0, b = 0;
+      moves.forEach((m, i) => { const a = res[i] || {ok:false, why:'the app did not answer'}, c = this.byId[m.id];
+        if (a.ok && c) { c.path = this.wsRel(a.to); n++; b += c.bytes || 0; dirs.add(m.dir); touched.push(m.dir, Component.wsDirOf(m.from)); }
+        else { left[m.id] = w.plan[m.id]; bad.push((c ? c.name : m.from.split('/').pop()) + ': ' + (a.why || 'not moved')); } });
+      this.wsCM = null;
+      const t = n ? 'Moved ' + this.plural(n, 'clip') + ' · ' + this.fmtB(b) + ' into ' + this.plural(dirs.size, 'folder') + '. The Final Cut file and the cut list point at the new places.' : 'Nothing moved.';
+      // the folders the clips went into, open (a folder Apply made was drawn open already)
+      const opn = {}; (this.wsRows || []).forEach(x => { if (!x.file && dirs.has(x.path)) opn[x.key] = true; });
+      this.wsSet(x => ({plan:left, rev:bad.length > 0, ar:{t, run:r && r.run, bad}, say:null, open:{...x.open, ...opn}}));
+      this.wsReread(touched, dirs); this.wsRunsLoad(); this.setState(s => ({tick:(s.tick || 0) + 1, exRes:null}));
+    }, () => { this.wsBusy = false; this.wsSet({ar:{t:'The app did not answer. Nothing was moved.', bad:['']}}); });
+  };
+  wsUndo(id) {
+    const v = this.exHostApi(); if (!v || !v.arrangeUndo || !id || this.wsBusy) return;
+    this.wsBusy = true;
+    Promise.resolve().then(() => v.arrangeUndo(id)).then(res => {
+      this.wsBusy = false;
+      const cm = this.wsClipMap(), bad = [], touched = []; let n = 0;
+      (Array.isArray(res) ? res : []).forEach(a => { const c = cm.byPath[a.to];
+        if (a.ok) { n++; if (c) c.path = this.wsRel(a.from); touched.push(Component.wsDirOf(a.to), Component.wsDirOf(a.from)); }
+        else bad.push(a.from.split('/').pop() + ': ' + a.why); });
+      this.wsCM = null;
+      this.wsSet({ar:{t:n ? 'Put back ' + this.plural(n, 'clip') + ' where ' + (n === 1 ? 'it was.' : 'they were.') : 'Nothing was put back.', bad}});
+      this.wsReread(touched); this.wsRunsLoad(); this.setState(s => ({tick:(s.tick || 0) + 1, exRes:null}));
+    }, () => { this.wsBusy = false; this.wsSet({ar:{t:'The app did not answer.', bad:['']}}); });
+  }
+  // The panel: what is waiting (with Review, Apply and Discard), or what the last run did and the runs Undo can put back.
+  wsPlanVals(v, o) {
+    const w = this.state.ws || Component.WS0(), btn = o.btn, ids = Object.keys(w.plan || {}), N = ids.length, ar = w.ar, runs = (w.runs || []).filter(x => x && x.id);
+    v.wpOn = !!(o.host && (N || ar || runs.length));
+    const cs = ids.map(id => this.byId[id]).filter(Boolean), B = cs.reduce((s, c) => s + (c.bytes || 0), 0), into = [...new Set(ids.map(id => w.plan[id].dir))];
+    v.wpRing = N ? 'rgba(255,210,122,0.35)' : 'rgba(239,236,230,0.08)';
+    if (N) {
+      v.wpSay = this.plural(N, 'move') + ' waiting · ' + this.fmtB(B);
+      v.wpSub = 'Into ' + into.slice(0, 3).map(p => p.split('/').pop()).join(', ') + (into.length > 3 ? ' and ' + (into.length - 3) + ' more' : '') + '. Nothing has moved yet; clips go with their sidecars, on the same drive.';
+      v.wpBtns = [btn('ws-plan-apply', 'Apply · ⌘⏎', 'Move them now; Undo puts them back', !this.wsBusy, this.wsApply), btn('ws-plan-review', w.rev ? 'Hide list' : 'Review', 'Every move, old folder → new', true, () => this.wsSet(x => ({rev:!x.rev}))), btn('ws-plan-discard', 'Discard', 'Drop every waiting move', true, this.wsDiscard)];
+      v.wpListOn = !!w.rev;
+      v.wpList = ids.map((id, i) => { const p = w.plan[id], c = this.byId[id]; return {t:(c ? c.name : p.from.split('/').pop()) + '  ' + this.tilde(Component.wsDirOf(p.from)) + ' → ' + this.tilde(p.dir), c:'#B8B3AB', b:[btn('ws-plan-x-' + i, '×', 'Leave this clip where it is', true, () => this.wsPlanDrop(id))]}; });
+    } else {
+      v.wpSay = ar ? ar.t : 'Moves';
+      v.wpSub = ar && ar.bad && ar.bad.filter(Boolean).length ? 'Stayed: ' + ar.bad.filter(Boolean).slice(0, 4).join(' · ') + (ar.bad.length > 4 ? ' · and ' + (ar.bad.length - 4) + ' more' : '') : 'Drag clips onto a folder to plan a move.';
+      v.wpBtns = [];
+      v.wpListOn = runs.length > 0;
+      v.wpList = runs.slice(0, 6).map((x, i) => ({t:this.plural(x.clips || 0, 'clip') + ' · ' + this.fmtB(x.bytes || 0) + ' · ' + new Date(x.at || 0).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) + (x.undone ? ' · put back' : ''), c:x.undone ? '#6E6A64' : '#B8B3AB',
+        b:x.undone ? [] : [btn('ws-run-undo-' + i, 'Undo', 'Put this run\u2019s clips back where they were', !this.wsBusy, () => this.wsUndo(x.id))]}));
+    }
   }
   // A click: select (⌘ adds or takes away, ⇧ selects the run from the last one); a plain click on a folder also unfurls
   // it, and a second click on the folder already selected furls it.
@@ -2818,30 +2920,34 @@ class Component extends DCLogic {
   wsVals(v, o) {
     const st = this.state, w = st.ws || Component.WS0(), host = o.host, H = this.exHost, pl = w.pl, fb = b => this.fmtB(b), btn = o.btn, MK = Component.MK, z = w.z == null ? 1 : w.z;
     const cm = host ? this.wsClipMap() : {byPath:{}, under:{}}, fi = this.firstIdx ? this.firstIdx() : 0;
-    const all = host ? Component.wsFlat(pl, w.open, w.kids) : [];
+    { const api = host && this.exHostApi(); this.wsArr = !!(api && api.arrangeApply); }
+    const plan = w.plan || {}, gh = {}, away = {};
+    Object.keys(plan).forEach(id => { const c = this.byId[id], p = plan[id]; if (!c) return; (gh[p.dir] || (gh[p.dir] = [])).push({name:c.name, path:p.dir.replace(/\/+$/, '') + '/' + c.name, bytes:c.bytes || 0, ghost:id}); away[p.from] = p.dir; });
+    const all = host ? Component.wsFlat(pl, w.open, w.kids, gh) : [];
     const rows = w.only ? all.filter(r => !r.file || (cm.byPath[r.path] && (st.marks[cm.byPath[r.path].id] || 'und') === w.only)) : all; this.wsRows = rows;
-    const tagFor = r => [].concat(w.dst.fcp === r.path && !r.file ? [{t:'Final Cut file', bg:'rgba(255,210,122,0.18)', fg:'#FFD27A'}] : [], w.dst.cut === r.path && !r.file ? [{t:'cut list', bg:'rgba(255,138,122,0.16)', fg:'#FF8A7A'}] : [], pl && pl.saveTo === r.path && r.root ? [{t:'Save to', bg:'rgba(239,236,230,0.1)', fg:'#B8B3AB'}] : []);
+    const tagFor = r => [].concat(r.ghost ? [{t:'moving here', bg:'rgba(169,209,142,0.16)', fg:'#A9D18E'}] : [], r.made ? [{t:'new', bg:'rgba(169,209,142,0.16)', fg:'#A9D18E'}] : [], r.file && away[r.path] ? [{t:'→ ' + away[r.path].split('/').pop(), bg:'rgba(255,210,122,0.14)', fg:'#FFD27A'}] : [], w.dst.fcp === r.path && !r.file ? [{t:'Final Cut file', bg:'rgba(255,210,122,0.18)', fg:'#FFD27A'}] : [], w.dst.cut === r.path && !r.file ? [{t:'cut list', bg:'rgba(255,138,122,0.16)', fg:'#FF8A7A'}] : [], pl && pl.saveTo === r.path && r.root ? [{t:'Save to', bg:'rgba(239,236,230,0.1)', fg:'#B8B3AB'}] : []);
     const subFor = r => r.note ? '' : r.file ? fb(r.bytes) : r.drive ? (r.card ? 'card' : r.readOnly ? 'read only' : r.free != null ? fb(r.free) + ' free' : '') : r.root && r.kind === 'shoot' ? 'shoot' : '';
-    const mkFor = r => { if (r.note) return []; if (r.file) { const c = cm.byPath[r.path]; if (!c) return []; const m = st.marks[c.id]; return [{t:m ? this.W(m) : 'undecided', c:m ? MK[m] : '#6E6A64'}]; }
-      const u = cm.under[r.path]; if (!u) return []; return ['keep', 'maybe', 'cut'].filter(m => u[m]).map(m => ({t:String(u[m]), c:MK[m]})).concat(u.und && !u.keep && !u.maybe && !u.cut ? [{t:u.und + ' clips', c:'#9A958D'}] : []); };
+    const mkFor = r => { if (r.note) return []; if (r.file) { const c = r.ghost ? this.byId[r.ghost] : cm.byPath[r.path]; if (!c) return []; const m = st.marks[c.id]; return [{t:m ? this.W(m) : 'undecided', c:m ? MK[m] : '#6E6A64'}]; }
+      if (r.made) return []; const u = cm.under[r.path]; if (!u) return []; return ['keep', 'maybe', 'cut'].filter(m => u[m]).map(m => ({t:String(u[m]), c:MK[m]})).concat(u.und && !u.keep && !u.maybe && !u.cut ? [{t:u.und + ' clips', c:'#9A958D'}] : []); };
     const H_ = ['24px', '30px', '48px'][z], IC = [['9px', '8px'], ['10px', '9px'], ['64px', '36px']][z];
-    v.wsRows = rows.map(r => { const sel = !!w.pick[r.key] || (r.key === w.sel && !Object.keys(w.pick).length), hot = r.key === w.hot, ok = Component.wsCanSave(r), open = !!w.open[r.key], c = r.file ? cm.byPath[r.path] : null, m = c ? st.marks[c.id] : null;
-      const t = c && z === 2 && this.tone ? this.tone(c, fi) : null, dragOk = !!(sel && c);
+    v.wsRows = rows.map(r => { const sel = !!w.pick[r.key] || (r.key === w.sel && !Object.keys(w.pick).length), hot = r.key === w.hot, ok = Component.wsCanSave(r), open = !!w.open[r.key] || !!r.made, c = r.file ? (r.ghost ? this.byId[r.ghost] : cm.byPath[r.path]) : null, m = c ? st.marks[c.id] : null;
+      const t = c && z === 2 && this.tone ? this.tone(c, fi) : null, dragOk = !!(sel && c && !r.ghost), gone = !!(r.file && away[r.path]);
       return {hd:r.hd || '', hdD:r.hd ? 'block' : 'none', key:r.key, path:r.path || '', kind:r.note ? 'note' : r.file ? (c ? 'clip' : 'file') : 'folder', level:String((r.depth || 0) + 1), name:r.name, sub:subFor(r), tags:r.note ? [] : tagFor(r), mk:mkFor(r), mkC:'#9A958D',
         open:r.note || r.file || !(r.dirs || (r.drive && !r.granted)) ? undefined : String(open), sel:String(sel), drag:dragOk ? 'true' : 'false',
         tip:r.note ? '' : r.card ? 'A camera card: Skim never writes on it.' : !r.granted ? 'Not let in yet: click to open the folder panel there.' : this.tilde(r.path),
-        h:H_, fs:z === 0 ? '12px' : '13px', pad:(10 + (r.depth || 0) * 16) + 'px', op:r.file && !c ? 0.55 : 1,
+        h:H_, fs:z === 0 ? '12px' : '13px', pad:(10 + (r.depth || 0) * 16) + 'px', op:gone ? 0.4 : r.ghost || r.made ? 0.8 : r.file && !c ? 0.55 : 1,
         bg:hot ? 'rgba(255,210,122,0.22)' : sel ? 'rgba(255,210,122,0.1)' : 'transparent', hov:hot ? 'rgba(255,210,122,0.22)' : sel ? 'rgba(255,210,122,0.14)' : r.note ? 'transparent' : 'rgba(239,236,230,0.05)', ring:hot ? 'inset 0 0 0 1.5px #FFD27A' : 'none',
-        fg:r.note ? '#6E6A64' : r.card || !r.granted ? '#9A958D' : '#EFECE6', ital:r.note ? 'italic' : 'normal', cur:r.note ? 'default' : dragOk ? 'grab' : 'pointer', rot:open ? '90deg' : '0deg', chevOp:!r.note && !r.file && (r.dirs || (r.drive && !r.granted && !r.card)) ? 1 : 0,
+        fg:r.note ? '#6E6A64' : r.card || !r.granted ? '#9A958D' : '#EFECE6', ital:r.note || r.ghost || r.made ? 'italic' : 'normal', cur:r.note ? 'default' : dragOk ? 'grab' : 'pointer', rot:open ? '90deg' : '0deg', chevOp:!r.note && !r.file && !r.made && (r.dirs || (r.drive && !r.granted && !r.card)) ? 1 : 0,
         icW:c ? IC[0] : '9px', icH:c ? IC[1] : '8px', icR:c && z === 2 ? '3px' : '2px', icRing:c && m ? '1.5px ' + MK[m] : '0 transparent', cov:t ? t.bg : 'transparent', flt:t ? t.flt : 'none',
         dot:r.note ? 'transparent' : c ? (m ? MK[m] : 'rgba(239,236,230,0.3)') : r.file ? 'rgba(239,236,230,0.16)' : r.card ? '#FF8A7A' : r.drive ? (r.granted ? '#B8B3AB' : 'rgba(239,236,230,0.22)') : r.kind === 'shoot' ? '#A9D18E' : '#D9C9A8',
         go:e => this.wsClick(r, e),
-        dstart:e => { if (!dragOk) return; this.wsDrag = 'clips'; this.wsDragClips = this.wsPickedClips(); try { e.dataTransfer.setData('text/x-lumina-skim', 'clips'); e.dataTransfer.effectAllowed = 'copy'; } catch (x) {} },
+        dstart:e => { if (!dragOk) return; this.wsDrag = 'clips'; this.wsDragClips = this.wsPickedClips(); try { e.dataTransfer.setData('text/x-lumina-skim', 'clips'); e.dataTransfer.effectAllowed = 'copyMove'; } catch (x) {} },
         dend:() => { this.wsDrag = null; this.wsDragClips = null; this.wsSet({hot:''}); },
-        over:e => { if ((this.wsDrag !== 'fcp' && this.wsDrag !== 'cut') || !ok) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        over:e => { if ((this.wsDrag !== 'fcp' && this.wsDrag !== 'cut' && this.wsDrag !== 'clips') || !ok || (this.wsDrag === 'clips' && !this.wsArr)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = this.wsDrag === 'clips' ? 'move' : 'copy';
           if (this.state.ws && this.state.ws.hot !== r.key) { this.wsSet({hot:r.key}); clearTimeout(this.wsSpring); if (r.dirs && !open) this.wsSpring = setTimeout(() => { if (this.wsDrag && this.state.ws && this.state.ws.hot === r.key) this.wsToggle(r, true); }, 700); } },
         leave:e => { if (e && e.currentTarget && e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return; if (this.state.ws && this.state.ws.hot === r.key) this.wsSet({hot:''}); },
-        drop:e => { e.preventDefault(); clearTimeout(this.wsSpring); const kind = this.wsDrag || (e.dataTransfer && e.dataTransfer.getData('text/x-lumina-skim')); this.wsDrag = null; this.wsPut(kind, r); }}; });
+        drop:e => { e.preventDefault(); clearTimeout(this.wsSpring); const kind = this.wsDrag || (e.dataTransfer && e.dataTransfer.getData('text/x-lumina-skim')); this.wsDrag = null; if (kind === 'clips') { const cs = this.wsDragClips; this.wsDragClips = null; if (!Component.wsCanSave(r) || !this.wsPlanAdd(cs, r.path)) { this.wsSet({hot:''}); return; } if (!r.made) this.wsToggle(r, true); return; } this.wsPut(kind, r); }}; });
+    this.wsPlanVals(v, o);
     v.wsEmptyOn = !rows.length; v.wsEmpty = !host ? 'The Lumina app shows the drives and folders of this Mac here, with each clip and its mark. This browser saves to its download folder.' : !pl ? 'Reading the drives…' : w.only ? 'No ' + this.W(w.only) + ' clips in the folders open here.' : '';
     v.wsH = 'calc(100vh - 230px)'; v.wsPD = this.wsPD;
     v.wsBoxD = w.box ? 'block' : 'none'; v.wsBoxX = (w.box ? w.box.x : 0) + 'px'; v.wsBoxY = (w.box ? w.box.y : 0) + 'px'; v.wsBoxW = (w.box ? w.box.w : 0) + 'px'; v.wsBoxH = (w.box ? w.box.h : 0) + 'px';
@@ -2851,7 +2957,7 @@ class Component extends DCLogic {
     v.wsSelName = !pk.length ? '' : r ? r.name : this.plural(pk.length, 'item') + (clips.length ? ' · ' + this.plural(clips.length, 'clip') + ' · ' + fb(clips.reduce((s, x) => s + (x.bytes || 0), 0)) : '');
     v.wsBar = clips.length ? [['keep', 'K'], ['maybe', 'M'], ['cut', 'C']].map(([m, k]) => btn('ws-mark-' + m, k + ' ' + this.W(m), 'Mark the selected clips (again to unmark)', true, () => this.wsMark(m)))
       : !r ? [] : Component.wsCanSave(r) ? [btn('ws-put-fcp', 'Final Cut file here', 'Save the .fcpxml in this folder', w.dst.fcp !== r.path, () => this.wsPut('fcp', r))]
-        .concat(cutN ? [btn('ws-put-cut', 'Cut list here', 'Save the cut list in this folder', w.dst.cut !== r.path, () => this.wsPut('cut', r))] : [], [btn('ws-new', 'New folder (N)', 'Make a folder inside this one', true, () => this.wsMk(r))],
+        .concat(cutN ? [btn('ws-put-cut', 'Cut list here', 'Save the cut list in this folder', w.dst.cut !== r.path, () => this.wsPut('cut', r))] : [], [btn('ws-new', 'New folder (N)', 'Make a folder inside this one', true, () => this.wsMk(r))], this.wsArr && !r.made && (o.markN.keep || o.markN.maybe) ? [btn('ws-sort', 'Sort by mark here', 'Plans a ' + Component.wsCap(this.W('keep')) + ' and a ' + Component.wsCap(this.W('maybe')) + ' folder inside this one for the marked clips; nothing moves until Apply', true, () => this.wsSortBy(r))] : [],
           pl && pl.saveTo === r.path ? [] : [btn('ws-default', 'Make it Save to', 'Every export saves here unless a file says otherwise', true, () => this.wsDefault(r))], r.root && r.kind === 'kept' ? [btn('ws-forget', 'Forget', 'Skim stops using this folder; the folder is not touched', true, () => this.wsForget(r))] : [])
       : r.drive && !r.granted && !r.card ? [btn('ws-letin', 'Let Skim in…', 'Opens the folder panel on this drive; pick it, or a folder on it', true, () => this.wsLetIn(r.path))] : [];
     v.wsBarOn = host && pk.length > 0;
@@ -2859,7 +2965,7 @@ class Component extends DCLogic {
     v.wsMkType = e => { const val = e.target.value; this.wsSet(x => ({mk:x.mk ? {...x.mk, name:val} : x.mk})); };
     v.wsMkBtns = [btn('ws-new-make', 'Make', '⏎', !!(w.mk && String(w.mk.name).trim()), this.wsMkGo), btn('ws-new-cancel', 'Cancel', 'esc', true, () => this.wsSet({mk:null}))];
     v.wsSayOn = !!w.say; v.wsSay = w.say ? w.say.t : ''; v.wsSayC = w.say && w.say.bad ? '#FFD27A' : '#A9D18E';
-    v.wsKeys = host ? [{k:'click', t:'unfurl'}, {k:'⌘ ⇧', t:'add'}, {k:'drag', t:'select'}, {k:'K M C', t:'mark'}, {k:'pinch', t:'size'}, {k:'swipe', t:'in / out'}, {k:'N', t:'folder'}, {k:'esc', t:'quick'}] : [{k:'esc', t:'quick'}];
+    v.wsKeys = host ? [{k:'click', t:'unfurl'}, {k:'⌘ ⇧', t:'add'}, {k:'drag', t:'select'}].concat(this.wsArr ? [{k:'drag clips', t:'move'}] : [], Object.keys(plan).length ? [{k:'⌘⏎', t:'apply'}] : [], [{k:'K M C', t:'mark'}, {k:'pinch', t:'size'}, {k:'swipe', t:'in / out'}, {k:'N', t:'folder'}, {k:'esc', t:'quick'}]) : [{k:'esc', t:'quick'}];
     // the buckets: drop selected clips to mark them; click to list only that mark
     const bk = (m, t) => { const n = o.markN[m] || 0, on = w.only === m, hot = w.hot === 'bk:' + m;
       return {id:'ws-bucket-' + m, t, n:String(n), sz:fb(o.markB[m] || 0), c:MK[m], on:String(on), tip:'Drop clips here to mark them ' + this.W(m) + '; click to list only these', bg:hot ? 'rgba(255,210,122,0.16)' : on ? 'rgba(239,236,230,0.12)' : '#2A2927', ring:hot ? '1.5px #FFD27A' : on ? '1px ' + MK[m] : '1px rgba(239,236,230,0.06)',
