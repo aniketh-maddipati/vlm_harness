@@ -128,11 +128,12 @@ test('a clip that is not listed goes nowhere', () => {
   assert.equal(C.clipAt(order, 'zz', 1), null); assert.equal(C.clipAt(order, null, -1), null); assert.equal(C.clipAt([], 'a', 1), null);
 });
 
-test('the page moves on Enter through takeStep, after the held-mark Enter, and never marks', () => {
+test('the Viewer moves on ← → through takeStep (⇧ scrubs), ⏎ after the held-mark Enter goes back out, and never marks', () => {
   const kd = extractMethod(src, 'kd', 'kd(e) {'), takeStep = extractMethod(src, 'takeStep', 'takeStep(d) {');
   assert.match(takeStep, /Component\.clipAt\(this\.flat, this\.state\.cur, d\)/);
   assert.doesNotMatch(takeStep, /marks|\bpv\b|doMark/);
-  const held = kd.indexOf('if (st.held) { e.preventDefault(); return this.decide(); }'), nav = kd.indexOf('return this.takeStep(e.shiftKey ? -1 : 1)');
+  const held = kd.indexOf('if (st.held) { e.preventDefault(); return this.decide(); }'), nav = kd.indexOf('if (nav) { e.preventDefault(); return this.furl(); }');
   assert.ok(held > 0 && nav > held);
+  assert.match(kd, /if \(st\.lv === 2\) return e\.shiftKey \? this\.move\(d\) : this\.takeStep\(d\);/);
   assert.match(kd, /const nav = k === 'Enter' && st\.lv >= 2 && !st\.prop;/);
 });
