@@ -2563,7 +2563,7 @@ class Component extends DCLogic {
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
     const root = rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
     const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true}, clips, gaps:[]};
-    if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0;
+    if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0; this.skipped = 0;
     this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.want = null; this.setState({}, () => this.save());
     this.clockStart(d, true); const k = this.clock; k.meta = Math.round(tM - tL); k.metaFrom = from;
     // 'listed' is from the folder being handed over to the clips being drawn with their info; the reading starts after.
@@ -2752,7 +2752,7 @@ class Component extends DCLogic {
       if (filling) { let full = 0; F.set.forEach(c => { if (c.thin || F.idled.has(c) && !F.busy.has(c) || !this.fillNeed(c).length) full++; }); if (full < F.n) fillNote = 'filling in detail · ' + full + ' of ' + F.n; } }
     return {progOn:st.progOn && n > 0, progToggle:() => this.setState(s => ({progOn:!s.progOn})),
       progGo:e => { const id = e.currentTarget.getAttribute('data-prog'); if (!this.byId || !this.byId[id]) return; this.wantScroll = ['[data-clip="' + id + '"]']; if (st.cv) { if (st.lv < 2) this.wantScroll = ['@cur']; return this.setState({step:'skim', lv:st.lv >= 2 ? 2 : 0, cur:id, sel:[], box:null}); } this.setState({step:'skim', lv:Math.max(1, Math.min(st.lv, 2)), cur:id, gi:this.gOfAll ? (this.gOfAll[id] ?? st.gi) : st.gi, sel:[], box:null}); },
-      progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:e => { Component.letGo(e); this.setState(s => ({pfOn:!s.pfOn})); }, recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running && st.dbg ? ' · listed ' + (this.lastClock.listed != null ? this.lastClock.listed + ' ms' : '—') + ', covers and flags ' + this.fmtSec(this.lastClock.done) + (this.lastClock.filled != null ? ', detail ' + this.fmtSec(this.lastClock.filled) : this.lastClock.fillStop ? ', detail stopped at the frames limit' : '') : ''), unsupOn:(this.unsup || 0) > 0, unsupLine:(this.unsup || 0) > 0 ? this.plural(this.unsup, 'clip') + ' in a format this browser can\u2019t play' + (this.notSafari() ? ' · open in Safari' : '') : '', haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
+      progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:e => { Component.letGo(e); this.setState(s => ({pfOn:!s.pfOn})); }, recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running && st.dbg ? ' · listed ' + (this.lastClock.listed != null ? this.lastClock.listed + ' ms' : '—') + ', covers and flags ' + this.fmtSec(this.lastClock.done) + (this.lastClock.filled != null ? ', detail ' + this.fmtSec(this.lastClock.filled) : this.lastClock.fillStop ? ', detail stopped at the frames limit' : '') : ''), unsupOn:(this.unsup || 0) + (this.skipped || 0) > 0, unsupLine:(this.unsup || 0) + (this.skipped || 0) > 0 ? ((this.skipped || 0) ? this.plural(this.skipped, 'clip') + ' skipped' : this.plural(this.unsup, 'clip') + ' to skip') + ' · a format this browser can\u2019t play' + (this.notSafari() ? ' · open in Safari' : '') : '', haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
       pauseOn:running && n > 0 && !this.halt, pauseGo:this.pauseToggle, pauseA:this.mp.pace === 'paused', pauseT:this.mp.pace === 'paused' ? 'Go on' : 'Pause', pauseBg:this.mp.pace === 'paused' ? '#FFD27A' : 'rgba(239,236,230,0.08)', pauseFg:this.mp.pace === 'paused' ? '#1E1D1B' : '#EFECE6', pauseFw:this.mp.pace === 'paused' ? 800 : 400,
       paceOn, paceLine:paceOn ? 'Reading ' + this.paceWord(h) : '',
       progPill:running ? (st.imp.pass === 2 ? 'measuring ' : 'reading ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + (bad ? ' · ' + bad + ' can\u2019t read' : ''), loadOn:(running || readyOn) && n > 0, loadLine, fillNote, loadDot:running ? '#FFD27A' : '#A9D18E', loadAnim:running ? 'breathe 1.2s ease-in-out infinite' : 'none',
@@ -2844,10 +2844,25 @@ class Component extends DCLogic {
     await this.runPass(this.coverOrder(list), tok, c => c.frames[f] ? [] : [f], 1); if (tok !== this.qTok) return;
     // the ones that timed out get one more go, with three times the patience
     const again = list.filter(c => c.why && c.why !== 'no video' && c.why !== 'unsupported'); if (again.length) { this.tmul = 3; await this.runPass(again, tok, c => [f], 1.5); this.tmul = 1; if (tok !== this.qTok) return; }
+    list = this.skipBad(list); if (!this.d.clips.length) return;
     if (this.clock) this.clock.allIn = Math.round(performance.now() - this.clock.t0);
     if (!this.state.cuts && !this.userCut) this.setState({nCut:this.fitCut(this.d.clips.length)});
     this.clockDone(); this.readyAt = Date.now(); setTimeout(() => this.bump(), 6200);
     this.fillStart(list, tok);
+  }
+  // What can't be played is not kept (LOCAL-CHANGES 247): once every clip has been read once, a clip in a format this
+  // browser can't play or a file with no video in it leaves the shoot, its frames and marks with it, and the line under
+  // the bar says how many were skipped. Opened clips only; a slow clip that timed out stays (the drive may be slow).
+  skipBad(list) {
+    const d = this.d; if (!d || !d.shoot || !d.shoot.real) return list;
+    const bad = new Set(d.clips.filter(c => c.why === 'unsupported' || c.why === 'no video')); if (!bad.size) return list;
+    this.dropFrames([...bad]); d.clips = d.clips.filter(c => !bad.has(c)); this.byId = {}; d.clips.forEach((c, i) => { c._i = i; this.byId[c.id] = c; });
+    d.shoot.bytes = d.clips.reduce((s, c) => s + c.bytes, 0); this.skipped = (this.skipped || 0) + bad.size; this.unsup = 0; this.regap(d);
+    const st = this.state, marks = {...st.marks}; bad.forEach(c => delete marks[c.id]);
+    const ids = new Set(d.clips.map(c => c.id)), cur = ids.has(st.cur) ? st.cur : (d.clips[0] ? d.clips[0].id : null);
+    if (!d.clips.length) { const n = bad.size; this.qTok = {}; this.d = {__sample:true, shoot:{name:'', days:0, bytes:0, free:null, rate:24}, clips:[], gaps:[]}; this.gapBy = {}; this.gapsSorted = []; this.skipped = 0; this.setState({marks:{}, undo:[], redo:[], cur:null, sel:[], box:null, lv:0, gi:0, imp:null, step:'import', impMsg:(n === 1 ? 'That clip is' : 'None of those ' + n + ' clips are') + ' in a format ' + (window.luminaPreview ? 'this browser' : 'Lumina') + ' can play.'}); return []; }
+    this.setState({marks, cur, sel:(st.sel || []).filter(id => ids.has(id))});
+    return list.filter(c => !bad.has(c));
   }
   // ---- The other frames, on demand. Asked for again every 250 ms and whenever the view changes:
   // the tile the pointer is on (Clips), the clip in the Viewer and three each side, the tiles on screen nearest the
