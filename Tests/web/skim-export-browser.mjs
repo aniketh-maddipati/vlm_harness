@@ -126,7 +126,7 @@ async function run(host) {
     await p.click(t7); await p.waitForTimeout(60);
     let an = await anim('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]');
     ok(an.length === 1 && /lmRowIn/.test(an[0]), 'app: a drive read ahead unfurls at once and its rows slide in: ' + JSON.stringify(an));
-    await p.waitForTimeout(400); await p.click(t7); await p.waitForTimeout(40);
+    await p.waitForTimeout(700); await p.click(t7); await p.waitForTimeout(40);
     an = await anim('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]');
     ok(an.length === 1 && /lmRowOut/.test(an[0]), 'app: furled, its rows fold up before they go: ' + JSON.stringify(an));
     await p.waitForTimeout(300);
