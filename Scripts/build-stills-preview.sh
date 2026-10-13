@@ -4,8 +4,10 @@
 #
 #   bash Scripts/build-stills-preview.sh [out-dir]     default: dist/site-stills
 #
-# The page files are copied unchanged, except index.html: the Sets page with one line added that points
-# support.js at the React and Babel copies in vendor/ beside it, so the site loads nothing from elsewhere.
+# The page files are copied unchanged, except index.html: the Sets page with two lines added. One points
+# support.js at the React copies in vendor/ beside it; the other is the app's own content policy
+# (SetsOffline.swift) with this site in place of lumina:, so the page can load and reach nothing but its
+# own files. Babel is left out: neither page has JSX, and a page that asked for it would be refused, loudly.
 # Photos are read in the viewer's browser. Builds only: it starts no server and uploads nothing.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -15,16 +17,20 @@ SITE="${1:-$ROOT/dist/site-stills}"
 
 mkdir -p "$SITE/vendor"
 for f in "${PAGE_FILES[@]}"; do [[ "$f" == "$PAGE" ]] || cp "$SRC/$f" "$SITE/$f"; done
-cp "$ROOT/design/handoff/vendor/"*.js "$SITE/vendor/"
+cp "$ROOT/design/handoff/vendor/"react*.js "$SITE/vendor/"
 BUILD="${LUMINA_BUILD:-$(git -C "$ROOT" rev-parse --short HEAD)}"
 python3 - "$SRC/$PAGE" "$SITE/index.html" "$BUILD" <<'PY'
 import json, os, sys
 src, out, build = sys.argv[1:4]
 page = open(src, encoding='utf-8').read()
 res = {'https://unpkg.com/react@18.3.1/umd/react.production.min.js': './vendor/react.production.min.js',
-       'https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js': './vendor/react-dom.production.min.js',
-       'https://unpkg.com/@babel/standalone@7.29.0/babel.min.js': './vendor/babel.min.js'}
-head = '<script>window.luminaPreview = true; window.luminaBuild = %s; window.__resources = %s;</script>\n' % (json.dumps(build), json.dumps(res))
+       'https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js': './vendor/react-dom.production.min.js'}
+csp = ("default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' blob: 'unsafe-inline'; "
+       "img-src 'self' blob: data:; media-src 'self' blob: data:; font-src 'self' blob: data:; connect-src 'self' blob: data:; "
+       "frame-src 'none'; child-src 'none'; worker-src blob:; object-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'")
+open(os.path.join(os.path.dirname(out), 'csp.txt'), 'w').write(csp + '\n')
+head = '<meta http-equiv="Content-Security-Policy" content="%s">\n' % csp
+head += '<script>window.luminaPreview = true; window.luminaBuild = %s; window.__resources = %s;</script>\n' % (json.dumps(build), json.dumps(res))
 i = page.index('<script'); page = page[:i] + head + page[i:]
 # Which build this is, small in the corner, so a stale tab can be told from the newest page (same hash as version.txt).
 stamp = ('<div data-lumina="build" style="position:fixed;right:8px;top:2px;z-index:2147483647;font:10px/1.2 ui-monospace,Menlo,monospace;'
