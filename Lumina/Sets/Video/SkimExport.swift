@@ -46,12 +46,13 @@ nonisolated struct SkimExport: Sendable {
     /// no control characters or colons, at most 128 characters. Nil when nothing is left or the extension is not one
     /// of `extensions`.
     static func safeName(_ suggested: String) -> String? {
+        if suggested.hasSuffix("/") || suggested.hasSuffix("\\") { return nil }   // a folder, not a file
         let last = suggested.split(whereSeparator: { $0 == "/" || $0 == "\\" }).last.map(String.init) ?? ""
         var name = String(String.UnicodeScalarView(last.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) && $0 != ":" }))
         while let f = name.first, f == "." || f.isWhitespace { name.removeFirst() }
         name = name.trimmingCharacters(in: .whitespaces)
-        let ext = (name as NSString).pathExtension.lowercased(), stem = (name as NSString).deletingPathExtension
-        guard extensions.contains(ext), !stem.isEmpty else { return nil }
+        let ext = (name as NSString).pathExtension, stem = (name as NSString).deletingPathExtension
+        guard extensions.contains(ext.lowercased()), !stem.isEmpty else { return nil }
         return String(stem.prefix(120)) + "." + ext
     }
 
