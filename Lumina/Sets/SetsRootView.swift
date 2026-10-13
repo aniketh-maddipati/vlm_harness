@@ -137,7 +137,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         reloadSkimKeeping()
     }
 
-    // MARK: Skim's reload in place (⌘R and the hot build; Debug only, LOCAL-CHANGES 252)
+    // MARK: Skim's reload in place (⌘R and the hot build; Debug only, LOCAL-CHANGES 257)
 
     /// What the page's file input was last answered with. The panel's grant lasts as long as the app, so a
     /// reload can hand the same clips back without asking. Clips dropped on the page have no URLs and don't come back.

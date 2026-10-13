@@ -4,7 +4,7 @@ A Mac app for sorting a Sony shoot, stills and video. Open a card or a folder, g
 keyboard, and hand what you keep to Lightroom Classic, Capture One or Final Cut Pro. Your originals
 are never changed.
 
-![Picking photos, one row per stretch of time](docs/screenshots/cull-row.png)
+![Pick: a shoot laid out in rows by time](docs/screenshots/pick-grid.jpg)
 
 ## Stills
 
@@ -22,6 +22,12 @@ Open ──▶ Pick ──▶ Edit (optional) ──▶ Save
 Keys in Pick: **⏎** keeps a photo and moves on, **R** un-keeps it and moves on, the arrows pass.
 Hold ⇧ to do the same going back, or to work inside a stack. **Space** shows a photo large, hold
 **Z** for 100 %, hold **F** for focus edges. **Q** or ⌘Z undoes. **?** lists every key.
+
+| Pick, with four kept in the strip | The large view, with camera facts and measures | Save: one rated sidecar per pick |
+|---|---|---|
+| ![Pick with four kept](docs/screenshots/pick-kept.jpg) | ![The large view](docs/screenshots/large-view.jpg) | ![Save](docs/screenshots/save.jpg) |
+
+Screenshots are from a real a7 III shoot.
 
 ## Video (Skim, in development)
 
