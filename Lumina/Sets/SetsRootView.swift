@@ -122,15 +122,13 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     }
 
     /// ⌘R on Skim: leaves a note in this app's container that the hot build's follower watches
-    /// (`Library/Caches/skim-refresh`: it pulls the shared branch at once, and a newer page then hot-reloads
-    /// again), and reloads the page from the app's files now. The open clips go with the reload, as in a browser.
+    /// (`Library/Caches/skim-refresh`: it pulls the shared branch at once). The page is not reloaded here:
+    /// a reload drops the open clips, so it happens only when the pull brings a different page (SetsHotReload).
     private func reloadSkim() {
-        guard let webView else { return }
         if let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
             try? Data(ISO8601DateFormatter().string(from: Date()).utf8).write(to: caches.appendingPathComponent("skim-refresh"), options: .atomic)
         }
-        LuminaLog.app.notice("skim: reload from the menu")
-        webView.load(URLRequest(url: SetsSchemeHandler.pageURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
+        LuminaLog.app.notice("skim: latest page asked for from the menu")
     }
 
     func toggleZoom() { webView?.evaluateJavaScript("window.__lumina && __lumina.zoom()", completionHandler: nil) }
