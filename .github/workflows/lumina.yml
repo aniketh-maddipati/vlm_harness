@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]   # a draft marked ready gets its Mac jobs
   schedule:
     - cron: "17 7 * * *"   # nightly: the long probe shards
   workflow_dispatch:
@@ -11,9 +12,13 @@ on:
 # Every pull request runs the readiness gate: `design handoff` (the page's fixtures, the app ships
 # the design byte for byte) and the probe's smoke on macOS (the page runs, its selftest passes,
 # plumbing fits, the empty app survives a key storm). Everything else runs only when its area
-# changed (`changes` below, Scripts/ci_changes.py): the WebKit/Chromium job for the page, build + tests for anything Xcode builds (lumina-render for
+# changed (`changes` below, Scripts/ci_changes.py): the WebKitGTK and Chromium jobs for the page, build + tests for anything Xcode builds (lumina-render for
 # the look, the release preflight for signing and settings), the probe's screens for the page or
 # the probe, its sandbox smoke for native code and entitlements. A push to main runs all of that.
+# Mac runners are the scarce part (a run's Mac jobs waited 5 to 15 minutes for one on 2026-10-13),
+# so the two macOS jobs run only on pull requests into main that are not drafts, and on everything
+# that isn't a pull request: a draft, or a PR into another branch (a shared feature branch), runs
+# the Linux jobs, and its Mac checks run when that branch's own PR into main does.
 # The long probe storms (fuzz, scroll, edit) run nightly and on demand (Actions > Lumina > Run
 # workflow, any branch); RAW 9 needs real ARWs and macOS 27 and runs on a Mac.
 
@@ -29,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
+      # The macOS jobs: not on a draft, not on a PR into a branch other than main (see the top).
+      mac: ${{ github.event_name != 'pull_request' || (!github.event.pull_request.draft && github.event.pull_request.base.ref == github.event.repository.default_branch) }}
       web: ${{ steps.f.outputs.web }}
       swift: ${{ steps.f.outputs.swift }}
       look: ${{ steps.f.outputs.look }}
@@ -71,6 +78,8 @@ jobs:
           # React only: Babel stays in design/handoff/vendor (the prototype), no page file loads it.
           for f in react.production.min.js react-dom.production.min.js; do cmp "design/handoff/vendor/$f" "Lumina/Sets/Web/$f"; done
           [[ ! -e Lumina/Sets/Web/babel.min.js ]] || { echo "babel.min.js is back in Lumina/Sets/Web"; exit 1; }
+          # SetsPageBytesTests' own list of copies, so a change to them alone needs no Mac (ci_changes.py).
+          python3 Scripts/page_bytes.py
           # A scenario that names a page the app no longer ships fails at setup with a 404 (scroll-quick
           # kept v5's name through the v8 sync). Every "page" must be one of the page files.
           grep -ho '"page": *"[^"]*"' Tests/probe/scenarios/*.json | sed 's/.*: *"//; s/"$//' | sort -u | while IFS= read -r p; do
@@ -124,11 +133,36 @@ jobs:
       - name: "apt: leave the cache readable"
         if: always()
         run: sudo rm -f /var/cache/lumina-apt/lock; sudo chown -R "$(id -u):$(id -g)" /var/cache/lumina-apt; chmod -R a+rwX /var/cache/lumina-apt
+      - name: contract, selftest, app flow, screens (prototype vs app)
+        env:
+          # The offline escape test always gates; its per-layer breakdown (a report, ~100 s) runs on main and nightly.
+          LUMINA_OFFLINE_LAYERS: ${{ github.event_name == 'pull_request' && '0' || '1' }}
+        run: NODE_PATH="$(npm root -g)" xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3 Tests/web/webkit.py
+      - name: "Skim: the Final Cut export (buildX) and its DTD check"
+        run: node --test Tests/web/skim-export.test.mjs
+
+  chromium:
+    # The Chromium plumbing harness, beside the WebKitGTK job rather than before it in the same job.
+    name: page + plumbing in Chromium
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+      - name: "apt: retries and timeouts (the mirror stalls now and then, see the WebKitGTK job)"
+        run: printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' | sudo tee /etc/apt/apt.conf.d/80-lumina-ci
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.56.1-${{ runner.os }}-chromium
+      - name: playwright
+        run: npm i -g playwright@1.56.1 && npx playwright install --with-deps chromium
       - name: plumbing harness (Chromium)
         run: NODE_PATH="$(npm root -g)" node Tests/web/plumbing-harness.mjs
-      - name: contract, selftest, app flow, screens (prototype vs app)
-        run: NODE_PATH="$(npm root -g)" xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3 Tests/web/webkit.py
-
 
   app:
     # Then what ships (TASKS R3): the Release archive with Config/Release.xcconfig, sandboxed,
@@ -137,11 +171,23 @@ jobs:
     # the WebView: stands until the decision). When one lands, its tag comes off PREFLIGHT_ALLOW.
     name: build + tests
     needs: changes
-    if: needs.changes.outputs.swift == 'true' || needs.changes.outputs.look == 'true' || needs.changes.outputs.release == 'true'
+    if: needs.changes.outputs.mac == 'true' && (needs.changes.outputs.swift == 'true' || needs.changes.outputs.look == 'true' || needs.changes.outputs.release == 'true')
     runs-on: macos-15
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # The SDK's and system modules' precompiled builds, which xcodebuild otherwise makes again on
+      # every run. Keyed by the runner image (its Xcode and SDK); the app's own objects are not
+      # cached (a fresh checkout's file times would rebuild them anyway, or worse, not).
+      - id: xcode
+        run: echo "key=$ImageOS-$ImageVersion-$(xcodebuild -version | tr -s ' \n' '-')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            DD/ModuleCache.noindex
+            DD/Build/Intermediates.noindex/ExplicitPrecompiledModules
+            DD/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+          key: xcode-modules-${{ steps.xcode.outputs.key }}
       # On a pull request, only the test classes the change touches (Scripts/ci_changes.py, xctest_args);
       # on main and nightly, all of LuminaLogicTests. No index store: CI never reads it.
       - name: build and test
@@ -173,14 +219,15 @@ jobs:
 
   probe:
     # Job and shard names stay as they were, so required checks keep matching. One shard on a pull
-    # request and on main: `smoke` (contract + selftest + the app flow; the readiness gate, always),
-    # `screens` (every screen once, the app twins compared with the prototype in the same run; the
-    # committed reference is for local runs) when the page or the probe changed, and smoke inside
-    # the App Sandbox with the shipped entitlements (R1a, R3) when native code or entitlements
-    # changed. Nightly and on demand, the long shards run alongside it in parallel; each builds the
-    # probe once (cached).
+    # request into main and on main: `smoke` (contract + selftest + the app flow; the readiness gate,
+    # always; run inside the App Sandbox with the shipped entitlements (R1a, R3) instead when native
+    # code or entitlements changed), and `screens` (every screen once, the app twins compared with the
+    # prototype in the same run; the committed reference is for local runs) when the page or the
+    # probe changed. Drafts and PRs into other branches skip it (`changes.mac`). Nightly and on
+    # demand, the long shards run alongside it in parallel; each builds the probe once (cached).
     name: probe (${{ matrix.shard }})
     needs: changes
+    if: needs.changes.outputs.mac == 'true'
     runs-on: macos-15
     timeout-minutes: 30
     strategy:
@@ -229,9 +276,11 @@ jobs:
           s1=0; s2=0; s3=0
           case "$SHARD" in
             "smoke + screens")
-              bash Scripts/probe.sh smoke; s1=$?
-              if [[ $SCREENS == true ]]; then bash Scripts/probe.sh screens; s2=$?; else echo "screens: skipped (page and probe unchanged)"; fi
-              if [[ $SANDBOX == true ]]; then LUMINA_PROBE_OUT="$LUMINA_PROBE_OUT-sandbox" bash Scripts/probe.sh sandbox smoke; s3=$?; else echo "sandbox smoke: skipped (native code and entitlements unchanged)"; fi ;;
+              # The sandboxed smoke runs the same scenarios as the plain one, inside the App Sandbox,
+              # so when it is due it stands in for the plain smoke rather than repeating it.
+              if [[ $SANDBOX == true ]]; then LUMINA_PROBE_OUT="$LUMINA_PROBE_OUT-sandbox" bash Scripts/probe.sh sandbox smoke; s1=$?
+              else bash Scripts/probe.sh smoke; s1=$?; echo "sandbox smoke: skipped (native code and entitlements unchanged)"; fi
+              if [[ $SCREENS == true ]]; then bash Scripts/probe.sh screens; s2=$?; else echo "screens: skipped (page and probe unchanged)"; fi ;;
             # One seeded storm on Cull and two scroll passes per size (warm-ahead on and off): the other
             # storms (fuzz-sample-1, -3), the full scroll sweep (scroll-fast*) and raw9 (real ARWs) run
             # on a Mac with `probe.sh fuzz`, `scroll` and `raw9`. Scroll numbers are reported, not gated.

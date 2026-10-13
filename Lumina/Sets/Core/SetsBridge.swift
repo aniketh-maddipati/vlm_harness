@@ -169,6 +169,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         SetsNumber.roi(d).map { LookCanvasSchedule.ROI(x: $0.x, y: $0.y, w: $0.w, h: $0.h) }
     }
 
+    /// A box in CSS px from the viewport's top-left (`canvasZoom`'s crop frame). Missing or not a
+    /// positive size: nil, the canvas draws no dim.
+    private static func viewportBox(_ v: Any?) -> CGRect? {
+        guard let d = v as? [String: Any], d["w"] != nil, d["h"] != nil, let r = SetsNumber.canvasRect(d), r.width > 0, r.height > 0 else { return nil }
+        return r
+    }
+
     /// What the page's facts line and the probe read: the canvas path, the shoot's decoder map,
     /// the pin and whether an update is on offer.
     func editFacts() -> [String: Any] {
@@ -219,6 +226,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     }
 
     // MARK: Opening folders
+
+    /// Skim's pick (the page's file input, `chooseClips`): the folder its clips are in becomes the open shoot's
+    /// folder, which the storage line's drive and Trash ops read (`SkimTrash.folder(of:)`).
+    func skimOpened(_ urls: [URL]) {
+        lastOpened = SkimTrash.folder(of: urls)
+    }
 
     /// Called from the web view's UI delegate for the page's folder input.
     func openPanel(allowsDirectories: Bool) async -> [URL]? {
@@ -523,7 +536,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             if rect == nil { onEvent?("canvasLayout refused: not a rect") }
             // `holes`: the page's chrome over the photo, at most 16, left see-through (LookCanvasHoles).
             let holes = rect.map { LookCanvasHoles.parse(body["holes"], in: $0) } ?? []
-            c.layout(rect: rect ?? .null, visible: rect != nil && (body["visible"] as? Bool ?? false), dpr: CGFloat(SetsNumber.dpr(body["dpr"])), holes: holes)
+            c.layout(rect: rect ?? .null, visible: rect != nil && (body["visible"] as? Bool ?? false), dpr: CGFloat(SetsNumber.dpr(body["dpr"])), holes: holes,
+                     viewportHeight: SetsNumber.viewportHeight(body["vh"]).map { CGFloat($0) })
             return (["path": c.path.rawValue], nil)
         case "canvasLook":
             guard let c = canvas, let look = body["look"] as? String else { return (0, nil) }
@@ -532,6 +546,17 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (seq, nil)
         case "canvasDrag":
             if body["start"] as? Bool ?? false { canvas?.dragStart() } else { canvas?.dragEnd() }
+            return (true, nil)
+        case "canvasZoom":
+            // The part of the photo the page shows in its canvas box (its own zoom and pan); nil = fit.
+            // While Crop is open the same message carries the draft the look does not have yet: `ang`
+            // and `cover` (the image's straighten) and `frame` (the crop rect, so the photo outside it
+            // dims). `rest`: the zoom stopped moving (one full-quality render, background work released).
+            let raw = body["roi"] as? [String: Any]
+            canvas?.zoom(to: roi(body["roi"]), angle: SetsNumber.double(raw?["ang"], in: -180...180) ?? 0,
+                         cover: SetsNumber.double(raw?["cover"], in: 0.05...32) ?? 1, frame: Self.viewportBox(raw?["frame"]),
+                         guides: LookCanvasController.Guide.parse(raw?["guides"]),
+                         rest: body["rest"] as? Bool ?? false)
             return (true, nil)
         case "canvasLoupe":
             canvas?.loupe(on: body["on"] as? Bool ?? false, roi: roi(body["roi"]))
@@ -580,6 +605,57 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "setPrefs":
             guard let prefs = body["prefs"] as? [String: Any] else { return (false, nil) }
             return (Self.savePrefs(prefs), nil)
+        case "skimStore":
+            // Skim's saved shoots (Debug builds with LUMINA_PAGE=skim): every entry, so the page's
+            // session store can match what was saved before a quit (SkimStore).
+            return (SkimStore(dir: supportDir.appendingPathComponent("skim", isDirectory: true)).all(), nil)
+        case "skimSave":
+            // One Skim shoot's entry, or its removal when `value` is null.
+            guard let key = body["key"] as? String else { return (false, nil) }
+            return (SkimStore(dir: supportDir.appendingPathComponent("skim", isDirectory: true)).set(key, body["value"] as? String), nil)
+        case "skimCoverGet":
+            // Skim's saved covers and first measures (SkimCovers, `skim/covers/` in the container), off the main thread.
+            return (await skimCover(op, body), nil)
+        case "skimCoverPut":
+            return (await skimCover(op, body), nil)
+        case "skimCoverTouch":
+            return (await skimCover(op, body), nil)
+        case "skimCoverStat":
+            return (await skimCover(op, body), nil)
+        case "skimCoverDrop":
+            return (await skimCover(op, body), nil)
+        case "skimDrive":
+            // The drive the open Skim shoot was opened from: size, plain free, purgeable, card / read only, its Trash's size (SkimDrive). Read only.
+            guard let folder = lastOpened else { return (NSNull(), nil) }
+            let home = SkimDrive.realHome(), uid = getuid()
+            return (await Task.detached(priority: .utility) { SkimDrive.read(folder: folder, home: home, uid: uid) }.value.json, nil)
+        case "skimShowTrash":
+            // Show in Finder: the Trash of the drive the open Skim shoot is on, after his click. Skim never empties it.
+            guard let folder = lastOpened else { return (false, nil) }
+            let volume = (try? folder.resourceValues(forKeys: [.volumeURLKey]))?.volume ?? URL(fileURLWithPath: "/")
+            return (NSWorkspace.shared.open(SkimDrive.trashFolder(volume: volume, home: SkimDrive.realHome(), uid: getuid())), nil)
+        case "skimTrashMove":
+            // Move cut to Trash: the clips named (inside the opened folder) and their sidecars, to the system Trash,
+            // after the page's two clicks. Refused on a card or a read-only drive. Never deletes, never empties (SkimTrash).
+            guard let root = lastOpened, let shoot = body["shoot"] as? String, let rels = body["paths"] as? [String], rels.count <= 5000 else { return ([], nil) }
+            let home = SkimDrive.realHome(), uid = getuid(), log = skimTrashLog
+            return (await Task.detached(priority: .userInitiated) { () -> [SkimTrash.Answer] in
+                let r = SkimDrive.read(folder: root, home: home, uid: uid)
+                return SkimTrash(log: log).move(root: root, rels: rels, shoot: shoot, refusal: r.refusal)
+            }.value.map(\.json), nil)
+        case "skimTrashPutBack":
+            // Put back: this shoot's files Skim moved, from the Trash to where they were, while they are still there.
+            guard let shoot = body["shoot"] as? String else { return ([], nil) }
+            let log = skimTrashLog
+            return (await Task.detached(priority: .userInitiated) { SkimTrash(log: log).putBack(shoot: shoot) }.value.map(\.json), nil)
+        case "skimTrashList":
+            // What this shoot has in the Trash now, from Skim's own note of its moves.
+            guard let shoot = body["shoot"] as? String else { return ([], nil) }
+            let log = skimTrashLog
+            return (await Task.detached(priority: .utility) { SkimTrash(log: log).listed(shoot: shoot) }.value.map(\.json), nil)
+        case "skimHealth":
+            // Skim's pacing: heat, Low Power Mode, memory pressure, this app's footprint (SkimHealth).
+            return (SkimHealth.shared.read(slowdown: (body["slowdown"] as? NSNumber)?.doubleValue ?? 1), nil)
         case "openSettings":
             // Privacy & Security → Files and Folders. Opening System Settings is the user's own click.
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") { NSWorkspace.shared.open(url) }
@@ -599,6 +675,25 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             return (true, nil)
         default:
             return (nil, "unknown op \(op)")
+        }
+    }
+
+    /// Skim's note of the files it moved to the Trash, in the container.
+    private var skimTrashLog: URL { supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("trash.json") }
+
+    /// Skim's saved covers (SkimCovers): every file read and write runs off the main thread.
+    private func skimCover(_ op: String, _ body: [String: Any]) async -> Any {
+        let covers = SkimCovers(dir: supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("covers", isDirectory: true))
+        let shoot = body["shoot"] as? [String: Any] ?? [:], k = shoot["k"] as? String ?? "", name = shoot["name"] as? String ?? "", n = (shoot["n"] as? NSNumber)?.intValue ?? 0
+        let keys = body["keys"] as? [String] ?? [], recs = body["recs"] as? [[String: String]] ?? []
+        switch op {
+        case "skimCoverGet": return await Task.detached(priority: .utility) { covers.get(keys) }.value
+        case "skimCoverPut": return await Task.detached(priority: .utility) { covers.put(k: k, name: name, n: n, recs: recs).rawValue }.value
+        case "skimCoverTouch": return await Task.detached(priority: .utility) { covers.touch(k: k, name: name, n: n) }.value
+        case "skimCoverDrop": return await Task.detached(priority: .utility) { covers.drop(keys) }.value
+        default:
+            let st = await Task.detached(priority: .utility) { covers.stat() }.value
+            return ["bytes": st.bytes, "shoots": st.shoots.map { ["k": $0.k, "name": $0.name, "at": $0.at, "bytes": $0.bytes, "n": $0.n] as [String: Any] }] as [String: Any]
         }
     }
 
@@ -828,5 +923,28 @@ enum SetsWebView {
         let wv = WKWebView(frame: frame, configuration: conf)
         bridge?.webView = wv
         return (wv, scheme)
+    }
+}
+
+// Read here, not in Look: Look is also compiled without Core (Tools/parity/lumina-render), and
+// every number the page sends goes through SetsNumber.
+extension LookCanvasController.Guide {
+    /// `canvasZoom`'s `guides`: viewport CSS px. `k` is `axis`, `level` or `grid`. At most 24.
+    static func parse(_ value: Any?) -> [LookCanvasController.Guide] {
+        guard let list = value as? [Any] else { return [] }
+        return list.prefix(24).compactMap { item in
+            guard let d = item as? [String: Any],
+                  let x0 = SetsNumber.double(d["x0"], in: -20_000...20_000),
+                  let y0 = SetsNumber.double(d["y0"], in: -20_000...20_000),
+                  let x1 = SetsNumber.double(d["x1"], in: -20_000...20_000),
+                  let y1 = SetsNumber.double(d["y1"], in: -20_000...20_000) else { return nil }
+            let kind: Kind
+            switch d["k"] as? String {
+            case "axis": kind = .axis
+            case "level": kind = .level
+            default: kind = .grid
+            }
+            return LookCanvasController.Guide(kind: kind, a: CGPoint(x: x0, y: y0), b: CGPoint(x: x1, y: y1))
+        }
     }
 }

@@ -10,13 +10,17 @@ final class SetsPageBytesTests: XCTestCase {
         let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let pairs: [(String, String)] = [
             // Same list as Scripts/page_files.sh
-            ("design/handoff/lumina-cull/Lumina Sets v11.dc.html", "Lumina/Sets/Web/Lumina Sets v11.dc.html"),
-            ("design/handoff/lumina-cull/Lumina Edit v22.dc.html", "Lumina/Sets/Web/Lumina Edit v22.dc.html"),
+            ("design/handoff/lumina-cull/Lumina Sets v12.dc.html", "Lumina/Sets/Web/Lumina Sets v12.dc.html"),
+            ("design/handoff/lumina-cull/Lumina Edit v23.dc.html", "Lumina/Sets/Web/Lumina Edit v23.dc.html"),
             ("design/handoff/lumina-cull/support.js", "Lumina/Sets/Web/support.js"),
             ("design/handoff/lumina-cull/lumina-core-v4.js", "Lumina/Sets/Web/lumina-core-v4.js"),
             ("design/handoff/lumina-cull/lumina-v4-data.js", "Lumina/Sets/Web/lumina-v4-data.js"),
             ("design/handoff/lumina-cull/lumina-measure.js", "Lumina/Sets/Web/lumina-measure.js"),
             ("design/handoff/lumina-cull/lumina-selftest.js", "Lumina/Sets/Web/lumina-selftest.js"),
+            // Skim, the video step (Debug builds with LUMINA_PAGE=skim): its own handoff, Pick's support.js.
+            ("design/handoff/lumina-skim/Lumina Skim v3.dc.html", "Lumina/Sets/Web/Lumina Skim v3.dc.html"),
+            ("design/handoff/lumina-skim/lumina-video-data-mvp.js", "Lumina/Sets/Web/lumina-video-data-mvp.js"),
+            ("design/handoff/lumina-skim/support.js", "Lumina/Sets/Web/support.js"),
             ("design/handoff/vendor/react.production.min.js", "Lumina/Sets/Web/react.production.min.js"),
             ("design/handoff/vendor/react-dom.production.min.js", "Lumina/Sets/Web/react-dom.production.min.js"),
         ]

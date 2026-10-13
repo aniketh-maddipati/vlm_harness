@@ -586,7 +586,9 @@ final class SetsBridgeOpsTests: XCTestCase {
         XCTAssertEqual(SetsNumber.roi(["x": 0.25, "y": 0.5, "w": 0.125, "h": 0.25])?.w, 0.125)
         XCTAssertEqual(SetsNumber.roi(["x": 0, "y": 0, "w": 1, "h": 1])?.h, 1)
         XCTAssertNil(SetsNumber.roi(["x": 0, "y": 0, "w": 0, "h": 1]))
-        XCTAssertNil(SetsNumber.roi(["x": 9, "y": 0, "w": 1, "h": 1]))
+        // Zoomed out, the page's canvas box reaches beyond the photo.
+        XCTAssertEqual(SetsNumber.roi(["x": -2.5, "y": -1.5, "w": 6, "h": 4])?.x, -2.5)
+        XCTAssertNil(SetsNumber.roi(["x": 65, "y": 0, "w": 1, "h": 1]))
         XCTAssertNil(SetsNumber.roi(["x": Double.nan, "y": 0, "w": 1, "h": 1]))
         XCTAssertNil(SetsNumber.roi(NSNull()))
         XCTAssertEqual(SetsNumber.count(100_000), 100_000)

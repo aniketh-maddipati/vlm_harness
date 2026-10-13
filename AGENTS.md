@@ -6,7 +6,7 @@ Sony ARW shooters.
 ## The rule
 
 **The design is the product.** Lumina's UI is the Claude Design page in `design/handoff/lumina-cull/`
-(`Lumina Sets v11.dc.html`, with `Lumina Edit v22.dc.html` mounted inside it, + `support.js` + `lumina-core-v4.js` +
+(`Lumina Sets v12.dc.html`, with `Lumina Edit v23.dc.html` mounted inside it, + `support.js` + `lumina-core-v4.js` +
 `lumina-v4-data.js` + `lumina-measure.js` + `lumina-selftest.js`; the names live in `Scripts/page_files.sh`). The app ships those files **byte for byte** inside a native
 window. Nobody edits the UI in this repo.
 
@@ -30,7 +30,7 @@ window. Nobody edits the UI in this repo.
 | `Lumina/LuminaApp.swift` | One window and the menu bar from BRIDGE.md "MENUS (v7)": every item calls `window.luminaCommand(name)` (Undo, Redo, Copy, Paste go to `window.luminaEdit` while Edit is the step); Quit asks about unsaved keepers |
 | `Lumina/Sets/SetsRootView.swift` | The WKWebView, the native folder pickers, downloads, and the Edit canvas overlay laid above the web view |
 | `Lumina/Sets/Web/` | The design's files, copied unchanged by `Scripts/sets_sync_ui.sh`, plus `plumbing.js` |
-| `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, `near` / `nearLimit` (how alike two photos are and the threshold for a retake, DESIGN-ASKS Prompt 2 C), …, and the Edit step's `preview` / `canvasRect` / `drag` / `roi` from DESIGN-ASKS Prompt 1 §3, plus `edit`, the superset the probe drives), persists sessions (writes debounce 500 ms after the last Edit change), makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes the ones the page asks for (`lumina.prefetch`), reads a folder the way v11's `onDir` does (unreadable files as grey `unread` tiles, the reader's place kept through `scrollAnchor` and `readEnd`, shifted clocks saved with the session and replayed through `reshift`), runs the keys still queued in the page before a menu shortcut (`flushKeys`, so ⌘Z after fast keys undoes the last one), and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`, `luminaStep`, `luminaOpening`, `luminaNotice`; Edit's `luminaPresented`, `luminaHistogram`, `luminaFacts`, `luminaEditStats`). Design v0.05 (BRIDGE-v0.03) adds `lumina.cutShort` (exports a crash cut short, from the journal before the page loads), `lumina.notices()` (`THIRD-PARTY-NOTICES.txt`) and `lumina.emit(type, detail)` (`openCancel` stops the listing). Since v0.05 the page itself keys Cull rows, warms thumbnails ahead and leads the scroll, so plumbing no longer does |
+| `Lumina/Sets/Web/plumbing.js` | **The only app-side difference.** It swaps the page's browser I/O (`openFolder` + `onDir`/`readOne`, `writeInto`, `impStart`, `libOpen`) for native calls, provides `window.lumina` (the data contract: `card`, `readingCard`, `reveal`, `setPrefs`, `openSettings`, `checkAccess`, `near` / `nearLimit` (how alike two photos are and the threshold for a retake, DESIGN-ASKS Prompt 2 C), …, and the Edit step's `preview` / `canvasRect` / `drag` / `roi` from DESIGN-ASKS Prompt 1 §3, plus `edit`, the superset the probe drives), persists sessions (a decision is saved on the next 150 ms tick and when the window leaves the front; writes debounce 500 ms after the last Edit change), makes the grid thumbnails (720 × 480; measures stay on the page's 360 px bitmap) and decodes the ones the page asks for (`lumina.prefetch`), reads a folder the way v11's `onDir` does (unreadable files as grey `unread` tiles, the reader's place kept through `scrollAnchor` and `readEnd`, shifted clocks saved with the session and replayed through `reshift`), runs the keys still queued in the page before a menu shortcut (`flushKeys`, so ⌘Z after fast keys undoes the last one), and drives the page's hooks (`luminaCardGone`, `luminaAccess`, `luminaCommand`, `luminaStep`, `luminaOpening`, `luminaNotice`; Edit's `luminaPresented`, `luminaHistogram`, `luminaFacts`, `luminaEditStats`). Design v0.05 (BRIDGE-v0.03) adds `lumina.cutShort` (exports a crash cut short, from the journal before the page loads), `lumina.notices()` (`THIRD-PARTY-NOTICES.txt`) and `lumina.emit(type, detail)` (`openCancel` stops the listing). Since v0.05 the page itself keys Cull rows, warms thumbnails ahead and leads the scroll, so plumbing no longer does |
 | `Lumina/Sets/Core/` | The native bridge: `SetsIngest` (reads opened folders: listing, 256 KB heads, byte-range previews that reuse the part the head already holds, prefetch, stops when the card goes), `SetsFileOps` (`writeSidecar`: v5's Save, one `.xmp` into the shoot folder with `.lumina-bak`, atomic, read back, refused on a card; SHA-256 copies), `SetsExport` (+ crash journal; RAW copies, v3's CSS-look JPEGs, and the Edit step's `look` renders through `SetsLookExport`, which names the RAW decoder used and falls back per file), `SetsEditLook` (v3's Edit look, unused by v5), `SetsCardWatcher`, `SetsNear` (`lumina.near`: the distance between Vision feature prints of two embedded previews, read through `SetsIngest`, one measure per photo at `.utility`; revision 2 is pinned and `limit` belongs to it), `SetsShootStore` (per-shoot sessions and the `Lumina.json` header), `SetsSchemeHandler` (`lumina://`, no network; `lumina://render/<rel>?look=&px=&seq=[&tier=small]` is the Edit preview on the image fallback path), `SetsBridge` (the page's ops, the canvas ops `canvasEnter/Layout/Look/Drag/Loupe/Stats`, the decoder map) |
 | `Lumina/Sets/Look/` | The Edit look pipeline (roadmap Prompt 2): `LookString` (the look string, the Edit step's only state), `LookRules` + `rules-v1.json` (stage order, working space, fitted coefficients, `locked` flags), `LookMath` (every stage's maths in scalar form), `LookKernels` (the same maths as Metal, compiled at first use), `LookPipeline` (the one Core Image graph previews, export and `lumina-render` share; `develop` takes the decoder version and `nr`), `LookRenderer` (developed RAW cached per (rel, px, decoder) under a byte cap, sequence numbers drop stale requests). The Edit canvas (addendum): `LookCanvasSchedule` (two tiers, latest wins, sequence numbers; Foundation only), `LookWarmPlan` (which stage graphs to compile ahead of a drag; Foundation only), `LookByteCache` (byte-capped LRU), `LookBases` (`base` + `small` rgba16Float textures per photo, prefetch), `LookRegionTiles` (RAW 9 512 px tiles for the loupe), `LookCanvas` (the MTKView overlay, CIRenderDestination, display link), `LookRawPolicy` + `LookDecoderProbe` (the RAW tiers, the pin rule, the capability map). Also compiled into the probe and `Tools/parity/lumina-render` through symlinks |
 | `Tools/parity/` | The Lightroom parity harness: the sweep plug-in, `import_refs.py`, `lumina-render`, `delta_e.py`, `parity.py` (`make parity`), `fit.py`, `loop.sh`, `criteria.json`, `golden.json`. See its README and "Parity" below |
@@ -125,15 +125,39 @@ the copy the Dock and Spotlight open, and removes older builds from Launch Servi
 `~/Library/Containers/com.lumina.app/`; sessions an unsandboxed build left in `~/Library/Application Support/Lumina`
 are not seen (R1e).
 
+Trying a change or a branch: `bash Scripts/dev.sh [--watch] [branch | path]` keeps one "Lumina Dev" app
+(bundle id `com.lumina.app.dev`: its own container, sessions and folder grants) built incrementally in
+`~/Library/Caches/com.lumina.dev` (Debug, 1 to 4 s). A build that changed only `Lumina/Sets/Web` reloads the page
+in the running app (`SetsHotReload`, `LUMINA_HOT=1`, compiled into Debug builds only); anything else relaunches
+it; either way the most recent shoot opens again. A branch is built from its worktree when it has one, uncommitted
+work included; one `dev.sh` at a time (a second is refused, exit 75). It is not what ships: Edit latency, the
+sandbox and the release settings are judged on the Release app or the probe.
+
+**Skim, the video step (branch `video/skim-mvp`, Debug only).** `bash Scripts/dev-skim.sh --watch` keeps a
+second dev app, "Lumina Skim" (bundle id `com.lumina.app.skim`, its own container, build folder and lock), beside
+"Lumina Dev". It shows `Lumina Skim v3.dc.html` instead of Pick (`SetsPage`, `LUMINA_PAGE=skim`): no plumbing, no
+Edit canvas, no card watcher; the menu's ⌘-keys come back to the page as its own keys. Edit the page in
+`design/handoff/lumina-skim/`; `--watch` copies each change to `Lumina/Sets/Web` and into the running app, which
+reloads in under a second (`SetsHotReload` compares contents, so the build after it doesn't reload again).
+`SetsPageBytesTests` holds the two copies equal. The page reads clips through WebKit's `<video>`; the policy the
+native decode will follow is `Lumina/Sets/Video/VideoPolicy.swift`, its gate `probe.sh video`. Fixtures:
+`/Volumes/T7/Lumina/fixtures/video/` (`a7m3-day1`: 50 ILCE-7M3 clips with sidecars; `slog3-reexport`: two S-Log3
+clips with no camera metadata).
+
 Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
 CI (`.github/workflows/lumina.yml`) runs a readiness gate on every pull request: the fixtures, the byte-for-byte
 page check, the wording audit and the parity tools (one Linux job), and the probe's smoke on macOS. The rest runs
 only when its area changed (`python3 Scripts/ci_changes.py FILE…` prints which): the Chromium plumbing harness and
-the WebKitGTK sandbox for the page, `plumbing.js` or `Tests/web`; the build + logic tests for anything Xcode builds, with lumina-render for the look and the Release build +
+the WebKitGTK sandbox (two jobs side by side) for the page, `plumbing.js` or `Tests/web`; the build + logic tests for anything Xcode builds
+except the page's byte copies in `Lumina/Sets/Web` (`Scripts/page_bytes.py` checks those on Linux from
+SetsPageBytesTests' own list), with lumina-render for the look and the Release build +
 strict preflight for signing, entitlements and settings; the probe's screens for the page or the probe; its
-sandbox smoke for native code and entitlements. A change to CI itself, and every push to main, runs all of it. The
+smoke inside the sandbox, in place of the plain smoke, for native code and entitlements. The macOS jobs (build + tests,
+the probe) run only on pull requests into main that are not drafts: a draft, or a PR into a shared branch, gets the
+Linux jobs, and the Mac checks run on that branch's own PR into main. On a pull request the offline test skips its
+per-layer report (`LUMINA_OFFLINE_LAYERS=0`). A change to CI itself, and every push to main, runs all of it. The
 long probe shards (fuzz-sample-2 + scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run
 nightly and when the workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real
 ARWs, macOS 27) run on a Mac.
