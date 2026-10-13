@@ -79,4 +79,24 @@ final class SkimPlacesTests: XCTestCase {
         XCTAssertFalse(SkimPlaces.make("x", in: tmp.appendingPathComponent("gone")).ok)
         XCTAssertFalse(SkimPlaces.make("../escape", in: tmp).path.contains(".."))
     }
+
+    func testHasInsideStopsAtTheFirstMatchAndSkipsHiddenOnes() throws {
+        let fm = FileManager.default, a = tmp.appendingPathComponent("a"), b = tmp.appendingPathComponent("b"), c = tmp.appendingPathComponent("c")
+        for d in [a, b, c] { try fm.createDirectory(at: d, withIntermediateDirectories: true) }
+        try Data().write(to: a.appendingPathComponent(".DS_Store"))
+        XCTAssertFalse(SkimPlaces.hasInside(a, folders: false), "only hidden files: nothing inside")
+        for i in 0..<20 { try Data().write(to: b.appendingPathComponent("C\(i).MP4")) }
+        XCTAssertTrue(SkimPlaces.hasInside(b, folders: false))
+        XCTAssertFalse(SkimPlaces.hasInside(b, folders: true), "files, no folder")
+        try fm.createDirectory(at: c.appendingPathComponent("CLIP"), withIntermediateDirectories: true)
+        XCTAssertTrue(SkimPlaces.hasInside(c, folders: true))
+        XCTAssertEqual(SkimPlaces.entries(in: tmp)?.map { [$0.name, String($0.dirs)] }, [["a", "false"], ["b", "true"], ["c", "true"]])
+    }
+
+    func testDrivesListTheMacsOwnFirstThenByName() {
+        let d = { (n: String, p: String) in SkimPlacesRead.Drive(name: n, path: p, card: false, readOnly: false, ejectable: p != "/", granted: false, total: nil, free: nil) }
+        XCTAssertEqual(SkimPlacesRead.sorted([d("T7", "/Volumes/T7"), d("Macintosh HD", "/"), d("card 2", "/Volumes/c2"), d("Card 10", "/Volumes/c10")]).map(\.name),
+                       ["Macintosh HD", "card 2", "Card 10", "T7"])
+        XCTAssertNil(d("x", "/x").json["free"], "no figure, no key")
+    }
 }

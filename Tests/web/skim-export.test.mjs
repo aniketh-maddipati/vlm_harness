@@ -85,7 +85,22 @@ test('every clip is referenced by an original-media rep at its real path', () =>
 
 // Step 2 of design/handoff/lumina-skim/FRIEND-DEMO.md. Each of these needs a change to buildX,
 // and the ones marked (FCP) can only be settled by importing into Final Cut Pro.
-test('camera timecode as the asset start', { skip: 'not built: asset start is still 0s' }, () => {});
+test('camera timecode as the asset start, the clip start and the start of its rating and keyword', () => {
+  const { text } = buildFixture();
+  const fx2 = fixture();
+  fx2.clips.forEach((c, i) => {
+    const [hh, mm, ss, ff] = c.tc.split(':').map(Number), fr = ((hh * 60 + mm) * 60 + ss) * c.tcFps + ff, want = `${fr * c.fpsDen}/${c.fpsNum}s`;
+    assert.equal(attr(text, 'asset', `a${i+1}`, 'start'), want, c.name + ' asset');
+    assert.equal(attr(text, 'asset-clip', `a${i+1}`, 'start'), want, c.name + ' clip');
+    const body = new RegExp(`<asset-clip ref="a${i+1}"[\\s\\S]*?</asset-clip>`).exec(text)[0];
+    for (const m of body.matchAll(/<(rating|keyword) start="([^"]+)"/g)) assert.equal(m[2], want, c.name + ' ' + m[1]);
+  });
+});
+test('a clip with no timecode starts at 0s', () => {
+  const c = ctxFromFixture(fx, { all: true }); c.d.clips.forEach((k, i) => { k.ltc = ['', '16994420', '30000000', 'bogus', '', ''][i]; });   // none, 99 s, frame 30 at 24, not digits
+  const t = loadBuildX().fn.call(c).text;
+  assert.match(t, /<asset id="a1" name="[^"]+" start="0s"/); assert.doesNotMatch(t, /<asset-clip [^>]*start=/);
+});
 test('real audio channel count and rate', { skip: 'not built: hasAudio=1 for every clip' }, () => {});
 // S-Log3's Sony conversion, the clips' real location and the true frame rate: built, in Tests/web/skim-handoff.test.mjs.
 test('the export is DTD-valid against the version it declares', t => {

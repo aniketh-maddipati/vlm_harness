@@ -89,7 +89,8 @@ test('the line sits in the footer outside debug mode, with its rows behind it', 
   assert.ok(foot > 0 && foot < line && line < rows);
   assert.ok(dbg < foot);                                   // the debug switch is in the top bar, closed before the footer
   assert.match(src, /storeOn:false/);                      // collapsed by default
-  assert.match(src, /if \(st\.storeOn && k === 'Escape'\) return this\.setState\(\{storeOn:false\}\)/);
+  assert.match(src, /if \(st\.storeOn && k === 'Escape'\) return this\.storeShut\(\)/);   // Escape closes it (it drops back down, then goes)
+  assert.match(src, /storeShut\(\) \{ this\.foldShut\('\[data-lumina="storage-rows"\]', \(\) => \{ this\.storeSaid = null; this\.setState\(\{storeOn:false\}\)/);
   assert.match(template, /data-lumina="memory-pill"/);    // the debug panel stays as it is
 });
 

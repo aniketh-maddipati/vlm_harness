@@ -446,9 +446,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = "Export here"
-        panel.message = refusal ?? (label == "xmp" ? "Choose the folder for the .xmp sidecars." : label == "skim" ? "Choose the folder Skim saves its Final Cut files and cut lists in." : label == "skim-place" ? "Let Skim into this drive or folder, so Export can show its folders and save there. Skim only adds files you save." : "Choose where the export goes.")
+        panel.message = refusal ?? (label == "xmp" ? "Choose the folder for the .xmp sidecars." : label == "skim" ? "Choose the folder Skim saves its Final Cut files and cut lists in." : label == "skim-place" ? "Give Lumina access to this drive or folder. Export then shows what is in it and can save there; Lumina only adds the files you save and moves the clips you ask it to." : "Choose where the export goes.")
         if label == "skim" { panel.prompt = "Save Here" }
-        if label == "skim-place" { panel.prompt = "Let Skim In" }
+        if label == "skim-place" { panel.prompt = "Give Access" }
         panel.directoryURL = suggested
         return await run(panel)
     }
@@ -700,6 +700,15 @@ final class SetsHostView: NSView {
         guard let webView, webView.frame != bounds else { return }
         webView.frame = bounds
     }
+
+    // Esc the page did not take (nothing left to close in it) comes up the responder chain from the web view.
+    // Left to the window, it closes it, and the last window closed quits the app. Esc stops here.
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { return }
+        super.keyDown(with: event)
+    }
+
+    override func cancelOperation(_ sender: Any?) {}
 }
 
 /// The Skim dev app's refresh badge: shown over the page, never in the way of a click on it.

@@ -33,9 +33,8 @@ window.__skimEngineCheck = async function (names) {
     ok(after, 'K marks the clip on screen: ' + (after || text('[data-lumina="counts"]') || before));
     const tab = [...document.querySelectorAll('[data-lumina="steps"] *')].filter(e => e.textContent.trim() === 'Export').pop();
     if (tab) tab.click();
-    // Export opens as the quick sheet; the summary (and the file check) live in the workshop, which W opens, folded under Summary.
+    // Export is one page: the summary (and the file check) is folded under Summary, below the shortcuts.
     if (!await until(() => $('[data-lumina="export-summary"]'), 800)) {
-      for (const type of ['keydown', 'keyup']) (document.activeElement || document).dispatchEvent(new KeyboardEvent(type, {key: 'w', bubbles: true, cancelable: true}));
       const fold = await until(() => $('[data-lumina="ws-sum"]'), 3000); if (fold && fold.getAttribute('aria-expanded') !== 'true') fold.click();
     }
     // The check runs after the summary draws ("Checking the file…"): wait for its verdict.
