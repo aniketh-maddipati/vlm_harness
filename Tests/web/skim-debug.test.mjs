@@ -88,7 +88,8 @@ test('the trust line is on the Open step and words stay neutral', () => {
 
 test('in a narrow window the footer\'s two lines say less, so neither is cut', () => {
   assert.equal(cutLine(3, 4_200_000_000, fmtB, 1440), 'cut: 3 clips · 4.2 GB you can free');
-  assert.equal(cutLine(3, 4_200_000_000, fmtB, 720), 'cut: 3 clips · 4.2 GB');
+  assert.equal(cutLine(3, 4_200_000_000, fmtB, 720), 'cut: 4.2 GB', 'under 800 the size alone: the cut mark beside it has the number');
+  assert.equal(cutLine(3, 4_200_000_000, fmtB, 800), 'cut: 3 clips · 4.2 GB');
   assert.equal(cutLine(3, 4_200_000_000, fmtB, 1024), 'cut: 3 clips · 4.2 GB', 'the storage line sits beside it under 1280');
   assert.equal(cutLine(3, 4_200_000_000, fmtB, 1280), 'cut: 3 clips · 4.2 GB you can free');
   assert.equal(cutLine(0, 0, fmtB, 720), 'cut: none yet');
@@ -115,8 +116,16 @@ test('the footer\'s storage line gives way before the cut line, and never runs o
   assert.equal(storeShort(line, 1440), line); assert.equal(storeShort(line, undefined), line); assert.equal(storeShort(line, 1280), line);
   assert.equal(storeShort(line, 1180), 'in memory 180 MB of 403 MB');
   assert.equal(storeShort(line, 1024), 'storage'); assert.equal(storeShort(line, 720), 'storage');
-  // it can shrink (four times as readily as the cut line) and shortens with … inside its own button
-  assert.match(src, /<div style="position:relative;flex:0 4 auto;min-width:0">\s*<div data-lumina="storage"/);
+  // the full line can shrink (four times as readily as the cut line) and shortens with … inside its own button;
+  // the one word under 1100 px keeps its width
+  assert.match(src, /<div style="position:relative;flex:\{\{ storeFlex \}\};min-width:0">\s*<div data-lumina="storage"/);
+  assert.match(src, /vals\.storeFlex = st\.vw < 1100 \? 'none' : '0 4 auto'/);
+  assert.match(src, /storeFlex:'0 4 auto'/);
   assert.match(src, /data-lumina="storage"[^>]*min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden"[^>]*><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">\{\{ storeLine \}\}<\/span>/);
   assert.match(src, /<div style="flex:0 1 auto;min-width:0;display:flex;justify-content:flex-end;gap:14px;overflow:hidden"><span data-lumina="footer-cut"/);
+});
+
+test('an empty label beside the cut line takes no room', () => {
+  assert.match(src, /\{\{ cutSoFar \}\}<\/span><sc-if value="\{\{ freeOn \}\}"[^>]*><span style="color:#9A958D">\{\{ freeTxt \}\}<\/span><\/sc-if>/);
+  assert.match(src, /vals\.freeOn = !!vals\.freeTxt;/);
 });
