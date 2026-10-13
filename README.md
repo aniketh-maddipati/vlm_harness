@@ -23,9 +23,11 @@ Keys in Pick: **⏎** keeps a photo and moves on, **R** un-keeps it and moves on
 Hold ⇧ to do the same going back, or to work inside a stack. **Space** shows a photo large, hold
 **Z** for 100 %, hold **F** for focus edges. **Q** or ⌘Z undoes. **?** lists every key.
 
-| Pick, with four kept in the strip | The large view, with camera facts and measures | Save: one rated sidecar per pick |
-|---|---|---|
-| ![Pick with four kept](docs/screenshots/pick-kept.jpg) | ![The large view](docs/screenshots/large-view.jpg) | ![Save](docs/screenshots/save.jpg) |
+| Pick, with four kept in the strip | The large view, with camera facts and measures |
+|---|---|
+| ![Pick with four kept](docs/screenshots/pick-kept.jpg) | ![The large view](docs/screenshots/large-view.jpg) |
+| **Edit: the RAW on the canvas, sliders beside it** | **Save: one rated sidecar per pick** |
+| ![Edit](docs/screenshots/edit.jpg) | ![Save](docs/screenshots/save.jpg) |
 
 Screenshots are from a real a7 III shoot.
 
