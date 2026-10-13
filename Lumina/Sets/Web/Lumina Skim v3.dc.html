@@ -1496,6 +1496,8 @@ class Component extends DCLogic {
     const one = g.clips.length === 1, nm = g.clips[0].name.replace(/\.\w+$/, '');
     add('← → ↑ ↓', 'move'); add('pinch − =', 'every ' + Component.tiWord(Component.TI[this.cvTi()][0])); add('⏎ 2×click', one ? 'Viewer' : 'open');
     add('K M C', one ? 'mark on / off' : 'mark ' + this.plural(g.clips.length, 'clip')); add('esc', 'put back'); add('⌘⏎', 'export');
+    // last, so a narrow footer that wraps it away keeps the hints it had
+    add('space', 'preview');
     return {lead:(one ? nm : g.title), list:out};
   }
   index() {
