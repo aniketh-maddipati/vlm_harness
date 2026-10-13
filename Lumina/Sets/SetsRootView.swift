@@ -579,6 +579,15 @@ final class SetsHostView: NSView {
         guard let webView, webView.frame != bounds else { return }
         webView.frame = bounds
     }
+
+    // Esc the page did not take (nothing left to close in it) comes up the responder chain from the web view.
+    // Left to the window, it closes it, and the last window closed quits the app. Esc stops here.
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { return }
+        super.keyDown(with: event)
+    }
+
+    override func cancelOperation(_ sender: Any?) {}
 }
 
 /// Window sizes: opens at the reference size (1440×900, PARITY.md); minimum 1024×700 (ADDENDUM-1 §4).
