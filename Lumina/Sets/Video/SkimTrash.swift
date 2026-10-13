@@ -54,6 +54,24 @@ nonisolated struct SkimTrash: Sendable {
         return u
     }
 
+    /// The folder a Skim pick came from: a folder picked alone is itself; clips (and folders) picked together share
+    /// the deepest folder that holds them all. Nil for nothing picked.
+    static func folder(of urls: [URL]) -> URL? {
+        let dirs = urls.map { u -> [String] in
+            var d: ObjCBool = false
+            let isDir = FileManager.default.fileExists(atPath: u.path, isDirectory: &d) && d.boolValue
+            return (urls.count == 1 && isDir ? u : u.deletingLastPathComponent()).standardizedFileURL.pathComponents
+        }
+        guard var common = dirs.first else { return nil }
+        for d in dirs.dropFirst() {
+            var n = 0
+            while n < min(common.count, d.count) && common[n] == d[n] { n += 1 }
+            common = Array(common.prefix(n))
+        }
+        guard !common.isEmpty else { return nil }
+        return URL(fileURLWithPath: NSString.path(withComponents: common), isDirectory: true)
+    }
+
     /// A Sony clip's sidecars in the same folder: `C0001M01.XML` beside `C0001.MP4` (any case).
     static func companions(of file: URL) -> [URL] {
         let dir = file.deletingLastPathComponent(), stem = file.deletingPathExtension().lastPathComponent.uppercased()

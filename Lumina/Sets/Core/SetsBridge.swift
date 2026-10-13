@@ -227,6 +227,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
 
     // MARK: Opening folders
 
+    /// Skim's pick (the page's file input, `chooseClips`): the folder its clips are in becomes the open shoot's
+    /// folder, which the storage line's drive and Trash ops read (`SkimTrash.folder(of:)`).
+    func skimOpened(_ urls: [URL]) {
+        lastOpened = SkimTrash.folder(of: urls)
+    }
+
     /// Called from the web view's UI delegate for the page's folder input.
     func openPanel(allowsDirectories: Bool) async -> [URL]? {
         let url: URL?

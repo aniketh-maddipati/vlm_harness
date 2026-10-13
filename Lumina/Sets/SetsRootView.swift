@@ -246,7 +246,11 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
         // Skim reads clips through the page's own file input: a card, folders or clips, nothing else of Pick's.
-        if SetsPage.current == .skim { Task { @MainActor in completionHandler(await chooseClips()) }; return }
+        if SetsPage.current == .skim {
+            // The folder the clips are in is the open shoot's folder for the storage line (drive, Trash).
+            Task { @MainActor in let urls = await chooseClips(); if let urls { bridge.skimOpened(urls) }; completionHandler(urls) }
+            return
+        }
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
     }
 

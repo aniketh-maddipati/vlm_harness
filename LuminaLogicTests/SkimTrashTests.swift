@@ -31,6 +31,15 @@ final class SkimTrashTests: XCTestCase {
         XCTAssertNil(SkimTrash.resolve(root: root, rel: "CLIP/link.MP4"), "a link out of the folder is not followed")
     }
 
+    func testTheOpenedFolderIsTheFolderPickedOrTheOneTheClipsShare() {
+        let clip = root.appendingPathComponent("CLIP")
+        XCTAssertEqual(SkimTrash.folder(of: [root])?.path, root.standardizedFileURL.path, "a folder picked alone is itself")
+        XCTAssertEqual(SkimTrash.folder(of: [clip.appendingPathComponent("C0001.MP4"), clip.appendingPathComponent("C0002.MP4")])?.path, clip.standardizedFileURL.path, "clips: their folder")
+        XCTAssertEqual(SkimTrash.folder(of: [clip.appendingPathComponent("C0001.MP4"), tmp.appendingPathComponent("outside.MP4")])?.path, tmp.standardizedFileURL.path, "the folder they share")
+        XCTAssertEqual(SkimTrash.folder(of: [clip.appendingPathComponent("C0001.MP4")])?.path, clip.standardizedFileURL.path, "one clip: its folder")
+        XCTAssertNil(SkimTrash.folder(of: []))
+    }
+
     func testTheSidecarTravelsWithItsClip() {
         XCTAssertEqual(SkimTrash.companions(of: root.appendingPathComponent("CLIP/C0001.MP4")).map(\.lastPathComponent), ["C0001M01.XML"])
         XCTAssertEqual(SkimTrash.companions(of: root.appendingPathComponent("CLIP/C0002.MP4")), [])
