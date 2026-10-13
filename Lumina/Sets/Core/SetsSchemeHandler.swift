@@ -277,6 +277,11 @@ nonisolated enum SetsPage: String, Sendable {
         coverTouch: (shoot) => post('skimCoverTouch', { shoot }),
         coverStat: () => post('skimCoverStat'),
         coverDrop: (keys) => post('skimCoverDrop', { keys: (keys || []).map(String) }),
+        drive: () => post('skimDrive'),
+        showTrash: () => post('skimShowTrash'),
+        trashMove: (shoot, paths) => post('skimTrashMove', { shoot: String(shoot), paths: (paths || []).map(String) }),
+        trashPutBack: (shoot) => post('skimTrashPutBack', { shoot: String(shoot) }),
+        trashList: (shoot) => post('skimTrashList', { shoot: String(shoot) }),
         mark() {}, preview() {}, handoff() {}
       });
     })();

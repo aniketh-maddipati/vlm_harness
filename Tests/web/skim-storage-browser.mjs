@@ -30,7 +30,12 @@ async function run(quota, host) {
       coverPut: (sh, recs) => { const o = db(), s = o[sh.k] || {k:sh.k, name:sh.name, at:0, recs:{}}; s.at = Date.now(); recs.forEach(r => s.recs[r.k] = {meta:r.meta, cover:r.cover}); o[sh.k] = s; save(o); return ask('saved'); },
       coverTouch: sh => { const o = db(); o[sh.k] = o[sh.k] || {k:sh.k, name:sh.name, recs:{}}; o[sh.k].at = Date.now(); save(o); return ask(true); },
       coverStat: () => { const o = db(); let bytes = 0; const shoots = Object.values(o).map(s => { const b = Object.values(s.recs).reduce((a, r) => a + r.cover.length * 0.75 + r.meta.length, 0); bytes += b; return {k:s.k, name:s.name, at:s.at, bytes:b, n:Object.keys(s.recs).length}; }); return ask({bytes, shoots}); },
-      coverDrop: keys => { const o = db(); keys.forEach(k => delete o[k]); save(o); return ask(true); }}};
+      coverDrop: keys => { const o = db(); keys.forEach(k => delete o[k]); save(o); return ask(true); },
+      drive: () => ask({name:'T7', total:1e12, free:150e9, purgeable:8e9, readOnly:false, card:false, trash:3.5e9}),
+      showTrash: () => { window.__trash = (window.__trash || 0) + 1; return ask(true); },
+      trashList: sh => ask(JSON.parse(localStorage.getItem('fake-trash') || '[]')),
+      trashMove: (sh, paths) => { window.__moved = paths; const out = paths.map(p => ({rel:p, ok:true, bytes:1e9, why:''})); localStorage.setItem('fake-trash', JSON.stringify(out)); return ask(out); },
+      trashPutBack: sh => { const t = JSON.parse(localStorage.getItem('fake-trash') || '[]'); localStorage.setItem('fake-trash', '[]'); return ask(t); }}};
   });
   if (quota) await ctx.addInitScript(() => { const put = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function (v, k) { if (this.name === 'clip') throw new DOMException('full', 'QuotaExceededError'); return put.call(this, v, k); }; });
   const open = async dir => {
@@ -50,6 +55,28 @@ async function run(quota, host) {
     ok(first >= 30 && read <= first - 30, 'through the app\'s store, a reopen reads nothing: ' + first + ' videos the first time, ' + read + ' again');
     await tap(p, '[data-lumina="storage"]'); const r = await rows(p);
     ok(/30 of 30 clips opened from saved covers/.test(r) && !/Kept until Lumina quits/.test(r), 'the row says where they came from, and nothing about a quit');
+    ok(/drive 150\.0 GB free · under 20% free/.test(await line(p)), 'the drive in the line, with the 20 % words: ' + await line(p));
+    ok(/Drive · T7\n150\.0 GB free of 1000\.0 GB · 8\.0 GB purgeable/.test(r) && /Under 20% free on T7: 150\.0 GB left\./.test(r), 'the drive row: free, purgeable, the one plain line');
+    ok(/Trash on T7\n3\.5 GB waiting/.test(r) && /Skim never empties the Trash/.test(r), 'the Trash row');
+    await tap(p, '[data-lumina="storage-trash"]'); ok(await p.evaluate(() => window.__trash) === 1, 'Show in Finder asks the app once');
+    ok(/Cut clips on T7\nnone/.test(await rows(p)), 'no cut clips: the row says none');
+    // five clips marked cut far from the first one, from the keyboard in Clips (C marks the clip you are on), then back to the first
+    await p.keyboard.press('Escape'); await p.locator('[data-lumina="levels"] [role=tab]').nth(1).click(); await p.waitForTimeout(200);
+    for (let i = 0; i < 25; i++) await p.keyboard.press('ArrowRight');
+    for (let i = 0; i < 5; i++) { await p.keyboard.press('c'); await p.waitForTimeout(50); await p.keyboard.press('ArrowRight'); }
+    for (let i = 0; i < 30; i++) await p.keyboard.press('ArrowLeft');
+    const sk = await p.evaluate(() => Object.keys(localStorage).find(k => /^lumina-skim:shoot/.test(k)) || '');
+    ok(/5 decided/.test(await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent || '')), 'five clips marked cut: ' + await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent));
+    await p.waitForTimeout(300); await tap(p, '[data-lumina="storage"]'); let r2 = await rows(p);
+    ok(/Cut clips on T7\n5 clips · /.test(r2) && /Send to Final Cut first/.test(r2) && await p.evaluate(() => document.querySelector('[data-lumina="storage-trash-move"]').getAttribute('aria-disabled')) === 'true', 'five cut: the move waits for the Final Cut file');
+    await p.evaluate(() => { const k = Object.keys(localStorage).find(k => /^lumina-skim:/.test(k) && !/clock|sent|^lumina-skimprefs/.test(k)); localStorage.setItem('lumina-skim:sent:' + k.replace(/^lumina-skim:/, ''), '1'); });
+    await tap(p, '[data-lumina="storage-scope-day"]'); r2 = await rows(p);
+    ok(/Move cut to Trash · 5\.\d MB|Move cut to Trash · \d/.test(r2) && /Drive would have .* free once you empty the Trash/.test(r2), 'after the Final Cut file: the yield and the forecast');
+    await tap(p, '[data-lumina="storage-trash-move"]'); ok(/to Trash\? Click again/.test(await rows(p)) && !(await p.evaluate(() => window.__moved)), 'the first click only asks');
+    await tap(p, '[data-lumina="storage-trash-move"]'); await p.waitForTimeout(300);
+    ok((await p.evaluate(() => (window.__moved || []).length)) === 5 && /Moved 5 clips/.test(await rows(p)) && /Put back · 5 clips/.test(await rows(p)), 'the second click moves five, Put back offered');
+    await tap(p, '[data-lumina="storage-trash-back"]'); await p.waitForTimeout(300);
+    ok(/Put back 5 clips/.test(await rows(p)), 'Put back returns them');
   } else if (!quota) {
     ok(/^storage · in memory \d+ MB of \d+ MB/.test(await line(p)), 'the line outside debug mode: ' + await line(p));
     await tap(p, '[data-lumina="storage"]'); ok(/Frames in memory/.test(await rows(p)), 'a click opens the rows');

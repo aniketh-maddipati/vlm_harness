@@ -11,9 +11,9 @@ Skim never empties the Trash. Marks are never part of any dump.
 | # | What fills up | Figure | Dump | Refresh | State |
 |---|---|---|---|---|---|
 | 1 | Frames in memory (`frameSz` sum + `thumbs`) | MB of the limit | Drop frames (covers stay) | Make frames again | step 1, merged (PR 238) |
-| 2 | Saved covers and measures (reopen is instant) | MB on disk, shoots held | Clear for shoots not open | Re-measure this shoot | step 2, built: IndexedDB in a browser, `skim/covers/` in the app (PR 239) |
-| 3 | Cut clips still on the drive | GB, clips | Move cut to Trash: scene / day / shoot | Put back | step 4, Mac app |
-| 4 | Trash on each drive | GB waiting | Show in Finder (he empties) | Re-read size | step 3, Mac app |
+| 2 | Saved covers and measures (reopen is instant) | MB on disk, shoots held | Clear for shoots not open | Re-measure this shoot | step 2, built: IndexedDB in a browser, `skim/covers/` in the app |
+| 3 | Cut clips still on the drive | GB, clips | Move cut to Trash: scene / day / shoot | Put back | step 4, built: cut only, after the Final Cut send, two clicks; `trashItem` in the sandbox not yet seen on a Mac (PR 239) |
+| 4 | Trash on each drive | GB waiting | Show in Finder (he empties) | Re-read size | step 3, built (the drive's free space too); Trash listing in the sandbox not yet seen on a Mac |
 | 5 | Final Cut's generated media | GB per library | Show size, point at Final Cut's own Delete Generated Library Files | Re-read size | step 5, findings first |
 Free space per drive is the read-out all five feed, not a sixth item.
 

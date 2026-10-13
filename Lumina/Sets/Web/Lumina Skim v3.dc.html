@@ -699,8 +699,20 @@ class Component extends DCLogic {
     const said = (parts || []).filter(p => p && (p.b != null || p.free != null)).map(p => p.free != null ? p.t + ' ' + fmtB(p.free) + ' free' : p.t + ' ' + fmtB(p.b) + (p.of ? ' of ' + fmtB(p.of) + (p.b > p.of ? ' · over' : '') : ''));
     return said.length ? 'storage · ' + said.join(' · ') : 'storage · nothing held';
   }
+  // Under 20 % free on a drive: one plain line, never a pop-up. Nothing when the drive was not read.
+  static lowSay(dr, fmtB) { if (!dr || dr.free == null || !dr.total) return ''; return dr.free / dr.total < 0.2 ? 'Under 20% free on ' + (dr.name || 'this drive') + ': ' + fmtB(dr.free) + ' left.' : ''; }
+  // The drive's figure, plain free space first, purgeable named so it agrees with Finder (which counts it as available).
+  static driveSay(dr, fmtB) { if (!dr || dr.free == null) return ''; return fmtB(dr.free) + ' free' + (dr.total ? ' of ' + fmtB(dr.total) : '') + (dr.purgeable > 0 ? ' · ' + fmtB(dr.purgeable) + ' purgeable' : ''); }
+  // Move cut to Trash (STORAGE.md item 3): the cut clips in the scope chosen (inScope), still on the drive, read from a
+  // real folder, and not within 12 of the clip you are on (the clip on screen and its neighbours are never moved by a
+  // button). Only cut, never maybe. Answers the clips, their bytes, and how many cut ones stay because they are near.
+  static trashPick(clips, marks, at, inScope) {
+    const list = []; let bytes = 0, near = 0;
+    for (const c of clips || []) { if (marks[c.id] !== 'cut' || c.trashed || !c._file || !inScope(c)) continue; if (Math.abs(c._i - at) <= 12) { near++; continue; } list.push(c); bytes += c.bytes || 0; }
+    return {list, bytes, near};
+  }
   // A dump button says what it gives back before the click: 'Drop frames · 180 MB'; nothing to give back says so.
-  static dumpSay(kind, bytes, n, fmtB) { const t = {frames:'Drop frames', saved:'Clear for shoots not open'}[kind] || kind; return n && bytes > 0 ? t + ' · ' + fmtB(bytes) : t + ' · nothing to give back'; }
+  static dumpSay(kind, bytes, n, fmtB) { const t = {frames:'Drop frames', saved:'Clear for shoots not open', cut:'Move cut to Trash'}[kind] || kind; return n && bytes > 0 ? t + ' · ' + fmtB(bytes) : t + ' · nothing to give back'; }
   // What Drop frames gives back: what enforce() does at a limit of zero. Every clip more than 12 from the one you are on
   // keeps one frame, its cover (or the frame nearest it); the 24 around you are not touched. Only frames this tab made
   // (blob: URLs) are dropped, since only those can be made again. Marks are not part of it.
@@ -756,6 +768,34 @@ class Component extends DCLogic {
     this.covers.drop(out.map(s => s.k)).then(ok => { this.storeSaid = {k:'saved', t:ok ? 'Cleared ' + this.fmtB(b) + ' from ' + this.plural(out.length, 'shoot') + '. They read again the next time they are opened.' : 'Could not clear here.'}; this.coverStat(); }); };
   coverRemeasure = () => { if (this.realReading() || !this.d) return; const k = this.storeKey(this.d); this.d.clips.forEach(c => { c._saved = false; });
     this.covers.drop([k]).then(() => { this.storeSaid = {k:'saved', t:'Measuring this shoot again. Keys and marking work meanwhile.'}; this.clearFrames(); this.coverStat(); }); };
+  // The drive the shoot was opened from, in the Mac app (skimDrive, read only): fills d.shoot.free and the storage line.
+  driveRead = () => { const v = window.lumina && window.lumina.video, d = this.d; if (!v || !v.drive || !d || !d.shoot.real) return;
+    Promise.resolve().then(() => v.drive()).then(r => { if (this.d !== d) return; this.drv = r || null; d.shoot.free = r && r.free != null ? r.free : null; this.drvAt = Date.now(); this.setState(s => ({tick:(s.tick || 0) + 1})); }, () => {}); };
+  showTrash = () => { const v = window.lumina && window.lumina.video; if (v && v.showTrash) Promise.resolve().then(() => v.showTrash()).catch(() => {}); };
+  // What this shoot has in the Trash, from the app's note of Skim's own moves (skimTrashList): those clips are not read again.
+  trashRead = () => { const v = window.lumina && window.lumina.video, d = this.d; if (!v || !v.trashList || !d || !d.shoot.real) return;
+    Promise.resolve().then(() => v.trashList(this.storeKey(d))).then(r => { if (this.d !== d || !Array.isArray(r)) return; const by = new Map(r.map(x => [x.rel, x.bytes]));
+      d.clips.forEach(c => { c.trashed = by.has(c.path); }); this.trBytes = r.reduce((a, x) => a + (x.bytes || 0), 0); this.trN = r.length; this.setState(s => ({tick:(s.tick || 0) + 1})); }, () => {}); };
+  // Sent to Final Cut: noted per shoot when the .fcpxml is saved, so cut clips may move after it (and kept with the shoot's other saved state).
+  sentKey(d) { return 'lumina-skim:sent:' + this.storeKey(d || this.d).replace(/^lumina-skim:/, ''); }
+  isSent() { try { return !!localStorage.getItem(this.sentKey()); } catch (x) { return false; } }
+  trashScope() { const st = this.state, sc = st.trScope || 'shoot', cur = this.byId && this.byId[st.cur]; if (sc === 'shoot' || !cur) return () => true;
+    if (sc === 'day') { const day = (cur.t || '').slice(0, 10); return c => (c.t || '').slice(0, 10) === day; }
+    const g = this.cvG(), ids = new Set(g ? g.clips.map(c => c.id) : [cur.id]); return c => ids.has(c.id); }
+  trashGo = () => {
+    const v = window.lumina && window.lumina.video, d = this.d, st = this.state; if (!v || !v.trashMove || !d || !this.isSent() || (this.drv && this.drv.refusal)) return;
+    const at = this.byId && this.byId[st.cur] ? this.byId[st.cur]._i : 0, p = Component.trashPick(d.clips, st.marks, at, this.trashScope()); if (!p.list.length) return;
+    if (!st.trConfirm) { clearTimeout(this.trT); this.setState({trConfirm:true}); this.trT = setTimeout(() => this.setState({trConfirm:false}), 4000); return; }
+    clearTimeout(this.trT); this.setState({trConfirm:false}); this.trBusy = true; this.storeSaid = {k:'cut', t:'Moving ' + this.plural(p.list.length, 'clip') + ' to the Trash. Keys and marking work meanwhile.'};
+    Promise.resolve().then(() => v.trashMove(this.storeKey(d), p.list.map(c => c.path))).then(r => {
+      this.trBusy = false; if (this.d !== d) return; const ok = (r || []).filter(x => x.ok), why = (r || []).find(x => !x.ok), by = new Set(ok.map(x => x.rel)), b = ok.reduce((a, x) => a + (x.bytes || 0), 0);
+      d.clips.forEach(c => { if (by.has(c.path)) { c.trashed = true; (this.fill && this.fill.set && this.fill.set.delete(c)); } });
+      this.storeSaid = {k:'cut', t:(ok.length ? 'Moved ' + this.plural(ok.length, 'clip') + ' (' + this.fmtB(b) + ') to the Trash. Put back works from Finder or here. ' : 'Nothing moved. ') + (why ? 'Not moved: ' + why.why + '.' : '')};
+      this.trashRead(); this.driveRead(); }, () => { this.trBusy = false; this.storeSaid = {k:'cut', t:'Nothing moved: the app did not answer.'}; this.setState(s => ({tick:(s.tick || 0) + 1})); });
+  };
+  trashBack = () => { const v = window.lumina && window.lumina.video, d = this.d; if (!v || !v.trashPutBack || !d) return;
+    Promise.resolve().then(() => v.trashPutBack(this.storeKey(d))).then(r => { const ok = (r || []).filter(x => x.ok), why = (r || []).find(x => !x.ok);
+      this.storeSaid = {k:'cut', t:(ok.length ? 'Put back ' + this.plural(ok.length, 'clip') + '. ' : 'Nothing put back. ') + (why ? why.rel.split('/').pop() + ': ' + why.why + '.' : '')}; this.trashRead(); this.driveRead(); }, () => {}); };
   // Make frames again, from the storage line: the same as the debug panel's, and says so while reading runs.
   storeRemake = () => { if (this.realReading() || !this.d) return; this.storeSaid = {k:'frames', t:'Making frames again. Keys and marking work meanwhile.'}; this.clearFrames(); };
   // Pause / Go on beside the reading line: pause sets the pace to paused, Go on returns it to auto.
@@ -2038,13 +2078,14 @@ class Component extends DCLogic {
     vals.handOpen = () => this.setStep('export');
     vals.wells = ['keep', 'maybe', 'cut'].map(m => ({m, l:this.W(m), n:markN[m], c:MK[m], bg:'rgba(239,236,230,0.05)', ring:'rgba(239,236,230,0.1)'}));
     vals.cutSoFar = Component.cutLine(markN.cut, markB.cut, b => this.fmtB(b)); vals.cutC = markN.cut ? '#B8B3AB' : '#9A958D';
-    vals.freeTxt = (d.shoot.free == null ? '' : 'card: ' + this.fmtB(d.shoot.free) + ' free');
+    vals.freeTxt = '';
     // storage: the line and its rows (step 1: frames in memory)
     { const ms = this.memStats(), ts = this.thumbs.stats(), B = this.mp.budget, held = ms.frB + ts.bytes, of = B === 'all' || !B ? null : B * 1048576 + this.thumbs.budget, fb = b => this.fmtB(b);
       const far = st.storeOn ? this.farPlan() : null, busy = this.realReading(), said = this.storeSaid;
       vals.storeOn = !!st.storeOn; vals.storeToggle = () => { if (st.storeOn) this.storeSaid = null; this.setState({storeOn:!st.storeOn}); }; vals.storeArrow = st.storeOn ? '▾' : '▴';
       const cs = this.covSt, curK = this.storeKey(d), others = cs ? cs.shoots.filter(s => s.k !== curK) : [], othB = others.reduce((a, s) => a + s.bytes, 0), host = !!this.hostStore();
-      vals.storeLine = Component.storeLine([{t:'in memory', b:held, of}, {t:'saved', b:cs && cs.ok ? cs.bytes : null}], fb); vals.storeFg = of && held > of ? '#FFD27A' : '#B8B3AB'; vals.storeBg = st.storeOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)';
+      const dr = this.drv, low = Component.lowSay(dr, fb);
+      vals.storeLine = Component.storeLine([{t:'in memory', b:held, of}, {t:'saved', b:cs && cs.ok ? cs.bytes : null}, {t:'drive', free:dr ? dr.free : null}], fb) + (low ? ' · under 20% free' : ''); vals.storeFg = (of && held > of) || low ? '#FFD27A' : '#B8B3AB'; vals.storeBg = st.storeOn ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)';
       const btn = (id, t, tip, on, go) => ({id, t, tip, off:!on, op:on ? 1 : 0.45, cur:on ? 'pointer' : 'default', go:on ? go : () => {}});
       vals.storeRows = st.storeOn ? [{k:'frames', t:'Frames in memory', fig:fb(held) + (of ? ' of ' + fb(of) : ''), figC:of && held > of ? '#FFD27A' : '#B8B3AB',
         sub:'Frames of the clips you skim. Far ones give theirs up on their own at the limit; frames come back for the clips you go to.',
@@ -2054,7 +2095,28 @@ class Component extends DCLogic {
         sub:(this.covers.full ? 'Storage here is full, so covers are not being saved now. Everything else works. ' : '') + (this.covHits && this.covHits.n ? this.covHits.n + ' of ' + this.plural(this.covHits.of, 'clip') + ' opened from saved covers. ' : '') + 'Opening these clips again shows covers and flags at once. Up to ' + fb(this.covers.cap) + '; the shoot opened longest ago goes first.' + (host && !this.covers.host ? ' Kept until Lumina quits.' : ''),
         btns:[btn('storage-clear', Component.dumpSay('saved', othB, others.length, fb), 'Every saved shoot but this one. Marks stay; those clips read again when opened.', others.length > 0, this.coverClearOthers),
           btn('storage-remeasure', 'Re-measure this shoot', busy ? 'After reading finishes.' : 'Forgets this shoot\u2019s saved covers and reads it again. Marks stay.', !busy && C.some(c => c._file), this.coverRemeasure)],
-        saidOn:!!(said && said.k === 'saved'), said:said ? said.t : ''}] : []) : [];
+        saidOn:!!(said && said.k === 'saved'), said:said ? said.t : ''}] : [])
+        .concat(dr ? [{k:'drive', t:'Drive · ' + (dr.name || 'this drive'), fig:Component.driveSay(dr, fb) || 'not read', figC:low ? '#FFD27A' : '#B8B3AB',
+          sub:[low, dr.purgeable > 0 ? 'Purgeable space is what macOS frees on its own when it needs room; Finder counts it as available.' : '', dr.refusal || ''].filter(Boolean).join(' ') || 'Plain free space, as the drive reports it.', btns:[],
+          saidOn:false, said:''},
+          {k:'trash', t:'Trash on ' + (dr.name || 'this drive'), fig:dr.trash == null ? 'size not readable here' : fb(dr.trash) + ' waiting', figC:'#B8B3AB',
+          sub:'Skim never empties the Trash. Empty it in Finder when you are sure; until then that space is not free.',
+          btns:[btn('storage-trash', 'Show in Finder', 'Opens this drive\u2019s Trash in Finder.', true, this.showTrash), btn('storage-reread', 'Re-read size', 'Reads the drive and its Trash again.', true, this.driveRead)],
+          saidOn:!!this.drvAt, said:this.drvAt ? 'Read ' + new Date(this.drvAt).toLocaleTimeString([], {hour:'numeric', minute:'2-digit', second:'2-digit'}) + '.' : ''}] : [])
+        .concat(dr && window.lumina && window.lumina.video && window.lumina.video.trashMove ? (() => {
+          const at = this.byId && this.byId[st.cur] ? this.byId[st.cur]._i : 0, all = Component.trashPick(C, st.marks, -1e9, () => true), p = Component.trashPick(C, st.marks, at, this.trashScope()), sent = this.isSent(), sc = st.trScope || 'shoot';
+          const can = sent && !dr.refusal && !this.trBusy && p.list.length > 0, after = dr.free != null ? dr.free + p.bytes + (this.trBytes || 0) : null;
+          const scope = (k, t) => btn('storage-scope-' + k, (sc === k ? '● ' : '○ ') + t, 'Move the cut clips of ' + t.toLowerCase(), true, () => this.setState({trScope:k, trConfirm:false}));
+          return [{k:'cut', t:'Cut clips on ' + (dr.name || 'this drive'), fig:all.list.length + all.near ? this.plural(all.list.length + all.near, 'clip') + ' · ' + fb(all.bytes + C.filter(c => st.marks[c.id] === 'cut' && !c.trashed && c._file && all.list.indexOf(c) < 0).reduce((a, c) => a + (c.bytes || 0), 0)) : 'none', figC:'#B8B3AB',
+            sub:[dr.refusal || '', !dr.refusal && !sent ? 'Send to Final Cut first (Export ▸ Download for Final Cut); after that, cut clips can move to the Trash.' : '',
+              p.near ? this.plural(p.near, 'cut clip') + ' near the one you are on stay until you move away.' : '',
+              !dr.refusal && p.list.length && after != null ? 'Drive would have ' + fb(after) + ' free once you empty the Trash.' : '',
+              'Only cut clips move, never maybe. They go to the Trash with their sidecars, and Put Back works; Skim never empties the Trash.'].filter(Boolean).join(' '),
+            btns:[scope('scene', 'This scene'), scope('day', 'This day'), scope('shoot', 'Whole shoot'),
+              btn('storage-trash-move', st.trConfirm ? 'Move ' + this.plural(p.list.length, 'clip') + ' to Trash? Click again' : Component.dumpSay('cut', p.bytes, p.list.length, fb), 'Moves them out of ' + (d.shoot.name || 'the folder') + ' into the Trash. Marks stay.', can, this.trashGo)]
+              .concat(this.trN ? [btn('storage-trash-back', 'Put back · ' + this.plural(this.trN, 'clip'), 'Back to where they were, while they are still in the Trash.', true, this.trashBack)] : []),
+            saidOn:!!(said && said.k === 'cut') || !!this.trN, said:said && said.k === 'cut' ? said.t : this.trN && dr.free != null ? this.fmtB(this.trBytes) + ' of this shoot is in the Trash: ' + fb(dr.free + this.trBytes) + ' free once you empty it.' : ''}];
+        })() : []) : [];
     }
     // hints
     vals.hints = empty ? [{k:'⌘O', t:'open'}] : st.held ? [{k:'tap', t:Component.VERB[st.held]}, {k:'⏎', t:Component.VERB[st.held]}, {k:'let go', t:'nothing happens'}] : [];
@@ -2403,6 +2465,7 @@ class Component extends DCLogic {
     this.clockStart(d, true); const k = this.clock; k.meta = Math.round(tM - tL); k.metaFrom = from;
     // 'listed' is from the folder being handed over to the clips being drawn with their info; the reading starts after.
     this.setState({impMsg:null, imp:{n:clips.length, done:0}}, () => { if (this.clock !== k || k.listed != null) return; k.listed = Math.round(performance.now() - tL); this.clockSave({name:k.name, n:k.n, bytes:k.bytes, real:true, at:k.at, meta:k.meta, metaFrom:k.metaFrom, listed:k.listed, partial:true}); });
+    this.drv = null; this.trBytes = 0; this.trN = 0; this.driveRead(); this.trashRead();
     { const tok = this.qTok; this.coverLoad(d).then(() => { if (tok === this.qTok) this.runQueue(clips.slice(), tok); }); }
   }
   // What a Sony clip says about itself (NonRealTimeMeta, from the sidecar or the end of the file): no decode.
@@ -2678,7 +2741,7 @@ class Component extends DCLogic {
   }
   // The frames of a clip still worth asking for: not there, and not already missed twice (one more try, no more).
   static askIdx(frames, miss, idx) { return idx.filter(i => !frames[i] && !(miss && miss[i] >= 2)); }
-  fillNeed(c) { return c.facts && c.facts.state === 'ready' && (c._file || c._mock) ? Component.askIdx(c.frames, c._miss, this.frameIdx()) : []; }
+  fillNeed(c) { return c.facts && c.facts.state === 'ready' && (c._file || c._mock) && !c.trashed ? Component.askIdx(c.frames, c._miss, this.frameIdx()) : []; }
   fillRoom() { const B = this.mp.budget; if (!B || B === 'all' || !this.d) return true; let tot = 0; this.d.clips.forEach(c => (c.frameSz || []).forEach((b, i) => { if (c.frames[i]) tot += b || 0; })); return tot < B * 1048576 * 0.85; }
   pickFill(F, idleOk) {
     const st = this.state, now = performance.now(), skim = st.step === 'skim', lvF = this.cvGrid() ? 1 : st.lv, key = [skim, lvF, st.cur, this.hoverId, st.cv ? st.nCut : ''].join('|'); let o = F.o;
@@ -2987,7 +3050,7 @@ class Component extends DCLogic {
     return {n:C.length, fr, frB, meas, saved, savedB, tabB:frB + C.length * 700 + s.undo.length * 120};
   }
   dropFrames(cs) { (cs || []).forEach(c => { this.thumbs.forget(c.id); (c.frames || []).forEach(u => { if (u && u.indexOf('blob:') === 0) URL.revokeObjectURL(u); }); c.frames = [null, null, null, null, null, null, null, null]; c.frameSz = []; c._px = {}; }); }
-  clearFrames = () => { if (this.realReading()) return; if (!this.d) return; const real = this.d.clips.filter(c => c._file); if (!real.length) return; this.qTok = {}; this.dropFrames(real); this.setState({imp:{n:real.length, done:0}}); this.runQueue(real, this.qTok); };
+  clearFrames = () => { if (this.realReading()) return; if (!this.d) return; const real = this.d.clips.filter(c => c._file && !c.trashed); if (!real.length) return; this.qTok = {}; this.dropFrames(real); this.setState({imp:{n:real.length, done:0}}); this.runQueue(real, this.qTok); };
   forgetMarks = () => {
     if (!this.hasShoot()) return;
     if (!this.state.memConfirm) { clearTimeout(this.mcT); this.setState({memConfirm:true, closeConfirm:false}); this.mcT = setTimeout(() => this.setState({memConfirm:false}), 3500); return; }
@@ -3158,7 +3221,7 @@ class Component extends DCLogic {
     a.href = u; a.download = (st.ex.event || this.d.shoot.name || 'Lumina').replace(/[\/:]/g, '-') + '.fcpxml'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
     const by = {keep:[], maybe:[], cut:[]}; Object.keys(st.marks).forEach(id => by[st.marks[id]] && by[st.marks[id]].push(id));
     this.api('handoff', {keep:by.keep, maybe:st.ex.maybes ? by.maybe : [], keyword:'maybe', cut:by.cut, trash:false, event:st.ex.event});
-    this.setState({exDone:'Saved ' + a.download + ' · ' + this.plural(x.n, 'clip'), exAt:st.marks, exFile:{name:a.download, n:x.n, bytes:blob.size}});
+    this.setState({exDone:'Saved ' + a.download + ' · ' + this.plural(x.n, 'clip'), exAt:st.marks, exFile:{name:a.download, n:x.n, bytes:blob.size}}); this.persist(this.sentKey(), new Date().toISOString());
   };
   // The cut clips as plain text, for deleting by hand in Finder: one line with the count and total size, a blank line, then one
   // clip per line in capture order. The file name comes first, padded with spaces to a common width, then the folder it is in

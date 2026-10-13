@@ -16,6 +16,9 @@ const farFrames = stat('farFrames', 'static farFrames(clips, at, cover) {');
 const evictOrder = stat('evictOrder', 'static evictOrder(shoots, cur, bytes, cap) {');
 const recBytes = stat('recBytes', 'static recBytes(r) {');
 const coverKey = stat('coverKey', 'static coverKey(name, t, bytes) {');
+const lowSay = stat('lowSay', 'static lowSay(dr, fmtB) {');
+const trashPick = stat('trashPick', 'static trashPick(clips, marks, at, inScope) {');
+const driveSay = stat('driveSay', 'static driveSay(dr, fmtB) {');
 const fmtB = new Function('return function ' + extractMethod(src, 'fmtB', 'fmtB(b) {'))();
 const template = src.slice(0, src.indexOf('class Component'));
 const MB = 1048576;
@@ -72,7 +75,7 @@ test('only frames made in this tab are dropped, and marks are not part of it', (
   assert.ok(!p.frames.some(([c]) => c === C[0]));
   assert.equal(JSON.stringify(marks), before);
   assert.ok(!/marks|setMarks/.test(extractMethod(src, 'farFrames', 'static farFrames(clips, at, cover) {')));
-  const drop = src.slice(src.indexOf('  dropFar = () => {'), src.indexOf('  storeRemake = '));
+  const drop = src.slice(src.indexOf('  dropFar = () => {'), src.indexOf('  // Saved covers, the page\'s side.'));
   assert.ok(drop.length > 0 && !/marks/.test(drop.replace('Covers and marks stay', '')));
 });
 
@@ -91,8 +94,10 @@ test('the line sits in the footer outside debug mode, with its rows behind it', 
 });
 
 test('neutral words only', () => {
-  const words = src.slice(src.indexOf('  static storeLine('), src.indexOf('  storeRemake = ')) + src.slice(src.indexOf('    // storage: the line and its rows'), src.indexOf('saidOn:!!(said'));
-  assert.ok(!/reject|keeper|delete/i.test(words));
+  const code = src.slice(src.indexOf('  static storeLine('), src.indexOf('  storeRemake = ')) + src.slice(src.indexOf('    // storage: the line and its rows'), src.indexOf('    // hints'));
+  const words = (code.match(/'(?:[^'\\\n]|\\.)*'/g) || []).join(' ');          // what is said on screen: the quoted strings
+  assert.ok(words.length > 2000);
+  assert.ok(!/reject|keeper|delet/i.test(words), words.match(/.{0,40}(reject|keeper|delet).{0,40}/i));
 });
 
 test('saved covers are keyed by what the clip is: name, capture time and size', () => {
@@ -119,4 +124,51 @@ test('the cache hooks: saved covers before the first pass, a new cover saved aft
   assert.match(load, /for \(let a = 0; a < C\.length; a \+= 60\)/);                 // 60 clips at a time
   assert.match(load, /this\.bump\(\); await new Promise\(res => setTimeout\(res, 0\)\);/);   // with a breath between
   assert.ok(!/marks/.test(load) && !/marks/.test(src.slice(src.indexOf('  async coverFlush()'), src.indexOf('  coverStat()'))));
+});
+
+test('the 20 % line: one plain line under it, nothing at or over it, nothing when the drive was not read', () => {
+  assert.equal(lowSay({name:'T7', free:150e9, total:1e12}, fmtB), 'Under 20% free on T7: 150.0 GB left.');
+  assert.equal(lowSay({name:'T7', free:200e9, total:1e12}, fmtB), '');
+  assert.equal(lowSay({name:'T7', free:500e9, total:1e12}, fmtB), '');
+  assert.equal(lowSay({free:1e9, total:1e12}, fmtB), 'Under 20% free on this drive: 1.0 GB left.');
+  assert.equal(lowSay(null, fmtB), '');
+  assert.equal(lowSay({name:'T7', free:null, total:1e12}, fmtB), '');
+  assert.equal(lowSay({name:'T7', free:1e9}, fmtB), '');                 // no size, no share
+});
+
+test('the drive\'s figure: plain free space first, purgeable named so it agrees with Finder', () => {
+  assert.equal(driveSay({free:52e9, total:1e12, purgeable:8e9}, fmtB), '52.0 GB free of 1000.0 GB · 8.0 GB purgeable');
+  assert.equal(driveSay({free:52e9, total:1e12, purgeable:0}, fmtB), '52.0 GB free of 1000.0 GB');
+  assert.equal(driveSay({free:52e9}, fmtB), '52.0 GB free');
+  assert.equal(driveSay({free:null, total:1e12}, fmtB), '');
+  assert.equal(driveSay(null, fmtB), '');
+});
+
+test('Move cut to Trash: cut only, never maybe, never the clip on screen or its neighbours, only what is still on the drive', () => {
+  const C = Array.from({length:60}, (_, i) => ({id:'c' + i, _i:i, bytes:1e9, _file:{}, t:(i < 30 ? '2026-10-01' : '2026-10-02') + 'T10:00:00'}));
+  const marks = {}; C.forEach((c, i) => { marks[c.id] = i % 3 === 0 ? 'cut' : i % 3 === 1 ? 'maybe' : 'keep'; });
+  const all = trashPick(C, marks, 30, () => true);
+  assert.ok(all.list.every(c => marks[c.id] === 'cut'));
+  assert.ok(all.list.every(c => Math.abs(c._i - 30) > 12));
+  assert.equal(all.list.length + all.near, 20);                       // every cut clip is either moved or held back as near
+  assert.equal(all.near, C.filter(c => marks[c.id] === 'cut' && Math.abs(c._i - 30) <= 12).length);
+  assert.equal(all.bytes, all.list.length * 1e9);
+  const day1 = trashPick(C, marks, 30, c => c.t.startsWith('2026-10-01'));
+  assert.ok(day1.list.every(c => c._i < 30) && day1.list.length > 0);
+  C[0].trashed = true; C[3]._file = null;                              // in the Trash already; a sample clip with no file
+  const again = trashPick(C, marks, 30, () => true);
+  assert.ok(!again.list.includes(C[0]) && !again.list.includes(C[3]));
+  assert.equal(trashPick(C, {}, 30, () => true).list.length, 0);
+  assert.equal(dumpSay('cut', 3.5e9, 3, fmtB), 'Move cut to Trash · 3.5 GB');
+  assert.equal(dumpSay('cut', 0, 0, fmtB), 'Move cut to Trash · nothing to give back');
+});
+
+test('cut clips move only after the Final Cut file is saved, and only with two clicks', () => {
+  const go = src.slice(src.indexOf('  trashGo = () => {'), src.indexOf('  trashBack = () => {'));
+  assert.match(go, /!this\.isSent\(\)/);
+  assert.match(go, /this\.drv && this\.drv\.refusal/);
+  assert.match(go, /if \(!st\.trConfirm\) \{/);
+  assert.match(src, /this\.persist\(this\.sentKey\(\), new Date\(\)\.toISOString\(\)\);/);   // noted when the .fcpxml is saved
+  assert.match(src, /'Only cut clips move, never maybe\./);
+  assert.match(src, /fillNeed\(c\) \{ return c\.facts && c\.facts\.state === 'ready' && \(c\._file \|\| c\._mock\) && !c\.trashed/);
 });
