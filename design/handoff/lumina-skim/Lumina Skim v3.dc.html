@@ -482,11 +482,11 @@ button:focus:not(:focus-visible){outline:none}
           </sc-if>
           
         </div>
-        <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div data-lumina="info" style="position:{{ infoPos }};top:0;align-self:start;max-height:100%;overflow-y:auto;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;min-width:0;padding:14px;border-radius:12px;background:rgba(42,41,39,0.78);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 0 0 1px rgba(239,236,230,0.08),0 10px 30px rgba(0,0,0,0.35);font-size:14px">
           <sc-if value="{{ nbOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="neighbours" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <sc-for list="{{ nbrs }}" as="nb" hint-placeholder-count="2"><button type="button" data-strip="{{ nb.id }}" title="{{ nb.tip }}" aria-label="{{ nb.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;color:inherit;text-align:left;-webkit-appearance:none;appearance:none;grid-column:{{ nb.col }};min-width:0;display:flex;flex-direction:column;gap:4px;cursor:pointer;opacity:{{ nb.op }}" style-hover="filter:brightness(1.12)"><div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#161514"><div style="position:absolute;inset:0;background:{{ nb.bg }};filter:{{ nb.flt }}"></div><div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ nb.edge }}"></div></div><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ nb.say }}</span></button></sc-for>
           </div></sc-if>
-          <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:22px">{{ cv.name }}</span><span style="color:#9A958D">{{ cv.when }}</span></div>
+          <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:26px">{{ cv.name }}</span><span style="color:#9A958D">{{ cv.when }}</span></div>
           <div data-lumina="viewer-mark" style="display:flex;flex-direction:column;gap:7px">
             <div style="display:flex;justify-content:space-between;gap:10px;white-space:nowrap"><span data-lumina="viewer-mark-now" style="color:{{ cv.markNowC }};font-weight:600">{{ cv.markNow }}</span><span data-lumina="viewer-cut" style="color:{{ cutC }}">{{ cutSoFar }}</span></div>
           </div>
@@ -494,7 +494,7 @@ button:focus:not(:focus-visible){outline:none}
             <sc-for list="{{ cv.chips }}" as="c" hint-placeholder-count="3"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for>
           </div>
           <div style="display:flex;flex-direction:column;gap:3px;line-height:1.45">
-            <sc-for list="{{ cv.facts }}" as="fl" hint-placeholder-count="10"><div style="display:grid;grid-template-columns:86px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ fl.k }}</span><span style="color:{{ fl.c }};overflow-wrap:anywhere">{{ fl.v }}</span></div></sc-for>
+            <sc-for list="{{ cv.facts }}" as="fl" hint-placeholder-count="10"><div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ fl.k }}</span><span style="color:{{ fl.c }};overflow-wrap:anywhere">{{ fl.v }}</span></div></sc-for>
           </div>
         </div>
       </div>
@@ -2143,7 +2143,7 @@ class Component extends DCLogic {
       stripOn:sk && !empty && st.lv === 1, takeStripOn:sk && !empty && st.lv >= 2,
       lv0:sk && !empty && !st.cv && st.lv === 0, lv1:sk && !empty && !st.cv && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
-      tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex',
+      tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static',
       wClick:this.wClick, 
       scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef,
       grid42:true,
@@ -2297,7 +2297,7 @@ class Component extends DCLogic {
       vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
       // the row: this clip and as many of its chapter as fit, joined by a bracket
       const gq = G[curGi], list = gq ? (gq.vis.length ? gq.vis : gq.clips) : [c], ci = Math.max(0, list.findIndex(x => x.id === c.id));
-      const narrow = st.vw <= 640, vp = narrow ? null : Component.viewPlan(st.vw, st.vh - this.dockH() + 10), padX = narrow ? 10 : Math.min(40, Math.max(16, st.vw * 0.022)), W = narrow ? st.vw - 2 * padX : vp.W, Hh = narrow ? Math.max(160, st.vh * 0.42) : Math.max(st.vh <= 500 ? 130 : 0, vp.H); if (vp) vals.lv2Cols = vp.cols;
+      const narrow = st.vw <= 640, vp = narrow ? null : Component.viewPlan(st.vw, st.vh - this.dockH() + 10), padX = narrow ? 10 : Math.min(40, Math.max(16, st.vw * 0.022)), W = narrow ? st.vw - 2 * padX : vp.W, Hh = narrow ? Math.max(160, st.vh * 0.42) : Math.max(st.vh <= 500 ? 130 : 0, vp.H); if (vp) vals.lv2Cols = vp.cols; vals.infoPos = vp && !vp.stack ? 'sticky' : 'static';
       const fit = this.rowFit(narrow ? list.length : 1, W, Hh), k = fit.k, s0 = Math.max(0, Math.min(list.length - k, ci - Math.floor((k - 1) / 2)));
       const shown = list.slice(s0, s0 + k);
       let x = 0; const centers = [];
