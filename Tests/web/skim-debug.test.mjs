@@ -11,7 +11,8 @@ import { PAGE, extractMethod } from './skim-export.mjs';
 const src = fs.readFileSync(PAGE, 'utf8');
 const stat = (name, head) => new Function('return function ' + extractMethod(src, name, head).replace(/^static /, ''))();
 const isDebug = stat('isDebug', 'static isDebug(search, hash) {');
-const cutLine = stat('cutLine', 'static cutLine(n, bytes, fmtB) {');
+const cutLine = stat('cutLine', 'static cutLine(n, bytes, fmtB, vw) {');
+const countsLine = stat('countsLine', 'static countsLine(decided, und, vw) {');
 const nextPace = stat('nextPace', 'static nextPace(pace) {');
 const fmtB = new Function('return function ' + extractMethod(src, 'fmtB', 'fmtB(b) {'))();
 const template = src.slice(0, src.indexOf('class Component'));
@@ -83,4 +84,39 @@ test('the trust line is on the Open step and words stay neutral', () => {
     const words = (line.match(/'[^']*'/g) || []).join(' ');
     assert.ok(words.length > 10 && !/\b(keep|kept|reject|flag)/i.test(words), k + ' ' + words);
   }
+});
+
+test('in a narrow window the footer\'s two lines say less, so neither is cut', () => {
+  assert.equal(cutLine(3, 4_200_000_000, fmtB, 1440), 'cut: 3 clips · 4.2 GB you can free');
+  assert.equal(cutLine(3, 4_200_000_000, fmtB, 720), 'cut: 3 clips · 4.2 GB');
+  assert.equal(cutLine(3, 4_200_000_000, fmtB, 1024), 'cut: 3 clips · 4.2 GB', 'the storage line sits beside it under 1280');
+  assert.equal(cutLine(3, 4_200_000_000, fmtB, 1280), 'cut: 3 clips · 4.2 GB you can free');
+  assert.equal(cutLine(0, 0, fmtB, 720), 'cut: none yet');
+  assert.equal(countsLine(4, 32, 1440), '4 decided · 32 undecided · 0 automatic');
+  assert.equal(countsLine(4, 32, undefined), '4 decided · 32 undecided · 0 automatic');
+  assert.equal(countsLine(4, 32, 720), '4 decided · 32 undecided');
+  // and what is left shortens with … instead of being cut by the edge
+  assert.match(src, /data-lumina="counts" style="[^"]*min-width:0;overflow:hidden;text-overflow:ellipsis/);
+  assert.match(src, /data-lumina="footer-cut" style="[^"]*min-width:0;overflow:hidden;text-overflow:ellipsis/);
+});
+
+test('a key hint that does not fit is left out whole, never cut mid-word', () => {
+  // the hints wrap onto a second line that the 30 px bar does not show
+  const bar = /<div data-lumina="hints" style="([^"]*)">/.exec(src);
+  assert.ok(bar, 'the hints row is in the key bar');
+  for (const rule of ['height:30px', 'flex-wrap:wrap', 'align-content:flex-start', 'overflow:hidden']) assert.ok(bar[1].includes(rule), rule);
+  assert.match(src, /<span data-lumina="where" style="flex:none;height:30px;/);
+  assert.match(src, /<sc-for list="\{\{ hints \}\}" as="hk"[^>]*>\s*<span style="flex:none;height:30px;display:flex;align-items:center;gap:6px">/);
+});
+
+test('the footer\'s storage line gives way before the cut line, and never runs over the marks', () => {
+  const storeShort = stat('storeShort', 'static storeShort(line, vw) {');
+  const line = 'storage · in memory 180 MB of 403 MB';
+  assert.equal(storeShort(line, 1440), line); assert.equal(storeShort(line, undefined), line); assert.equal(storeShort(line, 1280), line);
+  assert.equal(storeShort(line, 1180), 'in memory 180 MB of 403 MB');
+  assert.equal(storeShort(line, 1024), 'storage'); assert.equal(storeShort(line, 720), 'storage');
+  // it can shrink (four times as readily as the cut line) and shortens with … inside its own button
+  assert.match(src, /<div style="position:relative;flex:0 4 auto;min-width:0">\s*<div data-lumina="storage"/);
+  assert.match(src, /data-lumina="storage"[^>]*min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden"[^>]*><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">\{\{ storeLine \}\}<\/span>/);
+  assert.match(src, /<div style="flex:0 1 auto;min-width:0;display:flex;justify-content:flex-end;gap:14px;overflow:hidden"><span data-lumina="footer-cut"/);
 });
