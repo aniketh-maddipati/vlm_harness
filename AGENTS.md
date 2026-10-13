@@ -133,15 +133,31 @@ it; either way the most recent shoot opens again. A branch is built from its wor
 work included; one `dev.sh` at a time (a second is refused, exit 75). It is not what ships: Edit latency, the
 sandbox and the release settings are judged on the Release app or the probe.
 
+**Skim, the video step (branch `video/skim-mvp`, Debug only).** `bash Scripts/dev-skim.sh --watch` keeps a
+second dev app, "Lumina Skim" (bundle id `com.lumina.app.skim`, its own container, build folder and lock), beside
+"Lumina Dev". It shows `Lumina Skim v3.dc.html` instead of Pick (`SetsPage`, `LUMINA_PAGE=skim`): no plumbing, no
+Edit canvas, no card watcher; the menu's ⌘-keys come back to the page as its own keys. Edit the page in
+`design/handoff/lumina-skim/`; `--watch` copies each change to `Lumina/Sets/Web` and into the running app, which
+reloads in under a second (`SetsHotReload` compares contents, so the build after it doesn't reload again).
+`SetsPageBytesTests` holds the two copies equal. The page reads clips through WebKit's `<video>`; the policy the
+native decode will follow is `Lumina/Sets/Video/VideoPolicy.swift`, its gate `probe.sh video`. Fixtures:
+`/Volumes/T7/Lumina/fixtures/video/` (`a7m3-day1`: 50 ILCE-7M3 clips with sidecars; `slog3-reexport`: two S-Log3
+clips with no camera metadata).
+
 Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
 
 CI (`.github/workflows/lumina.yml`) runs a readiness gate on every pull request: the fixtures, the byte-for-byte
 page check, the wording audit and the parity tools (one Linux job), and the probe's smoke on macOS. The rest runs
 only when its area changed (`python3 Scripts/ci_changes.py FILE…` prints which): the Chromium plumbing harness and
-the WebKitGTK sandbox for the page, `plumbing.js` or `Tests/web`; the build + logic tests for anything Xcode builds, with lumina-render for the look and the Release build +
+the WebKitGTK sandbox (two jobs side by side) for the page, `plumbing.js` or `Tests/web`; the build + logic tests for anything Xcode builds
+except the page's byte copies in `Lumina/Sets/Web` (`Scripts/page_bytes.py` checks those on Linux from
+SetsPageBytesTests' own list), with lumina-render for the look and the Release build +
 strict preflight for signing, entitlements and settings; the probe's screens for the page or the probe; its
-sandbox smoke for native code and entitlements. A change to CI itself, and every push to main, runs all of it. The
+smoke inside the sandbox, in place of the plain smoke, for native code and entitlements. The macOS jobs (build + tests,
+the probe) run only on pull requests into main that are not drafts: a draft, or a PR into a shared branch, gets the
+Linux jobs, and the Mac checks run on that branch's own PR into main. On a pull request the offline test skips its
+per-layer report (`LUMINA_OFFLINE_LAYERS=0`). A change to CI itself, and every push to main, runs all of it. The
 long probe shards (fuzz-sample-2 + scroll-quick-2560; scroll-read + scroll-quick + edit on a 24-photo folder) run
 nightly and when the workflow is run by hand on a branch. The other storms, the full scroll sweep and raw9 (real
 ARWs, macOS 27) run on a Mac.
