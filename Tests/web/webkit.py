@@ -640,6 +640,11 @@ def offline():
         ok(p.js("try { window.RTCPeerConnection = function () {}; } catch (e) {} return typeof RTCPeerConnection === 'undefined'"), 'offline: WebRTC cannot be put back')
     finally:
         p.close()
+    # The per-layer breakdown is a report, never a verdict, and takes four more passes (about 100 s
+    # on CI's runner): LUMINA_OFFLINE_LAYERS=0 skips it (pull requests; main and nightly keep it).
+    if os.environ.get('LUMINA_OFFLINE_LAYERS', '1') == '0':
+        print('     each layer alone: not measured (LUMINA_OFFLINE_LAYERS=0)', flush=True)
+        return
     none, _ = escape_run(())
     for layer in ('rules', 'csp', 'script'):
         alone, _ = escape_run((layer,))
