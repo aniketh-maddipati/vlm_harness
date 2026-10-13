@@ -85,6 +85,11 @@ the Folder field, the Sony LUT, the curve. Not seen on screen in Safari with rea
 A layout sweep at twelve window sizes (headless Chrome, not Safari) found three things, none fixed: the bars are
 cut off at 1024 wide and under, Clips leaves most of a wide window empty (the one grid does not), and the Viewer's
 picture takes 20 to 29 % of the window. Evidence: ~/LuminaEvidence/skim-layout/2026-10-09-sweep.
+Later on 2026-10-12: two of the three fixed (LOCAL-CHANGES 194, 195; ad031779): the Viewer's picture takes what the
+height allows (851 px wide at 1440 × 900, was 639), and the bottom bars fit a narrow window, the storage line of
+pull request 238 included. Clips in a wide window is left to the one grid. Pull request 238 (storage line, Drop
+frames) merged by another session. Deployed ad031779 (2026-10-13 03:52 UTC), checked on the live page. Pull
+request 235's five checks pass as of 4b0aeae5. Evidence: ~/LuminaEvidence/skim-layout/2026-10-12-after-fix.
 Open, found on the way: C0248 on the card (all black, 0.5 s) is reported as unreadable though it plays;
 pass-2 frames skipped on a seek timeout are not queued again; in a browser, pacing by heat does nothing.
 Assessed, not changed (waiting on the user): hide the developer memory controls; add a list of cut clips to
