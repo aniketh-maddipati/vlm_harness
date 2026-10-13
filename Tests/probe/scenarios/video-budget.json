@@ -1,0 +1,97 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v12.dc.html",
+ "size": [1440, 900],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "deadline": 600,
+ "checklist": "The video minimum loop's budget metrics (PROJECT STATE, MEMORY / DISK) on a real clip folder, LUMINA_VIDEO_DIR (a Sony card's PRIVATE/M4ROOT/CLIP or a folder of MP4s with their M01.XML sidecars; unset = SKIP). Gates are VideoPolicy.m1Gates, written for the 8 GB M1 (probe_remote.sh): Open → first rows ≤ 2 s with no decode; every fact flag ready for the first 50 clips ≤ 90 s; app phys_footprint peak ≤ 1200 MB; proxy disk ≤ 2048 MB; decoders ever alive at once ≤ 2; full-size frames ever alive ≤ 1; and after a 60 s wander across the grid (hover every 8th clip, 300 ms each) the proxy cache holds only the last clips' frames and the filmstrips in view were never evicted. Reported, not gated, on any other Mac (set LUMINA_VIDEO_GATES=0 to report only). Needs the video bridge (`lumina.video`: stats(), ingest timing, cache and decoder counters) and a page with a video mode: until both land this scenario FAILS at its first expect, by design, so nothing claims the loop works (PROJECT STATE, first tasks §4). Run: LUMINA_VIDEO_DIR=/Volumes/Untitled/PRIVATE/M4ROOT/CLIP bash Scripts/probe.sh video",
+ "budgets": {
+  "probePeakMB": 1200
+ },
+ "steps": [
+  {
+   "do": "expect",
+   "js": "return typeof lumina !== 'undefined' && !!lumina.video && typeof lumina.video.stats === 'function'",
+   "what": "the video bridge (lumina.video) exists"
+  },
+  {
+   "do": "js",
+   "src": "window.__vb = { t0: performance.now(), at: {} }; const mark = (k, t) => { if (window.__vb.at[k] == null) window.__vb.at[k] = +(t - window.__vb.t0).toFixed(1); }; window.__vb.timer = setInterval(() => { const l = __probe.logic(), t = performance.now(); if (!l) return; if (l.real && l.real.length && l.state.view === 'cull') mark('firstRows', t); lumina.video.stats().then(s => { if (s.flagsReady >= Math.min(50, s.clips)) { mark('flags50', t); } if (s.decodesBeforeFirstRows == null && window.__vb.at.firstRows != null) window.__vb.decodesAtFirstRows = s.decodes; }); }, 50); return true"
+  },
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_VIDEO_DIR}",
+   "via": "js",
+   "timeoutMs": 600000
+  },
+  {
+   "do": "waitFor",
+   "js": "return window.__vb.at.firstRows != null",
+   "timeoutMs": 30000,
+   "what": "first rows on screen"
+  },
+  {
+   "do": "expect",
+   "js": "return (window.__vb.at.firstRows / 1000) <= 2.0 || (window.__vb.gateNote = 'firstRows ' + window.__vb.at.firstRows + ' ms > 2000 ms', false)",
+   "what": "Open → first rows ≤ 2 s (VideoPolicy.m1Gates.firstRowSeconds)"
+  },
+  {
+   "do": "expect",
+   "js": "return (window.__vb.decodesAtFirstRows || 0) === 0",
+   "what": "no frame was decoded before the first rows (metadata only)"
+  },
+  {
+   "do": "waitFor",
+   "js": "return window.__vb.at.flags50 != null",
+   "timeoutMs": 180000,
+   "what": "fact flags ready for the first 50 clips"
+  },
+  {
+   "do": "expect",
+   "js": "return (window.__vb.at.flags50 / 1000) <= 90",
+   "what": "flags for 50 clips ≤ 90 s (VideoPolicy.m1Gates.flags50ClipsSeconds)"
+  },
+  {
+   "do": "js",
+   "src": "const l = __probe.logic(), n = l.real.length; window.__vb.wander = []; const el = document.querySelector('[data-screen-label=\"1 Cull\"]'); const tiles = el ? [...el.querySelectorAll('[data-clip]')] : []; return new Promise(res => { let i = 0; const step = () => { if (i >= tiles.length || performance.now() - window.__vb.t0 > 60000 + window.__vb.at.flags50) return res(window.__vb.wander.length); const t = tiles[i]; i += 8; t.scrollIntoView({ block: 'center' }); const r = t.getBoundingClientRect(); t.dispatchEvent(new MouseEvent('mousemove', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, bubbles: true })); setTimeout(() => lumina.video.stats().then(s => { window.__vb.wander.push({ t: Math.round(performance.now() - window.__vb.t0), proxyMB: Math.round(s.proxyBytes / 1048576), filmstripEvictedInView: s.filmstripEvictedInView, decoders: s.decodersAlive, fullFrames: s.fullFramesAlive }); step(); }), 300); }; step(); })"
+  },
+  {
+   "do": "js",
+   "src": "return lumina.video.stats().then(s => JSON.stringify({ clips: s.clips, flagsReady: s.flagsReady, firstRowsS: +(window.__vb.at.firstRows / 1000).toFixed(2), flags50S: +(window.__vb.at.flags50 / 1000).toFixed(2), proxyDiskMB: Math.round(s.proxyDiskBytes / 1048576), proxyMB: Math.round(s.proxyBytes / 1048576), filmstripMB: Math.round(s.filmstripBytes / 1048576), decodersPeak: s.decodersPeak, fullFramesPeak: s.fullFramesPeak, pace: s.pace, hovered: window.__vb.wander.length }))"
+  },
+  {
+   "do": "expect",
+   "js": "return lumina.video.stats().then(s => s.proxyDiskBytes <= 2048 * 1048576)",
+   "what": "proxy disk ≤ 2048 MB (VideoPolicy.m1Gates.proxyDiskMB)"
+  },
+  {
+   "do": "expect",
+   "js": "return lumina.video.stats().then(s => s.decodersPeak <= 2)",
+   "what": "decoders ever alive at once ≤ 2"
+  },
+  {
+   "do": "expect",
+   "js": "return lumina.video.stats().then(s => s.fullFramesPeak <= 1)",
+   "what": "full-size frames ever alive ≤ 1"
+  },
+  {
+   "do": "expect",
+   "js": "return window.__vb.wander.every(w => w.filmstripEvictedInView === 0)",
+   "what": "filmstrips in view were never evicted during the wander"
+  },
+  {
+   "do": "expect",
+   "js": "return lumina.video.stats().then(s => s.proxyBytes <= s.budgets.proxyBytes && s.proxyClipsResident <= 4)",
+   "what": "after the wander the proxy cache holds only the last clips (≤ 4) and sits under its cap"
+  },
+  {
+   "do": "dump",
+   "name": "video-budget",
+   "js": "clearInterval(window.__vb.timer); return lumina.video.stats().then(s => ({ at: window.__vb.at, wander: window.__vb.wander, stats: s }))"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

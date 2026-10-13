@@ -276,9 +276,13 @@ t('no ARW: the page\'s note from the native listing', L().state.openNote === 'no
 await C('pick', { path: shoot }); __lumina.openFolder();
 await until(() => L().real && L().real.length && !L().state.realLoad && L().state.realInfo, 30000);
 const ri = L().state.realInfo || {};
+// The read ends a moment before the page leaves Open for the step it lands on. Checked too early the view is still
+// 'import', and a step to Pick made then is undone when the page lands in Edit: the keeps that follow go nowhere
+// (seen on CI: view 'import' here, then 'edit' with no marks). So wait for the landing, then for Pick.
+await until(() => L().state.view !== 'import', 8000);
 t('read: 12 photos, a small shoot with nothing decided opens in Edit', L().state.view === 'edit' && ri.n === 12 && ri.bad === 0, { view: L().state.view, ri });
 // The rest of this shoot is exercised from Pick, as before (plumbing-harness.mjs does the same).
-L().setView('cull', true); await W(200);
+L().setView('cull', true); await until(() => L().state.view === 'cull', 4000); await W(200);
 const notes = (L().state.notes || []).map(x => x.t).join(' | ');
 t('read: import notes', /1 CR3/.test(notes) && /1 video skipped/.test(notes) && /1 already rated/.test(notes), notes);
 const ins = __lumina.inspect(); t('read: previews by URL, thumbs as blobs', !ins.lgHeld && !ins.srcNotBlob && !ins.dupPaths && !ins.zsrcOff, ins);
@@ -286,10 +290,12 @@ const p7 = Object.values(L().data.byId).find(p => (p.file || p.name) === 'DSC010
 t('read: orientation 6 is portrait in WebKit', p7 && p7.portrait === true, p7 && p7.portrait);
 t('read: measures from the WebKit canvas', L().real.every(p => p.nopv || (p.focus > 0 && p.lum > 0 && p.dhash)), L().real.map(p => [p.focus, p.lum, p.dhash]).slice(0, 3));
 K('p'); await W(120); K('ArrowDown'); await W(150); K('p'); await W(150);
-const kept = L().kept().length; t('cull: P keeps (2)', kept === 2, L().state.marks);
+const kept = L().kept().length; t('cull: P keeps (2)', kept === 2, { view: L().state.view, marks: L().state.marks, focus: document.activeElement && document.activeElement.tagName });
 await W(2300);
 let st = await C('state'); const sid = __lumina.shootId(), saved = st.sessions[sid] && JSON.parse(st.sessions[sid]);
-t('session: saved by path within 2 s', saved && Object.keys(saved.marks).length === 2 && Object.keys(saved.marks).every(k => /^(sub\/)?DSC0\d+\.ARW$/.test(k)), saved && saved.marks);
+// A flow that kept nothing has no session: say so in the results and go on, so every later check reports too.
+const sm = (saved && saved.marks) || {};
+t('session: saved by path within 2 s', Object.keys(sm).length === 2 && Object.keys(sm).every(k => /^(sub\/)?DSC0\d+\.ARW$/.test(k)), saved ? saved.marks : { sid, sessions: Object.keys(st.sessions || {}) });
 t('quit: 2 unsaved keepers', __lumina.unsaved() === 2, __lumina.unsaved());
 __lumina.command('stepSave'); await W(950);
 t('save: ⌘4 via luminaCommand', L().state.view === 'export', L().state.view);
@@ -298,8 +304,8 @@ await until(() => L().state.ex && L().state.ex.result, 8000);
 const res = L().state.ex.result || {};
 t('save: "2 saved"', res.t === '2 saved' && !res.bad, res);
 const ls = await C('ls', { path: shoot }); const xmps = ls.filter(f => /\.xmp$/.test(f));
-t('save: sidecars written into the folder', Object.keys(saved.marks).every(k => ls.includes(k.split('/').pop().replace(/\.ARW$/, '.xmp'))), ls);
-const x1 = await C('read', { path: shoot + '/' + Object.keys(saved.marks)[0].replace(/\.ARW$/, '.xmp') });
+t('save: sidecars written into the folder', Object.keys(sm).length > 0 && Object.keys(sm).every(k => ls.includes(k.split('/').pop().replace(/\.ARW$/, '.xmp'))), ls);
+const x1 = Object.keys(sm).length ? await C('read', { path: shoot + '/' + Object.keys(sm)[0].replace(/\.ARW$/, '.xmp') }) : '';
 t('save: rated 3★', /Rating="3"|<xmp:Rating>3</.test(x1 || ''), (x1 || '').slice(0, 200));
 t('save: working-files row size known on Save', L().state.ex.wf != null, L().state.ex.wf);
 t('quit: nothing unsaved after Save', __lumina.unsaved() === 0, __lumina.unsaved());
@@ -311,13 +317,13 @@ L().libOpen(L().recents()[0]);
 await until(() => L().real && L().real.length && !L().state.realLoad && L().kept().length === 2, 20000);
 t('reopen: 2 keepers restored, nothing unsaved', L().kept().length === 2 && __lumina.unsaved() === 0, [L().kept().length, __lumina.unsaved()]);
 // The folder reopens on the step it was left in (Save); the third keep is made in Pick.
-__lumina.command('stepCull'); await W(400);
+__lumina.command('stepCull'); await until(() => L().state.view === 'cull', 4000); await W(200);
 K('ArrowDown'); await W(150); K('ArrowDown'); await W(150); K('p'); await W(150);
 __lumina.command('stepSave'); await W(950); __lumina.command('save'); await W(150); if (L().state.armed === 'save') __lumina.command('save');
 await until(() => L().state.ex && L().state.ex.result, 8000);
 const ls2 = await C('ls', { path: shoot });
 t('save again: .lumina-bak next to replaced sidecars', ls2.filter(f => /\.xmp\.lumina-bak$/.test(f)).length >= 2, ls2.filter(f => /lumina-bak/.test(f)));
-__lumina.command('stepCull'); await W(400);
+__lumina.command('stepCull'); await until(() => L().state.view === 'cull', 4000); await W(200);
 await C('gone', { name: '2026-09-01', on: true }); __lumina.cardGone(['2026-09-01'], true); await W(150);
 t('card: luminaCardGone(true) shows the banner state', L().state.gone === true, L().state.gone);
 await C('gone', { name: '2026-09-01', on: false }); __lumina.cardBack(); await W(150);
@@ -328,7 +334,7 @@ const lk = await C('folder', { name: 'Locked', files: [] }); await C('deny', { p
 t('access: denied → luminaAccess banner', L().state.acc && L().state.acc.what === 'Locked', L().state.acc);
 await C('deny', {}); await L().accRetry(); await W(300);
 t('access: checkAccess → cleared', !L().state.acc, L().state.acc);
-__lumina.command('stepCull'); await W(400);
+__lumina.command('stepCull'); await until(() => L().state.view === 'cull', 4000); await W(200);
 __lumina.zoom(); await W(100); t('menu: Zoom 100% toggles on', L().state.zoom === true && L().state.large === true, [L().state.zoom, L().state.large]);
 __lumina.zoom(); await W(100); t('menu: Zoom 100% toggles off', L().state.zoom === false, L().state.zoom);
 t('no page errors', window.__errors.length === 0, window.__errors);

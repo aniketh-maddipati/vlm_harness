@@ -19,10 +19,16 @@
 # folder grants are its own: it never reads or writes the real app's sessions. It is a Debug build:
 # Edit latency and anything the sandbox or the release settings decide are measured on the Release
 # app or the probe, not here. One build folder for every checkout: ~/Library/Caches/com.lumina.dev.
+#
+# A second dev app beside this one (Scripts/dev-skim.sh) sets LUMINA_DEV_ID, LUMINA_DEV_NAME and
+# LUMINA_DEV_CACHE: its own bundle id, name, build folder and lock, so the two never touch. LUMINA_PAGE
+# is passed to the app it launches.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-ID=com.lumina.app.dev
-CACHE="$HOME/Library/Caches/com.lumina.dev"
+ID="${LUMINA_DEV_ID:-com.lumina.app.dev}"
+NAME="${LUMINA_DEV_NAME:-Lumina Dev}"
+CACHE="${LUMINA_DEV_CACHE:-$HOME/Library/Caches/com.lumina.dev}"
+APP_ENV=(--env LUMINA_HOT=1); [[ -n "${LUMINA_PAGE:-}" ]] && APP_ENV+=(--env "LUMINA_PAGE=$LUMINA_PAGE")
 DD="$CACHE/DD"
 APP="$DD/Build/Products/Debug/Lumina.app"
 BIN="$APP/Contents/MacOS/Lumina"
@@ -33,7 +39,7 @@ for a in "$@"; do
   case "$a" in
     --watch) WATCH=1 ;;
     --quit) QUIT=1 ;;
-    -h|--help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "dev.sh: unknown option $a" >&2; exit 2 ;;
     *) WHAT="$a" ;;
   esac
@@ -93,7 +99,7 @@ build() {
   touch "$STAMP"
   local t0=$SECONDS
   xcodebuild -project "$SRC/Lumina.xcodeproj" -scheme Lumina -configuration Debug -derivedDataPath "$DD" \
-    -destination 'platform=macOS,arch=arm64' PRODUCT_BUNDLE_IDENTIFIER="$ID" INFOPLIST_KEY_CFBundleDisplayName="Lumina Dev" \
+    -destination 'platform=macOS,arch=arm64' PRODUCT_BUNDLE_IDENTIFIER="$ID" INFOPLIST_KEY_CFBundleDisplayName="$NAME" \
     build -quiet > "$CACHE/build.log" 2>&1 \
     || { grep -E '(error|failed)\b' "$CACHE/build.log" | sort -u | head -30; echo "  full log: $CACHE/build.log"; return 1; }
   local native web; native="$(native_hash)"; web="$(web_hash)"
@@ -107,7 +113,7 @@ build() {
   else
     local front=(); running && front=(-g)          # a relaunch stays behind the editor
     quit_app
-    open -n ${front[@]+"${front[@]}"} "$APP" --env LUMINA_HOT=1
+    open -n ${front[@]+"${front[@]}"} "$APP" "${APP_ENV[@]}"
     echo "$native" > "$CACHE/running"
     echo "✓ $what · $((SECONDS - t0)) s · app $([[ ${#front[@]} == 0 ]] && echo launched || echo relaunched)"
   fi

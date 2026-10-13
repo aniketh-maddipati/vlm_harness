@@ -17,6 +17,10 @@ final class SetsPageBytesTests: XCTestCase {
             ("design/handoff/lumina-cull/lumina-v4-data.js", "Lumina/Sets/Web/lumina-v4-data.js"),
             ("design/handoff/lumina-cull/lumina-measure.js", "Lumina/Sets/Web/lumina-measure.js"),
             ("design/handoff/lumina-cull/lumina-selftest.js", "Lumina/Sets/Web/lumina-selftest.js"),
+            // Skim, the video step (Debug builds with LUMINA_PAGE=skim): its own handoff, Pick's support.js.
+            ("design/handoff/lumina-skim/Lumina Skim v3.dc.html", "Lumina/Sets/Web/Lumina Skim v3.dc.html"),
+            ("design/handoff/lumina-skim/lumina-video-data-mvp.js", "Lumina/Sets/Web/lumina-video-data-mvp.js"),
+            ("design/handoff/lumina-skim/support.js", "Lumina/Sets/Web/support.js"),
             ("design/handoff/vendor/react.production.min.js", "Lumina/Sets/Web/react.production.min.js"),
             ("design/handoff/vendor/react-dom.production.min.js", "Lumina/Sets/Web/react-dom.production.min.js"),
         ]
