@@ -30,16 +30,25 @@ JPEGs of your edits.
 ## Skimming video (in development)
 
 Skim is the same idea for clips: open a folder, mark clips keep, maybe or cut, and hand the keepers
-to Final Cut Pro. To try it on the a7S III clips on the T7 drive (seven 4K MP4s at 24, 30 and 60p,
-0.8 to 3.9 GB each):
+to Final Cut Pro. To try it on the a7S III clips at the root of the T7 drive:
+
+| Clips | Format | Rate | Length |
+|---|---|---|---|
+| C0054 | XAVC S-I, H.264 4:2:2 10-bit | 23.98p | 27 s, 0.8 GB |
+| C0079, C0094, C0095, C0100 | XAVC S-I, H.264 4:2:2 10-bit | 29.97p | 62 to 65 s, 2.2 to 2.3 GB |
+| C0099 | XAVC S-I, H.264 4:2:2 10-bit | 59.94p | 54 s, 3.9 GB |
+| C0070 | XAVC S, H.264 4:2:0 8-bit | 59.94p | 78 s, 1.5 GB |
+
+All are 3840 × 2160 and Rec.709 (no S-Log), with no `M01.XML` sidecar beside them.
 
 ```bash
-python3 Scripts/build-skim-preview.py          # writes dist/Lumina Skim (web preview).html; open it in Safari
-bash Scripts/dev-skim.sh                        # or the "Lumina Skim" dev app
+python3 Scripts/build-skim-preview.py   # writes dist/Lumina Skim (web preview).html; open it in Safari
+bash Scripts/dev-skim.sh                 # or the "Lumina Skim" dev app
 ```
 
-Then choose **Open** and pick `/Volumes/T7`. Skim only reads the clips. They carry no Sony sidecar,
-so Skim shows them as shot ("profile unknown"); they are Rec.709, not S-Log3.
+Then choose **Open** and pick `/Volumes/T7`. Skim only reads the clips; it never changes or moves them.
+For the budget probe on the same clips: `LUMINA_LONG=1 LUMINA_VIDEO_DIR=/Volumes/T7 bash Scripts/probe.sh video`
+(it fails by design until the native video bridge lands).
 
 ## What it won't do
 

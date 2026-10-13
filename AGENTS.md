@@ -145,7 +145,8 @@ reloads in under a second (`SetsHotReload` compares contents, so the build after
 `SetsPageBytesTests` holds the two copies equal. The page reads clips through WebKit's `<video>`; the policy the
 native decode will follow is `Lumina/Sets/Video/VideoPolicy.swift`, its gate `probe.sh video`. Fixtures:
 `/Volumes/T7/Lumina/fixtures/video/` (`a7m3-day1`: 50 ILCE-7M3 clips with sidecars; `slog3-reexport`: two S-Log3
-clips with no camera metadata).
+clips with no camera metadata), and at the T7's root seven ILCE-7SM3 4K clips (`yvid-a7siii-C00*.mp4`: 23.98 / 29.97 /
+59.94p, 10-bit 4:2:2 and 8-bit 4:2:0, Rec.709, no sidecars; read only, `LUMINA_VIDEO_DIR=/Volumes/T7`).
 
 Build fixtures once with `LUMINA_CARD_DIR=… bash Tests/probe/forge_fixtures.sh`. It only reads the card.
 `Tests/probe/EDGE-CASES.md` maps the beta checklist to scenarios and their status.
