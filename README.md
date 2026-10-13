@@ -57,13 +57,24 @@ Then choose **Open** and pick `/Volumes/T7`. Skim only reads the clips.
 The budget probe on the same clips: `LUMINA_LONG=1 LUMINA_VIDEO_DIR=/Volumes/T7 bash Scripts/probe.sh video`
 (it fails until the app's video bridge exists).
 
-## What it won't do
+## Trust, and how to check it
 
-- Write to the card or change your original files.
-- Move files. Lumina only copies, and checks every copy.
-- Replace a file without first keeping a `.lumina-bak`.
-- Send anything off your Mac. How that is enforced, what Lumina keeps and where:
-  [docs/release/PRIVACY.md](docs/release/PRIVACY.md).
+Each promise is held by the code, tested in CI, and checkable on your own Mac with one command.
+
+| Promise | Held by | Check it yourself |
+|---|---|---|
+| Your card and originals are never written | The app has no way to write a RAW; sidecars go only into a folder on a fixed disk, never a card | Hash the card before and after a session: `find /Volumes/CARD -type f ! -name '.*' -exec shasum -a 256 {} + \| sort > before.txt`, the same into `after.txt`, then `diff before.txt after.txt` prints nothing |
+| Lumina sees only what you pick | App Sandbox, access to chosen folders only | `codesign -d --entitlements - /Applications/Lumina.app` lists the sandbox and "user-selected" files, nothing broader |
+| Nothing leaves your Mac | No networking code (CI refuses it); the page is blocked three ways and a test tries 32 ways out on every change | With Safari closed, `lsof -i \| grep -iE 'lumina\|webkit'` while you work prints nothing (or watch it in LuLu or Little Snitch) |
+| Copies are complete | SHA-256 of every copy, read back | `shasum -a 256` an original and its copy |
+| Nothing is replaced without a backup | A `.lumina-bak` beside any file Lumina replaces | `ls *.lumina-bak` in the folder |
+| Logs don't name your files | Names and paths are marked private | `log show --last 10m --predicate 'subsystem == "com.aniketh.lumina"'` shows `<private>` |
+
+One honest caveat: the sandbox entitlements include outgoing network access, because WebKit will
+not start in a sandboxed app without it. So the "nothing leaves" promise is enforced by Lumina,
+not by macOS; `lsof` above is how you see it hold. Every promise, what Lumina keeps and where, and
+what could go wrong: [PRIVACY.md](docs/release/PRIVACY.md); the inventory CI checks the code
+against: [TRUST.md](docs/release/TRUST.md).
 
 ## Run it
 

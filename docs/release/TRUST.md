@@ -6,7 +6,7 @@ the code on every pull request (the `design handoff` job). A change that adds an
 inventory lists (a bridge op, an entitlement, a permission prompt, a place the app sends the user,
 a URL in the code, a dependency) fails until a row is added here. That row is the review.
 
-The README's "Trust and privacy" section is the short version for users. `THREAT-MODEL.md` keeps
+The README's "Trust, and how to check it" section and [PRIVACY.md](PRIVACY.md) are the versions for users. `THREAT-MODEL.md` keeps
 the findings and how they were fixed.
 
 ## Who this is for
