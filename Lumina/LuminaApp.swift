@@ -53,6 +53,10 @@ struct LuminaCommands: Commands {
             Button("Save") { send("save") }.keyboardShortcut(.return, modifiers: .command)
             // ⌘R is Show in Finder on Pick; on Skim (the dev app) it reloads the page, after the latest shared branch.
             Button(SetsPage.current == .skim ? "Reload Page" : "Show in Finder") { send(SetsPage.current == .skim ? "reload" : "finder") }.keyboardShortcut("r", modifiers: .command)
+            // ⌥⌘R: Handoff's file view shows the row selected there in Finder (Prompt 27); on the other steps, the same as ⌘R.
+            if SetsPage.current != .skim {
+                Button("Show Selection in Finder") { send("finderSel") }.keyboardShortcut("r", modifiers: [.command, .option])
+            }
             Divider()
             Button("Remove Working Files…") { SetsMenuModel.removeWorkingFiles() }
         }

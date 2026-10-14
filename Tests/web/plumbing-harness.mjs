@@ -692,6 +692,33 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   sres = await save();
   ok(sres && sres.t === '4 saved' && !sres.bad, 'stale sidecar: the next Save reads it again', sres);
   ok(lrRead('DSC01004.xmp') === racy.replace('xmp:Rating="1"', 'xmp:Rating="3"'), 'stale sidecar: the next Save → the newest settings survive, rating set', lrRead('DSC01004.xmp'));
+  // Handoff's Save to (Prompt 27): a folder → the sidecars go there as the page merged them, nothing read back first;
+  // ask each time → the Mac's folder panel (Cancel writes nothing).
+  const saveTo = path.join(tmp, 'save-to');
+  const readsBefore = bridge.calls.filter(c => c === 'readSidecars').length;
+  const wTo = await page.evaluate(d => __lumina.logic().writeInto([{ name: 'sub/DSC01001.xmp', data: '<x:xmpmeta/>' }], 'xmp', d), saveTo);
+  ok(wTo && wTo.n === 1 && fs.readFileSync(path.join(saveTo, 'sub/DSC01001.xmp'), 'utf8') === '<x:xmpmeta/>' && bridge.calls.filter(c => c === 'readSidecars').length === readsBefore
+    && bridge.last.writeSidecars.dir === saveTo && !('base' in bridge.last.writeSidecars.files[0]), 'save to: a folder → written there as the page merged them, nothing read back first', { wTo, msg: bridge.last.writeSidecars });
+  const wAsk = await page.evaluate(() => __lumina.logic().writeInto([{ name: 'DSC01001.xmp', data: '<x:xmpmeta/>' }], 'xmp', null));
+  ok(wAsk && wAsk.aborted === true && bridge.last.writeSidecars.ask === true, 'save to: ask each time → the folder panel; Cancel answers aborted', wAsk);
+  // Handoff's file view: every call the page makes reaches the Mac under its op, with its arguments.
+  const fCalls = await page.evaluate(async () => {
+    const f = window.lumina.files;
+    await f.dirSearch('Wed', { roots: ['/Volumes/T7'], after: null, limit: 5 }); await f.copyInto([{ from: '/a/DSC1.ARW', to: '/b' }]); await f.dirRename('/b/c', 'd');
+    await f.savedCheck([{ id: 'x1', at: 5, paths: ['/b/DSC1.xmp'] }]); await f.reveal(['/b']); await f.trash(['/b/DSC1.ARW']); await f.putBack([{ path: '/b/DSC1.ARW', trashed: '/t/DSC1.ARW' }]);
+    return Object.keys(f).sort();
+  });
+  ok(JSON.stringify(fCalls) === JSON.stringify(['copyInto', 'dirList', 'dirMake', 'dirRename', 'dirSearch', 'openInLightroom', 'placeAdd', 'placeRemove', 'places', 'putBack', 'reveal', 'saveToAsk', 'saveToChoose', 'saveToSet', 'savedCheck', 'savedText', 'trash']), 'files: every call Handoff makes', fCalls);
+  const L = bridge.last;
+  ok(L.filesDirSearch.q === 'Wed' && L.filesDirSearch.opts.limit === 5 && L.filesDirSearch.opts.after === null && L.filesDirSearch.opts.roots[0] === '/Volumes/T7' && L.filesCopyInto.items[0].to === '/b'
+    && L.filesDirRename.name === 'd' && L.filesSavedCheck.list[0].at === 5 && L.filesReveal.paths[0] === '/b' && L.filesTrash.paths[0] === '/b/DSC1.ARW' && L.filesPutBack.items[0].trashed === '/t/DSC1.ARW', 'files: each call carries its arguments to the Mac');
+  // File ▸ Show Selection in Finder (⌥⌘R): Handoff's key in Handoff, ⌘R elsewhere.
+  const sel = await page.evaluate(() => {
+    const l = __lumina.logic(), on = l.onKey, st = l.state, got = []; l.onKey = e => { got.push((e.metaKey ? '⌘' : '') + (e.altKey ? '⌥' : '') + e.code); };
+    try { l.state = { ...st, view: 'export' }; __lumina.command('finderSel'); l.state = { ...st, view: 'cull' }; __lumina.command('finderSel'); } finally { l.onKey = on; l.state = st; }
+    return got;
+  });
+  ok(JSON.stringify(sel) === JSON.stringify(['⌘⌥KeyR', '⌘KeyR']), 'menu: Show Selection in Finder is ⌥⌘R in Handoff, ⌘R elsewhere', sel);
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
 
   // Q4-F5: a sidecar that is there but is not UTF-8 text (Lightroom's settings in Latin-1, a UTF-16
