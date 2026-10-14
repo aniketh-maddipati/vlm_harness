@@ -193,10 +193,27 @@ async function run(host) {
     await p.click('[data-lumina="ws-bucket-cut"]'); await p.waitForTimeout(200);
     cr = await clipRows(); ok(cr.length === 2 && cr.every(r => /cut/.test(r)), 'app: clicking the Cut bucket lists only the cut clips: ' + cr.join(' | '));
     await p.click('[data-lumina="ws-bucket-cut"]'); await p.waitForTimeout(150);
+    // one size, large: no S / M / L, every clip row 52 px with its picture; the rail beside the list is the list to scale
+    const rowH = await p.$$eval('[data-lumina="ws-row"][data-kind="clip"]', es => es.map(e => Math.round(e.getBoundingClientRect().height)));
+    ok(!await p.$('[data-lumina="ws-zoom"]') && rowH.length === 8 && rowH.every(h => h === 52), 'app: no row sizes; each clip row is large, with its picture: ' + rowH.join(','));
     await p.hover('[data-lumina="ws-tree"]'); await p.keyboard.down('Control'); await p.mouse.wheel(0, -60); await p.keyboard.up('Control'); await p.waitForTimeout(200);
-    ok(await p.$('[data-lumina="ws-z-2"][aria-checked="true"]'), 'app: a pinch (⌃-wheel) makes the rows large, with each clip\u2019s picture');
+    ok((await p.$$eval('[data-lumina="ws-row"][data-kind="clip"]', es => es.map(e => Math.round(e.getBoundingClientRect().height)))).every(h => h === 52), 'app: a pinch (⌃-wheel) leaves the rows as they are');
+    // the rail: the row at a point on it, from the row's own place in the list
+    const railAt = async pth => p.evaluate(q => { const t = document.querySelector('[data-lumina="ws-tree"]'), r = document.querySelector('[data-lumina="ws-row"][data-path="' + q + '"]'), m = document.querySelector('[data-lumina="ws-map"]').getBoundingClientRect();
+      const y = r.getBoundingClientRect().top - t.getBoundingClientRect().top + t.scrollTop + r.offsetHeight / 2; return {x:m.left + m.width / 2, y:m.top + y / Math.max(t.scrollHeight, 1) * m.height}; }, pth);
+    const c3 = '/Users/sam/Desktop/dump/' + undec[undec.length - 1], at3 = await railAt(c3);
+    await p.mouse.move(at3.x, at3.y); await p.waitForTimeout(250);
+    ok(new RegExp(undec[undec.length - 1].replace('.', '\\.')).test(await text('[data-lumina="ws-peek"]')), 'app: the pointer on the rail shows that clip\u2019s picture and name beside it: ' + (await text('[data-lumina="ws-peek"]')).replace(/\s+/g, ' '));
     if (shots) await p.screenshot({path:path.join(shots, 'app-workshop-clips.png'), fullPage:false});
-    await p.click('[data-lumina="ws-z-1"]'); await p.click('[data-lumina="ws-row"][data-path="/Users/sam/Desktop/dump"]'); await p.click('[data-lumina="ws-row"][data-path="/Users/sam/Desktop/dump"]'); await p.waitForTimeout(200);
+    await p.mouse.down(); await p.mouse.up(); await p.waitForTimeout(250);
+    ok(await p.$eval('[data-lumina="ws-row"][data-path="' + c3 + '"]', e => e.getAttribute('aria-selected')) === 'true', 'app: a click on the rail selects the row there');
+    await p.keyboard.press('Home'); await p.waitForTimeout(150);
+    const first = await p.$eval('[data-lumina="ws-row"][aria-selected="true"]', e => e.getAttribute('data-path'));
+    await p.keyboard.press('End'); await p.waitForTimeout(150);
+    const last = await p.$eval('[data-lumina="ws-row"][aria-selected="true"]', e => e.getAttribute('data-path'));
+    ok(first === '/Users/sam/Desktop/dump' && last === '/Volumes/SONY', 'app: Home and End select the first and last rows: ' + first + ' · ' + last);
+    await p.mouse.move(10, 10); await p.waitForTimeout(150);
+    await p.click('[data-lumina="ws-row"][data-path="/Users/sam/Desktop/dump"]'); await p.click('[data-lumina="ws-row"][data-path="/Users/sam/Desktop/dump"]'); await p.waitForTimeout(200);
     await p.click('[data-lumina="ws-row"][data-path="/Volumes/T7"]'); await p.waitForTimeout(300);
     ok(await p.$('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]') && await p.$eval('[data-lumina="ws-row"][data-path="/Volumes/T7"]', e => e.getAttribute('aria-expanded')) === 'true', 'app: a click unfurls a drive');
     await p.keyboard.press('ArrowDown'); await p.waitForTimeout(100); await p.keyboard.press('ArrowRight'); await p.waitForTimeout(300);
@@ -222,6 +239,8 @@ async function run(host) {
     await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '"]'); await p.waitForTimeout(300);
     cr = await clipRows(); const sel1 = 'C000' + (cr.findIndex(r => /selected/.test(r)) + 1) + '.MP4';
     await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]'); await p.waitForTimeout(120);
+    // large rows: bring the clip to the top so it and the folder are both on screen for the drag
+    await p.evaluate(q => document.querySelector('[data-lumina="ws-row"][data-path="' + q + '"]').scrollIntoView({block:'start'}), dumpP + '/' + sel1); await p.waitForTimeout(100);
     await p.dragAndDrop('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]', '[data-lumina="ws-row"][data-path="' + made + '"]'); await p.waitForTimeout(300);
     ok(/^1 move waiting/.test(await text('[data-lumina="ws-plan-say"]')) && await p.$('[data-lumina="ws-row"][data-path="' + made + '/' + sel1 + '"][data-kind="clip"]')
       && /→ Tuesday export/.test(await text('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]')) && !(await p.evaluate(() => window.__calls.some(c => c[0] === 'arrange'))),
