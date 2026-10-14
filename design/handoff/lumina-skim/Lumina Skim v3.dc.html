@@ -216,7 +216,19 @@ body:has([data-view=phone]){background:#111}
     <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Open" onDragOver="{{ dropOver }}" onDragLeave="{{ dropLeave }}" onDrop="{{ dropIn }}" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
         <div style="max-width:min(1000px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,5vh,56px) clamp(16px,4vw,48px) 40px;display:flex;flex-direction:column;gap:24px">
-          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · M4V</span></div>
+          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · M4V</span><span style="flex:1"></span>
+            <sc-if value="{{ cacheOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="cache" onMouseEnter="{{ cacheEnter }}" onMouseLeave="{{ cacheLeave }}" style="position:relative;align-self:center">
+              <button type="button" data-lumina="cache-chip" aria-expanded="{{ cacheOpen }}" onClick="{{ cacheToggle }}" title="What Lumina keeps to open clips faster" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 10px;border-radius:14px;display:flex;align-items:center;gap:6px;color:#B8B3AB;background:{{ cacheBg }};cursor:pointer;white-space:nowrap" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:6px;height:6px;border-radius:50%;background:#9A958D"></span>{{ cacheChip }}<span style="color:#9A958D">{{ cacheArrow }}</span></button>
+              <sc-if value="{{ cacheOpen }}" hint-placeholder-val="{{ false }}">
+                <div data-lumina="cache-pop" role="dialog" aria-label="{{ cacheH }}" style="position:absolute;right:0;top:34px;z-index:35;width:min(360px,calc(100vw - 32px));max-height:min(60vh,420px);overflow-y:auto;box-sizing:border-box;padding:14px 16px;border-radius:12px;background:#2A2927;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 12px 32px rgba(0,0,0,0.5);display:flex;flex-direction:column;gap:10px;animation:rise 160ms ease-out">
+                  <div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#EFECE6;font-weight:600">{{ cacheH }}</span><span data-lumina="cache-figure" style="color:#B8B3AB;white-space:nowrap">{{ cacheFig }}</span></div>
+                  <span style="color:#9A958D;line-height:1.45">{{ cacheSub }}</span>
+                  <div style="display:flex;flex-direction:column;gap:2px"><sc-for list="{{ cacheRows }}" as="cr" hint-placeholder-count="2"><div data-lumina="cache-row" style="display:flex;justify-content:space-between;gap:12px;min-height:24px;align-items:center"><span style="color:#EFECE6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ cr.name }}</span><span style="color:#9A958D;white-space:nowrap">{{ cr.line }}</span></div></sc-for></div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px"><button type="button" data-lumina="cache-clear" aria-disabled="{{ cacheOff }}" onClick="{{ cacheClear }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 10px;border-radius:6px;background:{{ cacheBtnBg }};color:{{ cacheBtnFg }};font-weight:{{ cacheBtnW }};opacity:{{ cacheBtnOp }};cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ cacheBtn }}</button></div>
+                  <sc-if value="{{ cacheSaidOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="cache-said" role="status" style="color:#A9D18E;line-height:1.45">{{ cacheSaid }}</span></sc-if>
+                </div>
+              </sc-if>
+            </div></sc-if></div>
           <sc-if value="{{ webPrev }}" hint-placeholder-val="{{ false }}"><div data-lumina="web-preview" style="color:#B8B3AB;line-height:1.5">{{ webPrevT }}</div></sc-if>
           <sc-if value="{{ notSafari }}" hint-placeholder-val="{{ false }}"><div data-lumina="use-safari" role="note" style="color:#FFD27A;line-height:1.5">This browser can’t play 10-bit H.264 (XAVC S-I, XAVC S 10-bit), the a7S III’s main formats. Open this page in Safari for those; XAVC HS and 8-bit clips work here.</div></sc-if>
           <sc-if value="{{ nowOn }}" hint-placeholder-val="{{ false }}">
@@ -228,8 +240,9 @@ body:has([data-view=phone]){background:#111}
           <sc-if value="{{ resumeOn }}" hint-placeholder-val="{{ false }}">
             <div data-lumina="resume" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.35)">
               <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A">Pick up where you were</span><span style="font-size:14px;color:#EFECE6">{{ resumeName }}</span><span style="color:#B8B3AB">{{ resumeLine }}</span></div>
-              <button type="button" data-lumina="resume-go" onClick="{{ pickFolder }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Choose its folder</button>
-              <button type="button" data-lumina="resume-drop" onClick="{{ resumeDrop }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Start fresh</button>
+              <button type="button" data-lumina="resume-go" onClick="{{ resumeGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Choose its folder</button>
+              <button type="button" data-lumina="resume-other" onClick="{{ resumeOther }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Other clips</button>
+              <span data-lumina="resume-hint" style="flex-basis:100%;color:#9A958D;line-height:1.45">Both open Finder. Choose the same clips and these marks come back; with Other clips they are let go once you pick. Your clips are never touched.</span>
             </div>
           </sc-if>
           <button type="button" data-lumina="drop" onClick="{{ pickFolder }}" style="color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
@@ -948,6 +961,29 @@ class Component extends DCLogic {
   }
   coverStat() { if (this.covers.off) return; clearTimeout(this.covStatT); this.covStatT = setTimeout(() => this.covers.stat().then(st => { this.covSt = st; this.setState(s => ({tick:(s.tick || 0) + 1})); }), 250); }
   // Clear for shoots not open: every saved shoot but this one. Re-measure this shoot: its saved covers go, and it is read again.
+  // The saved-covers chip on Open (LOCAL-CHANGES 270): hover shows what is kept, a click pins it, Clear asks once more.
+  // Clearing drops saved covers and measures only: never a clip, never a mark.
+  cacheShut() { clearTimeout(this.cacheT); clearTimeout(this.cacheCT); this.cacheSaid = null; if (this.state.cacheOpen || this.state.cacheConfirm) this.setState({cacheOpen:false, cachePin:false, cacheConfirm:false}); }
+  cacheEnter = () => { clearTimeout(this.cacheT); if (!this.state.cacheOpen) { this.coverStat(); this.setState({cacheOpen:true}); } };
+  cacheLeave = () => { clearTimeout(this.cacheT); if (this.state.cachePin) return; this.cacheT = setTimeout(() => this.cacheShut(), 250); };
+  cacheToggle = () => { clearTimeout(this.cacheT); if (this.state.cacheOpen && this.state.cachePin) return this.cacheShut(); this.coverStat(); this.setState({cacheOpen:true, cachePin:true}); };
+  cacheClear = () => {
+    const st = this.covSt; if (!st || !st.ok || !st.shoots.length || this.cacheBusy) return;
+    if (!this.state.cacheConfirm) { clearTimeout(this.cacheCT); this.setState({cacheConfirm:true, cachePin:true}); this.cacheCT = setTimeout(() => this.setState({cacheConfirm:false}), 4000); return; }
+    clearTimeout(this.cacheCT); const b = st.bytes, n = st.shoots.length; this.cacheBusy = true;
+    this.covers.drop(st.shoots.map(s => s.k)).then(ok => { this.cacheBusy = false; this.cacheSaid = ok ? 'Cleared ' + this.fmtB(b) + ' from ' + this.plural(n, 'shoot') + '. Your clips and marks are untouched; those clips read again the next time they are opened.' : 'Could not clear here.'; this.setState({cacheConfirm:false}); this.coverStat(); });
+  };
+  cacheVals(has) {
+    const st = this.state, cs = this.covSt, ok = !!(cs && cs.ok), bytes = ok ? cs.bytes : 0, n = ok ? cs.shoots.length : 0, cur = has ? this.storeKey(this.d) : null, host = !!this.hostStore(), fb = b => this.fmtB(b);
+    return {cacheOn:st.step === 'import' && !this.covers.off && ((ok && bytes > 0) || !!st.cacheOpen), cacheOpen:!!st.cacheOpen, cacheChip:bytes > 0 ? 'Saved covers · ' + fb(bytes) : 'Nothing saved', cacheArrow:st.cacheOpen ? '▴' : '▾', cacheBg:st.cacheOpen ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.06)',
+      cacheEnter:this.cacheEnter, cacheLeave:this.cacheLeave, cacheToggle:this.cacheToggle, cacheClear:this.cacheClear,
+      cacheH:host ? 'Saved by Lumina' : 'Saved in this browser', cacheFig:fb(bytes) + ' · ' + this.plural(n, 'shoot'),
+      cacheSub:'Covers and first measures of clips you opened, so they show at once next time. Up to ' + fb(this.covers.cap) + '; the shoot opened longest ago goes first. Clearing never touches your clips or your marks.' + (this.covers.full ? ' Storage here is full, so covers are not being saved now.' : '') + (host && !this.covers.host ? ' Kept until Lumina quits.' : ''),
+      cacheRows:ok ? cs.shoots.slice().sort((a, b) => (b.at || 0) - (a.at || 0)).map(s => ({name:s.name || 'A shoot', line:this.plural(s.n || 0, 'clip') + ' · ' + fb(s.bytes) + (s.k === cur ? ' · open now' : '')})) : [],
+      cacheOff:!n, cacheBtn:!n ? 'Nothing to clear' : st.cacheConfirm ? 'Clear ' + fb(bytes) + '? Click again' : 'Clear all · ' + fb(bytes),
+      cacheBtnBg:st.cacheConfirm ? '#FFD27A' : 'rgba(239,236,230,0.08)', cacheBtnFg:st.cacheConfirm ? '#1E1D1B' : '#EFECE6', cacheBtnW:st.cacheConfirm ? 800 : 400, cacheBtnOp:n ? 1 : 0.45,
+      cacheSaidOn:!!this.cacheSaid, cacheSaid:this.cacheSaid || ''};
+  }
   coverClearOthers = () => { const st = this.covSt, cur = this.d ? this.storeKey(this.d) : null; if (!st) return; const out = st.shoots.filter(s => s.k !== cur), b = out.reduce((a, s) => a + s.bytes, 0);
     this.covers.drop(out.map(s => s.k)).then(ok => { this.storeSaid = {k:'saved', t:ok ? 'Cleared ' + this.fmtB(b) + ' from ' + this.plural(out.length, 'shoot') + '. They read again the next time they are opened.' : 'Could not clear here.'}; this.coverStat(); }); };
   coverRemeasure = () => { if (this.realReading() || !this.d) return; const k = this.storeKey(this.d); this.d.clips.forEach(c => { c._saved = false; });
@@ -1040,7 +1076,8 @@ class Component extends DCLogic {
     // WebKit (the app, Safari) sends a trackpad pinch as gesture events, Chromium as ⌃-wheel.
     this._gs = e => { e.preventDefault(); this.gsc = 1; }; this._gc = e => { e.preventDefault(); const r = e.scale / (this.gsc || 1); this.gsc = e.scale; if (this.state.step === 'export') return this.wsPinch(Math.log(r)); if (this.cvGrid() && this.state.step === 'skim' && !this.pinchHold) return this.cvPinch(Math.log(r), e); this.zoomBy(Math.log(r) * 1.6, e); }; this._ge = e => { e.preventDefault(); this.gsc = 1; this.pinchHold = false; if (this.pzOn) this.cvPinchEnd(); const zc = this.state.zc; if (Component.zoomSettle(zc) !== zc) this.setState({zc:1}); };
     window.addEventListener('gesturestart', this._gs, {passive:false}); window.addEventListener('gesturechange', this._gc, {passive:false}); window.addEventListener('gestureend', this._ge, {passive:false});
-    this.healthTick(); this.dockMount();
+    this.healthTick(); this.dockMount(); this.coverStat();
+    this._cmd = e => { if (this.state.cacheOpen && !(e.target && e.target.closest && e.target.closest('[data-lumina="cache"]'))) this.cacheShut(); }; window.addEventListener('mousedown', this._cmd);
     // The Mac app's reload in place (⌘R, a hot build; LOCAL-CHANGES 257): take() hands it the open shoot's marks and view by clip
     // (name and time, as clipKey), the app reloads, reopen(kept) answers the file picker with the same clips and puts them back.
     window.luminaSkimKeep = {take:() => this.keepTake(), reopen:kept => this.keepReopen(kept), state:() => this.keepAt || 'idle'};
@@ -1059,6 +1096,7 @@ class Component extends DCLogic {
     if (!document.getElementById('lumina-pv-filters')) document.body.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" id="lumina-pv-filters" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><filter id="lumina-slog3" color-interpolation-filters="sRGB" x="0" y="0" width="1" height="1"><feComponentTransfer><feFuncR type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncG type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncB type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/></feComponentTransfer><feColorMatrix type="matrix" values="1.9014 -0.8790 -0.0434 0.0000 0.0067 -0.1553 1.3955 -0.2447 0.0000 0.0003 0.0021 -0.3185 1.3129 0.0000 -0.0011 0 0 0 1 0"/></filter></svg>');
   }
   componentWillUnmount() {
+    window.removeEventListener('mousedown', this._cmd); clearTimeout(this.cacheT); clearTimeout(this.cacheCT);
     clearTimeout(this.kbT); window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
     window.removeEventListener('focus', this._fo); clearInterval(this.plT); clearTimeout(this.exWT);
@@ -1946,6 +1984,7 @@ class Component extends DCLogic {
     if (meta && kl === 'o') { e.preventDefault(); this.setStep('import'); return setTimeout(() => this.pickFolder(), 60); }
     if (st.memOn && k === 'Escape') return this.memShut();
     if (st.storeOn && k === 'Escape') return this.storeShut();
+    if (st.cacheOpen && k === 'Escape') return this.cacheShut();
     if (kl === 'r' && e.shiftKey && !meta && !e.altKey && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); return this.pvToggle(); }
     if (st.step !== 'skim') {
       if (st.step === 'export') { if (meta && k === 'Enter') { e.preventDefault(); return this.wsPlanN() ? this.wsApply() : this.download(); } if (this.wsKey(e)) return; if (k === 'Escape' && !(t && t.tagName === 'INPUT')) { e.preventDefault(); return this.setStep('skim'); } }
@@ -2570,6 +2609,9 @@ class Component extends DCLogic {
   }
   tabKeepDrop() { try { sessionStorage.removeItem(Component.TAB_KEEP); } catch (x) {} if (this.state.resume) this.setState({resume:null}); }
   resumeDrop() { this.kept = null; this.tabKeepDrop(); }
+  // Choose its folder brings the kept marks back; Other clips lets them go, but only once clips are picked (a cancelled picker keeps them).
+  resumeGo = () => { this.pickFolder(); };
+  resumeOther = () => { this.pickFolder(); this.freshPick = true; };
   dropSavedMarks() { if (Component.KEEP_MARKS) return; const drop = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (Component.isMarkKey(k)) drop.push(k); } } catch (x) {} drop.forEach(k => this.persist(k, null)); }
   // The dock: every selected clip, in capture order, in one sticky row above the key bar (a small gap where the
   // time run, or the scene, changes). A click puts you on the clip, a double-click opens it in the Viewer, as in the grid. The arrows
@@ -2789,7 +2831,7 @@ class Component extends DCLogic {
         go:() => { if (on) return this.setStep('skim'); this.want = r.key; this.setState({impMsg:'Choose the clips from “' + r.name + '”, all or some. Their marks come back.'}); this.pickFolder(); }};
     });
   }
-  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const w = this.state.ws;
+  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const w = this.state.ws; if (s === 'import') this.coverStat(); else this.cacheShut();
     // Export opens on what exWarm prepared while you were in Skim (the places, the folders, the file and its checks); each
     // is read again in the background and the screen changes only where something did. The app's verdict on the file
     // stays until the new one lands (it is kept with the text it was for).
@@ -3595,7 +3637,7 @@ class Component extends DCLogic {
   // A phone or a tablet picks clips (iPhone: Photos or Files; Android: its photo picker), a computer a folder; the other is
   // one button below. Neither shows a folder picker where the browser has none (iOS Safari before 18.4).
   canFolder() { return typeof document !== 'undefined' && 'webkitdirectory' in document.createElement('input') && !/iPhone|iPod/.test(navigator.userAgent); }
-  pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) el.click(); };
+  pickFolder = () => { this.freshPick = false; const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) el.click(); };
   filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.pickNext = true; this.importFiles(fs); };
   dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
   dropLeave = () => this.setState({dropHot:false});
@@ -3618,7 +3660,7 @@ class Component extends DCLogic {
     const vids = files.filter(f => Component.isClip(f));
     const photos = files.filter(f => /\.(arw|dng|cr3|cr2|nef|raf|orf|rw2|jpe?g|heic)$/i.test(f.name)).length;
     if (!vids.length) { if (!this.state.resume) this.kept = null; this.keepAt = 'done'; this.setState({impMsg:photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
-    this.picked = !!this.pickNext; this.pickNext = false;
+    this.picked = !!this.pickNext; this.pickNext = false; if (this.freshPick) { this.freshPick = false; this.resumeDrop(); }
     const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
     // Listing: every clip's name, size, date and (Sony) length, capture time, camera, profile and timecode, from small
     // reads only, 16 files at a time, before any picture is decoded. The scenes can be moved as soon as this is done.
@@ -4644,7 +4686,7 @@ class Component extends DCLogic {
       dropRing:st.dropHot ? '#FFD27A' : 'rgba(239,236,230,0.18)', dropBg:st.dropHot ? 'rgba(255,210,122,0.06)' : '#232220',
       impMsg:st.impMsg || '', impMsgOn:!!st.impMsg,
       impLineOn:!!(st.imp && st.imp.done < st.imp.n), impLine:st.imp ? 'measuring ' + st.imp.done + ' of ' + this.plural(st.imp.n, 'clip') : '',
-      resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + ' · choose the same folder and they come back' : '', resumeDrop:() => this.resumeDrop(), nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
+      resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + ' · choose the same folder and they come back' : '', resumeGo:this.resumeGo, resumeOther:this.resumeOther, ...this.cacheVals(has), nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
       cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})), cardsOn:this.cardList().length > 0,
       recents:st.step === 'import' ? this.recentVals() : [], recOn:false,
       download:this.download, hintLead:''

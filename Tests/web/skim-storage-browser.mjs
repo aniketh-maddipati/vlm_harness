@@ -99,6 +99,31 @@ async function run(quota, host) {
     await tap(p, '[data-lumina="storage"]'); const v0 = await p.evaluate(() => window.__vids);
     await tap(p, '[data-lumina="storage-remeasure"]'); await p.waitForTimeout(6000);
     ok(await p.evaluate(() => window.__vids) - v0 >= 30, 'Re-measure this shoot reads it again');
+    // Open (⌘1): the saved-covers chip. Hover shows what is kept, Clear asks once more, and clears saved covers only.
+    const pop = () => p.evaluate(() => document.querySelector('[data-lumina="cache-pop"]')?.innerText || '');
+    await p.keyboard.press('Escape'); await p.keyboard.press('Control+1'); await p.waitForTimeout(800);   // the storage rows shut first
+    const chip = await p.evaluate(() => document.querySelector('[data-lumina="cache-chip"]')?.textContent || '');
+    ok(/Saved covers · \d+ MB/.test(chip), 'Open shows the saved covers chip: ' + chip);
+    await p.hover('[data-lumina="cache-chip"]'); await p.waitForTimeout(500); let pp = await pop();
+    ok(/Saved in this browser/.test(pp) && /shoot\n30 clips · \d+ MB · open now/.test(pp) && /never touches your clips or your marks/.test(pp), 'hovering shows what is kept: ' + JSON.stringify(pp));
+    await p.mouse.move(5, 880); await p.waitForTimeout(600); ok(!(await pop()), 'moving away closes it');
+    await tap(p, '[data-lumina="cache-chip"]'); await p.mouse.move(5, 880); await p.waitForTimeout(500); ok(!!(await pop()), 'a click pins it open');
+    if (process.env.SKIM_SHOTS) await p.screenshot({path:path.join(process.env.SKIM_SHOTS, 'open-cache.png')});
+    await tap(p, '[data-lumina="cache-clear"]'); ok(/Clear \d+ MB\? Click again/.test(await pop()) && /\d+ MB/.test(await p.evaluate(() => document.querySelector('[data-lumina="cache-chip"]').textContent)), 'the first Clear only asks');
+    await tap(p, '[data-lumina="cache-clear"]'); await p.waitForTimeout(600); pp = await pop();
+    ok(/Cleared \d+ MB from \d+ shoots?\. Your clips and marks are untouched/.test(pp) && /Nothing saved/.test(await p.evaluate(() => document.querySelector('[data-lumina="cache-chip"]').textContent)), 'the second clears, and says so: ' + JSON.stringify(pp));
+    ok(fs.readdirSync(path.join(T, 'shoot')).length === 30, 'the clips on disk are all still there');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+    const left = await p.evaluate(() => document.querySelector('[data-lumina="cache-chip"]')?.textContent || '');
+    ok(!left, 'with nothing saved the chip goes' + (left ? ': ' + left : ''));
+    // the resume card after a reload: Other clips opens the picker and lets the kept marks go once clips are picked
+    await p.reload(); await p.waitForTimeout(1200);
+    const card = await p.evaluate(() => document.querySelector('[data-lumina="resume"]')?.innerText || '');
+    ok(/Choose its folder/.test(card) && /Other clips/.test(card) && !/Start fresh/.test(card) && /Both open Finder/.test(card), 'the resume card names what each button does: ' + JSON.stringify(card));
+    const fc = p.waitForEvent('filechooser'); await p.click('[data-lumina="resume-other"]'); const ch = await fc;
+    ok(!!(await p.evaluate(() => document.querySelector('[data-lumina="resume"]'))) && !!(await p.evaluate(() => sessionStorage.getItem('lumina-skim-tab:keep'))), 'Other clips opens the picker and keeps the marks until clips are picked');
+    await ch.setFiles(path.join(T, 'other')); await p.waitForTimeout(2500);
+    ok(!(await p.evaluate(() => sessionStorage.getItem('lumina-skim-tab:keep'))) && /Other|other/.test(await p.evaluate(() => document.body.innerText.slice(0, 4000))), 'once picked, the other clips open and the kept marks are let go');
   } else {
     await tap(p, '[data-lumina="storage"]');
     ok(/Storage here is full, so covers are not being saved now/.test(await rows(p)), 'a full quota says so');
