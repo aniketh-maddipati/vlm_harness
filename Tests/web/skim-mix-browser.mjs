@@ -73,7 +73,7 @@ await chooser.setFiles(fs.readdirSync(phone).map(n => path.join(phone, n)));
 ok(await until(() => /\b4 clips\b/.test((document.querySelector('[data-lumina="shoot-line"]') || {}).innerText || '')), 'two phone clips added: ' + await nClips());
 const kept = await p.evaluate(() => JSON.parse(window.luminaSkimKeep.take()));
 ok(JSON.stringify(kept.marks) === JSON.stringify(marks0), 'the mark is still there');
-ok(kept.ks.length === 4, 'the shoot lists its 4 clips for a reload');
+ok(kept.files.length === 4, 'the shoot lists its 4 clips for a reload');
 ok(await until(() => /2 clips added/.test(document.body.innerText)), 'the bar says 2 clips added');
 
 // 3. the same clips dropped on the window: already here, nothing added
