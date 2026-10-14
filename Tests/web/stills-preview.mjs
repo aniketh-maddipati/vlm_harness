@@ -61,6 +61,22 @@ for (let i = 0; i < 40 && !editAsked(); i++) await page.waitForTimeout(250);
 check(editAsked(), 'Edit is fetched from the site when its step opens');
 await page.waitForTimeout(1500);
 
+// A newer build on the site: the notice shows, Later hides it until a newer one still, Refresh reloads.
+const stale = page.locator('[data-lumina="stale"]');
+check(!(await stale.isVisible()), 'no new-build notice while the site has this build');
+fs.writeFileSync(path.join(site, 'version.txt'), 'deadbeef 2026-01-01T00:00:00Z\n');
+await page.evaluate(() => window.luminaStaleCheck());
+await stale.waitFor({ state: 'visible', timeout: 5000 }).then(() => check(true, 'a newer build on the site shows the notice'), () => check(false, 'a newer build on the site shows the notice'));
+await page.locator('[data-lumina="stale-later"]').click();
+await page.evaluate(() => window.luminaStaleCheck()); await page.waitForTimeout(500);
+check(!(await stale.isVisible()), 'Later hides it while that build is the newest');
+fs.writeFileSync(path.join(site, 'version.txt'), 'feedface 2026-01-02T00:00:00Z\n');
+await page.evaluate(() => window.luminaStaleCheck());
+await stale.waitFor({ state: 'visible', timeout: 5000 }).then(() => check(true, 'a newer build still shows it again'), () => check(false, 'a newer build still shows it again'));
+const reloaded = page.waitForEvent('load', { timeout: 10000 }).then(() => true, () => false);
+await page.locator('[data-lumina="stale-go"]').click();
+check(await reloaded, 'Refresh reloads the page');
+
 check(errors.length === 0, 'no page error', errors.slice(0, 5).join('\n      '));
 check(missing.length === 0, 'every file it asks for is there', missing.slice(0, 5).join('\n      '));
 check(outside.length === 0, 'nothing asked of another host', outside.slice(0, 5).join('\n      '));
