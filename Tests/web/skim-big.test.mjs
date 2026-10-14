@@ -12,7 +12,7 @@ const BIG = {clips:1500, files:50000};
 const fmtB = b => b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(b / 1e6)) + ' MB';
 const Component = {BIG, isClip:f => /\.(mp4|mov|mxf|m4v|3gp)$/i.test(f.name)};
 Component.bigSay = new Function('Component', 'return function ' + extractMethod(src, 'bigSay', 'static bigSay(b, fmtB) {').replace(/^static /, ''))(Component);
-const importFiles = new Function('Component', 'return ' + extractMethod(src, 'importFiles', 'async importFiles(files, cap, walked) {').replace(/^async /, 'async function '))(Component);
+const importFiles = new Function('Component', 'return ' + extractMethod(src, 'importFiles', 'async importFiles(files, cap, walked, pre) {').replace(/^async /, 'async function '))(Component);
 
 test('the limits are the ones the page uses', () => {
   assert.match(src, /static BIG = \{clips:1500, files:50000\};/);
@@ -69,10 +69,11 @@ test('a drop cut short asks even when it found few clips', async () => {
 });
 
 test('the drop walk counts as it goes, stops past BIG.files, and hands over what it found', () => {
-  const d = extractMethod(src, 'dropIn', 'dropIn = async e => {');
+  const d = extractMethod(src, 'dropFiles', 'async dropFiles(e) {');
   assert.match(d, /if \(n >= B\.files\) cut = true/);
   assert.match(d, /'Looking through ' \+ n\.toLocaleString\('en-US'\) \+ ' files · '/);
-  assert.match(d, /this\.importFiles\(out, 0, cut \? \{files:n\} : null\)/);
+  assert.match(d, /return \{files:out, rel, cut:cut \? n : 0\}/);
+  assert.match(extractMethod(src, 'dropIn', 'dropIn = async e => {'), /this\.importFiles\(got\.files, 0, got\.cut \? \{files:got\.cut\} : null\)/);
 });
 
 // The app's side (SetsRootView.skimPick + SkimPickScan): the app counts the folder before WebKit lists it and drives the card.

@@ -70,6 +70,12 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
 @keyframes lmDot{0%,80%,100%{opacity:0.25;transform:none}40%{opacity:1;transform:translateY(-3px)}}
 @keyframes lmFlash{0%{box-shadow:inset 0 0 0 1.5px #FFD27A;background-color:rgba(255,210,122,0.28)}100%{box-shadow:inset 0 0 0 1.5px rgba(255,210,122,0);background-color:rgba(255,210,122,0.1)}}
 [data-lumina=ws-row][data-loading=true]{position:relative}
+/* the notice's tick boxes (LOCAL-CHANGES 282): on, off, and some of what is under it */
+[data-tick=true]{background:#FFD27A;box-shadow:none}
+[data-tick=true]::after{content:'✓';display:block;color:#1E1D1B;font-size:11px;font-weight:800;line-height:14px;text-align:center}
+[data-tick=false]{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(239,236,230,0.4)}
+[data-tick=mixed]{background:rgba(255,210,122,0.35);box-shadow:inset 0 0 0 1.5px #FFD27A}
+[data-tick=mixed]::after{content:'';display:block;margin:6px 3px 0;height:2px;border-radius:1px;background:#1E1D1B}
 [data-lumina=ws-row][data-loading=true]::after{content:'';position:absolute;top:5px;bottom:5px;left:var(--lm-pad,22px);width:min(220px,50%);border-radius:4px;background:linear-gradient(90deg,rgba(239,236,230,0.03) 25%,rgba(239,236,230,0.12) 50%,rgba(239,236,230,0.03) 75%);background-size:200% 100%;animation:lmShimmer 1.1s linear infinite;pointer-events:none}
 [data-lumina=ws-find-list]{animation:lmDrop 150ms cubic-bezier(0.2,0.8,0.2,1) backwards;transform-origin:top left}
 @media (prefers-reduced-motion:reduce){
@@ -165,6 +171,7 @@ body:has([data-view=phone]){background:#111}
     <div style="flex:1 1 0;min-width:110px;display:flex;align-items:center;gap:10px;overflow:hidden;white-space:nowrap">
       <span style="flex:0 1 auto;min-width:0;font-size:13px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis">{{ shootName }}</span>
       <span data-lumina="shoot-line" style="flex:0 1000 auto;min-width:0;color:#9A958D;overflow:hidden;text-overflow:ellipsis">{{ shootLine }}</span>
+      <sc-if value="{{ addOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="add-clips" onClick="{{ addClips }}" title="{{ addTip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:28px;padding:0 10px;border-radius:5px;background:rgba(239,236,230,0.06);color:#B8B3AB;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="filter:brightness(1.3)" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span aria-hidden="true" style="font-size:14px;line-height:1">+</span>Add clips</button></sc-if>
       <sc-if value="{{ hasShoot }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="shoot-close" onClick="{{ closeGo }}" title="{{ closeTip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:28px;padding:0 10px;border-radius:5px;background:{{ closeBg }};color:{{ closeFg }};cursor:pointer" style-hover="filter:brightness(1.3)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ closeT }}</button></sc-if>
       <sc-if value="{{ forgetOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="shoot-forget" onClick="{{ forgetGo }}" title="Deletes this shoot’s marks for good. Clips are not touched." style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;flex:none;padding:1px 7px;border-radius:5px;background:{{ forgetBg }};color:{{ forgetFg }};cursor:pointer" style-hover="filter:brightness(1.3)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ forgetT }}</button></sc-if>
     </div>
@@ -242,6 +249,38 @@ body:has([data-view=phone]){background:#111}
         </div>
       </div>
     </sc-if>
+    <sc-if value="{{ addHot }}" hint-placeholder-val="{{ false }}">
+      <div data-lumina="add-drop" style="position:absolute;inset:8px;z-index:44;border-radius:16px;box-shadow:inset 0 0 0 2px #FFD27A;background:rgba(255,210,122,0.08);display:grid;place-items:center;pointer-events:none;animation:fade 120ms ease-out"><span style="padding:10px 18px;border-radius:12px;background:#33312E;color:#EFECE6;font-size:15px;box-shadow:0 8px 28px rgba(0,0,0,0.45)">{{ addHotT }}</span></div>
+    </sc-if>
+    <sc-if value="{{ mixOn }}" hint-placeholder-val="{{ false }}">
+      <div data-lumina="mix" role="dialog" aria-modal="true" aria-label="Clips from several places" style="position:absolute;inset:0;z-index:46;box-sizing:border-box;padding:clamp(12px,4vh,48px) clamp(12px,3vw,40px);background:rgba(20,19,18,0.72);display:flex;align-items:flex-start;justify-content:center;animation:fade 140ms ease-out">
+        <div style="width:min(880px,100%);max-height:100%;box-sizing:border-box;border-radius:14px;background:#262523;box-shadow:0 0 0 1px rgba(255,210,122,0.35),0 18px 48px rgba(0,0,0,0.55);display:flex;flex-direction:column;font-size:14px;animation:lmFoldIn 180ms ease-out">
+          <div style="flex:none;padding:20px 22px 14px;display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:#FFD27A"></span><span data-lumina="mix-head" style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:22px;color:#EFECE6">{{ mixHead }}</span></div>
+            <span data-lumina="mix-span" style="color:#B8B3AB">{{ mixSpan }}</span>
+            <span style="color:#9A958D;line-height:1.45">{{ mixSub }}</span>
+          </div>
+          <div aria-hidden="true" style="flex:none;display:grid;grid-template-columns:28px minmax(0,1fr) 96px 76px 28px;gap:8px;padding:6px 16px;border-top:1px solid rgba(239,236,230,0.08);border-bottom:1px solid rgba(239,236,230,0.08);font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D"><span></span><span>Day · folder · clip</span><span style="text-align:right">Clips</span><span style="text-align:right">Size</span><span></span></div>
+          <div data-lumina="mix-list" role="tree" style="flex:1 1 auto;min-height:80px;overflow-y:auto;padding:4px 4px 8px">
+            <sc-for list="{{ mixRows }}" as="r" hint-placeholder-count="6">
+              <div data-lumina="mix-row" data-kind="{{ r.kind }}" data-id="{{ r.id }}" role="treeitem" aria-expanded="{{ r.open }}" style="display:grid;grid-template-columns:28px minmax(0,1fr) 96px 76px 28px;gap:8px;align-items:center;min-height:32px;padding:1px 12px;border-radius:7px;background:{{ r.bg }};opacity:{{ r.op }}">
+                <button type="button" role="checkbox" data-lumina="mix-tick" aria-checked="{{ r.tick }}" aria-label="{{ r.name }}" onClick="{{ r.tickGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;width:28px;height:28px;display:grid;place-items:center;cursor:pointer;border-radius:6px" style-focus="outline:2px solid #FFD27A;outline-offset:0"><span data-tick="{{ r.tick }}" style="width:14px;height:14px;border-radius:4px;box-sizing:border-box"></span></button>
+                <button type="button" data-lumina="mix-name" onClick="{{ r.openGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;text-align:left;min-width:0;min-height:28px;padding-left:{{ r.pad }};display:flex;align-items:center;gap:8px;color:{{ r.fg }};font-weight:{{ r.fw }};cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span data-rot="1" aria-hidden="true" style="flex:none;width:10px;display:inline-block;color:#9A958D;opacity:{{ r.chevOp }};transform:rotate({{ r.rot }})">›</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span><sc-if value="{{ r.tagOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="mix-tag" style="flex:none;padding:1px 7px;border-radius:5px;background:rgba(255,210,122,0.14);color:#FFD27A;font-size:12px;font-weight:400">{{ r.tag }}</span></sc-if></button>
+                <span style="text-align:right;color:#B8B3AB;white-space:nowrap">{{ r.n }}</span>
+                <span style="text-align:right;color:#B8B3AB;white-space:nowrap">{{ r.size }}</span>
+                <sc-if value="{{ r.xOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="mix-remove" aria-label="Take this folder off" title="Take this folder off the list" onClick="{{ r.xGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;width:28px;height:28px;display:grid;place-items:center;border-radius:6px;color:#9A958D;cursor:pointer" style-hover="background:rgba(239,236,230,0.1);color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:0">×</button></sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex:none;padding:14px 22px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid rgba(239,236,230,0.08)">
+            <button type="button" data-lumina="mix-go" aria-disabled="{{ mixGoOff }}" onClick="{{ mixGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:{{ mixGoCur }};opacity:{{ mixGoOp }};display:flex;align-items:center;gap:6px" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⏎</span>{{ mixGoT }}</button>
+            <button type="button" data-lumina="mix-back" onClick="{{ mixBack }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">esc</span>{{ mixBackT }}</button>
+            <span style="flex:1"></span>
+            <sc-if value="{{ mixGoneOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="mix-gone" style="display:flex;align-items:center;gap:8px;color:#9A958D">{{ mixGone }}<button type="button" data-lumina="mix-undo" onClick="{{ mixUndo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">Put back</button></span></sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
     <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Open" onDragOver="{{ dropOver }}" onDragLeave="{{ dropLeave }}" onDrop="{{ dropIn }}" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
         <div style="max-width:min(1000px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,5vh,56px) clamp(16px,4vw,48px) 40px;display:flex;flex-direction:column;gap:24px">
@@ -316,6 +355,9 @@ body:has([data-view=phone]){background:#111}
         </div>
       </div>
     </sc-if>
+    <!-- Add clips (LOCAL-CHANGES 282): after Open's own inputs, so Open's folder input stays the page's first file input -->
+    <input ref="{{ addRef }}" type="file" data-lumina="add-input" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ addIn }}" style="display:none"></input>
+    <input ref="{{ addDirRef }}" type="file" data-lumina="add-folder-input" webkitdirectory="" multiple="" onChange="{{ addIn }}" style="display:none"></input>
     <sc-if value="{{ isExport }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Export" data-nobox="1" onClick="{{ exOut }}" style="position:{{ exPos }};inset:0;z-index:40;flex:1;min-height:0;overflow-y:auto;background:{{ exScrim }};animation:{{ exAnim }}">
         <div data-lumina="export-sheet" style="font-size:15px;line-height:1.4;max-width:{{ exMaxW }};min-height:{{ exMinH }};box-sizing:border-box;margin:0 {{ exMr }} 0 auto;background:{{ exPanel }};box-shadow:{{ exShadow }};padding:clamp(24px,4vh,48px) clamp(16px,3vw,48px) 40px;display:flex;flex-direction:column;gap:28px">
@@ -1164,6 +1206,8 @@ class Component extends DCLogic {
     this._ph = () => { if (this.hasShoot()) this.tabKeepSave(); }; window.addEventListener('pagehide', this._ph);
     this.touchOn();
     this._kw = e => { if ((e.metaKey || e.ctrlKey) && (e.key === 'w' || e.key === 'W')) { e.preventDefault(); this.closeShoot(); } }; window.addEventListener('keydown', this._kw);
+    // clips dropped on the window during Skim go into the open shoot (LOCAL-CHANGES 282); the page's own drags carry no files
+    window.addEventListener('dragenter', this.addEnter); window.addEventListener('dragleave', this.addLeave); window.addEventListener('dragover', this.addOver); window.addEventListener('drop', this.addDrop);
     if (!document.getElementById('lumina-pv-filters')) document.body.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" id="lumina-pv-filters" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><filter id="lumina-slog3" color-interpolation-filters="sRGB" x="0" y="0" width="1" height="1"><feComponentTransfer><feFuncR type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncG type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncB type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/></feComponentTransfer><feColorMatrix type="matrix" values="1.9014 -0.8790 -0.0434 0.0000 0.0067 -0.1553 1.3955 -0.2447 0.0000 0.0003 0.0021 -0.3185 1.3129 0.0000 -0.0011 0 0 0 1 0"/></filter></svg>');
   }
   componentWillUnmount() {
@@ -1171,7 +1215,7 @@ class Component extends DCLogic {
     clearTimeout(this.kbT); window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
     window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
     window.removeEventListener('focus', this._fo); clearInterval(this.plT); clearTimeout(this.exWT);
-    window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); window.removeEventListener('beforeunload', this._bu); window.removeEventListener('pagehide', this._ph); clearInterval(this._stT); document.removeEventListener('visibilitychange', this._stV); window.removeEventListener('focus', this._stV); this.dropVid();
+    window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); window.removeEventListener('dragenter', this.addEnter); window.removeEventListener('dragleave', this.addLeave); window.removeEventListener('dragover', this.addOver); window.removeEventListener('drop', this.addDrop); window.removeEventListener('beforeunload', this._bu); window.removeEventListener('pagehide', this._ph); clearInterval(this._stT); document.removeEventListener('visibilitychange', this._stV); window.removeEventListener('focus', this._stV); this.dropVid();
     clearTimeout(this.propT); clearTimeout(this.flT); clearTimeout(this.pvCvT); this.dockUnmount(); this.touchOff();
   }
   // Touch. A phone or a tablet has no hover, no keys and no trackpad, so the same actions come from fingers:
@@ -2046,12 +2090,13 @@ class Component extends DCLogic {
   }
   isCtl(t) { if (!t || t === document.body || !t.getAttribute) return false; return ['button', 'switch', 'tab', 'menuitem', 'checkbox'].includes(t.getAttribute('role')) || t.tagName === 'BUTTON' || t.tagName === 'A'; }
   kd(e) {
-    const st = this.state; if (!st.ready) return;
+    const st = this.state; if (st.mix && this.mixKey(e)) return; if (!st.ready) return;
     const k = e.key, kl = k.length === 1 ? k.toLowerCase() : k, meta = e.metaKey || e.ctrlKey, t = e.target;
     if (k === 'Shift' || k === 'Meta' || k === 'Alt' || k === 'Control') return;
     this.kbNote(e);
     if (k === 'Tab') this.tabFocus = true;
     if (meta && /^[123]$/.test(k)) { e.preventDefault(); return this.setStep(['import', 'skim', 'export'][+k - 1]); }
+    if (meta && kl === 'o' && e.shiftKey && this.canAdd()) { e.preventDefault(); return this.addClips(); }
     if (meta && kl === 'o') { e.preventDefault(); this.setStep('import'); return setTimeout(() => this.pickFolder(), 60); }
     if (st.memOn && k === 'Escape') return this.memShut();
     if (st.storeOn && k === 'Escape') return this.storeShut();
@@ -2680,9 +2725,11 @@ class Component extends DCLogic {
     if (this.kept) return JSON.stringify(this.kept);
     const d = this.d, st = this.state; if (!d || !d.shoot || !d.shoot.real || !d.clips.length) return null;
     // dropped clips can't be handed back (the app never learns where they are): the app doesn't reload
-    if (this.picked === false && !any) return JSON.stringify({dropped:true});
+    if ((this.picked === false || this.addDropped) && !any) return JSON.stringify({dropped:true});
     const K = id => this.byId[id] ? this.clipKey(this.byId[id]) : null, by = o => { const out = {}; Object.keys(o || {}).forEach(id => { const k = K(id); if (k) out[k] = o[id]; }); return out; };
-    return JSON.stringify({name:d.shoot.name, marks:by(st.marks), dis:by(st.dis), cuts:st.cuts ? st.cuts.map(K).filter(Boolean) : null, nCut:st.nCut, userCut:!!this.userCut, cur:K(st.cur), step:st.step, lv:st.lv, gi:st.gi, zl:st.zl, ex:st.ex, n:d.clips.length, cap:d.shoot.cap || 0, files:d.clips.map(c => this.clipKey(c))});
+    return JSON.stringify({name:d.shoot.name, marks:by(st.marks), dis:by(st.dis), cuts:st.cuts ? st.cuts.map(K).filter(Boolean) : null, nCut:st.nCut, userCut:!!this.userCut, cur:K(st.cur), step:st.step, lv:st.lv, gi:st.gi, zl:st.zl, ex:st.ex, n:d.clips.length, cap:d.shoot.cap || 0,
+      // which clips the shoot holds (a folder pruned on Open, clips added), and where added clips are when the app said (282)
+      ks:d.clips.map(c => this.clipKey(c)), ap:d.clips.reduce((o, c) => { if (String(c.path || '')[0] === '/') o[this.clipKey(c)] = c.path; return o; }, {})});
   }
   keepReopen(kept) {
     let k = null; try { k = typeof kept === 'string' ? JSON.parse(kept) : kept; } catch (x) {}
@@ -2691,12 +2738,12 @@ class Component extends DCLogic {
   }
   // After the reopened clips are listed: the marks and the view as they were, by clip. Nothing here is saved anywhere.
   keepApply() {
-    const k = this.kept; this.kept = null; this.tabKeepDrop(); if (!k) return; const d = this.d, ids = {}; d.clips.forEach(c => { ids[this.clipKey(c)] = c.id; });
+    const k = this.kept; this.kept = null; this.tabKeepDrop(); if (!k) return; const d = this.d, ids = {}; d.clips.forEach(c => { ids[this.clipKey(c)] = c.id; if (k.ap && k.ap[this.clipKey(c)]) c.path = k.ap[this.clipKey(c)]; });
     // another folder: nothing of the kept shoot is in it, so it opens as it is
     if (!Object.keys(ids).some(key => key === k.cur || (k.marks && key in k.marks) || (k.dis && key in k.dis) || (k.cuts && k.cuts.includes(key)))) { this.keepAt = 'done'; return; }
     const by = o => { const out = {}; Object.keys(o || {}).forEach(key => { if (ids[key]) out[ids[key]] = o[key]; }); return out; };
     if (k.name) d.shoot.name = k.name; this.userCut = !!k.userCut;
-    if (k.files && !this.hostStore()) { const g = Component.resumeGap(k.files, ids); this.resumeGap = g; window.luminaSkimResumeGap = g;
+    const ks = k.ks || k.files; if (ks && !this.hostStore()) { const g = Component.resumeGap(ks, ids); this.resumeGap = g; window.luminaSkimResumeGap = g;
       this.flash(g.missing.length ? 'Picked up ' + g.found + ' of ' + this.plural(g.n, 'clip') + ' · not in that folder: ' + g.missing.slice(0, 3).map(m => m.name).join(', ') + (g.missing.length > 3 ? ' and ' + (g.missing.length - 3) + ' more' : '') : 'Picked up where you were · ' + this.plural(g.n, 'clip'), g.missing.length ? 6000 : 2200); }
     const cuts = k.cuts ? k.cuts.map(key => ids[key]).filter(Boolean) : null, cur = ids[k.cur] || this.state.cur, step = d.clips.length ? (k.step || 'skim') : 'import';
     this.setState({marks:by(k.marks), dis:by(k.dis), cuts, nCut:k.nCut || this.state.nCut, cur, step, lv:k.lv ?? this.state.lv, gi:k.gi || 0, zl:k.zl ?? this.state.zl, ex:{...this.state.ex, ...(k.ex || {})}}, () => { this.keepAt = 'done'; });
@@ -3764,8 +3811,12 @@ class Component extends DCLogic {
   dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
   dropLeave = () => this.setState({dropHot:false});
   dropIn = async e => {
-    e.preventDefault(); this.setState({dropHot:false}); this.pickNext = false;
-    const rel = this.rel = new Map(), out = [], B = Component.BIG, tok = this.walkTok = {};
+    e.preventDefault(); this.setState({dropHot:false}); this.pickNext = false; if (this.state.mix) return;
+    const got = await this.dropFiles(e); if (!got) return; this.rel = got.rel; this.importFiles(got.files, 0, got.cut ? {files:got.cut} : null);
+  };
+  // What was dropped, folders walked: the files and each one's place inside what was dropped. Null when a newer drop or pick took over.
+  async dropFiles(e) {
+    const rel = new Map(), out = [], B = Component.BIG, tok = this.walkTok = {};
     // A whole drive or a home folder is a firehose: the walk counts files and clips as it goes, says so on Open, and
     // stops past B.files (cut), so what was found so far is offered instead of a page that never answers.
     let n = 0, clips = 0, bytes = 0, cut = false, said = 0;
@@ -3778,9 +3829,9 @@ class Component extends DCLogic {
     });
     const ens = [...(e.dataTransfer.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean), flat = [...(e.dataTransfer.files || [])];
     if (ens.length) await Promise.all(ens.map(en => walk(en, ''))); else out.push(...flat);
-    if (tok !== this.walkTok) return;
-    this.importFiles(out, 0, cut ? {files:n} : null);
-  };
+    if (tok !== this.walkTok) return null;
+    return {files:out, rel, cut:cut ? n : 0};
+  }
   gammaName(g) { return /s-?log3/i.test(g) ? 'S-Log3' : /s-?log2/i.test(g) ? 'S-Log2' : /hlg/i.test(g) ? 'HLG' : /709|rec/i.test(g) ? 'none' : g; }
   primName(p) { return /gamut3.?cine/i.test(p) ? 'S-Gamut3.Cine' : /gamut3/i.test(p) ? 'S-Gamut3' : /gamut/i.test(p) ? 'S-Gamut' : /2020/.test(p) ? 'Rec.2020' : /709/.test(p) ? 'Rec.709' : p; }
   // How much Skim takes in one go. Past BIG.clips every key and every pass slows (PERFGATE's budgets are at 1,500); a
@@ -3808,42 +3859,56 @@ class Component extends DCLogic {
         this.bigHeld = {host:true}; this.bigRoot = o.name; this.setState({impMsg:null, big:{n:o.n, bytes:o.bytes, cut:o.cut || 0, name:o.name}}); if (this.state.step !== 'import') this.setStep('import'); },
       want:() => { const w = !!this.bigWant; this.bigWant = false; return w; }};
   }
-  async importFiles(files, cap, walked) {
+  async importFiles(files, cap, walked, pre) {
     const rel = f => (this.rel && this.rel.get(f)) || f.webkitRelativePath || f.name;
-    let vids = files.filter(f => Component.isClip(f));
-    // Resume in Safari (LOCAL-CHANGES 276): from whatever folder was chosen (the shoot's, or one above it), only the clips the
-    // kept shoot had; a folder with none of them opens as it is.
-    if (this.freshPick && vids.length) { this.freshPick = false; this.resumeDrop(); }   // Other clips (277): the kept marks go once clips are picked
-    if (this.kept && this.state.resume) { const hit = Component.resumePick(vids, this.kept.files); if (hit.length) vids = hit; }
-    // Too big, or a walk cut short: say so on Open and wait for an answer. A reload in the app keeps what was chosen (kept.cap).
-    cap = cap || this.bigCap || (this.kept && this.kept.cap) || 0; this.bigCap = 0; this.bigHeld = null; if (this.state.big) this.setState({big:null});
-    if (vids.length && ((vids.length > Component.BIG.clips && !cap) || (walked && !cap))) {
-      const root = rel(vids[0]).split('/')[0] || 'This folder';
-      this.bigHeld = {files}; this.keepAt = 'done';
-      this.setState({impMsg:null, big:{n:vids.length, bytes:vids.reduce((s, f) => s + f.size, 0), cut:walked ? walked.files : 0, name:/\.\w+$/.test(root) ? 'These clips' : root}});
-      if (this.state.step !== 'import') this.setStep('import');
-      return;
+    let vids = pre ? pre.vids : files.filter(f => Component.isClip(f));
+    if (!pre) {
+      // Resume in Safari (LOCAL-CHANGES 276): from whatever folder was chosen (the shoot's, or one above it), only the clips the
+      // kept shoot had; a folder with none of them opens as it is.
+      if (this.freshPick && vids.length) { this.freshPick = false; this.resumeDrop(); }   // Other clips (277): the kept marks go once clips are picked
+      if (this.kept && this.state.resume) { const hit = Component.resumePick(vids, this.kept.ks || this.kept.files); if (hit.length) vids = hit; }
+      // Too big, or a walk cut short: say so on Open and wait for an answer. A reload in the app keeps what was chosen (kept.cap).
+      cap = cap || this.bigCap || (this.kept && this.kept.cap) || 0; this.bigCap = 0; this.bigHeld = null; if (this.state.big) this.setState({big:null});
+      if (vids.length && ((vids.length > Component.BIG.clips && !cap) || (walked && !cap))) {
+        const root = rel(vids[0]).split('/')[0] || 'This folder';
+        this.bigHeld = {files}; this.keepAt = 'done';
+        this.setState({impMsg:null, big:{n:vids.length, bytes:vids.reduce((s, f) => s + f.size, 0), cut:walked ? walked.files : 0, name:/\.\w+$/.test(root) ? 'These clips' : root}});
+        if (this.state.step !== 'import') this.setStep('import');
+        return;
+      }
+      if (cap && vids.length > cap) { vids = vids.map(f => [rel(f), f]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).slice(0, cap).map(x => x[1]); }
     }
-    if (cap && vids.length > cap) { vids = vids.map(f => [rel(f), f]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).slice(0, cap).map(x => x[1]); }
     const photos = files.filter(f => /\.(arw|dng|cr3|cr2|nef|raf|orf|rw2|jpe?g|heic)$/i.test(f.name)).length;
     if (!vids.length) { if (!this.state.resume) this.kept = null; this.keepAt = 'done'; this.setState({impMsg:walked ? 'No clips in the first ' + walked.files.toLocaleString('en-US') + ' files. Pick the folder the clips are in.' : photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
-    this.picked = !!this.pickNext; this.pickNext = false;
+    if (pre) this.picked = pre.picked; else { this.picked = !!this.pickNext; this.pickNext = false; }
     const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
     // Listing: every clip's name, size, date and (Sony) length, capture time, camera, profile and timecode, from small
     // reads only, 16 files at a time, before any picture is decoded. The scenes can be moved as soon as this is done.
     const tL = performance.now(), lt = this.listTok = {};
-    this.setState({impMsg:'Listing ' + this.plural(vids.length, 'clip') + '…'});
-    const metas = await this.inBatches(vids, 16, f => this.tailMeta(f, xml[f.name.replace(/\.\w+$/, '').toUpperCase()]));
-    if (lt !== this.listTok) return;
+    let metas = pre && pre.metas;
+    if (!pre) {
+      this.setState({impMsg:'Listing ' + this.plural(vids.length, 'clip') + '…'});
+      metas = await this.inBatches(vids, 16, f => this.tailMeta(f, xml[f.name.replace(/\.\w+$/, '').toUpperCase()]));
+      if (lt !== this.listTok) return;
+      const picked = this.picked, relMap = this.rel, again = (vs, ms) => { this.rel = relMap; return this.importFiles(files, cap, null, {vids:vs, metas:ms, picked}); };
+      // a kept shoot coming back: its own clips, no notice (LOCAL-CHANGES 282)
+      const kept = this.keptOnly(vids, metas);
+      if (kept && kept.missing.length) { const lives = Component.liveSet(files, rel), items = kept.at.map(i => ({i, name:vids[i].name, path:rel(vids[i]), t:metas[i].t || this.iso(vids[i].lastModified), bytes:vids[i].size, live:false}));
+        if (this.mixAsk(items, sel => again(sel.map(x => vids[x.i]), sel.map(x => metas[x.i])), false, {force:true, missing:kept.missing})) return; }
+      if (kept && kept.at.length < vids.length) return again(kept.vids, kept.metas);
+      // clips from several folders or days far apart: Open shows them first, and only what is ticked goes in
+      if (!this.kept) { const lives = Component.liveSet(files, rel), items = vids.map((f, i) => ({i, name:f.name, path:rel(f), t:metas[i].t || this.iso(f.lastModified), bytes:f.size, live:/\.mov$/i.test(f.name) && lives.has(rel(f).replace(/\.\w+$/, '').toUpperCase())}));
+        if (this.mixAsk(items, sel => again(sel.map(x => vids[x.i]), sel.map(x => metas[x.i])))) return; }
+    }
     const tM = performance.now(), from = {file:0, sidecar:0, none:0};
     const clips = vids.map((f, i) => { const m = metas[i]; from[m.prof.source] = (from[m.prof.source] || 0) + 1;
-      return {id:'F' + String(i + 1).padStart(4, '0'), name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, path:rel(f), t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, fd:m.fd || null, nf:m.nf || 0, w:0, h:0, bytes:f.size, codec:Component.extOf(f), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; });
+      return this.clipOf(f, m, 'F' + String(i + 1).padStart(4, '0'), rel(f)); });
     clips.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
     const rates = {}; clips.forEach(c => { if (c.fps) rates[c.fps] = (rates[c.fps] || 0) + 1; });
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
     const root = (/\.\w+$/.test(rel(vids[0]).split('/')[0]) && this.bigRoot) || rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; this.bigRoot = null; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
     const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true, cap:cap || 0}, clips, gaps:[]};
-    if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0; this.skipped = 0;
+    if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0; this.skipped = 0; this.addDropped = false; this.addTok = null;
     this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.want = null; this.setState({}, () => this.save());
     if (this.kept) this.keepApply();
     this.clockStart(d, true); const k = this.clock; k.meta = Math.round(tM - tL); k.metaFrom = from;
@@ -3851,6 +3916,146 @@ class Component extends DCLogic {
     this.setState({impMsg:null, imp:{n:clips.length, done:0}}, () => { if (this.clock !== k || k.listed != null) return; k.listed = Math.round(performance.now() - tL); this.clockSave({name:k.name, n:k.n, bytes:k.bytes, real:true, at:k.at, meta:k.meta, metaFrom:k.metaFrom, listed:k.listed, partial:true}); });
     this.drv = null; this.trBytes = 0; this.trN = 0; this.driveRead(); this.trashRead();
     { const tok = this.qTok; this.coverLoad(d).then(() => { if (tok === this.qTok) this.runQueue(clips.slice(), tok); }); }
+  }
+  // One clip as the page holds it, from its file and what the listing read (importFiles, appendClips).
+  clipOf(f, m, id, path) { return {id, name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, path, t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, fd:m.fd || null, nf:m.nf || 0, w:0, h:0, bytes:f.size, codec:Component.extOf(f), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; }
+  // Reopening a kept shoot (a reload in the app, Pick up where you were in Safari): only the clips it held, so a folder
+  // pruned on the notice or clips added from elsewhere come back as they were, with no notice. Null: nothing to narrow.
+  keptOnly(vids, metas) {
+    const k = this.kept; if (!k || !Array.isArray(k.ks) || !k.ks.length) return null; const ks = new Set(k.ks), at = [];
+    vids.forEach((f, i) => { if (ks.has(this.clipKey({name:f.name, t:metas[i].t || this.iso(f.lastModified)}))) at.push(i); });
+    if (!at.length) return null; const got = new Set(at.map(i => this.clipKey({name:vids[i].name, t:metas[i].t || this.iso(vids[i].lastModified)})));
+    // what the kept shoot held and this pick doesn't: by name and time (clipKey is NAME@time), with its place when the app gave one
+    const missing = k.ks.filter(key => !got.has(key)).map(key => { const a = key.lastIndexOf('@'); return {name:key.slice(0, a), t:key.slice(a + 1), path:(k.ap && k.ap[key]) || ''}; });
+    return {at, vids:at.map(i => vids[i]), metas:at.map(i => metas[i]), missing};
+  }
+  // Clips from several places (LOCAL-CHANGES 282). After the listing, before anything is drawn: when the clips come from
+  // more than one folder, from days far apart (MIX_GAP_DAYS between two of them), or include a Live Photo's movie (a .MOV
+  // beside a .HEIC or .JPG of the same name), Open shows them by day and folder, as Export lists files, and nothing goes in
+  // until Open N clips. A day, a folder or a clip can be unticked, a folder removed from the list; Live Photo movies start
+  // unticked. Nothing on disk changes. items: [{i, name, path, t, bytes, live}].
+  static MIX_GAP_DAYS = 3;
+  static mixDir(p) { const s = String(p || ''), k = s.lastIndexOf('/'); return k > 0 ? s.slice(0, k) : ''; }
+  // o.missing: clips the caller expected and did not get ([{name, t, path}]), listed under Not found; o.force: show even
+  // when the clips are one folder and close days (a resume with clips missing). The view is the one file manager for
+  // what is about to go in: a resume (keptOnly, Pick up where you were, the app's reopen) opens it with what it expected.
+  static mixOf(items, o) {
+    const D = Component.mixDir, folders = new Set(items.map(x => D(x.path))), days = [...new Set(items.map(x => String(x.t).slice(0, 10)))].sort();
+    let gap = 0; for (let k = 1; k < days.length; k++) gap = Math.max(gap, (Date.parse(days[k]) - Date.parse(days[k - 1])) / 864e5);
+    const lives = items.filter(x => x.live).length;
+    const miss = (o && o.missing) || [];
+    if (!(o && o.force) && folders.size < 2 && !(gap >= Component.MIX_GAP_DAYS) && !lives) return null;
+    const by = {}, groups = [];
+    items.forEach(x => { const day = String(x.t).slice(0, 10), dir = D(x.path), key = day + '\u0000' + dir; let g = by[key]; if (!g) { g = by[key] = {key, day, dir, items:[]}; groups.push(g); } g.items.push(x); });
+    const tc = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+    groups.forEach(g => g.items.sort((a, b) => tc(a.t, b.t) || tc(a.name, b.name))); groups.sort((a, b) => tc(a.day, b.day) || tc(a.dir, b.dir));
+    return {folders:folders.size, days:days.length, gap:Math.round(gap), first:days[0], last:days[days.length - 1], lives, n:items.length, groups, missing:miss, expect:!!(o && o.force)};
+  }
+  // What the notice lets in: every clip not unticked, in a folder not removed.
+  static mixPicked(mx) { const out = []; mx.m.groups.forEach(g => { if (mx.gone[g.key]) return; g.items.forEach(x => { if (!mx.off[x.i]) out.push(x); }); }); return out; }
+  // A Live Photo's movie: a .MOV with a still of the same name beside it in what was opened.
+  static liveSet(files, relOf) { const s = new Set(); files.forEach(f => { if (/\.(heic|jpe?g)$/i.test(f.name || '')) s.add(relOf(f).replace(/\.\w+$/, '').toUpperCase()); }); return s; }
+  mixAsk(items, go, add, o) {
+    const m = Component.mixOf(items, o); if (!m) return false;
+    const off = {}; items.forEach(x => { if (x.live) off[x.i] = true; });
+    this.mixRun = go; this.setState({mix:{m, off, gone:{}, open:{}, add:!!add}, impMsg:null}); return true;
+  }
+  mixSet(f) { this.setState(s => s.mix ? {mix:{...s.mix, ...(typeof f === 'function' ? f(s.mix) : f)}} : null); }
+  mixGo = () => { const mx = this.state.mix; if (!mx) return; const sel = Component.mixPicked(mx); if (!sel.length) return; const go = this.mixRun; this.mixRun = null; this.setState({mix:null}, () => go && go(sel)); };
+  mixBack = () => { if (!this.state.mix) return; this.mixRun = null; if (this.keepAt === 'opening') this.keepAt = 'done'; this.setState({mix:null}); };
+  mixKey(e) {
+    const k = e.key, t = e.target;
+    if (k === 'Escape') { e.preventDefault(); this.mixBack(); return true; }
+    // ⏎ opens what is ticked wherever the focus is (as the button says); space works the focused tick, chevron or ×
+    if (k === 'Enter') { e.preventDefault(); if (t && t.getAttribute && t.getAttribute('data-lumina') === 'mix-back') this.mixBack(); else this.mixGo(); return true; }
+    if (k === ' ' && this.isCtl(t)) { e.preventDefault(); t.click(); return true; }
+    return k !== 'Tab';
+  }
+  mixDay(day) { const p = /^(\d{4})-(\d\d)-(\d\d)$/.exec(day || ''); if (!p) return day || 'No date'; const x = new Date(+p[1], +p[2] - 1, +p[3]); return x.toLocaleDateString(undefined, {weekday:'short', day:'numeric', month:'short', year:'numeric'}); }
+  mixVals() {
+    const mx = this.state.mix; if (!mx) return {mixOn:false, mixRows:[]};
+    const {m, off, gone, open} = mx, fb = b => this.fmtB(b), tick = (all, on) => on === 0 ? 'false' : on === all ? 'true' : 'mixed', rows = [];
+    const setOff = (xs, val) => this.mixSet(s => { const o = {...s.off}; xs.forEach(x => { if (val) o[x.i] = true; else delete o[x.i]; }); return {off:o}; });
+    const days = []; m.groups.forEach(g => { if (gone[g.key]) return; let dd = days[days.length - 1]; if (!dd || dd.day !== g.day) days.push(dd = {day:g.day, gs:[]}); dd.gs.push(g); });
+    days.forEach(dd => {
+      const xs = [].concat(...dd.gs.map(g => g.items)), on = xs.filter(x => !off[x.i]);
+      rows.push({id:'mix-day-' + dd.day, kind:'day', name:this.mixDay(dd.day), pad:'0px', chevOp:0, rot:'0deg', open:'false', tick:tick(xs.length, on.length), n:on.length < xs.length ? on.length + ' of ' + xs.length : String(xs.length), size:fb(on.reduce((a, x) => a + x.bytes, 0)), fg:'#EFECE6', fw:'600', bg:'rgba(239,236,230,0.04)', op:on.length ? 1 : 0.55, tagOn:false, tag:'', xOn:false,
+        tickGo:() => setOff(xs, on.length === xs.length), openGo:() => {}, xGo:() => {}});
+      dd.gs.forEach(g => {
+        const gon = g.items.filter(x => !off[x.i]), lives = g.items.filter(x => x.live).length, isOpen = !!open[g.key];
+        rows.push({id:'mix-dir-' + g.key, kind:'folder', name:g.dir ? this.tilde(g.dir) : 'Clips picked on their own', pad:'18px', chevOp:1, rot:isOpen ? '90deg' : '0deg', open:String(isOpen), tick:tick(g.items.length, gon.length), n:gon.length < g.items.length ? gon.length + ' of ' + g.items.length : String(g.items.length), size:fb(gon.reduce((a, x) => a + x.bytes, 0)), fg:'#EFECE6', fw:'400', bg:'transparent', op:gon.length ? 1 : 0.55,
+          tagOn:lives > 0, tag:lives ? this.plural(lives, 'Live Photo movie') : '', xOn:true,
+          tickGo:() => setOff(g.items, gon.length === g.items.length), openGo:() => this.mixSet(s => ({open:{...s.open, [g.key]:!s.open[g.key]}})), xGo:() => this.mixSet(s => ({gone:{...s.gone, [g.key]:true}}))});
+        if (isOpen) g.items.forEach(x => rows.push({id:'mix-clip-' + x.i, kind:'clip', name:x.name, pad:'44px', chevOp:0, rot:'0deg', open:'false', tick:off[x.i] ? 'false' : 'true', n:this.hm(String(x.t)), size:fb(x.bytes), fg:off[x.i] ? '#9A958D' : '#EFECE6', fw:'400', bg:'transparent', op:1, tagOn:!!x.live, tag:x.live ? 'Live Photo' : '', xOn:false,
+          tickGo:() => setOff([x], !off[x.i]), openGo:() => {}, xGo:() => {}}));
+      });
+    });
+    if (m.missing.length) {
+      rows.push({id:'mix-missing', kind:'day', name:'Not found in what you chose', pad:'0px', chevOp:0, rot:'0deg', open:'false', tick:'false', n:String(m.missing.length), size:'', fg:'#FFD27A', fw:'600', bg:'rgba(255,210,122,0.06)', op:1, tagOn:false, tag:'', xOn:false, tickGo:() => {}, openGo:() => {}, xGo:() => {}});
+      m.missing.forEach((x, j) => rows.push({id:'mix-miss-' + j, kind:'missing', name:x.path || x.name, pad:'18px', chevOp:0, rot:'0deg', open:'false', tick:'false', n:x.t ? this.hm(String(x.t)) : '', size:'', fg:'#9A958D', fw:'400', bg:'transparent', op:0.7, tagOn:true, tag:'Missing', xOn:false, tickGo:() => {}, openGo:() => {}, xGo:() => {}}));
+    }
+    const sel = Component.mixPicked(mx), goneN = m.groups.filter(g => gone[g.key]).reduce((a, g) => a + g.items.length, 0);
+    const far = m.gap >= Component.MIX_GAP_DAYS, parts = [m.folders > 1 ? 'come from ' + this.plural(m.folders, 'folder') : '', far ? (m.days === 2 ? 'were shot ' + m.gap + ' days apart' : 'span ' + m.days + ' days, up to ' + m.gap + ' apart') : ''].filter(Boolean);
+    const head = m.expect ? m.n + ' of ' + this.plural(m.n + m.missing.length, 'clip') + ' found' + (m.missing.length ? ' · ' + m.missing.length + ' not in what you chose' : '')
+      : (mx.add ? 'The clips you are adding ' : 'These clips ') + (parts.length ? parts.join(' and ') : 'include ' + this.plural(m.lives, 'Live Photo movie'));
+    const span = m.first === m.last ? this.mixDay(m.first) : this.mixDay(m.first) + ' to ' + this.mixDay(m.last);
+    return {mixOn:true, mixHead:head, mixSpan:span + ' · ' + this.plural(m.n, 'clip') + (m.lives ? ' · ' + this.plural(m.lives, 'Live Photo movie') + ', left out' : ''),
+      mixSub:'Untick a day, a folder or a clip that isn’t part of this shoot, or take a folder off with ×. Nothing on disk changes.', mixRows:rows,
+      mixGoT:(mx.add ? 'Add ' : 'Open ') + this.plural(sel.length, 'clip') + ' · ' + fb(sel.reduce((a, x) => a + x.bytes, 0)), mixGoOff:String(!sel.length), mixGoOp:sel.length ? 1 : 0.45, mixGoCur:sel.length ? 'pointer' : 'default',
+      mixBackT:mx.add ? 'Don’t add' : 'Back', mixGoneOn:goneN > 0, mixGone:this.plural(goneN, 'clip') + ' taken off', mixUndo:() => this.mixSet({gone:{}}), mixGo:this.mixGo, mixBack:this.mixBack};
+  }
+  // Add clips (LOCAL-CHANGES 282): more clips into the shoot that is open, from Add clips or dropped on the window during
+  // Skim, its marks, scenes moved by hand and view kept. Clips already in the shoot (same name and time) are left out.
+  // In the app the panel takes clips or folders, and the app hands their places over (window.luminaSkimPicked) so the
+  // Final Cut file points at them wherever they are; it keeps them with the shoot for ⌘R. In a browser the picker takes
+  // clips (a phone's too); a folder is dropped.
+  addRef = el => { this.addEl = el; if (el) el.multiple = true; };
+  addDirRef = el => { this.addDirEl = el; if (el) el.multiple = true; };
+  canAdd() { const d = this.d, st = this.state; return !!(d && d.shoot && d.shoot.real && d.clips.length && st.step === 'skim' && !st.mix); }
+  addClips = () => {
+    if (!this.canAdd()) return; const app = !!this.exHostApi(), el = app && !this.isTouch() ? this.addDirEl || this.addEl : this.addEl;
+    if (!el) return; if (app) window.luminaSkimAdding = true; el.click();
+  };
+  addIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.addFiles(fs, {rel:null, dropped:false}); };
+  static hasFiles(e) { const t = e && e.dataTransfer && e.dataTransfer.types; return !!t && [...t].indexOf('Files') >= 0; }
+  addEnter = e => { if (!this.canAdd() || !Component.hasFiles(e)) return; this.addN = (this.addN || 0) + 1; if (!this.state.addHot) this.setState({addHot:true}); };
+  addLeave = e => { if (!this.state.addHot) return; this.addN = Math.max(0, (this.addN || 0) - 1); if (!this.addN) this.setState({addHot:false}); };
+  addOver = e => { if (!this.canAdd() || !Component.hasFiles(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; if (!this.state.addHot) this.setState({addHot:true}); };
+  addDrop = async e => {
+    this.addN = 0; if (this.state.addHot) this.setState({addHot:false});
+    if (!this.canAdd() || !Component.hasFiles(e)) return; e.preventDefault();
+    const got = await this.dropFiles(e); if (!got) return; this.addFiles(got.files, {rel:got.rel, dropped:true});
+  };
+  async addFiles(files, how) {
+    const d = this.d; if (!d || !d.shoot || !d.shoot.real || !d.clips.length) { this.rel = how.rel; this.pickNext = !how.dropped; return this.importFiles(files); }
+    let picked = null; if (!how.dropped) { try { picked = window.luminaSkimPicked; window.luminaSkimPicked = null; } catch (x) {} }
+    const relOf = f => (how.rel && how.rel.get(f)) || f.webkitRelativePath || f.name;
+    // the place the app gave: the picked file itself, or the picked folder the file's relative path starts with
+    const pathOf = f => { const r = relOf(f), first = r.split('/')[0]; const p = Array.isArray(picked) ? picked.find(q => String(q).replace(/\/+$/, '').split('/').pop() === first) : null; return p ? String(p).replace(/\/+$/, '').replace(/\/[^\/]*$/, '') + '/' + r : r; };
+    const vids = files.filter(f => Component.isClip(f));
+    if (!vids.length) { this.recNote = {t:'Nothing added · no clips in that', at:Date.now()}; return this.bump(); }
+    const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
+    this.recNote = {t:'Adding ' + this.plural(vids.length, 'clip') + '…', at:Date.now()}; this.bump();
+    const tok = this.addTok = {}, metas = await this.inBatches(vids, 16, f => this.tailMeta(f, xml[f.name.replace(/\.\w+$/, '').toUpperCase()]));
+    if (tok !== this.addTok || this.d !== d) return;
+    const have = new Set(d.clips.map(c => this.clipKey(c))), lives = Component.liveSet(files, relOf);
+    const items = vids.map((f, i) => ({i, name:f.name, path:pathOf(f), t:metas[i].t || this.iso(f.lastModified), bytes:f.size, live:/\.mov$/i.test(f.name) && lives.has(relOf(f).replace(/\.\w+$/, '').toUpperCase())}));
+    const fresh = items.filter(x => !have.has(this.clipKey(x))), dup = items.length - fresh.length;
+    if (!fresh.length) { this.recNote = {t:(dup === 1 ? 'That clip is' : 'Those clips are') + ' already in this shoot', at:Date.now()}; return this.bump(); }
+    const go = sel => this.appendClips(sel.map(x => this.clipOf(vids[x.i], metas[x.i], null, x.path)), dup, how.dropped);
+    this.recNote = null; if (this.mixAsk(fresh, go, true)) return; go(fresh);
+  }
+  appendClips(cs, dup, dropped) {
+    const d = this.d; if (!d || !cs.length) return;
+    let n = d.clips.reduce((a, c) => Math.max(a, +((/^F(\d+)$/.exec(c.id) || [0, 0])[1])), 0); cs.forEach(c => { c.id = 'F' + String(++n).padStart(4, '0'); });
+    d.clips = d.clips.concat(cs).sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0); this.byId = {}; d.clips.forEach((c, i) => { c._i = i; this.byId[c.id] = c; });
+    const days = {}; d.clips.forEach(c => { days[c.t.slice(0, 10)] = 1; }); d.shoot.days = Object.keys(days).length; d.shoot.bytes = d.clips.reduce((s, c) => s + c.bytes, 0);
+    this.regap(d); if (dropped) this.addDropped = true;
+    this.recNote = {t:this.plural(cs.length, 'clip') + ' added' + (dup ? ' · ' + dup + ' already here' : ''), at:Date.now()};
+    // the reading starts over for what has no picture yet (the new clips, and any the last pass had not reached)
+    const f = this.firstIdx(), tok = this.qTok = {};
+    this.setState(s => ({tick:(s.tick || 0) + 1}));
+    this.coverLoad(d).then(() => { if (tok === this.qTok) this.runQueue(d.clips.filter(c => c._file && !c.trashed && !c.frames[f]), tok); });
   }
   // What a Sony clip says about itself (NonRealTimeMeta, from the sidecar or the end of the file): no decode.
   // fd is the length of one frame as [n, d] for n/d seconds: 23.98 is 1001/24000, 24 is 100/2400. nf is the camera's frame count.
@@ -3888,7 +4093,8 @@ class Component extends DCLogic {
     const one = (list, t) => list.filter(k => k.t === t)[0], txt = (a, b) => { let s = ''; for (let i = a; i < b; i++) s += String.fromCharCode(u8[i]); try { return decodeURIComponent(escape(s)); } catch (x) { return s; } };
     const wall = s => { const m = /^(\d{4})[-:](\d\d)[-:](\d\d)[T ](\d\d):(\d\d):(\d\d)/.exec((s || '').trim()); return m && +m[1] > 1990 ? m[1] + '-' + m[2] + '-' + m[3] + 'T' + m[4] + ':' + m[5] + ':' + m[6] : null; };
     try {
-      const top = kids(0, u8.length), moov = one(top, 'moov') || {a:0, b:u8.length}, mk = kids(moov.a, moov.b), meta = one(mk, 'meta');
+      // an iPhone writes moov/meta; a file re-wrapped by ffmpeg (or an app built on it) has the same keys in moov/udta/meta
+      const top = kids(0, u8.length), moov = one(top, 'moov') || {a:0, b:u8.length}, mk = kids(moov.a, moov.b), ud = one(mk, 'udta'), meta = one(mk, 'meta') || (ud && one(kids(ud.a, ud.b), 'meta'));
       if (meta) {
         const ma = ty(meta.a) === 'hdlr' || ty(meta.a) === 'keys' ? meta.a : meta.a + 4, mm = kids(ma, meta.b), keys = one(mm, 'keys'), ilst = one(mm, 'ilst');
         if (keys && ilst) {
@@ -3896,7 +4102,7 @@ class Component extends DCLogic {
           for (const it of kids(ilst.a, ilst.b)) { const k = names[dv.getUint32(it.a - 4) - 1]; if (k !== 'com.apple.quicktime.creationdate') continue; const da = one(kids(it.a, it.b), 'data'); const w = da && wall(txt(da.a + 8, da.b)); if (w) return {local:w}; }
         }
       }
-      const ud = one(mk, 'udta'); if (ud) { const day = kids(ud.a, ud.b).filter(k => k.t === '\u00a9day')[0]; if (day) { const w = wall(txt(day.a + 4, day.b)) || wall(txt(day.a, day.b)); if (w) return {local:w}; } }
+      if (ud) { const day = kids(ud.a, ud.b).filter(k => k.t === '\u00a9day')[0]; if (day) { const w = wall(txt(day.a + 4, day.b)) || wall(txt(day.a, day.b)); if (w) return {local:w}; } }
       const mh = one(mk, 'mvhd'); if (mh) { const v = u8[mh.a], s = v === 1 ? dv.getUint32(mh.a + 4) * 4294967296 + dv.getUint32(mh.a + 8) : dv.getUint32(mh.a + 4), ms = (s - 2082844800) * 1000; if (ms > Date.UTC(2000, 0, 1) && ms < Date.now() + 864e5 * 2) return {utc:ms}; }
     } catch (x) {}
     return null;
@@ -3920,7 +4126,8 @@ class Component extends DCLogic {
   // The transfer the file is tagged with (the nclx colour box of its video track, ISO/IEC 23091-2): 18 is HLG, 16 is PQ,
   // 1 is BT.709. Sony tags S-Log3 as BT.709, so only HLG is told from this; S-Log3 without its metadata is told from its picture.
   static moovTransfer(u8) {
-    for (let o = 4; o + 14 <= u8.length; o++) if (u8[o] === 0x63 && u8[o + 1] === 0x6F && u8[o + 2] === 0x6C && u8[o + 3] === 0x72 && u8[o + 4] === 0x6E && u8[o + 5] === 0x63 && u8[o + 6] === 0x6C && u8[o + 7] === 0x78) return (u8[o + 10] << 8) | u8[o + 11];
+    // nclx (MP4) or the nclc of QuickTime, as a .MOV may carry it: the transfer sits at the same place in both
+    for (let o = 4; o + 14 <= u8.length; o++) if (u8[o] === 0x63 && u8[o + 1] === 0x6F && u8[o + 2] === 0x6C && u8[o + 3] === 0x72 && u8[o + 4] === 0x6E && u8[o + 5] === 0x63 && u8[o + 6] === 0x6C && (u8[o + 7] === 0x78 || u8[o + 7] === 0x63)) return (u8[o + 10] << 8) | u8[o + 11];
     return null;
   }
   // A log picture, as the decoder hands it over: its darkest pixels well above black, its brightest well below white,
@@ -4863,7 +5070,10 @@ class Component extends DCLogic {
       recents:st.step === 'import' ? this.recentVals() : [], recOn:false,
       download:this.download, hintLead:''
     };
-    Object.assign(v, this.progVals());
+    Object.assign(v, this.progVals(), this.mixVals());
+    v.addOn = !!(has && d.shoot.real && st.step === 'skim'); v.addClips = this.addClips; v.addRef = this.addRef; v.addDirRef = this.addDirRef; v.addIn = this.addIn;
+    v.addTip = 'Add clips to “' + (d && d.shoot ? d.shoot.name : '') + '”: a phone’s too. Or drop clips or a folder on the window. Marks stay. ⇧⌘O';
+    v.addHot = !!st.addHot; v.addHotT = 'Drop to add to “' + (d && d.shoot ? d.shoot.name : '') + '”';
     if (v.isSkim && has && !st.held) { const nh = this.cvGrid() ? this.cvHints() : this.navHints(); v.hints = nh.list; v.hintLead = nh.lead; }
     if (v.isExport) {
       const x = this.buildX(), ex = st.ex, G = this.G || [];
