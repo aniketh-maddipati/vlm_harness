@@ -75,4 +75,17 @@ final class SetsMasksTests: XCTestCase {
     func testAJPEGThatIsNotOneIsNil() {
         XCTAssertNil(SetsMasks.masks(jpeg: Data("not a jpeg".utf8)))
     }
+
+    /// Skim's frame arrives as base64 from the page (`skimMasks`): only a JPEG under the limit is read.
+    func testSkimFrameIsABase64JPEGUnderTheLimit() throws {
+        XCTAssertNil(SetsMasks.masks(frame: nil)); XCTAssertNil(SetsMasks.masks(frame: 42)); XCTAssertNil(SetsMasks.masks(frame: ""))
+        XCTAssertNil(SetsMasks.masks(frame: "not base64 at all"))
+        XCTAssertNil(SetsMasks.masks(frame: Data("not a jpeg".utf8).base64EncodedString()))
+        XCTAssertNil(SetsMasks.masks(frame: String(repeating: "A", count: SetsMasks.frameLimit + 4)), "over the limit, not decoded")
+        let out = NSMutableData()
+        let dst = try XCTUnwrap(CGImageDestinationCreateWithData(out, UTType.jpeg.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(dst, picture(), nil); XCTAssertTrue(CGImageDestinationFinalize(dst))
+        guard let found = SetsMasks.masks(frame: (out as Data).base64EncodedString()) else { throw XCTSkip("Vision's instance-mask requests don't run on this Mac") }
+        XCTAssertTrue(JSONSerialization.isValidJSONObject(found.map(\.dictionary)))
+    }
 }

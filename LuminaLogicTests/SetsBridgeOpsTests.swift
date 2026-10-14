@@ -161,6 +161,7 @@ final class SetsBridgeOpsTests: XCTestCase {
         "saveSession": ["id", "json", "summary"], "recents": [], "reopen": ["id"], "workingFiles": ["id"], "removeShoot": ["id"],
         "writeInto": ["label", "files"], "readSidecars": ["root", "files"], "writeSidecars": ["root", "files"], "reveal": ["path"],
         "setPrefs": ["prefs"], "checkAccess": [], "reopenDenied": [], "reopenCurrent": [],
+        "skimMasks": ["frame"],
     ]
 
     // MARK: The table
@@ -229,6 +230,8 @@ final class SetsBridgeOpsTests: XCTestCase {
             guard let url = revealed.popLast() else { return truthy ? "answered true and showed nothing" : nil }
             if !truthy { return "showed \(url.path) and answered false" }
             return url.path == shoot.path || url.path.hasPrefix(shoot.path + "/") ? nil : "revealed \(url.path)"
+        case ("skimMasks", "frame"):
+            return r != nil && !(r is NSNull) ? "found selections in a frame that is not a JPEG" : nil
         case ("canvasEnter", "rel"):
             return e == nil ? "entered a hostile rel" : nil
         default:

@@ -263,7 +263,7 @@ nonisolated enum SetsPage: String, Sendable {
 
     /// Skim's host: the page's `lumina.video` calls, set before the page runs. `storeAll` and `storeSet`
     /// keep its saved shoots in the app's container (`skimStore` / `skimSave`, SkimStore), so marks survive
-    /// a quit; `cover*` keep its saved covers and first measures there too (`skimCover*`, SkimCovers); `health` reads heat and memory (`skimHealth`, SkimHealth) to pace the page's reading; `export*` save Export's files where the user chose and `openInFinalCut` hands a saved .fcpxml to Final Cut (`skimExport*`, SkimExport); mark, preview and handoff have nothing native behind them yet.
+    /// a quit; `cover*` keep its saved covers and first measures there too (`skimCover*`, SkimCovers); `health` reads heat and memory (`skimHealth`, SkimHealth) to pace the page's reading; `export*` save Export's files where the user chose and `openInFinalCut` hands a saved .fcpxml to Final Cut (`skimExport*`, SkimExport); `masks` finds the selections in the Viewer's frame (`skimMasks`, SetsMasks); mark, preview and handoff have nothing native behind them yet.
     static let skimHostScript = #"""
     (() => {
       const post = (op, a) => window.webkit.messageHandlers.lumina.postMessage(Object.assign({ op }, a || {}));
@@ -308,6 +308,7 @@ nonisolated enum SetsPage: String, Sendable {
         exportReveal: (path) => post('skimExportReveal', { path: String(path) }),
         exportCheck: (text) => post('skimExportCheck', { text: String(text) }),
         openInFinalCut: (path) => post('skimOpenInFinalCut', { path: String(path) }),
+        masks: (frame) => post('skimMasks', { frame: typeof frame === 'string' ? frame : '' }),
         mark() {}, preview() {}, handoff() {}
       });
     })();

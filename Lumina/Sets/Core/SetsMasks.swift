@@ -84,6 +84,16 @@ nonisolated final class SetsMasks: @unchecked Sendable {
         return masks(image)
     }
 
+    /// The longest frame Skim may hand over, as base64 (`skimMasks`): a frame at `pixels` is a few hundred KB.
+    static let frameLimit = 8 << 20
+
+    /// Skim's `lumina.video.masks(frame)`: the masks in one frame of a clip, which the page draws from its
+    /// own `<video>` and sends as a base64 JPEG. Nil for anything that is not one, or is larger than `frameLimit`.
+    static func masks(frame: Any?) -> [LookMasks.Found]? {
+        guard let s = frame as? String, !s.isEmpty, s.utf8.count <= frameLimit, let jpeg = Data(base64Encoded: s) else { return nil }
+        return masks(jpeg: jpeg)
+    }
+
     /// The masks in a picture. `refine`: snap each mask's edge to the picture's own edges
     /// (`LookMasks.guided`) before outlining it.
     static func masks(_ image: CGImage, refine: Bool = true) -> [LookMasks.Found]? {

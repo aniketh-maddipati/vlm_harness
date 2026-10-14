@@ -599,6 +599,7 @@ body:has([data-view=phone]){background:#111}
             <button type="button" data-lumina="nav-back" title="Back to the canvas · ⏎ · esc · 2×click" onClick="{{ backClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:40px;box-sizing:border-box;padding:0 14px;border-radius:9px;display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:14px;font-weight:600;background:{{ backBg }};color:#EFECE6;cursor:pointer;animation:{{ backAnim }}" style-hover="background:rgba(239,236,230,0.16)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">‹ Canvas<span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-size:11px;font-weight:700">esc</span></button>
             <span style="flex:none;width:8px"></span>
             <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><button type="button" data-well="{{ pk.m }}" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · on / off" onClick="{{ wClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1 1 0;min-width:104px;height:40px;box-sizing:border-box;padding:0 16px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;font-size:14px;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:{{ pk.capBg }};display:grid;place-items:center;font-weight:700;color:{{ pk.capFg }}">{{ pk.k }}</span><span style="color:{{ pk.fg }};font-weight:{{ pk.fw }}">{{ pk.l }}</span></button></sc-for>
+            <sc-if value="{{ cv.olAvail }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="outlines" aria-pressed="{{ cv.olOn }}" title="Outlines · O · on / off" onClick="{{ olClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:40px;box-sizing:border-box;padding:0 14px;border-radius:9px;display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:14px;background:{{ cv.olBg }};box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;color:#EFECE6">O</span><span style="color:{{ cv.olFg }}">Outlines</span></button></sc-if>
           </div>
         <div onDoubleClick="{{ viewDbl }}" style="grid-column:1;grid-row:{{ picRow }};display:flex;flex-direction:column;gap:10px;min-width:0">
           <div data-lumina="clip-row" style="display:flex;align-items:flex-end;gap:12px;min-width:0">
@@ -608,6 +609,7 @@ body:has([data-view=phone]){background:#111}
                   <div style="position:absolute;inset:0;background:{{ it.bg }};filter:{{ it.flt }};animation:{{ it.anim }};transform:{{ it.zt }};transform-origin:{{ it.zo }}"></div>
                   <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><video ref="{{ vidRef }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transition:opacity 120ms;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></video></sc-if>
                   <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ pvCvRef }}" data-lumina="viewer-preview" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transition:opacity 120ms ease-out;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></canvas></sc-if>
+                  <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ olCvRef }}" data-lumina="viewer-outlines" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:{{ it.zt }};transform-origin:{{ it.zo }};pointer-events:none"></canvas></sc-if>
                   <sc-if value="{{ it.zOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="zoom" style="position:absolute;left:8px;bottom:8px;padding:2px 8px;border-radius:5px;background:rgba(22,21,20,0.82);color:#EFECE6;pointer-events:none">{{ it.zT }}</div></sc-if>
                   <sc-if value="{{ it.hvOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:0;bottom:0;left:{{ it.hx }};width:1px;background:rgba(239,236,230,0.6);pointer-events:none"></div></sc-if>
                   <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ it.edge }};pointer-events:none"></div>
@@ -620,6 +622,7 @@ body:has([data-view=phone]){background:#111}
                   <div style="position:absolute;top:0;left:{{ it.ph }};width:2px;height:14px;margin-left:-1px;border-radius:1px;background:#EFECE6"></div>
                 </div>
                 <div style="display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden;color:#9A958D"><span style="color:{{ it.nameC }}">{{ it.name }}</span><span style="color:{{ it.subC }}">{{ it.sub }}</span></div>
+                <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="viewer-selections" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:30px"><span style="color:#9A958D;margin-right:4px">{{ it.olSay }}</span><sc-for list="{{ it.olChips }}" as="oc" hint-placeholder-count="2"><button type="button" data-ol="{{ oc.id }}" aria-pressed="{{ oc.on }}" title="{{ oc.l }} · choose / let go" onClick="{{ olChip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:{{ oc.bg }};color:{{ oc.fg }};box-shadow:inset 0 0 0 1px {{ oc.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ oc.l }}</button></sc-for></div></sc-if>
               </div>
             </sc-for>
           </div>
@@ -1153,7 +1156,7 @@ class Component extends DCLogic {
     { const wk = this._wk || {}; if (this.d && (wk.d !== this.d || wk.m !== s0.marks)) { this._wk = {d:this.d, m:s0.marks}; if (s0.step === 'skim') this.exWarmSoon(); } }
     if (s0.step === 'export' && !this.plT) this.plT = setInterval(() => { if (!document.hidden && this.state.step === 'export') this.wsPlacesPoll(); }, 4000);
     if (s0.step !== 'export' && this.plT) { clearInterval(this.plT); this.plT = null; }
-    this.syncVid(); this.paintVid();
+    this.syncVid(); this.paintVid(); this.olPaint();
   }
   load() {
     const S = window.LuminaVideoSamples, host = window.LuminaVideo && !window.LuminaVideo.__sample ? window.LuminaVideo : null;
@@ -1197,6 +1200,84 @@ class Component extends DCLogic {
     return null;
   }
   pvFlt(c) { const p = this.prof(c); return p && p.g === 'S-Log3' ? 'url(#lumina-slog3)' : 'contrast(1.35) saturate(1.45) brightness(0.96)'; }
+  // Outlines (O, in the Viewer; the app only): the shapes Vision finds in the frame on show, drawn over the picture.
+  // The frame is drawn from the Viewer's own <video> at 1024 px, sent as a JPEG to lumina.video.masks (the bridge's
+  // skimMasks, SetsMasks.swift) and answered as outlines in fractions of the frame. While they are on the pointer
+  // holds the frame, as zoomed in does: a click chooses the shape under it, another click lets it go, and the chips
+  // under the picture do the same. ⇧← ⇧→ still step the frames; each frame is read once.
+  olApi() { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.masks ? v : null; }
+  olHold(id) { const st = this.state; return !!st.ol && st.lv >= 2 && id === st.cur && !!this.olApi(); }
+  olToggle() { const st = this.state; if (!this.olApi() || st.step !== 'skim' || st.lv < 2) return; if (st.ol) return this.setState({ol:false}); this.setState({ol:true, hv:null, ...this.pinHv()}, () => this.olSoon()); }
+  olClick = () => this.olToggle();
+  olCvRef = el => { this.olCv = el || null; this.olPainted = null; if (el) { this.olPaint(); this.olSoon(); } };
+  // The frame on show: its clip and the time the video was asked for.
+  olKey() { const c = this.byId && this.byId[this.state.cur]; return c && this.vidFor === c.id && this.vidWant != null ? c.id + '|' + this.vidWant.toFixed(2) : null; }
+  // undefined: not asked · 'wait': being read · null: couldn't be read · []: nothing in it · the shapes.
+  olFor() { const k = this.olKey(); return k && this.olMap ? this.olMap.get(k) : undefined; }
+  olSel() { const st = this.state; return (st.olSel && st.olSel[st.cur]) || []; }
+  olSoon() { clearTimeout(this.olT); if (this.state.ol) this.olT = setTimeout(() => this.olRead(), 180); }
+  olRead() {
+    const st = this.state, api = this.olApi(), v = this.vidEl, k = this.olKey(); if (!st.ol || st.lv < 2 || !api || !v || !k) return;
+    const m = this.olMap || (this.olMap = new Map()); if (m.has(k)) return;
+    if (v.seeking || v.readyState < 2 || !v.videoWidth || !this.vidHas(v)) return this.olSoon();
+    m.set(k, 'wait'); while (m.size > 64) m.delete(m.keys().next().value);
+    const sc = Math.min(1, 1024 / Math.max(v.videoWidth, v.videoHeight)), o = document.createElement('canvas');
+    o.width = Math.max(2, Math.round(v.videoWidth * sc)); o.height = Math.max(2, Math.round(v.videoHeight * sc));
+    const done = r => { m.set(k, Array.isArray(r) ? r : null); this.olPainted = null; this.olPaint(); this.setState(s => ({tick:(s.tick || 0) + 1})); };
+    try { o.getContext('2d').drawImage(v, 0, 0, o.width, o.height); } catch (x) { return done(null); }
+    new Promise(r => o.toBlob(r, 'image/jpeg', 0.85))
+      .then(b => b ? new Promise((r, j) => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).replace(/^data:[^,]*,/, '')); fr.onerror = j; fr.readAsDataURL(b); }) : '')
+      .then(b64 => b64 ? api.masks(b64) : null)
+      .then(done, () => done(null));
+  }
+  olPaint() {
+    const cv = this.olCv, v = this.vidEl, st = this.state; if (!cv) return;
+    const f = this.olFor(), list = Array.isArray(f) ? f : [], sel = this.olSel(), vw = (v && v.videoWidth) || 16, vh = (v && v.videoHeight) || 9;
+    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1, w = Math.max(2, Math.round((cv.clientWidth || 320) * dpr * Math.max(1, st.zc || 1))), h = Math.max(2, Math.round(w * vh / vw));
+    const key = this.olKey() + '|' + (Array.isArray(f) ? f.length : String(f)) + '|' + sel.join(',') + '|' + w + 'x' + h;
+    if (key === this.olPainted) return; this.olPainted = key;
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const x = cv.getContext('2d'); x.clearRect(0, 0, w, h); x.lineJoin = 'round';
+    for (const s of list) {
+      const on = sel.includes(s.id); if (s.kind === 'background' && !on) continue;   // the rest of the frame is outlined once chosen
+      const p = new Path2D(); for (const L of s.outline || []) { L.forEach(([a, b], i) => i ? p.lineTo(a * w, b * h) : p.moveTo(a * w, b * h)); p.closePath(); }
+      if (on) { x.fillStyle = 'rgba(255,210,122,0.26)'; x.fill(p, 'evenodd'); }
+      x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 2.5 : 1.5) * dpr; x.strokeStyle = 'rgba(22,21,20,0.6)'; x.stroke(p);
+      x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 1.5 : 1) * dpr; x.strokeStyle = on ? '#FFD27A' : 'rgba(239,236,230,0.9)'; x.stroke(p);
+    }
+  }
+  olPick(e) {
+    const cv = this.olCv, v = this.vidEl, f = this.olFor(); if (!cv || !v || !Array.isArray(f)) return;
+    const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY), s = p && Component.olHit(f, p.x, p.y);
+    if (s) this.olChoose(s.id);
+  }
+  olChoose(id) { const st = this.state, now = this.olSel(), next = now.includes(id) ? now.filter(x => x !== id) : now.concat(id); this.setState({olSel:{...(st.olSel || {}), [st.cur]:next}}); }
+  olChip = e => { const id = e.currentTarget.getAttribute('data-ol'); if (id) this.olChoose(id); };
+  olVals(c) {
+    const st = this.state, on = !!st.ol && st.lv >= 2 && !!this.olApi() && !!c._file && !this.vidNew; if (!on) return {olOn:false};
+    const f = this.olFor(), list = Array.isArray(f) ? f : [], sel = this.olSel();
+    return {olOn:true, olSay:Component.olSay(f, list.filter(s => sel.includes(s.id)).length),
+      olChips:list.map(s => { const ch = sel.includes(s.id); return {id:s.id, l:Component.olName(s), on:ch, bg:ch ? '#FFD27A' : 'transparent', fg:ch ? '#1E1D1B' : '#EFECE6', ring:ch ? '#FFD27A' : 'rgba(239,236,230,0.3)'}; })};
+  }
+  // Where a click lands in the frame, 0 … 1 of its width and height, for a picture drawn object-fit: cover in the box r.
+  static olPoint(r, vw, vh, cx, cy) {
+    if (!r || !(r.width > 0) || !(r.height > 0) || !(vw > 0) || !(vh > 0)) return null;
+    const s = Math.max(r.width / vw, r.height / vh), ox = (r.width - vw * s) / 2, oy = (r.height - vh * s) / 2;
+    return {x:(cx - r.left - ox) / (vw * s), y:(cy - r.top - oy) / (vh * s)};
+  }
+  // Inside an outline, even-odd: a hole in a shape is outside it.
+  static olInside(loops, x, y) {
+    let n = false;
+    for (const L of loops || []) for (let i = 0, j = L.length - 1; i < L.length; j = i++) { const [xi, yi] = L[i], [xj, yj] = L[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) n = !n; }
+    return n;
+  }
+  // The shape a click chooses: the smallest that holds the point (a person inside the subject is that person), else the background.
+  static olHit(list, x, y) {
+    let best = null; for (const s of list || []) if (s.kind !== 'background' && Component.olInside(s.outline, x, y) && (!best || s.area < best.area)) best = s;
+    return best || (list || []).find(s => s.kind === 'background' && Component.olInside(s.outline, x, y)) || null;
+  }
+  static olName(s) { const n = /-(\d+)$/.exec(s.id || ''); return s.kind === 'subject' ? 'Subject' : s.kind === 'background' ? 'Background' : (s.kind === 'person' ? 'Person' : 'Object') + (n ? ' ' + n[1] : ''); }
+  static olSay(f, n) { return f === undefined || f === 'wait' ? 'reading this frame…' : f === null ? 'this frame couldn’t be read' : !f.length ? 'nothing to choose in this frame' : n ? n + ' chosen' : 'click a shape to choose it'; }
   // Only the profiles the preview converts (S-Log3, S-Log2, HLG) change with the switch; a clip that is already
   // Rec.709, or whose profile is some other name or not known, is shown as it is, switch on or off.
   pvOn(c) { return !!this.state.pv && this.needsPv(c); }
@@ -1990,6 +2071,7 @@ class Component extends DCLogic {
       case '[': if (this.cvGrid()) return; return this.chapJump(-1);
       case ']': if (this.cvGrid()) return; return this.chapJump(1);
       case 'v': case 'V': return this.pvToggle();
+      case 'o': case 'O': if (e.altKey || e.repeat) return; e.preventDefault(); return this.olToggle();
       case 'z': case 'Z': return this.zoomKey();
       case '-': case '_': if (this.cvGrid()) return this.cvZoom(-1); if (k === '_') return; return this.gapsSet(st.nCut - 1);
       case '=': case '+': if (this.cvGrid()) return this.cvZoom(1); return this.gapsSet(st.nCut + 1);
@@ -2134,7 +2216,7 @@ class Component extends DCLogic {
   scrubMove = e => { const r = e.currentTarget.getBoundingClientRect(); this.setState({fx:Math.max(0, Math.min(7, (e.clientX - r.left) / r.width * 7))}); };
   picF(e) { const r = e.currentTarget.firstElementChild.getBoundingClientRect(); return Math.max(0, Math.min(0.999, (e.clientX - r.left) / Math.max(1, r.width))); }
   picMove = e => { const id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e), h = this.state.hv;
-    if (!Component.pointerScrubs(this.state.zc, id === this.state.cur)) { if (h && h.id === id) this.setState({hv:null, ...this.pinHv()}); return; }
+    if (!Component.pointerScrubs(this.state.zc, id === this.state.cur) || this.olHold(id)) { if (h && h.id === id) this.setState({hv:null, ...this.pinHv()}); return; }
     if (!h || h.id !== id || Math.abs(h.f - f) > 0.002) this.setState({hv:{id, f}}); };
   // Zoomed: a drag on the picture moves it. The frame stays.
   picDown = e => { const st = this.state, id = e.currentTarget.getAttribute('data-clip'); if (e.button || st.held || Component.pointerScrubs(st.zc, id === st.cur)) return;
@@ -2143,6 +2225,7 @@ class Component extends DCLogic {
   picClick = e => {
     const st = this.state, id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e);
     if (st.held) { this.heldTapped = true; this.doMark([id], st.held); return; }
+    if (this.olHold(id)) return this.olPick(e);   // outlines on: a click chooses a shape, the frame stays
     if (!Component.pointerScrubs(st.zc, id === st.cur)) return;   // zoomed: a click or the end of a drag leaves the frame where it is
     this.setState({cur:id, fx:Math.max(0, Math.min(7, f * 8 - 0.5)), hv:{id, f}});
   };
@@ -2154,6 +2237,7 @@ class Component extends DCLogic {
     el.addEventListener('seeked', () => { if (el !== this.vidEl) return; this.vidUp = el; this.vidShow(); this.vidAsk = 0; if (this.vidWant != null && Math.abs(el.currentTime - this.vidWant) > 0.02) { el.currentTime = this.vidWant; this.vidArm(); } else this.vidTry = 0; });
     el.addEventListener('loadeddata', () => { if (el === this.vidEl && this.vidWant != null && !el.seeking) el.currentTime = this.vidWant; });
     el.addEventListener('error', () => { if (el === this.vidEl) { this.vidUp = null; el.style.opacity = '0'; this.vidCheck(true); } });
+    el.addEventListener('seeked', () => { if (el === this.vidEl) this.olSoon(); });
   };
   // No seek in the Viewer waits forever. What to do about the video, from what it says of itself:
   // 'ok' it is where it was asked to be · 'wait' still inside its time · 'again' open the file afresh · 'off' leave it, the sampled frames show.
@@ -2343,7 +2427,7 @@ class Component extends DCLogic {
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static', lv2Rows:'auto', topCol:'1', picRow:'2', infoCol:'1', infoRow:'3',
       wClick:this.wClick, 
-      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef,
+      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef, olCvRef:this.olCvRef, olChip:this.olChip, olClick:this.olClick,
       grid42:true,
       boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
       undoN:st.undo.length, redoN:st.redo.length, undoC:st.undo.length ? '#EFECE6' : '#6E6A64', redoC:st.redo.length ? '#EFECE6' : '#6E6A64',
@@ -2493,7 +2577,8 @@ class Component extends DCLogic {
         picks:[['keep', 'K'], ['maybe', 'M'], ['cut', 'C']].map(([pm, pk]) => ({m:pm, k:pk, l:this.W(pm), on:m === pm, fg:m === pm ? '#1E1D1B' : MK[pm], fw:m === pm ? 800 : 400, bg:m === pm ? MK[pm] : 'transparent', ring:'1px ' + MK[pm] + (m === pm ? '' : '80'), capBg:m === pm ? 'rgba(30,29,27,0.14)' : 'rgba(239,236,230,0.12)', capFg:m === pm ? '#1E1D1B' : '#EFECE6'})),
         markNow:m ? this.W(m) : 'undecided', markNowC:m ? MK[m] : '#9A958D', groups, hdBg:m ? 'linear-gradient(90deg,' + MK[m] + '33,' + MK[m] + '0A 70%),rgba(239,236,230,0.04)' : 'rgba(239,236,230,0.06)',
         ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
-        chips:ch.pending ? [this.pendV(), this.pendV(), this.pendV()] : ch.list.map(x => this.chipV(c, x))};
+        chips:ch.pending ? [this.pendV(), this.pendV(), this.pendV()] : ch.list.map(x => this.chipV(c, x)),
+        olAvail:!!this.olApi(), olOn:!!st.ol, olBg:st.ol ? 'rgba(255,210,122,0.22)' : 'transparent', olFg:st.ol ? '#FFD27A' : '#EFECE6'};
       { const i = this.flat.indexOf(c.id), P = this.flat[i - 1], N = this.flat[i + 1], nb = (id, col, arrow) => { const cc = this.byId[id], mm = st.marks[id], t0 = this.tone(cc, this.firstIdx()), nm = cc.name.replace(/\.\w+$/, '');
           return {id, col, op:mm === 'cut' ? 0.55 : 1, bg:t0.bg, flt:t0.flt, edge:mm ? 'inset 0 0 0 3px ' + MK[mm] : 'inset 0 0 0 1px rgba(239,236,230,0.12)', say:arrow + ' ' + nm + (mm ? ' · ' + this.W(mm) : ''), tip:nm + ' · ' + arrow}; };
         vals.nbrs = [P && nb(P, '1', '←'), N && nb(N, '2', '→')].filter(Boolean); vals.nbOn = st.vw > 640 && vals.nbrs.length > 0; }
@@ -2516,7 +2601,8 @@ class Component extends DCLogic {
         return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, vflt:this.pvOn(cc) ? this.pvFlt(cc) : 'none', anim:ti.anim, vid:isC && !!cc._file && !this.vidNew, drag:!zz ? 'true' : 'false', hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:isC && Component.zoomHeld(st.zc), zT:'zoomed · Z to fit', cur:isC && Component.zoomHeld(st.zc) ? (this.panS ? 'grabbing' : 'grab') : 'ew-resize',
           edge:g2 ? 'inset 0 0 0 3px ' + MK[g2] + '99' : mm ? 'inset 0 0 0 ' + (isC ? 3 : 2) + 'px ' + MK[mm] : 'none', markOn:!!mm && !g2, mark:this.W(mm), markC:mm ? MK[mm] : '', ghost:!!g2, ghostT:this.W(g2), ghostC:g2 ? MK[g2] : '',
           name:cc.name.replace(/\.\w+$/, ''), nameC:isC ? '#EFECE6' : '#B8B3AB', barVis:isC ? 'visible' : 'hidden', ph:(ff * 100).toFixed(2) + '%',
-          sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' + (say ? ' · ' + say : '') : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—') + (say ? ' · ' + say : ''), subC:isC ? '#B8B3AB' : '#9A958D'};
+          sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' + (say ? ' · ' + say : '') : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—') + (say ? ' · ' + say : ''), subC:isC ? '#B8B3AB' : '#9A958D',
+          ...(isC ? this.olVals(cc) : {olOn:false})};
       });
       const cw = Math.max(0, x - fit.gap), more = list.length - k, before = s0, after = list.length - s0 - k;
       const span = gq ? gq.title : '', extra = (before ? '‹ ' + before + ' more · ' : '') + (after ? after + ' more ›' : '');

@@ -131,6 +131,7 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `skimTrashPutBack` | `skim/trash.json` | moves this shoot's files from the Trash back to where they were, while they are still there (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimTrashList` | `skim/trash.json`, and whether each file is still in the Trash (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimHealth` | the Mac's thermal state, Low Power Mode, memory pressure and Lumina's own memory footprint (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimMasks` | one frame the Skim Viewer drew from its own video, sent as a JPEG: the subject, people, objects and background in it (Vision, on the Mac; held in memory for the call, nothing kept) (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimExportPlace` | `skim/export.json` (the Save to folder's bookmark) and whether Final Cut Pro is installed; the open shoot's folder path, for the .fcpxml (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimExportChoose` | — | the folder panel after the user's click; the folder picked is kept as a security-scoped bookmark in `skim/export.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportAsk` | — | removes `skim/export.json`, so each save asks with the save panel (Debug builds with `LUMINA_PAGE=skim` only) |

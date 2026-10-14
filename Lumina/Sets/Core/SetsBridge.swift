@@ -674,6 +674,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "skimHealth":
             // Skim's pacing: heat, Low Power Mode, memory pressure, this app's footprint (SkimHealth).
             return (SkimHealth.shared.read(slowdown: (body["slowdown"] as? NSNumber)?.doubleValue ?? 1), nil)
+        case "skimMasks":
+            // The selections in the frame the Skim Viewer is on (SetsMasks, Vision on the Mac): a JPEG the page drew
+            // from its own <video>, in and out of memory. Nothing is kept.
+            let frame = body["frame"] as? String
+            guard let found = await Task.detached(priority: .userInitiated, operation: { SetsMasks.masks(frame: frame) }).value else { return (NSNull(), nil) }
+            return (found.map(\.dictionary), nil)
         case "skimExportPlace":
             // Export ▸ Save to: the folder Skim saves its Final Cut file and cut list into (none: ask each time), and the
             // folder the open shoot was read from, so the .fcpxml points Final Cut at the clips where they are.
