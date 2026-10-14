@@ -84,7 +84,11 @@ async function run(host) {
     await p.waitForTimeout(2800); const pre = await p.evaluate(() => window.__calls.map(c => c[0]));
     ok(pre.includes('check') && pre.includes('list'), 'app: Export is made ready in Skim, before it opens (the file checked, the folders read): ' + [...new Set(pre)].join(' '));
   }
-  await p.keyboard.press('Meta+Enter'); await p.waitForTimeout(900);
+  // LOCAL-CHANGES 279: Export is gold in the steps and has its own button at the end of the dock
+  const gold = await p.evaluate(() => { const t = [...document.querySelectorAll('[data-lumina="steps"] [role=tab]')].find(e => e.innerText.trim() === 'Export'), b = document.querySelector('[data-lumina="dock-export"]'); return [t && getComputedStyle(t).color, b && getComputedStyle(b).backgroundColor, b && b.innerText.replace(/\s+/g, ' ').trim()]; });
+  ok(gold[0] === 'rgb(255, 210, 122)' && gold[1] === 'rgb(255, 210, 122)' && /^Export ⌘E \d+ clips?$/.test(gold[2]), (host ? 'app' : 'browser') + ': Export is gold in the steps and at the end of the dock: ' + JSON.stringify(gold));
+  if (host) await p.click('[data-lumina="dock-export"]'); else await p.keyboard.press('Meta+Enter');
+  await p.waitForTimeout(900);
   const text = sel => p.evaluate(s => document.querySelector(s)?.innerText || '', sel);
   ok(await p.$('[data-lumina="export-plan"]'), (host ? 'app' : 'browser') + ': the Export controls are there');
   if (shots) await p.screenshot({path:path.join(shots, (host ? 'app' : 'browser') + '-export.png'), fullPage:true});
