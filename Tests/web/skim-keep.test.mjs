@@ -12,14 +12,15 @@ const method = (name, head) => new Function('return function ' + extractMethod(s
 const keepTake = method('keepTake', 'keepTake(any) {'), keepApply = method('keepApply', 'keepApply() {'), keepReopen = method('keepReopen', 'keepReopen(kept) {');
 const tabKeepSave = method('tabKeepSave', 'tabKeepSave() {'), tabKeepLoad = method('tabKeepLoad', 'tabKeepLoad() {'), tabKeepDrop = method('tabKeepDrop', 'tabKeepDrop() {'), resumeDrop = method('resumeDrop', 'resumeDrop() {');
 // the stand-ins the tab keep reaches: the page's class constant and the tab's storage
-globalThis.Component = {TAB_KEEP:'lumina-skim-tab:keep'};
+globalThis.window = globalThis.window || {};
+globalThis.Component = {TAB_KEEP:'lumina-skim-tab:keep', resumeGap:new Function('return function ' + extractMethod(src, 'resumeGap', 'static resumeGap(keys, found) {').replace(/^static /, ''))()};
 const tab = new Map(); globalThis.sessionStorage = {getItem:k => tab.has(k) ? tab.get(k) : null, setItem:(k, v) => tab.set(k, String(v)), removeItem:k => tab.delete(k)};
 const clipKey = c => (c.name || '').toUpperCase() + '@' + (c.t || '').slice(0, 19);
 
 const page = (ids, state = {}) => {
   const clips = ids.map((id, i) => ({id, name:'C000' + i + '.MP4', t:'2026-10-0' + (i + 1) + 'T10:00:00'}));
   const byId = {}; clips.forEach(c => { byId[c.id] = c; });
-  return {d:{shoot:{real:true, name:'Day 1'}, clips}, byId, clipKey, keepTake, keepApply, keepReopen, tabKeepSave, tabKeepLoad, tabKeepDrop, resumeDrop, hostStore:() => null,
+  return {d:{shoot:{real:true, name:'Day 1'}, clips}, byId, clipKey, keepTake, keepApply, keepReopen, tabKeepSave, tabKeepLoad, tabKeepDrop, resumeDrop, hostStore:() => null, flash(t) { this.flashed = t; }, plural:(n, w) => n + ' ' + w + (n === 1 ? '' : 's'),
     state:{marks:{}, dis:{}, cuts:null, nCut:3, cur:ids[0], step:'skim', lv:0, gi:0, zl:3, ex:{event:'', kw:'maybe'}, ...state},
     setState(o, cb) { Object.assign(this.state, o); if (cb) cb(); }};
 };
@@ -88,6 +89,7 @@ test('Safari: a reload keeps the marks for the tab and the same folder brings th
   b.d.clips = a.d.clips.map((c, i) => ({...c, id:'G' + i})); b.keepApply();
   assert.deepEqual(b.state.marks, {G1:'keep'}); assert.equal(b.state.cur, 'G1'); assert.equal(b.state.lv, 2);
   assert.equal(b.state.resume, null); assert.equal(sessionStorage.getItem('lumina-skim-tab:keep'), null);
+  assert.equal(b.flashed, 'Picked up where you were · 2 clips');
 });
 
 test('Safari: another folder opens as it is, and Start fresh forgets', () => {
@@ -117,4 +119,17 @@ test('the web preview notices a newer build, and only the web preview asks', () 
   assert.equal(staleOf('', 'e8c2499'), null); assert.equal(staleOf('a1b2c3d', ''), null);
   assert.match(src, /if \(!window\.luminaPreview \|\| !build \|\| !\/\^https\?:\$\/\.test\(location\.protocol\)/);
   assert.match(src, /staleGo\(\) \{ if \(this\.hasShoot\(\)\) this\.tabKeepSave\(\);/);
+});
+
+// Resume in Safari (LOCAL-CHANGES 276): only the kept shoot's clips from the folder chosen, and what did not come back.
+test('Resume takes only the kept clips from a larger folder, and names the missing ones', () => {
+  const pick = new Function('return function ' + extractMethod(src, 'resumePick', 'static resumePick(vids, keys) {').replace(/^static /, ''))();
+  const gap = new Function('return function ' + extractMethod(src, 'resumeGap', 'static resumeGap(keys, found) {').replace(/^static /, ''))();
+  const keys = ['C0001.MP4@2026-10-01T10:00:00', 'C0002.MP4@2026-10-01T10:05:00', 'C0003.MP4@2026-10-01T10:09:00'];
+  const vids = [{name:'C0001.MP4'}, {name:'c0002.mp4'}, {name:'OTHER.MOV'}, {name:'C0009.MP4'}];
+  assert.deepEqual(pick(vids, keys).map(f => f.name), ['C0001.MP4', 'c0002.mp4']);
+  assert.deepEqual(pick(vids, []), []); assert.deepEqual(pick(vids, undefined), []);
+  const g = gap(keys, {[keys[0]]:'F0001', [keys[1]]:'F0002'});
+  assert.deepEqual(g, {n:3, found:2, missing:[{name:'C0003.MP4', t:'2026-10-01T10:09:00'}]});
+  assert.match(src, /if \(this\.kept && this\.state\.resume\) \{ const hit = Component\.resumePick\(vids, this\.kept\.files\); if \(hit\.length\) vids = hit; \}/);
 });

@@ -1787,7 +1787,7 @@ class Component extends DCLogic {
   }
   undo() { const st = this.state; if (!st.undo.length) return; const step = st.undo[st.undo.length - 1]; this.setState({undo:st.undo.slice(0, -1), redo:[...st.redo, step]}); this.flash(this.apply(step, true)); }
   redo() { const st = this.state; if (!st.redo.length) return; const step = st.redo[st.redo.length - 1]; this.setState({redo:st.redo.slice(0, -1), undo:[...st.undo, step]}); this.flash(this.apply(step, false)); }
-  flash(t) { clearTimeout(this.flT); this.setState({flash:t}); this.flT = setTimeout(() => this.setState({flash:null}), 2200); }
+  flash(t, ms) { clearTimeout(this.flT); this.setState({flash:t}); this.flT = setTimeout(() => this.setState({flash:null}), ms || 2200); }
   // navigation
   // Clips grid geometry, worked out rather than measured, so only the rows near the screen are built.
   tileGeo() { const st = this.state, sc = this.sc; return Component.layGeo({vw:st.vw, cw:sc && sc.clientWidth, z:st.z1}); }
@@ -2603,7 +2603,7 @@ class Component extends DCLogic {
     // dropped clips can't be handed back (the app never learns where they are): the app doesn't reload
     if (this.picked === false && !any) return JSON.stringify({dropped:true});
     const K = id => this.byId[id] ? this.clipKey(this.byId[id]) : null, by = o => { const out = {}; Object.keys(o || {}).forEach(id => { const k = K(id); if (k) out[k] = o[id]; }); return out; };
-    return JSON.stringify({name:d.shoot.name, marks:by(st.marks), dis:by(st.dis), cuts:st.cuts ? st.cuts.map(K).filter(Boolean) : null, nCut:st.nCut, userCut:!!this.userCut, cur:K(st.cur), step:st.step, lv:st.lv, gi:st.gi, zl:st.zl, ex:st.ex, n:d.clips.length});
+    return JSON.stringify({name:d.shoot.name, marks:by(st.marks), dis:by(st.dis), cuts:st.cuts ? st.cuts.map(K).filter(Boolean) : null, nCut:st.nCut, userCut:!!this.userCut, cur:K(st.cur), step:st.step, lv:st.lv, gi:st.gi, zl:st.zl, ex:st.ex, n:d.clips.length, files:d.clips.map(c => this.clipKey(c))});
   }
   keepReopen(kept) {
     let k = null; try { k = typeof kept === 'string' ? JSON.parse(kept) : kept; } catch (x) {}
@@ -2617,6 +2617,8 @@ class Component extends DCLogic {
     if (!Object.keys(ids).some(key => key === k.cur || (k.marks && key in k.marks) || (k.dis && key in k.dis) || (k.cuts && k.cuts.includes(key)))) { this.keepAt = 'done'; return; }
     const by = o => { const out = {}; Object.keys(o || {}).forEach(key => { if (ids[key]) out[ids[key]] = o[key]; }); return out; };
     if (k.name) d.shoot.name = k.name; this.userCut = !!k.userCut;
+    if (k.files && !this.hostStore()) { const g = Component.resumeGap(k.files, ids); this.resumeGap = g; window.luminaSkimResumeGap = g;
+      this.flash(g.missing.length ? 'Picked up ' + g.found + ' of ' + this.plural(g.n, 'clip') + ' · not in that folder: ' + g.missing.slice(0, 3).map(m => m.name).join(', ') + (g.missing.length > 3 ? ' and ' + (g.missing.length - 3) + ' more' : '') : 'Picked up where you were · ' + this.plural(g.n, 'clip'), g.missing.length ? 6000 : 2200); }
     const cuts = k.cuts ? k.cuts.map(key => ids[key]).filter(Boolean) : null, cur = ids[k.cur] || this.state.cur, step = d.clips.length ? (k.step || 'skim') : 'import';
     this.setState({marks:by(k.marks), dis:by(k.dis), cuts, nCut:k.nCut || this.state.nCut, cur, step, lv:k.lv ?? this.state.lv, gi:k.gi || 0, zl:k.zl ?? this.state.zl, ex:{...this.state.ex, ...(k.ex || {})}}, () => { this.keepAt = 'done'; });
   }
@@ -2635,6 +2637,10 @@ class Component extends DCLogic {
   }
   tabKeepDrop() { try { sessionStorage.removeItem(Component.TAB_KEEP); } catch (x) {} if (this.state.resume) this.setState({resume:null}); }
   resumeDrop() { this.kept = null; this.tabKeepDrop(); }
+  // The clips of a kept shoot among the files chosen, by name (the capture time is checked once they are listed, by clipKey).
+  static resumePick(vids, keys) { if (!keys || !keys.length) return []; const want = new Set(keys.map(k => k.slice(0, k.lastIndexOf('@')))); return vids.filter(f => want.has(f.name.toUpperCase())); }
+  // What Resume found: the kept clips that came back and the ones that did not (name and capture time).
+  static resumeGap(keys, found) { const missing = (keys || []).filter(k => !found[k]); return {n:(keys || []).length, found:(keys || []).length - missing.length, missing:missing.map(k => ({name:k.slice(0, k.lastIndexOf('@')), t:k.slice(k.lastIndexOf('@') + 1)}))}; }
   // Only the web preview: the page carries its build (window.luminaBuild) and the site the newest one (version.txt). The app
   // updates itself (the hot build reloads in place), so it never asks.
   static staleOf(text, build) { const v = String(text || '').trim().split(/\s+/)[0]; return v && build && /^[0-9a-f]{4,40}$/.test(v) && v !== build ? v : null; }
@@ -3691,7 +3697,10 @@ class Component extends DCLogic {
   primName(p) { return /gamut3.?cine/i.test(p) ? 'S-Gamut3.Cine' : /gamut3/i.test(p) ? 'S-Gamut3' : /gamut/i.test(p) ? 'S-Gamut' : /2020/.test(p) ? 'Rec.2020' : /709/.test(p) ? 'Rec.709' : p; }
   async importFiles(files) {
     const rel = f => (this.rel && this.rel.get(f)) || f.webkitRelativePath || f.name;
-    const vids = files.filter(f => Component.isClip(f));
+    let vids = files.filter(f => Component.isClip(f));
+    // Resume in Safari (LOCAL-CHANGES 276): from whatever folder was chosen (the shoot's, or one above it), only the clips the
+    // kept shoot had; a folder with none of them opens as it is.
+    if (this.kept && this.state.resume) { const hit = Component.resumePick(vids, this.kept.files); if (hit.length) vids = hit; }
     const photos = files.filter(f => /\.(arw|dng|cr3|cr2|nef|raf|orf|rw2|jpe?g|heic)$/i.test(f.name)).length;
     if (!vids.length) { if (!this.state.resume) this.kept = null; this.keepAt = 'done'; this.setState({impMsg:photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
     this.picked = !!this.pickNext; this.pickNext = false;
