@@ -607,17 +607,18 @@ body:has([data-view=phone]){background:#111}
       <sc-if value="{{ tiSayOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="time-step" role="status" aria-live="polite" style="position:absolute;left:50%;top:14px;z-index:6;transform:translateX(-50%);padding:5px 12px;border-radius:8px;background:rgba(22,21,20,0.9);box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 6px 18px rgba(0,0,0,0.4);color:#EFECE6;font-weight:600;white-space:nowrap;pointer-events:none;animation:fade 100ms ease-out">{{ tiSay }}</div></sc-if>
       <div data-screen-label="Grid" data-lumina="fused" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" onDoubleClick="{{ gridDbl }}" onScroll="{{ scScroll }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:14px clamp(16px,2.2vw,40px) 0">
         <div data-lumina="fused-in" ref="{{ fInRef }}" style="position:relative;margin-left:{{ fGut }}px;height:{{ fH }}px;will-change:transform">
-          <div data-lumina="time-rod" style="position:absolute;left:{{ fRodX }}px;top:{{ fRodT }}px;width:4px;height:{{ fRodH }}px;border-radius:2px;background:#7C7872;pointer-events:none"></div>
-          <sc-for list="{{ fr }}" as="r" hint-placeholder-count="1"><div data-lumina="time-rod-run" style="position:absolute;left:{{ r.rodX }}px;top:{{ r.rodY }}px;width:4px;height:{{ r.rodH }}px;border-radius:2px;background:#7C7872;pointer-events:none"></div></sc-for>
+          <sc-for list="{{ fd }}" as="d" hint-placeholder-count="1"><div data-lumina="time-day" style="position:absolute;left:{{ d.x }}px;top:{{ d.y }}px;width:{{ d.w }}px;height:2px;background:linear-gradient(90deg,rgba(255,210,122,0.8),rgba(255,210,122,0.35) 40%,rgba(255,210,122,0));pointer-events:none"></div></sc-for>
+          <div data-lumina="time-rod" style="position:absolute;left:{{ fRodX }}px;top:{{ fRodT }}px;width:5px;height:{{ fRodH }}px;border-radius:3px;background:#8E8A83;pointer-events:none"></div>
+          <sc-for list="{{ fr }}" as="r" hint-placeholder-count="1"><div data-lumina="time-rod-run" style="position:absolute;left:{{ r.rodX }}px;top:{{ r.rodY }}px;width:5px;height:{{ r.rodH }}px;border-radius:3px;background:{{ r.rodC }};pointer-events:none"></div></sc-for>
           <sc-for list="{{ fh }}" as="h" hint-placeholder-count="2">
             <button type="button" data-scene="{{ h.s }}" data-nobox="1" onClick="{{ hClick }}" data-lumina="time-mark" title="{{ h.tip }}" aria-label="{{ h.tip }}" style="position:absolute;left:{{ h.x }}px;top:{{ h.y }}px;width:{{ fMarkW }}px;min-height:48px;margin:0;padding:0 0 0 6px;border:0;font:inherit;color:inherit;text-align:right;-webkit-appearance:none;appearance:none;display:flex;align-items:flex-start;white-space:nowrap;cursor:pointer;border-radius:8px;background:{{ h.bg }}" style-hover="background:rgba(239,236,230,0.07)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
               <span style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end;padding:3px 0 5px;overflow:hidden">
-                <sc-if value="{{ h.dateOn }}" hint-placeholder-val="{{ false }}"><span style="color:#FFD27A;font-size:13px;font-weight:700;line-height:17px">{{ h.date }}</span></sc-if>
-                <span data-lumina="time-at" style="font-size:{{ h.tSize }};font-weight:600;line-height:21px;color:#EFECE6;font-variant-numeric:tabular-nums">{{ h.time }}</span>
-                <span data-lumina="scene-marks" style="color:#B8B3AB;line-height:16px">{{ h.line }}</span>
-                <span data-lumina="time-len" style="color:#9A958D;line-height:15px;font-variant-numeric:tabular-nums">{{ h.len }}</span>
+                <sc-if value="{{ h.dateOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="time-date" style="color:#FFD27A;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;line-height:20px">{{ h.date }}</span></sc-if>
+                <span data-lumina="time-at" style="font-size:{{ h.tSize }};font-weight:700;line-height:36px;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:#EFECE6;font-variant-numeric:tabular-nums">{{ h.time }}</span>
+                <span data-lumina="scene-marks" style="color:#B8B3AB;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;line-height:16px">{{ h.line }}</span>
+                <span data-lumina="time-len" style="color:#9A958D;font-size:12px;line-height:16px;font-variant-numeric:tabular-nums">{{ h.len }}</span>
               </span>
-              <span style="flex:none;width:24px;height:30px;display:grid;place-items:center"><span style="width:13px;height:13px;border-radius:50%;background:{{ h.dot }};box-shadow:0 0 0 3px #1E1D1B"></span></span>
+              <span style="flex:none;width:30px;height:{{ h.dotH }}px;display:grid;place-items:center"><span style="width:17px;height:17px;border-radius:50%;background:{{ h.dot }};box-shadow:0 0 0 3px #1E1D1B"></span></span>
             </button>
           </sc-for>
           <sc-for list="{{ ft }}" as="g" hint-placeholder-count="8">
@@ -1612,7 +1613,7 @@ class Component extends DCLogic {
   // first tile), so runs read left to right and then down, like words on a line, and a sparse shoot fills the width
   // instead of stacking one clip per row. A run is never split to share a row: one longer than what is left starts the
   // next row, and one longer than a row takes whole rows from the left, as before. Tiles keep the interval's size.
-  static FLOW_IN = 112;
+  static FLOW_IN = 136;
   // layFlow: per section {g (its first tile), n, r (its first row), x (its first tile's left: 0 starts a row), y (that
   // row's top), hy (its mark's band, hh above y when the section starts a row), rows}; Y every row's top; height as laySecs.
   static layFlow(geo, secs) {
@@ -1702,7 +1703,10 @@ class Component extends DCLogic {
   static TI = [[5, 4], [10, 3], [30, 3], [60, 2], [120, 2], [300, 2], [600, 1], [1800, 1], [3600, 1], [10800, 1], [86400, 1]];
   static TI_DEF = 3;
   static TI_GAP = 12;
-  static TI_GUT = 100;
+  static TI_GUT = 124;
+  // On a phone the gutter stays narrow (TI_GUT_NARROW, smaller type) so the one column of tiles keeps its width.
+  static TI_GUT_NARROW = 100;
+  static tiGut(vw) { return vw < 600 ? Component.TI_GUT_NARROW : Component.TI_GUT; }
   static TI_PINCH = 0.3;
   // No transitions (LOCAL-CHANGES 161): a regroup lands at once and a pinch let go snaps back. The pinch itself still
   // follows the fingers; true brings back the glide, the fade and the spring.
@@ -1745,7 +1749,7 @@ class Component extends DCLogic {
   // The grid sits right of the rod’s gutter, and runs of one interval are TI_GAP apart instead of under a header; a
   // run that fits beside the one before it shares its row (flow, layFlow).
   // Few clips: the tiles grow to fill the screen (zlFit); an explicit zl is a size asked for and stays as it is.
-  cvGeo(zl) { const st = this.state, sc = this.sc, g = Component.zlGeo({vw:st.vw, cw:(sc && sc.clientWidth ? sc.clientWidth : st.vw) - Component.TI_GUT, zl:zl != null ? zl : st.zl > 0 ? Component.TI[this.cvTi()][1] : 0}); if (!g.zl) return g;
+  cvGeo(zl) { const st = this.state, sc = this.sc, g = Component.zlGeo({vw:st.vw, cw:(sc && sc.clientWidth ? sc.clientWidth : st.vw) - Component.tiGut(st.vw), zl:zl != null ? zl : st.zl > 0 ? Component.TI[this.cvTi()][1] : 0}); if (!g.zl) return g;
     const t = {...g, hh:Component.TI_GAP, flow:true}; return zl != null ? t : Component.zlFit(t, this.cvSecs(), st.scH || (sc && sc.clientHeight) || 0); }
   cvTi() { const t = this.state.ti; return t == null ? Component.TI_DEF : t; }
   cvRub(pz) { const top = Component.TI.length - 1; return Component.rubber(pz, top - this.cvTi(), top); }
@@ -1885,8 +1889,8 @@ class Component extends DCLogic {
     const nm = c => c.name.replace(/\.\w+$/, ''), ncut = st.nCutUi != null ? st.nCutUi : st.nCut, compact = zl > 0 && zl < 3;
     vals.gapMax = gs.length; vals.nCut = ncut; vals.gapChange = this.gapChange; vals.fTh = geo.th; vals.fPh = geo.ph; vals.fH = L.height; vals.fHh = geo.hh; vals.fInRef = this.fInRef;
     // the rod: a gutter left of the grid, the rod 20 px from the tiles, a mark (time, count, dot on the rod) per run
-    const gut = Component.TI_GUT, iv = Component.TI[this.cvTi()][0];
-    vals.fGut = gut; vals.fMarkX = -gut; vals.fMarkW = gut - 8; vals.fRodX = -22; vals.fRodT = geo.hh + 11; vals.fRodH = Math.max(0, L.height - 40 - geo.hh - 11);
+    const gut = Component.tiGut(st.vw), iv = Component.TI[this.cvTi()][0], narrow = gut < Component.TI_GUT;
+    vals.fGut = gut; vals.fMarkX = -gut; vals.fMarkW = gut - 8; vals.fRodX = -25.5; vals.fRodT = geo.hh + 11; vals.fRodH = Math.max(0, L.height - 40 - geo.hh - 11);
     vals.tiSayOn = !!st.tiSay; vals.tiSay = 'every ' + Component.tiWord(iv) + ' · ' + this.plural(SC.length, 'group');
     const sk = st.skim, fi = this.firstIdx(), dotMax = Math.floor((geo.tw + 3) / 9);
     this.gSlot = this.gSlot || [];
@@ -1924,10 +1928,12 @@ class Component extends DCLogic {
       const s = SC[it.s]; if (!s) return null; const ids = s.clips.map(c => c.id), S = Component.foldSum(s.clips.map(c => ({id:c.id, dur:c.dur, bytes:c.bytes, notes:[], pending:false})), st.marks);
       const lab = Component.tiLabel(s.clips[0].t, iv, it.s > 0 && SC[it.s - 1] ? SC[it.s - 1].clips[0].t : null), allM = ['keep', 'maybe', 'cut'].find(m => S[m] === S.n) || null;
       const all = ids.length > 0 && ids.every(id => selSet.has(id)), when = lab.time ? (lab.date ? lab.date + ' ' : '') + lab.time : lab.date;
-      return {s:it.s, y:it.y + geo.hh, x:(it.x || 0) - gut, flow:!!it.flow, rodX:(it.x || 0) - 22, rodY:it.y + geo.hh + 11, rodH:Math.max(0, geo.th - 30), date:lab.date, dateOn:!!(lab.date && lab.time), time:lab.time || lab.date, line:this.plural(S.n, 'clip'), len:this.fmtDur(S.dur), tSize:iv < 60 ? '14px' : '16px', dot:allM ? MK[allM] : all ? '#FFD27A' : '#B8B3AB', bg:all ? 'rgba(255,210,122,0.07)' : 'transparent',
+      return {s:it.s, y:it.y + geo.hh, x:(it.x || 0) - gut, flow:!!it.flow, rodX:(it.x || 0) - 25.5, dayNew:!!lab.date, rodC:lab.date && it.s > 0 ? 'rgba(255,210,122,0.7)' : '#8E8A83', rodY:it.y + geo.hh + 11, rodH:Math.max(0, geo.th - 30), date:lab.date, dateOn:!!(lab.date && lab.time), time:lab.time || lab.date, line:this.plural(S.n, 'clip'), len:this.fmtDur(S.dur), tSize:iv < 60 ? (narrow ? '15px' : '19px') : narrow ? '22px' : '28px', dotH:lab.date && lab.time ? 78 : 38, dot:allM ? MK[allM] : all ? '#FFD27A' : '#B8B3AB', bg:all ? 'rgba(255,210,122,0.07)' : 'transparent',
         tip:when + ' · ' + this.plural(ids.length, 'clip') + ' · ' + this.fmtDur(S.dur) + ' · ' + this.fmtB(s.bytes) + ': click to select them, then K M C'};
     }).filter(Boolean);
     vals.fr = vals.fh.filter(h => h.flow);
+    // a new day that starts a row: a line across the canvas above it (one that shares a row has an amber rod instead)
+    vals.fd = vals.fh.filter(h => h.s > 0 && h.dayNew && !h.flow).map(h => ({x:-gut + 8, y:h.y - Math.round(geo.hh / 2) - 1, w:geo.W + gut - 8}));
   }
   cvHints() {
     const st = this.state, g = this.cvG(), out = [], add = (k, t) => { if (t) out.push({k, t}); }; if (!g) return {lead:'', list:out};
