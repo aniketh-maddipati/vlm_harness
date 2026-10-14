@@ -49,12 +49,12 @@ test('a click chooses the smallest shape under it, else the background', () => {
 });
 
 test('chips and the line say what is there in plain words', () => {
-  assert.deepEqual([{id:'subject', kind:'subject'}, {id:'person-2', kind:'person'}, {id:'object-3', kind:'object'}, {id:'background', kind:'background'}].map(C.olName),
-    ['Subject', 'Person 2', 'Object 3', 'Background']);
+  assert.deepEqual([{id:'subject', kind:'subject'}, {id:'person-2', kind:'person'}, {id:'object-3', kind:'object'}, {id:'sky', kind:'sky'}, {id:'background', kind:'background'}].map(C.olName),
+    ['Subject', 'Person 2', 'Object 3', 'Sky', 'Background']);
   const lines = [C.olSay(undefined, 0), C.olSay('wait', 0), C.olSay(null, 0), C.olSay([], 0), C.olSay([{}], 0), C.olSay([{}, {}], 2)];
   assert.deepEqual(lines, ['reading this frame…', 'reading this frame…', 'this frame couldn’t be read', 'nothing to choose in this frame', 'click a shape to choose it', '2 chosen']);
   const banned = /\b(AI|smart|intelligent|detects?|understands|suggests?|recommended|magic|auto\w*|learns|confidence|score)\b/i;
-  for (const s of lines.concat(['Outlines', 'Subject', 'Person', 'Object', 'Background'])) assert.doesNotMatch(s, banned, s);
+  for (const s of lines.concat(['Outlines', 'Subject', 'Person', 'Object', 'Sky', 'Background'])) assert.doesNotMatch(s, banned, s);
 });
 
 test('the page: a held frame for clicks, one read per frame, the app only', () => {

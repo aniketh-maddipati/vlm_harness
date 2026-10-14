@@ -1273,10 +1273,10 @@ class Component extends DCLogic {
   }
   // The shape a click chooses: the smallest that holds the point (a person inside the subject is that person), else the background.
   static olHit(list, x, y) {
-    let best = null; for (const s of list || []) if (s.kind !== 'background' && Component.olInside(s.outline, x, y) && (!best || s.area < best.area)) best = s;
+    let best = null; for (const s of list || []) if (s.kind !== 'background' && Component.olInside(s.outline, x, y) && (!best || s.area < best.area)) best = s;   // the sky is a shape like the others
     return best || (list || []).find(s => s.kind === 'background' && Component.olInside(s.outline, x, y)) || null;
   }
-  static olName(s) { const n = /-(\d+)$/.exec(s.id || ''); return s.kind === 'subject' ? 'Subject' : s.kind === 'background' ? 'Background' : (s.kind === 'person' ? 'Person' : 'Object') + (n ? ' ' + n[1] : ''); }
+  static olName(s) { const n = /-(\d+)$/.exec(s.id || ''); return s.kind === 'subject' ? 'Subject' : s.kind === 'background' ? 'Background' : s.kind === 'sky' ? 'Sky' : (s.kind === 'person' ? 'Person' : 'Object') + (n ? ' ' + n[1] : ''); }
   static olSay(f, n) { return f === undefined || f === 'wait' ? 'reading this frame…' : f === null ? 'this frame couldn’t be read' : !f.length ? 'nothing to choose in this frame' : n ? n + ' chosen' : 'click a shape to choose it'; }
   // Only the profiles the preview converts (S-Log3, S-Log2, HLG) change with the switch; a clip that is already
   // Rec.709, or whose profile is some other name or not known, is shown as it is, switch on or off.
