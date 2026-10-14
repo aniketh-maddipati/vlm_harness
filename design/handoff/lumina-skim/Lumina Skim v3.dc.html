@@ -45,6 +45,24 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
     [data-press]:active{transform:scale(0.97);transition:transform 90ms ease-out!important}
   }
 }
+/* The strip above the Viewer (LOCAL-CHANGES 270): a frame under the pointer lifts out of the strip and grows over the
+   picture on a spring, so it can be read without the strip taking height from the picture. Reduce motion: it only lights. */
+[data-lumina=furled-takes] button[data-strip]{position:relative;transform-origin:50% 0}
+[data-lumina=furled-takes] button[data-strip]::after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:0 10px 24px rgba(0,0,0,0.55),0 0 0 1px rgba(239,236,230,0.35);opacity:0;pointer-events:none;transition:opacity 120ms ease-out}
+@media (hover:hover){
+  [data-lumina=furled-takes] button[data-strip]:hover{z-index:2}
+  [data-lumina=furled-takes] button[data-strip]:hover::after{opacity:1}
+}
+@media (hover:hover) and (prefers-reduced-motion:no-preference){
+  [data-lumina=furled-takes] button[data-strip]{transition:transform 220ms cubic-bezier(0.2,0.8,0.2,1)}
+  [data-lumina=furled-takes] button[data-strip]:hover{transform:translateY(-3px) scale(1.6)}
+  [data-lumina=furled-takes] button[data-strip]:active{transform:translateY(-3px) scale(1.5);transition-duration:90ms}
+}
+@supports (transition-timing-function:linear(0,1)){
+  @media (hover:hover) and (prefers-reduced-motion:no-preference){
+    [data-lumina=furled-takes] button[data-strip]{transition:transform 450ms linear(0,0.0314,0.11,0.216,0.3343,0.4542,0.5679,0.6708,0.7603,0.8353,0.896,0.9435,0.9791,1.0046,1.0216,1.032,1.0371,1.0384,1.037,1.0339,1.0298,1.0252,1.0206,1.0163,1.0124,1.009,1.0061,1.0038,1)}
+  }
+}
 /* Fetching (LOCAL-CHANGES 268): a line runs along the top of the list while a folder is read or a search runs, a folder being
    read shimmers, the search's dots bounce, and a folder found and shown in the list glows once. */
 @keyframes lmBar{0%{transform:translateX(-100%)}100%{transform:translateX(290%)}}
@@ -479,10 +497,10 @@ body:has([data-view=phone]){background:#111}
       </div>
     </sc-if>
     <sc-if value="{{ takeStripOn }}" hint-placeholder-val="{{ false }}">
-      <div data-lumina="furled-takes" style="flex:none;height:60px;display:flex;align-items:center;gap:4px;padding:0 20px;border-bottom:1px solid rgba(239,236,230,0.06);overflow:hidden">
+      <div data-lumina="furled-takes" style="flex:none;height:60px;display:flex;align-items:center;gap:4px;padding:0 20px;border-bottom:1px solid rgba(239,236,230,0.06);overflow:visible;position:relative;z-index:4">
         <span data-lumina="strip-where" style="flex:none;width:{{ tPosW }}px;color:#B8B3AB;white-space:nowrap">{{ tPos }}</span>
         <sc-for list="{{ tstrip }}" as="ts" hint-placeholder-count="8">
-          <button type="button" data-strip="{{ ts.id }}" aria-label="{{ ts.tip }}" title="{{ ts.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="text-align:left;color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0 0 0 {{ ts.ml }}px;font:inherit;-webkit-appearance:none;appearance:none;flex:none;width:80px;height:45px;border-radius:3px;background:{{ ts.bg }};filter:{{ ts.flt }};opacity:{{ ts.op }};animation:{{ ts.anim }};box-shadow:{{ ts.edge }};outline:{{ ts.out }};outline-offset:2px;cursor:pointer"></button>
+          <button type="button" data-strip="{{ ts.id }}" aria-label="{{ ts.tip }}" title="{{ ts.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="text-align:left;color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0 0 0 {{ ts.ml }}px;font:inherit;-webkit-appearance:none;appearance:none;flex:none;width:96px;height:54px;border-radius:3px;background:{{ ts.bg }};filter:{{ ts.flt }};opacity:{{ ts.op }};animation:{{ ts.anim }};box-shadow:{{ ts.edge }};outline:{{ ts.out }};outline-offset:2px;cursor:pointer"></button>
         </sc-for>
       </div>
     </sc-if>
@@ -2406,7 +2424,7 @@ class Component extends DCLogic {
     // The strip above the Viewer: the clips of the whole shoot around the one you are on (a gap where the scene
     // changes), marks as coloured edges, cut clips dimmed, and where you are in the shoot.
     if (st.lv >= 2 && curGi != null) {
-      const fl = this.flat, at = Math.max(0, fl.indexOf(st.cur)), n = Math.max(5, Math.floor((st.vw - 40 - 96) / 86)), s0 = Math.max(0, Math.min(fl.length - n, at - Math.floor(n / 2)));
+      const fl = this.flat, at = Math.max(0, fl.indexOf(st.cur)), n = Math.max(5, Math.floor((st.vw - 40 - 96) / 102)), s0 = Math.max(0, Math.min(fl.length - n, at - Math.floor(n / 2)));
       let pg = null;
       vals.tstrip = fl.slice(s0, s0 + n).map((id, j) => { const c = this.byId[id], m = st.marks[id], t0 = this.tone(c, 0), g = this.gOfAll[id], brk = j > 0 && g !== pg; pg = g;
         return {id, ml:brk ? 10 : 0, op:m === 'cut' ? 0.45 : 1, tip:c.name.replace(/\.\w+$/, '') + (m ? ' · ' + this.W(m) : ''), bg:t0.bg, flt:t0.flt, anim:t0.anim, edge:m ? 'inset 0 0 0 3px ' + MK[m] : 'none', out:id === st.cur ? '2px solid #EFECE6' : 'none'}; });
