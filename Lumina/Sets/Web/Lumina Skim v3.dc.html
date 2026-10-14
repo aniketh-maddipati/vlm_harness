@@ -447,7 +447,7 @@ body:has([data-view=phone]){background:#111}
               <sc-if value="{{ wsSayOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="ws-say" role="status" style="color:{{ wsSayC }};line-height:1.45;overflow-wrap:anywhere">{{ wsSay }}</span></sc-if>
               <sc-if value="{{ wsConnOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-conn" role="status" style="display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:rgba(255,210,122,0.08);box-shadow:inset 0 0 0 1px rgba(255,210,122,0.22)"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:#FFD27A"></span><span data-lumina="ws-conn-say" style="flex:1 1 260px;min-width:0;color:#EFECE6;line-height:1.45">{{ wsConnT }}</span><sc-for list="{{ wsConnBtns }}" as="sb" hint-placeholder-count="1"><button type="button" data-press="1" data-lumina="{{ sb.id }}" aria-disabled="{{ sb.off }}" onClick="{{ sb.go }}" title="{{ sb.tip }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 10px;border-radius:7px;background:rgba(239,236,230,0.1);color:#EFECE6;cursor:pointer;white-space:nowrap;font-size:13px;flex:none" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sb.t }}</button></sc-for></div></sc-if>
               <div data-lumina="ws-tree" role="tree" aria-label="Files and folders" aria-multiselectable="true" onPointerDown="{{ wsPD }}" style="position:relative;height:{{ wsH }};min-height:360px;overflow:auto;border-radius:10px;background:#232220;user-select:none;-webkit-user-select:none;overscroll-behavior:contain">
-                <div style="position:sticky;top:0;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) 96px 76px;gap:8px;padding:6px 12px;background:#2A2927;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D"><span>Name</span><span>Mark</span><span style="text-align:right">Size</span><span data-lumina="ws-load" aria-hidden="true" style="display:{{ wsLoadD }};position:absolute;left:0;right:0;bottom:0;height:2px;overflow:hidden"><span style="display:block;width:35%;height:100%;background:#FFD27A;animation:lmBar 1.1s cubic-bezier(0.4,0,0.2,1) infinite"></span></span></div>
+                <div style="position:sticky;top:0;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) 96px 76px;gap:8px;padding:6px 12px;background:#2A2927;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D"><span>Name</span><span>Mark</span><button type="button" data-lumina="ws-sort-size" aria-pressed="{{ wsSortOn }}" onClick="{{ wsSortGo }}" title="{{ wsSortTip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;text-align:right;letter-spacing:inherit;text-transform:inherit;color:{{ wsSortC }};cursor:pointer" style-hover="color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ wsSortT }}</button><span data-lumina="ws-load" aria-hidden="true" style="display:{{ wsLoadD }};position:absolute;left:0;right:0;bottom:0;height:2px;overflow:hidden"><span style="display:block;width:35%;height:100%;background:#FFD27A;animation:lmBar 1.1s cubic-bezier(0.4,0,0.2,1) infinite"></span></span></div>
                 <sc-if value="{{ wsEmptyOn }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 16px;color:#9A958D;line-height:1.5">{{ wsEmpty }}</div></sc-if>
                 <sc-for list="{{ wsRows }}" as="r" hint-placeholder-count="8">
                   <div style="display:{{ r.hdD }};padding:10px 12px 4px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D">{{ r.hd }}</div>
@@ -471,6 +471,7 @@ body:has([data-view=phone]){background:#111}
               <div data-lumina="ws-buckets" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
                 <sc-for list="{{ wsBk }}" as="b" hint-placeholder-count="3"><button type="button" data-lumina="{{ b.id }}" aria-pressed="{{ b.on }}" onClick="{{ b.go }}" onDragOver="{{ b.over }}" onDragLeave="{{ b.leave }}" onDrop="{{ b.drop }}" title="{{ b.tip }}" style="text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:border-box;min-height:64px;padding:8px 10px;border-radius:10px;display:flex;flex-direction:column;gap:2px;background:{{ b.bg }};box-shadow:inset 0 0 0 {{ b.ring }};color:#EFECE6;cursor:pointer;transition:background 80ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:flex;align-items:center;gap:6px;font-size:13px;color:{{ b.c }}"><span style="width:8px;height:8px;border-radius:50%;background:{{ b.c }}"></span>{{ b.t }}</span><span style="font-size:18px">{{ b.n }}</span><span style="font-size:12px;color:#9A958D">{{ b.sz }}</span></button></sc-for>
               </div>
+              <sc-if value="{{ wsFndrOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-finder-marks" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="color:#9A958D;font-size:13px">Show in Finder</span><sc-for list="{{ wsFndr }}" as="sb" hint-placeholder-count="3"><button type="button" data-press="1" data-lumina="{{ sb.id }}" onClick="{{ sb.go }}" title="{{ sb.tip }}" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 10px;border-radius:7px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;white-space:nowrap;font-size:13px" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ sb.t }}</button></sc-for></div></sc-if>
               <sc-if value="{{ wsChipsOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-chips" style="display:flex;flex-direction:column;gap:6px"><span style="color:#9A958D;font-size:13px">Drag a file onto a folder to save it there</span><sc-for list="{{ wsChips }}" as="f" hint-placeholder-count="2"><div data-lumina="{{ f.id }}" draggable="true" onDragStart="{{ f.start }}" onDragEnd="{{ f.end }}" title="Drag onto a folder" style="display:flex;align-items:center;gap:8px;min-height:32px;padding:4px 10px;border-radius:8px;background:#1E1D1B;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08);cursor:grab;opacity:{{ f.op }}"><span style="flex:none;color:#6E6A64">⠇</span><span style="flex:none;font-size:10px;font-weight:800;letter-spacing:0.04em;padding:2px 4px;border-radius:4px;background:{{ f.extBg }};color:#1E1D1B">{{ f.ext }}</span><span style="min-width:0;color:#EFECE6;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.name }}</span></div></sc-for></div></sc-if>
               <sc-if value="{{ ledOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ws-led" role="region" aria-label="Saved files" style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:8px;background:#1E1D1B;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08)">
                 <div style="display:flex;align-items:center;gap:8px"><span style="flex:1 1 auto;color:#EFECE6">Saved files</span><span data-lumina="ws-led-sum" style="color:#9A958D;font-size:13px">{{ ledSum }}</span></div>
@@ -981,7 +982,7 @@ class Component extends DCLogic {
   static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
   W(m) { return m ? Component.WORD[m] || m : ''; }
   static LV = ['Scenes','Clips','Viewer'];
-  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,bk:null,cutsOpen:false,dragN:0,dropOn:null,backHit:false,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:'',rate:true,scenes:false,lut:true,openFc:false,trash:false,mem:false},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
+  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,bk:null,cutsOpen:false,dragN:0,dropOn:null,backHit:false,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:'',rate:true,scenes:false,lut:true,openFc:false,trash:false,mem:false,sorted:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
   covers = (() => { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.coverGet ? new Component.HostCovers(v, 200e6) : new Component.CoverCache('lumina-skim-covers', 200e6); })();
@@ -3164,7 +3165,7 @@ class Component extends DCLogic {
   }
   // Export's choices that are not about one shoot (ratings, keyword, scenes, LUT, Open in Final Cut, Clear working memory)
   // are kept for the next export. Move cut to Trash never is: it is chosen for each shoot.
-  static EX_PREFS = ['rate', 'kw', 'scenes', 'lut', 'openFc', 'mem'];
+  static EX_PREFS = ['rate', 'kw', 'scenes', 'lut', 'openFc', 'mem', 'sorted'];
   exPrefs() { this.exPrefsIn = true; try { const o = JSON.parse(localStorage.getItem('lumina-skimexport') || '{}') || {}, out = {}; Component.EX_PREFS.forEach(k => { if (k in o && typeof o[k] === typeof this.state.ex[k]) out[k] = o[k]; }); return out; } catch (x) { return {}; } }
   exPrefsSave(ex) { const o = {}; Component.EX_PREFS.forEach(k => { o[k] = ex[k]; }); this.persist('lumina-skimexport', JSON.stringify(o)); }
   exSet(k, val) { this.setState(s => { const ex = {...s.ex, [k]:val}; if (Component.EX_PREFS.indexOf(k) >= 0) this.exPrefsSave(ex); return {exDone:null, exRes:null, ex}; }); }
@@ -3177,11 +3178,11 @@ class Component extends DCLogic {
   // clip with its mark. Click, ⌘-click, ⇧-click and a drag over the rows select; selected clips drag onto a bucket to be
   // marked; the Final Cut file and the cut list drag onto a folder to be saved there; pinch sets the row size and a
   // sideways swipe unfurls or furls. Nothing here moves a clip file.
-  static WS0() { return {open:{}, kids:{}, sel:'', pick:{}, mk:null, hot:'', dst:{fcp:'', cut:''}, say:null, pl:null, z:1, only:'', opt:false, sum:false, box:null, plan:{}, rev:false, runs:null, ar:null, back:null, backHot:false, led:null, ledOpen:'', ledText:{}, ledSay:null, pvX:false, for:'', fq:'', fr:null, fbusy:false, fsel:0, fopen:false, rv:'', menu:null}; }
+  static WS0() { return {open:{}, kids:{}, sel:'', pick:{}, mk:null, hot:'', dst:{fcp:'', cut:''}, say:null, pl:null, z:1, only:'', opt:false, sum:false, box:null, plan:{}, rev:false, runs:null, ar:null, back:null, backHot:false, led:null, ledOpen:'', ledText:{}, ledSay:null, pvX:false, for:'', fq:'', fr:null, fbusy:false, fsel:0, fopen:false, rv:'', menu:null, sz:{}, sort:''}; }
   wsSet(f, then) { this.setState(s => { const w = s.ws || {...Component.WS0(), for:this.wsFor()}; return {ws:{...w, ...(typeof f === 'function' ? f(w) : f)}}; }, then); }
   // Whose workshop it is: the open shoot's (a new shoot starts a new one).
   // A new shoot's workshop keeps the drives and folders already read (read at launch), so its Files shows at once and is read again.
-  wsNew(w) { return w && w.pl ? {...Component.WS0(), for:this.wsFor(), pl:w.pl} : null; }
+  wsNew(w) { return w && w.pl ? {...Component.WS0(), for:this.wsFor(), pl:w.pl, sz:w.sz || {}, sort:w.sort || ''} : null; }
   wsFor() { return this.d && this.hasShoot() ? this.storeKey(this.d) : ''; }
   exDir(kind) { const w = this.state.ws; return (w && w.dst && w.dst[kind]) || ''; }
   // The places, read again; the folders left open are read again too (their listing may have changed meanwhile).
@@ -3233,10 +3234,25 @@ class Component extends DCLogic {
       const cmp = (a, b) => (a.file ? 1 : 0) - (b.file ? 1 : 0) || a.name.localeCompare(b.name, undefined, {numeric:true});
       Object.keys(kids).forEach(k => kids[k].sort(cmp));
       const place = {path:root, name:root === '/' ? (this.d && this.d.shoot.name) || 'Clips' : root.split('/').pop(), kind:'shoot', virt:true};
-      V = {pl:{places:[place], drives:[]}, kids, rk:Component.wsRid(place, 'p') + '|' + root};
+      const sz = {}; ps.forEach(p => { const b = cm.byPath[p].bytes || 0; for (let i = p.lastIndexOf('/'); i > 0 && i >= root.replace(/\/$/, '').length; i = p.lastIndexOf('/', i - 1)) { const f = p.slice(0, i); sz[f] = sz[f] || {bytes:0, files:0}; sz[f].bytes += b; sz[f].files++; } });
+      V = {pl:{places:[place], drives:[]}, kids, sz, rk:Component.wsRid(place, 'p') + '|' + root};
     }
     this.wsV = {cm, V}; return V;
   }
+  // Folder sizes (round 2, G1): each folder the tree shows is added up by the app in the background (skimDirSize, sizes only),
+  // one at a time, shown as they land, kept for the session (across shoots too) and read again with Re-read sizes.
+  wsSzPump() {
+    const v = this.exHostApi(), p = this.wsSzWant && this.wsSzWant.shift();
+    if (!v || !v.dirSize || !p) { this.wsSzBusy = false; this.wsSzFlush(true); return; }
+    this.wsSzBusy = true; (this.wsSzGot || (this.wsSzGot = {}))[p] = 'busy';
+    Promise.resolve().then(() => v.dirSize(p)).then(r => { this.wsSzGot[p] = r && r.bytes != null ? r : {bytes:null}; }, () => { this.wsSzGot[p] = {bytes:null}; }).then(() => { this.wsSzFlush(false); this.wsSzPump(); });
+  }
+  wsSzFlush(last) {
+    const got = this.wsSzGot; if (!got || (!last && Date.now() - (this.wsSzAt || 0) < 200)) return;
+    const done = {}; Object.keys(got).forEach(p => { if (got[p] !== 'busy') { done[p] = got[p]; delete got[p]; } }); if (!Object.keys(done).length) return;
+    this.wsSzAt = Date.now(); this.wsSet(x => ({sz:{...x.sz, ...done}}));
+  }
+  wsSzRe(r) { const pre = r.path.replace(/\/+$/, '') + '/'; this.wsSet(x => { const sz = {}; Object.keys(x.sz || {}).forEach(p => { if (p !== r.path && p.indexOf(pre) !== 0) sz[p] = x.sz[p]; }); return {sz, say:{t:'Reading the sizes in ' + r.name + ' again…'}}; }); }
   // The roots, each once (LOCAL-CHANGES 269): a folder that is a whole drive (a T7 given access at its top, a card opened
   // as the shoot, Save to at a drive's top) is not listed again under Folders; its drive's row carries what the folder was.
   static wsRoots(pl) {
@@ -3249,13 +3265,13 @@ class Component extends DCLogic {
   // A root's part of a row's key: what kind of root and its path, so a drive plugged in or a folder added does not
   // re-key the rows (what is unfurled and selected stays); '|' never appears in it.
   static wsRid(p, t) { return t + encodeURIComponent(p.path); }
-  static wsFlat(pl, open, kids, gh) {
+  static wsFlat(pl, open, kids, gh, ord) {
     if (!pl) return [];
     gh = gh || {};
     const out = [], {P, D} = Component.wsRoots(pl), G = Object.keys(gh);
     const walk = (ri, key, path, depth, made) => {
       if (!open[key] && !made) return;
-      const ks = made ? [] : kids[path];
+      const ks0 = made ? [] : kids[path], ks = ord && Array.isArray(ks0) ? ord(ks0) : ks0;
       if (!Array.isArray(ks)) { out.push({key:key + '#', note:true, depth, name:ks && ks.why ? ks.why : 'Reading…'}); return; }
       const pre = path.replace(/\/+$/, '') + '/', names = new Set(ks.map(f => f.name)), gf = gh[path] || [];
       const gd = [...new Set(G.filter(g => g.indexOf(pre) === 0).map(g => g.slice(pre.length).split('/')[0]))].filter(n => n && !names.has(n)).sort();
@@ -3387,6 +3403,7 @@ class Component extends DCLogic {
     if (r.drive && !r.granted) return r.card ? [it('card', 'A camera card: Skim never writes on it', '', () => {}, false)] : [it('letin', 'Give access…', '', () => this.wsLetIn(r.path))];
     const open = !!w.open[r.key], canIn = !r.file && !r.made && (r.dirs || open);
     if (canIn) { out.push(it('toggle', open ? 'Furl' : 'Unfurl', '⏎', () => this.wsToggle(r))); out.push(it('all', 'Unfurl everything inside', '⌥→', () => this.wsUnfurlAll(r))); }
+    if (v && v.dirSize && !r.file && !r.drive && !r.card && !r.made && !r.virt && r.granted) out.push(it('resize', 'Re-read sizes', '', () => this.wsSzRe(r)));
     if (Component.wsCanSave(r)) {
       const cutN = this.cutText().n, g = [it('fcp', 'Save the Final Cut file here', '', () => this.wsPut('fcp', r), w.dst.fcp !== r.path)].concat(cutN ? [it('cut', 'Save the cut list here', '', () => this.wsPut('cut', r), w.dst.cut !== r.path)] : [],
         [it('new', 'New folder inside…', 'N', () => this.wsMk(r))], this.wsArr && !r.made ? [it('sort', 'Sort by mark here', '', () => this.wsSortBy(r))] : [], pl && pl.saveTo === r.path ? [] : [it('default', 'Make it Save to', '', () => this.wsDefault(r))]);
@@ -3768,6 +3785,13 @@ class Component extends DCLogic {
     v.ledSayOn = !!w.ledSay; v.ledSay = w.ledSay ? w.ledSay.t : ''; v.ledSayC = w.ledSay && w.ledSay.bad ? '#FFD27A' : '#A9D18E';
   }
   // Delete in Finder: the cut clips selected in a Finder window, to delete there (Lumina deletes nothing).
+  // A mark's clips in Finder (round 2, F-1): Selected, Maybe, Cut or never marked, selected in a Finder window, where he drags them
+  // to another drive or deletes them himself. The same op as Delete in Finder…; Lumina moves and deletes nothing.
+  markFinder(m) {
+    const v = window.lumina && window.lumina.video, d = this.d, st = this.state; if (!v || !v.showClips || !d) return;
+    const cs = d.clips.filter(c => !c.trashed && (m === 'und' ? !st.marks[c.id] : st.marks[c.id] === m)), nm = m === 'und' ? 'unmarked clip' : this.W(m) + ' clip';
+    Promise.resolve().then(() => v.showClips(cs.map(c => c.path))).then(n => this.wsSet({say:n ? {t:'Finder has ' + this.plural(n, nm) + ' selected' + (m === 'keep' ? '.' : ': drag them to another drive, or press ⌘⌫ there to move them to the Trash.')} : {t:'Finder could not show them: they are not in the folder Lumina opened.', bad:true}}), () => this.wsSet({say:{t:'The app did not answer.', bad:true}}));
+  }
   cutFinder = () => {
     const v = window.lumina && window.lumina.video, d = this.d; if (!v || !v.showClips || !d) return;
     const cut = d.clips.filter(c => this.state.marks[c.id] === 'cut' && !c.trashed);
@@ -3861,10 +3885,12 @@ class Component extends DCLogic {
     { const api = host && this.exHostApi(); this.wsArr = !!(api && api.arrangeApply); }
     const plan = w.plan || {}, gh = {}, away = {};
     Object.keys(plan).forEach(id => { const c = this.byId[id], p = plan[id]; if (!c) return; (gh[p.dir] || (gh[p.dir] = [])).push({name:c.name, path:p.dir.replace(/\/+$/, '') + '/' + c.name, bytes:c.bytes || 0, ghost:id}); away[p.from] = p.dir; });
-    const all = host ? Component.wsFlat(pl, w.open, w.kids, gh) : V ? Component.wsFlat(V.pl, w.open, V.kids, {}) : [];
+    const SZ = V ? V.sz : w.sz || {}, szB = f => f.file ? f.bytes || 0 : SZ[f.path] && SZ[f.path].bytes != null ? SZ[f.path].bytes : -1;
+    const ord = w.sort === 'size' ? ks => ks.slice().sort((a, b) => szB(b) - szB(a) || a.name.localeCompare(b.name, undefined, {numeric:true})) : null;
+    const all = host ? Component.wsFlat(pl, w.open, w.kids, gh, ord) : V ? Component.wsFlat(V.pl, w.open, V.kids, {}, ord) : [];
     const rows = w.only ? all.filter(r => !r.file || (cm.byPath[r.path] && (st.marks[cm.byPath[r.path].id] || 'und') === w.only)) : all; this.wsRows = rows;
     const tagFor = r => [].concat(r.ghost ? [{t:'moving here', bg:'rgba(169,209,142,0.16)', fg:'#A9D18E'}] : [], r.made ? [{t:'new', bg:'rgba(169,209,142,0.16)', fg:'#A9D18E'}] : [], r.file && away[r.path] ? [{t:'→ ' + away[r.path].split('/').pop(), bg:'rgba(255,210,122,0.14)', fg:'#FFD27A'}] : [], w.dst.fcp === r.path && !r.file ? [{t:'Final Cut file', bg:'rgba(255,210,122,0.18)', fg:'#FFD27A'}] : [], w.dst.cut === r.path && !r.file ? [{t:'cut list', bg:'rgba(255,138,122,0.16)', fg:'#FF8A7A'}] : [], pl && pl.saveTo === r.path && r.root ? [{t:'Save to', bg:'rgba(239,236,230,0.1)', fg:'#B8B3AB'}] : []);
-    const subFor = r => r.note ? '' : r.file ? fb(r.bytes) : r.drive ? (r.card ? 'card' : r.readOnly ? 'read only' : r.free != null ? fb(r.free) + ' free' : '') : r.root && r.kind === 'shoot' ? (r.virt ? 'opened here' : 'shoot') : '';
+    const szT = r => { const z = SZ[r.path]; return z && z.bytes != null ? fb(z.bytes) + (z.partial ? '+' : '') : ''; }, subFor = r => r.note ? '' : r.file ? fb(r.bytes) : r.drive ? (r.card ? 'card' : r.readOnly ? 'read only' : r.free != null ? fb(r.free) + ' free' : '') : [r.root && r.kind === 'shoot' ? (r.virt ? 'opened here' : 'shoot') : '', szT(r)].filter(Boolean).join(' · ');
     const mkFor = r => { if (r.note) return []; if (r.file) { const c = r.ghost ? this.byId[r.ghost] : cm.byPath[r.path]; if (!c) return []; const m = st.marks[c.id]; return [{t:m ? this.W(m) : 'undecided', c:m ? MK[m] : '#6E6A64'}]; }
       if (r.made) return []; const u = cm.under[r.path]; if (!u) return []; return ['keep', 'maybe', 'cut'].filter(m => u[m]).map(m => ({t:String(u[m]), c:MK[m]})).concat(u.und && !u.keep && !u.maybe && !u.cut ? [{t:u.und + ' clips', c:'#9A958D'}] : []); };
     const H_ = ['28px', '34px', '52px'][z], IC = [['10px', '9px'], ['11px', '10px'], ['64px', '36px']][z];
@@ -3887,6 +3913,10 @@ class Component extends DCLogic {
         leave:e => { if (e && e.currentTarget && e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return; if (this.state.ws && this.state.ws.hot === r.key) this.wsSet({hot:''}); },
         drop:e => { e.preventDefault(); clearTimeout(this.wsSpring); const kind = this.wsDrag || (e.dataTransfer && e.dataTransfer.getData('text/x-lumina-skim')); this.wsDrag = null; if (kind === 'clips') { const cs = this.wsDragClips; this.wsDragClips = null; if (!Component.wsCanSave(r) || !this.wsPlanAdd(cs, r.path)) { this.wsSet({hot:''}); return; } if (!r.made) this.wsToggle(r, true); return; } this.wsPut(kind, r); }}; });
     this.wsPlanVals(v, o); this.wbVals(v, o); this.ledVals(v, o);
+    // the folders shown whose size is not known yet go to the app, a few at a time (drives and cards are not added up)
+    { const api = host && this.exHostApi(); if (api && api.dirSize) { const need = rows.filter(r => !r.note && !r.file && !r.drive && !r.card && !r.made && r.granted && !r.virt && w.sz[r.path] === undefined && !(this.wsSzGot && this.wsSzGot[r.path])).map(r => r.path).slice(0, 64);
+      if (need.length) { this.wsSzWant = need; if (!this.wsSzBusy) { this.wsSzBusy = true; setTimeout(() => this.wsSzPump(), 0); } } } }
+    v.wsSortOn = String(w.sort === 'size'); v.wsSortT = w.sort === 'size' ? 'Size ↓' : 'Size'; v.wsSortTip = w.sort === 'size' ? 'Sorted by size, biggest first; click for by name' : 'Sort by size, biggest first'; v.wsSortGo = () => this.wsSet(x => ({sort:x.sort === 'size' ? '' : 'size'})); v.wsSortC = w.sort === 'size' ? '#FFD27A' : '#9A958D';
     v.wsEmptyOn = !rows.length; v.wsEmpty = w.only ? 'No ' + this.W(w.only) + ' clips in the folders open here.' : !host ? 'Open a folder of clips and it shows here, each clip with its mark.' : !pl ? 'Reading the drives…' : '';
     // Files is never blank (LOCAL-CHANGES 290). In a browser: the folder opened, the shoots opened before and a way to open another.
     // In the app, while Lumina has access to no folder of its own: one click to give it some.
@@ -3950,6 +3980,10 @@ class Component extends DCLogic {
         leave:e => { if (e && e.currentTarget && e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return; if (this.state.ws && this.state.ws.hot === 'bk:' + m) this.wsSet({hot:''}); },
         drop:e => { e.preventDefault(); const cs = this.wsDragClips; this.wsDrag = null; this.wsDragClips = null; this.wsSet({hot:''}); if (cs && cs.length) { const st2 = this.state; if (cs.every(c => st2.marks[c.id] === m)) return; this.doMark(cs.map(c => c.id), m); this.wsSet({say:{t:this.W(m) + ' · ' + this.plural(cs.length, 'clip')}}); } }}; };
     v.wsBk = [bk('keep', 'Selected'), bk('maybe', 'Maybe'), bk('cut', 'Cut')];
+    // Each mark's clips in Finder, never marked included (round 2, F-1)
+    { const vv = window.lumina && window.lumina.video, d = this.d, live = d ? d.clips.filter(c => !c.trashed) : [], und = live.filter(c => !st.marks[c.id]), N = m => m === 'und' ? und.length : live.filter(c => st.marks[c.id] === m).length, B = m => (m === 'und' ? und : live.filter(c => st.marks[c.id] === m)).reduce((a, c) => a + (c.bytes || 0), 0);
+      v.wsFndr = host && vv && vv.showClips && d && d.shoot.real ? ['keep', 'maybe', 'cut', 'und'].filter(m => N(m)).map(m => btn('ws-finder-' + m, N(m) + ' ' + (m === 'und' ? 'unmarked' : this.W(m)) + ' · ' + fb(B(m)), 'Show ' + this.plural(N(m), m === 'und' ? 'unmarked clip' : this.W(m) + ' clip') + ' in Finder, selected: drag them to another drive or delete them there', true, () => this.markFinder(m))) : [];
+      v.wsFndrOn = v.wsFndr.length > 0; }
     // the files: drag onto a folder to save there
     const at = H && !H.ask ? this.tilde(H.path) : '', where = kind => w.dst[kind] ? '→ ' + this.tilde(w.dst[kind]) : host ? (at ? '→ ' + at : '→ asks where') : '→ Downloads';
     const drag = kind => ({drag:host ? 'true' : 'false', gripD:host ? 'block' : 'none', cur:host ? 'grab' : 'default', start:e => { if (!host) return; this.wsDrag = kind; try { e.dataTransfer.setData('text/x-lumina-skim', kind); e.dataTransfer.effectAllowed = 'copy'; } catch (x) {} },
@@ -4925,9 +4959,10 @@ class Component extends DCLogic {
     // (the LtcChange value is eight digits, frames, seconds, minutes, hours as decimal pairs: "16324420" is 20:44:32:16)
     const ltcF = (v, rate) => { const s = String(v || ''); if (!/^\d{8}$/.test(s) || !(rate > 0)) return 0; const ff = +s.slice(0, 2), ss = +s.slice(2, 4), mm = +s.slice(4, 6), hh = +s.slice(6, 8); return hh > 23 || mm > 59 || ss > 59 || ff >= rate ? 0 : ((hh * 60 + mm) * 60 + ss) * rate + ff; };
     const t0 = (c, f) => { const fr = ltcF(c.ltc, Math.round(f.dd / f.n)); return fr ? fr * f.n + '/' + f.dd + 's' : '0s'; };
-    const al = [], cl = [];
+    const al = [], cl = [], sq = [];
     clips.forEach((c, i) => {
       const f = fmt(c), du = rt(c, f), s0 = t0(c, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
+      sq.push({c, i, f, nm, s0, m, nf:c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01))});
       al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="' + s0 + '" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '"' + lut(c) + '>', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
       const kw = []; if (m === 'maybe' && kwM) kw.push(kwM); if (scOf[c.id] && kw.indexOf(scOf[c.id]) < 0) kw.push(scOf[c.id]); kw.forEach(k => kws.add(k));
       // Final Cut's own ratings: selected clips are favorites, cut ones rejected (hidden by Final Cut's Hide Rejected), the rest unrated
@@ -4939,7 +4974,25 @@ class Component extends DCLogic {
       if (rate) cl.push('        <rating start="' + s0 + '" duration="' + du + '" value="' + rate + '"/>');
       cl.push('      </asset-clip>');
     });
-    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
+    // The sorted timeline (round 2, F1): a project in the same event, Selected first, then Maybe, then unmarked, cut last, each
+    // part in capture order, with one marker on the first clip of each part naming it. The event's clips, ratings and keywords
+    // are as before. The timeline runs at the first clip's format; a clip at another rate is cut to whole frames of it.
+    const pj = [];
+    if (ex.sorted !== false && sq.length) {
+      const P = {keep:0, maybe:1, und:2, cut:3}, Wd = m => { const w = this.W ? this.W(m) : m === 'keep' ? 'selected' : m; return w[0].toUpperCase() + w.slice(1); }, NM = {keep:Wd('keep'), maybe:'Maybe', und:'Unmarked', cut:Wd('cut')}, S = sq[0].f;
+      const order = sq.map((x, j) => ({...x, p:P[x.m || 'und'], j})).sort((a, b) => a.p - b.p || a.j - b.j), n = {};
+      order.forEach(x => { n[x.p] = (n[x.p] || 0) + 1; });
+      let at = 0, last = -1;
+      order.forEach(x => {
+        const k = Math.max(1, Math.floor(x.nf * x.f.n * S.dd / (x.f.dd * S.n))), du = k * S.n + '/' + S.dd + 's';
+        pj.push('            <asset-clip ref="a' + (x.i + 1) + '" offset="' + (at ? at * S.n + '/' + S.dd + 's' : '0s') + '" name="' + x.nm + '"' + (x.s0 !== '0s' ? ' start="' + x.s0 + '"' : '') + ' duration="' + du + '" format="' + x.f.id + '" tcFormat="NDF"' + (x.p === last ? '/>' : '>'));
+        if (x.p !== last) { const mk = x.m || 'und'; pj.push('              <marker start="' + x.s0 + '" duration="' + x.f.n + '/' + x.f.dd + 's" value="' + xe(NM[mk] + ' · ' + n[x.p] + (n[x.p] === 1 ? ' clip' : ' clips')) + '"/>', '            </asset-clip>'); last = x.p; }
+        at += k;
+      });
+      pj.unshift('      <project name="' + xe((ex.event || d.shoot.name) + ' · sorted') + '">', '        <sequence format="' + S.id + '" duration="' + (at * S.n) + '/' + S.dd + 's" tcStart="0s" tcFormat="NDF">', '          <spine>');
+      pj.push('          </spine>', '        </sequence>', '      </project>');
+    }
+    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
     return {n:clips.length, text, kws:[...kws]};
   })();
     this.bxM = {k:bk, x:bx}; return bx;
@@ -5046,8 +5099,17 @@ class Component extends DCLogic {
       if (a.getAttribute('id')) assets[a.getAttribute('id')] = {du, f:a.getAttribute('format'), s:a.getAttribute('start') || '0s'};
     });
     rk.forEach(r => { if (tag(r) !== 'format' && tag(r) !== 'asset') say('The resources hold something this page does not write.'); });
-    const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip');
-    if (cl.length !== ek.length) say('The event holds something this page does not write.');
+    const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip'), pj = ek.filter(c => tag(c) === 'project');
+    if (cl.length + pj.length !== ek.length || pj.length > 1) say('The event holds something this page does not write.');
+    // the sorted timeline: one sequence in a known format, its spine the event's media, each clip placed and marked at most once
+    pj.forEach(p => { const sq = kids(p, 'sequence'), sp = sq.length === 1 ? kids(sq[0], 'spine') : [];
+      if (sq.length !== 1 || kids(p).length !== 1 || sp.length !== 1 || kids(sq[0]).length !== 1) { say('The timeline is not one sequence with one spine.'); return; }
+      if (!fmts[sq[0].getAttribute('format')] || !time(sq[0].getAttribute('duration'))) say('The timeline has no format or length.');
+      kids(sp[0]).forEach(c => { const who = 'Timeline clip “' + (c.getAttribute('name') || c.getAttribute('ref') || '') + '”';
+        if (tag(c) !== 'asset-clip') { say('The timeline holds something this page does not write.'); return; }
+        if (!assets[c.getAttribute('ref')]) say(who + ' refers to media that is not in the file.');
+        if (!time(c.getAttribute('offset')) || !time(c.getAttribute('duration'))) say(who + ' has a position or length that cannot be read.');
+        const mk = kids(c); if (mk.length > 1 || mk.some(k => tag(k) !== 'marker' || !k.getAttribute('value') || !time(k.getAttribute('start')))) say(who + ' carries something this page does not write.'); }); });
     cl.forEach(c => {
       const who = 'Clip “' + (c.getAttribute('name') || c.getAttribute('ref') || '') + '”', a = assets[c.getAttribute('ref')], du = time(c.getAttribute('duration'));
       const fid = c.getAttribute('format'), f = fmts[fid != null ? fid : a && a.f];
@@ -5282,7 +5344,8 @@ class Component extends DCLogic {
       v.exOpts = [sw('ex-all', 'Everything', ex.all ? 'Every clip; selected ones as Favorites, cut ones marked as not wanted.' : 'Only selected clips' + (ex.maybes ? ' and maybes.' : '.'), ex.all, 'all'),
         sw('ex-maybes', 'Include maybes', kwM ? 'Tagged \u201c' + kwM + '\u201d in Final Cut.' : 'With no keyword.', ex.all || ex.maybes, 'maybes', ex.all)];
       v.exOpts2 = [sw('ex-rate', 'Ratings', ex.rate !== false ? 'Selected clips are Favorites' + (ex.all ? ', cut clips marked as not wanted.' : '.') : 'Every clip arrives unrated.', ex.rate !== false, 'rate'),
-        sw('ex-scenes', 'Scenes as keywords', 'Each clip carries its scene, so the browser has a keyword collection per scene.', !!ex.scenes, 'scenes')]
+        sw('ex-scenes', 'Scenes as keywords', 'Each clip carries its scene, so the browser has a keyword collection per scene.', !!ex.scenes, 'scenes'),
+        sw('ex-sorted', 'Sorted timeline', ex.sorted !== false ? 'A project with ' + Component.wsCap(this.W('keep')).toLowerCase() + ' clips first, then maybes, then unmarked, cut last, a marker at the start of each part.' : 'Only the event; no project.', ex.sorted !== false, 'sorted')]
         .concat(slogN ? [sw('ex-lut', 'Camera LUT', this.plural(slogN, 'S-Log3 clip') + (ex.lut !== false ? ' arrive with Sony S-Log3/S-Gamut3.Cine applied, as here.' : ' arrive as log; set the Camera LUT in Final Cut.'), ex.lut !== false, 'lut')] : [])
         .concat(host ? [sw('ex-openfc', 'Open in Final Cut', fcOk ? 'After saving, Final Cut Pro opens the file and asks which library.' : 'Final Cut Pro is not on this Mac.', !!ex.openFc && fcOk, 'openFc', !fcOk)] : []);
       v.kwOn = !!(ex.all || ex.maybes); v.exKw = ex.kw == null ? 'maybe' : ex.kw;

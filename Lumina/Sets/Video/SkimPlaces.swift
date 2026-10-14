@@ -107,6 +107,28 @@ nonisolated struct SkimPlaces: Sendable {
         return dirs.sorted(by: byName) + files.sorted(by: byName)
     }
 
+    /// A folder's size for the tree: every file under it added up (bytes on disk where known), how many files, and whether it
+    /// stopped early (`maxFiles`, `budget` seconds, or `cancelled`), so a huge folder shows "at least". Hidden files count (they
+    /// take space too); links are not followed and packages are counted as what they hold. Only sizes are read; nothing is opened.
+    struct Size: Equatable, Sendable {
+        var bytes: Int64; var files: Int; var partial: Bool
+        var json: [String: Any] { ["bytes": bytes, "files": files, "partial": partial] }
+    }
+    static func size(of dir: URL, maxFiles: Int = 400_000, budget: TimeInterval = 20, cancelled: () -> Bool = { false }) -> Size? {
+        let keys: [URLResourceKey] = [.isRegularFileKey, .totalFileAllocatedSizeKey, .fileSizeKey]
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue,
+              let e = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: keys, options: [], errorHandler: { _, _ in true }) else { return nil }
+        let end = Date().addingTimeInterval(budget)
+        var bytes: Int64 = 0, files = 0, partial = false
+        while let u = e.nextObject() as? URL {
+            if files >= maxFiles || (files & 1023 == 0 && (Date() > end || cancelled())) { partial = true; break }
+            guard let v = try? u.resourceValues(forKeys: Set(keys)), v.isRegularFile == true else { continue }
+            bytes += Int64(v.totalFileAllocatedSize ?? v.fileSize ?? 0); files += 1
+        }
+        return Size(bytes: bytes, files: files, partial: partial)
+    }
+
     /// One folder found by Export's search: its name, its path, the folder Lumina has access to it was found under, how deep.
     struct Found: Equatable, Sendable {
         var name: String; var path: String; var root: String; var depth: Int
