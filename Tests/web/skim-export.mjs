@@ -67,6 +67,7 @@ export function ctxFromFixture(fx, over = {}){
       clips: fx.clips.map(c => ({
         id: c.id, name: c.name, path: c.path, ltc: c.tcRaw,
         dur: c.durF * c.fpsDen / c.fpsNum, fps: c.fps, w: c.w, h: c.h,
+        ...(c.audio ? { ach: c.audio.channels, arate: c.audio.rate } : {}),
       })),
     },
     state: {

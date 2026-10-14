@@ -12,9 +12,9 @@ import { MiniDOMParser } from './mini-xml.mjs';
 
 const src = fs.readFileSync(PAGE, 'utf8');
 const stat = (name, head) => new Function('return function ' + extractMethod(src, name, head).replace(/^static /, ''))();
-const moovRate = stat('moovRate', 'static moovRate(u8) {'), rootSay = stat('rootSay', 'static rootSay(root, tops, known) {'), checkX = stat('checkX', 'static checkX(text, n, P, kws) {');
+const moovRate = stat('moovRate', 'static moovRate(u8) {'), moovAudio = stat('moovAudio', 'static moovAudio(u8) {'), rootSay = stat('rootSay', 'static rootSay(root, tops, known) {'), checkX = stat('checkX', 'static checkX(text, n, P, kws) {');
 const Meta = new Function('return class Component {\n' + [extractMethod(src, 'gammaName', 'gammaName(g) {'), extractMethod(src, 'primName', 'primName(p) {'), extractMethod(src, 'sonyMeta', 'sonyMeta(tx, src) {'), extractMethod(src, 'moovTransfer', 'static moovTransfer(u8) {'),
-  extractMethod(src, 'tailMeta', 'async tailMeta(f, sc) {'), extractMethod(src, 'moovRate', 'static moovRate(u8) {'), extractMethod(src, 'fileRate', 'async fileRate(f) {'),
+  extractMethod(src, 'tailMeta', 'async tailMeta(f, sc) {'), extractMethod(src, 'moovRate', 'static moovRate(u8) {'), extractMethod(src, 'moovAudio', 'static moovAudio(u8) {'), extractMethod(src, 'fileRate', 'async fileRate(f) {'),
   extractMethod(src, 'fileMoov', 'async fileMoov(f) {'), extractMethod(src, 'moovTime', 'static moovTime(u8) {'), extractMethod(src, 'iso', 'iso(ms) {')].join('\n') + '\n}')();
 const buildX = loadBuildX().fn;
 const SL3 = { gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'file' };
@@ -45,6 +45,25 @@ test('a file with no video track, or cut short, gives no rate and no throw', () 
   assert.equal(moovRate(new Uint8Array(0)), null);
   assert.equal(moovRate(moov(trak('vide', 2400, [[187, 100]])).slice(0, 60)), null);
   assert.equal(moovRate(new Uint8Array(64).fill(255)), null);
+});
+
+// round 2, fcpxml item 3: the sound track's channels and rate from its sample description (LOCAL-CHANGES 296)
+const sndTrak = (v, ch, rate) => { const e = [...u32(0), ...str('lpcm'), 0, 0, 0, 0, 0, 0, 0, 1, 0, v, 0, 0, ...u32(0)];
+  if (v === 2) { const f = new DataView(new ArrayBuffer(8)); f.setFloat64(0, rate); e.push(0, 3, 0, 16, 0xff, 0xfe, 0, 0, ...u32(65536), ...u32(72), ...new Uint8Array(f.buffer), ...u32(ch), ...new Array(20).fill(0)); }
+  else e.push(0, ch, 0, 16, 0, 0, 0, 0, ...u32(rate * 65536 >>> 0), ...new Array(8).fill(0));
+  e.splice(0, 4, ...u32(e.length));
+  return box('trak', box('mdia', box('hdlr', [0, 0, 0, 0, ...u32(0), ...str('soun'), ...new Array(12).fill(0)]), box('minf', box('stbl', box('stsd', [0, 0, 0, 0, ...u32(1), ...e]))))); };
+test('the sound a file states: channels and rate from the sound track, none when it has no sound', () => {
+  assert.deepEqual(moovAudio(moov(trak('vide', 24000, [[276, 1001]]), sndTrak(0, 2, 48000))), { ch:2, rate:48000 });
+  assert.deepEqual(moovAudio(moov(sndTrak(1, 4, 44100))), { ch:4, rate:44100 }, 'a version 1 entry');
+  assert.deepEqual(moovAudio(moov(sndTrak(2, 8, 96000))), { ch:8, rate:96000 }, 'a version 2 entry, rate as a float');
+  assert.deepEqual(moovAudio(moov(trak('vide', 24000, [[276, 1001]]))), { ch:0, rate:0 }, 'tracks, none of them sound');
+  assert.equal(moovAudio(new Uint8Array(0)), null);
+  assert.equal(moovAudio(new Uint8Array(64).fill(255)), null);
+});
+test('Sony metadata states the channels; XAVC records at 48 kHz', () => {
+  const m = new Meta(), t = n => m.sonyMeta('<NonRealTimeMeta><AudioFormat numOfChannel="' + n + '"/></NonRealTimeMeta>', 'f');
+  assert.equal(t(2).ach, 2); assert.equal(t(2).arate, 48000); assert.equal(t(0).ach, 0); assert.equal(t(0).arate, 0);
 });
 
 test('Sony metadata gives the frame length and the frame count; without it the file header is read', async () => {
