@@ -165,3 +165,44 @@ nonisolated final class SetsMasks: @unchecked Sendable {
         return p
     }
 }
+
+// MARK: Masks at render time (adjustments inside a mask, DESIGN-ASKS Prompt 29)
+
+/// A look's `mask:` tokens render through the masks found here: the canvas, the image path
+/// (`lumina://render`) and the export all take the photo's cached finding, the one the page drew
+/// its outlines from, so the three line up and an export renders what the preview showed.
+nonisolated extension SetsMasks {
+    /// The masks already found for `rel` (the newest finding when its preview was read twice),
+    /// without finding anything. Nil when it has not been measured.
+    func cached(rel: String) -> [LookMasks.Found]? {
+        lock.withLock { order.last(where: { $0.rel == rel }).flatMap { found[$0] } }
+    }
+
+    /// The masks for `rel`: cached, else found on `preview` (the embedded JPEG's range, as the page
+    /// gives it) when there is one. Nil when neither works; the render then leaves the masks out.
+    func masks(rel: String, preview: SetsIngest.Preview?) async -> [LookMasks.Found]? {
+        if let hit = cached(rel: rel) { return hit }
+        guard let p = preview, p.rel == rel, p.length > 0 else { return nil }
+        return await masks(p)
+    }
+
+    /// `masks(rel:preview:)` for a caller on a render queue that can wait (the image path's
+    /// renderer, one render at a time): blocks at most `timeout`. Never on the main thread.
+    func waiting(rel: String, preview: SetsIngest.Preview?, timeout: TimeInterval = 15) -> [LookMasks.Found]? {
+        if let hit = cached(rel: rel) { return hit }
+        guard preview != nil, !Thread.isMainThread else { return nil }
+        let box = FoundBox(), done = DispatchSemaphore(value: 0)
+        Task.detached(priority: .userInitiated) {
+            box.set(await self.masks(rel: rel, preview: preview))
+            done.signal()
+        }
+        return done.wait(timeout: .now() + timeout) == .success ? box.get() : nil
+    }
+
+    private final class FoundBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value: [LookMasks.Found]?
+        func set(_ v: [LookMasks.Found]?) { lock.withLock { value = v } }
+        func get() -> [LookMasks.Found]? { lock.withLock { value } }
+    }
+}

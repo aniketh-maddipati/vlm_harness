@@ -6,7 +6,7 @@
 #   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests,
 #   LookStringTests, LookMathTests (the look grammar and the stage maths on synthetic ramps),
 #   LookCanvasTests (the canvas schedule, the warm-up plan, the byte cache, the RAW tiers and the pin rule),
-#   LookMasksTests (Edit's automatic masks: algebra, edge refinement, outlines, naming),
+#   LookMasksTests (Edit's automatic masks: algebra, edge refinement, outlines, naming, rasterising),
 #   VideoPolicyTests (the video module's budgets, tiers, pacing, pressure order and profile → transform; Lumina/Sets/Video/VideoPolicy.swift),
 #   SkimStoreTests, SkimCoversTests, SkimDriveTests, SkimTrashTests, SkimExportTests, SkimPlacesTests, SkimArrangeTests and SkimLedgerTests (Skim's saved shoots and covers, its drive, Move cut to Trash, Export's Save to, workshop and Arrange),
 #   SetsShootStoreTests (a shoot id from the page stays inside the store),
@@ -40,7 +40,7 @@ import Foundation
 // LookPipeline), Mac only.
 enum SetsLookExport {
     struct Outcome: Equatable { var decoder: Int?; var fellBackFrom: Int?; var reason: String?; var ms: Double = 0; var label: String { "" } }
-    static func render(raw url: URL, look: String, px: Int?, format: String, decoder: Int?) throws -> (Data, Outcome) { throw SetsFileOps.Failure("no Core Image on Linux") }
+    static func render(raw url: URL, look: String, px: Int?, format: String, decoder: Int?, masks: [LookMasks.Found] = []) throws -> (Data, Outcome) { throw SetsFileOps.Failure("no Core Image on Linux") }
 }
 // Darwin-only: F_NOCACHE (bypass the buffer cache) becomes F_GETFD, a no-op; the "important usage"
 // capacity falls back to the plain available capacity, as the app's code already does when it's 0.

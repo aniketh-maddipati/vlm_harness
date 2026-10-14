@@ -157,7 +157,7 @@ final class SetsBridgeOpsTests: XCTestCase {
         "shootOpened": ["name", "n", "date", "bodies"], "shootHeader": [], "decoderUpdate": [],
         "canvasEnter": ["rel", "model", "look", "prev", "next", "preview", "prevPreview", "nextPreview"], "canvasLeave": [],
         "canvasLayout": ["x", "y", "w", "h", "visible", "dpr", "holes"], "canvasLook": ["look", "drag", "key", "roi", "t", "seq"],
-        "canvasDrag": ["start"], "canvasLoupe": ["on", "roi"], "canvasStats": ["reset"],
+        "canvasDrag": ["start"], "canvasLoupe": ["on", "roi"], "canvasMask": ["id"], "canvasStats": ["reset"],
         "saveSession": ["id", "json", "summary"], "recents": [], "reopen": ["id"], "workingFiles": ["id"], "removeShoot": ["id"],
         "writeInto": ["label", "files"], "readSidecars": ["root", "files"], "writeSidecars": ["root", "files"], "reveal": ["path"],
         "setPrefs": ["prefs"], "checkAccess": [], "reopenDenied": [], "reopenCurrent": [],

@@ -331,3 +331,88 @@ nonisolated enum LookMasks {
         return list
     }
 }
+
+// MARK: Rasterising (adjustments inside a mask, DESIGN-ASKS Prompt 29)
+
+nonisolated extension LookMasks {
+    /// `outline` (closed loops in fractions of the photo from its top left, filled even-odd, as
+    /// `Found.outline` has them) as a plane of `width × height` covering the whole photo, row 0 at
+    /// the photo's top. Each pixel holds the share of it that is inside: exact along a row,
+    /// `samples` lines down each row (4: an edge steps in quarters at worst). `feather`, a fraction
+    /// of the plane's long edge, then softens the edge (two box passes, together about that wide), so the
+    /// same feather is the same width of the photo at every size. The render blends a mask's
+    /// adjustments through this (`LookPipeline.apply`).
+    static func raster(_ outline: [[Point]], width: Int, height: Int, samples: Int = 4, feather: Double = 0) -> Plane {
+        var p = Plane(width: width, height: height)
+        guard width > 0, height > 0 else { return p }
+        let w = Double(width), h = Double(height), n = max(1, min(16, samples))
+        // The loops' edges in pixels, each listed under the rows it crosses. A horizontal edge
+        // crosses no sample line; a loop of fewer than three points encloses nothing.
+        var edges: [(x0: Double, y0: Double, x1: Double, y1: Double)] = []
+        var rows = [[Int]](repeating: [], count: height)
+        for loop in outline where loop.count >= 3 {
+            for i in loop.indices {
+                let a = loop[i], b = loop[(i + 1) % loop.count]
+                guard a.x.isFinite, a.y.isFinite, b.x.isFinite, b.y.isFinite, a.y != b.y else { continue }
+                let e = a.y < b.y ? (x0: a.x * w, y0: a.y * h, x1: b.x * w, y1: b.y * h) : (x0: b.x * w, y0: b.y * h, x1: a.x * w, y1: a.y * h)
+                guard e.y1 > 0, e.y0 < h else { continue }
+                let top = max(0, Int(e.y0.rounded(.down))), bottom = min(height - 1, Int(e.y1.rounded(.down)))
+                guard top <= bottom else { continue }
+                for r in top...bottom { rows[r].append(edges.count) }
+                edges.append(e)
+            }
+        }
+        var cover = [Double](repeating: 0, count: width)
+        var runs = [Double](repeating: 0, count: width + 1)          // whole pixels inside, as a difference array
+        var xs: [Double] = []
+        let share = 1 / Double(n)
+        for r in 0..<height where !rows[r].isEmpty {
+            for i in 0..<width { cover[i] = 0 }
+            for i in 0...width { runs[i] = 0 }
+            for s in 0..<n {
+                // A sample line crosses an edge that starts at or above it and ends below it (half
+                // open), so a vertex on the line is counted once.
+                let ys = Double(r) + (Double(s) + 0.5) * share
+                xs.removeAll(keepingCapacity: true)
+                for k in rows[r] {
+                    let e = edges[k]
+                    guard e.y0 <= ys, ys < e.y1 else { continue }
+                    xs.append(e.x0 + (ys - e.y0) * (e.x1 - e.x0) / (e.y1 - e.y0))
+                }
+                xs.sort()
+                // Even-odd: inside between the first crossing and the second, the third and the fourth, …
+                var j = 0
+                while j + 1 < xs.count {
+                    let a = min(w, max(0, xs[j])), b = min(w, max(0, xs[j + 1]))
+                    j += 2
+                    guard b > a else { continue }
+                    let ia = min(width - 1, Int(a.rounded(.down))), ib = Int(b.rounded(.down))
+                    if ib <= ia { cover[ia] += (b - a) * share; continue }
+                    cover[ia] += (Double(ia + 1) - a) * share
+                    if ib > ia + 1 { runs[ia + 1] += share; runs[ib] -= share }
+                    if ib < width { cover[ib] += (b - Double(ib)) * share }
+                }
+            }
+            var run = 0.0
+            for i in 0..<width {
+                run += runs[i]
+                p.values[r * width + i] = Float(min(1, max(0, cover[i] + run)))
+            }
+        }
+        let radius = Int((max(0, feather.isFinite ? feather : 0) * Double(max(width, height)) / 4).rounded())
+        if radius > 0 { p = boxMean(boxMean(p, radius: radius), radius: radius) }
+        return p
+    }
+
+    /// The plane a mask is rasterised to for a picture where the whole photo is `width × height`
+    /// pixels (either may be fractional): the smallest of 256, 512, 1024 and 2048 on the long edge
+    /// that is at least the photo's, at most `cap`, with the photo's aspect. A few sizes only, so
+    /// a cache holds one plane per size whatever the zoom or tier, and the drag tier gets a small one.
+    static func rasterSize(photo width: Double, _ height: Double, cap: Int = 2048) -> (width: Int, height: Int) {
+        let long = max(width, height)
+        guard long.isFinite, long > 0, width > 0, height > 0 else { return (1, 1) }
+        let edge = Double([256, 512, 1024, 2048].first { Double($0) >= long && $0 <= cap } ?? max(1, min(cap, 2048)))
+        let s = edge / long
+        return (max(1, Int((width * s).rounded())), max(1, Int((height * s).rounded())))
+    }
+}

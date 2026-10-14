@@ -1508,3 +1508,56 @@ text.
 Reply with the complete Masks section, the changes to the Edit column it sits in, and every function
 you changed or added, as full functions, not a description and not a partial diff. List any new
 `window.lumina` call the page makes, with its arguments and the answer it expects.
+
+## Prompt 29 — adjusting a chosen mask (paste into Claude Design)
+
+Prompt 28 lists the masks Lumina found and lets the photographer choose one. The app now renders
+adjustments that apply only inside a mask, on the canvas, in the image path and in Export alike. This
+prompt is the page's half: the sliders that set them, and how they are written into the look.
+
+**1. The sliders.** While a mask is chosen in the Masks section, a group titled with the mask's name
+(**Subject**, **Person 1**, …) sits under it with nine sliders: **Exposure**, **Contrast**,
+**Highlights**, **Shadows**, **Whites**, **Blacks**, **Saturation**, **Vibrance** and **Clarity**.
+They have the global sliders' ranges and steps (Exposure ±5 stops in 0.05, shown `+0.30`; the others
+−100 to +100 in whole steps) and the same double-click reset. They edit the chosen mask's values
+only; the global sliders are unchanged. Letting the mask go (Esc, or clicking its row again) hides the
+group and keeps its values. A row whose mask has any value set shows a small dot.
+
+**2. In the look.** Each mask with a value set is one token at the end of the look string the page
+already sends (`lumina.edit.look`, the image path, Save and Export):
+```
+mask:<id>/ev=+0.30,con=+10,hl=-20,sh=+15,wh=+5,bl=-5,vib=+10,sat=-20,clr=+12
+```
+- `<id>` is the id from `lumina.masks` (`subject`, `person-1`, `background`, …).
+- Keys in exactly this order, each at most once: `ev`, `con`, `hl`, `sh`, `wh`, `bl`, `vib`, `sat`,
+  `clr`. A key at 0 is left out; a mask with every key at 0 is no token at all.
+- `ev` with a sign and two decimals (`+0.30`, `-1.25`); the others with a sign and no decimals.
+- Several masks are several tokens, separated by a space, each id once, in the Masks list's order:
+  `… mask:subject/ev=+0.30,sh=+15 mask:background/ev=-0.50,sat=-20`.
+- There is no white balance, sharpening, vignette, curve or mixer per mask: those stay global.
+- The app refuses a look with an unknown key, so send no other key. A token for a mask the app
+  doesn't find in that photo renders without it and is not an error.
+
+**3. Reset mask.** At the foot of the group, a **Reset mask** action sets the chosen mask's nine
+sliders to 0, which removes its token. Undo brings it back like any other slider change.
+
+**4. Showing.** Moving a mask's slider keeps that mask's outline shown
+(`lumina.edit.showMask(id)`), as choosing it does in Prompt 28.
+
+**Clickable, and only these:** the nine sliders and **Reset mask**, besides Prompt 28's rows. The
+group title and the values are text.
+
+### How Prompt 29 is checked once its handoff lands
+
+- Choosing Subject and setting Exposure to +0.30 and Shadows to +15 sends a look ending
+  `mask:subject/ev=+0.30,sh=+15`; the canvas brightens the subject only.
+- Setting Background's Exposure to −0.50 and Saturation to −20 adds
+  `mask:background/ev=-0.50,sat=-20` after the subject's token; the global sliders' keys are unchanged.
+- Reset mask on Subject removes its token and nothing else. Every value back at 0 sends the look as
+  it was before any mask was touched, byte for byte.
+- Save, reopen: the sliders come back with the values the look holds. Export renders what the canvas
+  showed.
+
+Reply with the complete Masks section with its new group, and every function you changed or added, as
+full functions, not a description and not a partial diff. List any new `window.lumina` call the page
+makes, with its arguments and the answer it expects.
