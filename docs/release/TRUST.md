@@ -103,17 +103,18 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `canvasEnter` | a RAW in the opened folders | — (renders on screen) |
 | `canvasLeave` | — | — |
 | `canvasLayout` | — | — |
-| `canvasLook` | — | — |
+| `canvasLook` | — (a look with `mask:` tokens: the photo's preview, as `masks` does, when its masks were not found yet) | — |
 | `canvasDrag` | — | — |
 | `canvasZoom` | — | — |
 | `canvasLoupe` | the RAW's region at 100 % | — |
+| `canvasMask` | the photo on the canvas's preview, as `masks` does, when its masks were not found yet | — (draws one mask's outline on screen) |
 | `canvasStats` | render counters | — |
 | `saveSession` | — | `shoots/<id>/session.json` (size capped, id checked) |
 | `recents` | `shoots/index.json` | — |
 | `reopen` | a recent shoot through its bookmark | — |
 | `workingFiles` | sizes in the container | — |
 | `removeShoot` | — | deletes `shoots/<id>/` in the container (id checked) |
-| `writeInto` | RAWs in the opened folders | an export: `.xmp` bytes or rendered `.jpg` `.tif` `.png`, in a folder the user picks (not the card, not the source) |
+| `writeInto` | RAWs in the opened folders (and, for a look with `mask:` tokens, the photo's preview, as `masks` does) | an export: `.xmp` bytes or rendered `.jpg` `.tif` `.png`, in a folder the user picks (not the card, not the source) |
 | `readSidecars` | `.xmp` files in the opened folder | — |
 | `writeSidecars` | — | `.xmp` beside its RAW in the opened folder, `.lumina-bak` first |
 | `reveal` | — | — (shows a file in Finder, only inside the opened folders or the last export) |

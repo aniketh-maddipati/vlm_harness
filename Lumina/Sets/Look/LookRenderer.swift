@@ -107,10 +107,15 @@ nonisolated final class LookRenderer: @unchecked Sendable {
     /// The preview JPEG. Throws `Stale` when a newer request for `rel` arrived before this one
     /// rendered (checked before the develop and again before the encode). `decoder` is the
     /// canvas tier's version (the image fallback path renders what the native canvas would).
-    func renderJPEG(url: URL, rel: String, look: String, px: Int, seq: Int, quality: Double = 0.9, decoder: Int? = nil, preview: LookBases.PreviewFallback? = nil) throws -> Data {
+    /// `masks`: asked for only when the look has `mask:` tokens (`Look.locals`), with the parsed
+    /// look, on this queue (it may wait for the photo's masks to be found); nil renders without them.
+    func renderJPEG(url: URL, rel: String, look: String, px: Int, seq: Int, quality: Double = 0.9, decoder: Int? = nil, preview: LookBases.PreviewFallback? = nil,
+                    masks: (() -> [LookMasks.Found]?)? = nil) throws -> Data {
         if isStale(rel: rel, seq: seq) { lock.withLock { _stats.stale += 1 }; throw Stale() }
         let parsed = try Look.parse(look)
-        let dev = try developed(url: url, rel: rel, px: px, decoder: decoder, nr: parsed.nr, preview: preview)
+        var dev = try developed(url: url, rel: rel, px: px, decoder: decoder, nr: parsed.nr, preview: preview)
+        // The developed image is the whole upright photo: its masks fill it.
+        if !parsed.locals.isEmpty, let found = masks?() { dev = dev.withMasks(found, key: LookPipeline.PhotoMasks.key(rel: rel, found)) }
         if isStale(rel: rel, seq: seq) { lock.withLock { _stats.stale += 1 }; throw Stale() }
         let t0 = Date()
         let out = pipeline.apply(parsed, to: dev)

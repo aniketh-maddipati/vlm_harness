@@ -234,6 +234,11 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   ok(bridge.canvas.loupes[0] && bridge.canvas.loupes[0].on === true && bridge.canvas.loupes[0].roi.w === 0.5, 'edit: loupe on with its region reaches the Mac (RAW 9 region)', bridge.canvas.loupes[0]);
   await page.evaluate(() => { lumina.roi({ x: 0.1, y: 0.1, w: 0.3, h: 0.3 }); lumina.roi(null); });
   ok(bridge.canvas.loupes.length === 3 && bridge.canvas.loupes[1].on === true && bridge.canvas.loupes[1].roi.x === 0.1 && bridge.canvas.loupes[2].on === false, 'edit: lumina.roi(region) / roi(null) drive the RAW 9 region', bridge.canvas.loupes.slice(1));
+  // Showing a mask (DESIGN-ASKS Prompt 28 §3): lumina.edit.showMask(id | null) reaches the Mac as canvasMask; anything
+  // that is not a mask id goes as null (hide). On the image path the Mac draws nothing, so the answer is false.
+  { const sm = await page.evaluate(async () => [await lumina.edit.showMask('person-1'), lumina.edit.state().mask, await lumina.edit.showMask(null), await lumina.edit.showMask('Bad id!'), await lumina.edit.showMask({ id: 'subject' }), lumina.edit.state().mask]);
+    ok(JSON.stringify(bridge.canvas.masks) === JSON.stringify(['person-1', null, null, null]) && sm[1] === 'person-1' && sm[5] === null && sm.filter(v => v === false).length === 4,
+      'edit: showMask(id | null) reaches the Mac (canvasMask), a bad id hides; false on the image path', { sm, sent: bridge.canvas.masks }); }
   const upd = await page.evaluate(async () => { const f = await lumina.edit.updateDecoder(); const s = await lumina.edit.stats(true); return { f, s }; });
   ok(upd.f.decoder === '8' && bridge.canvas.updates === 1 && bridge.canvas.resets === 1 && upd.s.path === 'image', 'edit: updateDecoder pins the newest; stats(reset) reaches the Mac', upd);
   await page.evaluate(() => { __lumina.editFacts('canvas: image · image file · raw 8 · region'); });
@@ -252,6 +257,11 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   // Prompt 1 §7: writeInto(files, 'jpeg') renders natively with the body's pinned decoder.
   const jp = await page.evaluate(rel => __lumina.logic().writeInto([{ name: 'JPEG/DSC01001.jpg', look: { src: rel, look: 'ev:+0.50', px: 2048 } }], 'jpeg'), rel0);
   ok(jp && jp.n === 1 && jp.decoder === 'RAW 8' && bridge.jpegItems && bridge.jpegItems[0].look.model === 'ILCE-7M4' && bridge.jpegItems[0].look.px === 2048 && bridge.jpegItems[0].look.look === 'ev:+0.50 shp:40', 'edit: writeInto(files, "jpeg") reaches the Mac with the look, size and body; the result names the decoder', { jp, items: bridge.jpegItems });
+  // A look with mask: tokens (Prompt 29) goes as it is; the item names the photo's embedded preview, where the Mac finds its masks.
+  { const jm = await page.evaluate(rel => __lumina.logic().writeInto([{ name: 'JPEG/DSC01001.jpg', look: { src: rel, look: 'ev:+0.50 mask:subject/ev=+0.30,sh=+15', px: 2048 } }], 'jpeg'), rel0);
+    const it = bridge.jpegItems && bridge.jpegItems[0] && bridge.jpegItems[0].look;
+    ok(jm && jm.n === 1 && it && it.look === 'ev:+0.50 mask:subject/ev=+0.30,sh=+15 shp:40' && it.preview && it.preview.p === rel0 && +it.preview.o > 0 && +it.preview.l > 0,
+      'edit: an export of a look with mask tokens keeps them and names the preview the Mac finds the masks on', it); }
   await page.evaluate(() => { lumina.edit.leave(); delete window.luminaEditImage; delete window.luminaEditFacts; });
   ok(bridge.canvas.entered.some(e => e.leave) && (await page.evaluate(() => lumina.edit.state().rel)) === null && bridge.canvas.layouts[bridge.canvas.layouts.length - 1].visible === false, 'edit: leave hides the canvas and tells the Mac');
   ok((await page.evaluate(() => { try { lumina.edit.look('ev:+0.10', { drag: true }); lumina.edit.dragEnd(); return true; } catch (e) { return String(e); } })) === true, 'edit: calls after leave are harmless no-ops');

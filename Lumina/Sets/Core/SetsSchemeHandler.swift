@@ -61,6 +61,9 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     private var _renderer: LookRenderer?
     private var rendererTried = false
     var renderStats: LookRenderer.Stats? { lock.withLock { _renderer?.stats } }
+    /// The photos' automatic masks (the bridge's `SetsMasks`), for a look with `mask:` tokens on the
+    /// image path. Nil: such a look renders without them.
+    var masks: SetsMasks?
 
     init(pageRoot: URL, vendorRoot: URL, standInPhotos: Bool, ingest: SetsIngest? = nil) {
         self.pageRoot = pageRoot
@@ -182,7 +185,10 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
         let o = SetsNumber.fileRange(q["o"]), l = SetsNumber.fileRange(q["l"])
         if o > 0, l > 0 { preview = LookBases.PreviewFallback(offset: o, length: l, orientation: SetsNumber.orientation(q["ori"])) }
         renderer.requested(rel: rel, seq: seq)
-        renderer.enqueue({ try renderer.renderJPEG(url: file, rel: rel, look: look, px: px, seq: seq, decoder: decoder, preview: preview) }) { [weak self] r in
+        // A look with `mask:` tokens: the photo's masks, cached or found on its embedded preview, on the render queue.
+        let masks = self.masks, maskPreview = preview.map { SetsIngest.Preview(rel: rel, offset: $0.offset, length: $0.length, orientation: $0.orientation) }
+        let found: () -> [LookMasks.Found]? = { masks?.waiting(rel: rel, preview: maskPreview) }
+        renderer.enqueue({ try renderer.renderJPEG(url: file, rel: rel, look: look, px: px, seq: seq, decoder: decoder, preview: preview, masks: found) }) { [weak self] r in
             guard let self, !self.lock.withLock({ self.stopped.remove(ObjectIdentifier(task)) != nil }) else { return }
             switch r {
             case .success(let data):

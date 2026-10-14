@@ -11,6 +11,11 @@ import Foundation
 /// different look. `format` writes the canonical form (fixed key order, fixed precision, zeros
 /// unsigned), so two equal looks are equal strings and cache keys.
 ///
+/// Adjustments inside a mask follow the global keys, one `mask:` token per mask, any number of
+/// them, in order (`Look.Local`):
+///
+///     … rot:90 mask:subject/ev=+0.30,sh=+15 mask:background/ev=-0.50,sat=-20
+///
 /// The page (Edit v22, design v0.05) sends the core's `lookString`, which names some of the same
 /// state its own way (`cDark`, `vMid`, `hue_red`, `curve:~[[x,y],…]`, `wb:/+5`); `parse` reads
 /// that form too, and `format` always writes this one.
@@ -52,6 +57,48 @@ nonisolated struct Look: Equatable, Sendable {
     /// `luminanceNoiseReductionAmount` (RAW 9 §6). Nil = the decoder's default. A develop
     /// parameter, not a look stage: it changes the `base`, not the graph on top of it.
     var nr: Double?
+    /// Adjustments that apply only inside one of the photo's automatic masks (Edit's Masks,
+    /// DESIGN-ASKS Prompts 28 and 29), in the order they were added: one token per mask,
+    /// `mask:<id>/ev=+0.30,con=+10,hl=-20,sh=+15,wh=0,bl=0,vib=0,sat=0,clr=0`. The id is a mask's
+    /// `LookMasks.Found.id` ("subject", "person-1", "object-2", "background"); the stages run on the
+    /// picture the global look made and are blended into it through the mask (`LookPipeline.apply`).
+    /// A mask the photo does not have (yet) renders as if its token were not there.
+    var locals: [Local] = []
+
+    /// One mask's sliders: the nine of Light and Colour that make sense in a region. White balance
+    /// is left out for now (its stage reads the photo's as-shot pair, and the page has no local
+    /// temperature yet); sharpening, vignette, the curve and the mixer stay global.
+    struct Local: Equatable, Sendable {
+        var mask: String
+        var ev = 0.0, contrast = 0.0, highlights = 0.0, shadows = 0.0, whites = 0.0, blacks = 0.0
+        var vibrance = 0.0, saturation = 0.0, clarity = 0.0
+
+        init(mask: String) { self.mask = mask }
+
+        /// Every slider at reset: the token is written as nothing at all.
+        var isNeutral: Bool { Self.keys.allSatisfy { self[keyPath: $0.field] == 0 } }
+
+        /// The look whose stages a mask's sliders are: the same stages as the global ones, on the
+        /// picture inside the mask.
+        var look: Look {
+            var l = Look()
+            l.ev = ev; l.contrast = contrast; l.highlights = highlights; l.shadows = shadows
+            l.whites = whites; l.blacks = blacks; l.vibrance = vibrance; l.saturation = saturation; l.clarity = clarity
+            return l
+        }
+
+        /// The keys inside a `mask:` token, in the order `format` writes them (the global order).
+        /// Ranges and precision are the global sliders' (`Look.ranges`).
+        static let keys: [(key: String, field: WritableKeyPath<Local, Double>)] = [
+            ("ev", \.ev), ("con", \.contrast), ("hl", \.highlights), ("sh", \.shadows), ("wh", \.whites),
+            ("bl", \.blacks), ("vib", \.vibrance), ("sat", \.saturation), ("clr", \.clarity),
+        ]
+
+        /// A mask id as `LookMasks` names them: lower-case letters, digits and hyphens, 1 … 64.
+        static func isID(_ s: Substring) -> Bool {
+            !s.isEmpty && s.utf8.count <= 64 && s.utf8.allSatisfy { ($0 >= 97 && $0 <= 122) || ($0 >= 48 && $0 <= 57) || $0 == 45 }
+        }
+    }
 
     struct WhiteBalance: Equatable, Sendable {
         var kelvin: Double
@@ -175,7 +222,7 @@ nonisolated struct Look: Equatable, Sendable {
     /// The crop tool's aspect preset: what the crop box was drawn with, not something to render.
     static let pageOnly: Set<String> = ["cropRatio"]
     /// Canonical key order; also the order `format` writes.
-    static let keys = ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot"]
+    static let keys = ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot", "mask"]
     /// The plain numeric sliders, key → field.
     static let sliders: [String: WritableKeyPath<Look, Double>] = [
         "ev": \.ev, "con": \.contrast, "hl": \.highlights, "sh": \.shadows, "wh": \.whites, "bl": \.blacks,
@@ -187,7 +234,7 @@ nonisolated struct Look: Equatable, Sendable {
     var isNeutral: Bool {
         ev == 0 && wb == nil && contrast == 0 && highlights == 0 && shadows == 0 && whites == 0 && blacks == 0
             && vibrance == 0 && saturation == 0 && clarity == 0 && sharpen == 0 && vignette == 0 && !bw
-            && curve.isNeutral && mixer.isNeutral
+            && curve.isNeutral && mixer.isNeutral && locals.isEmpty
     }
 
     static func clamp(_ v: Double, _ r: Range) -> Double {
@@ -203,16 +250,26 @@ nonisolated struct Look: Equatable, Sendable {
         let text = s.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty || text == "none" { return look }
         var seen: Set<String> = []
+        var maskIDs: Set<String> = []
         var wbRef: (kelvin: Double, tint: Double)?
         for token in text.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" }) {
             guard let colon = token.firstIndex(of: ":") else { throw ParseError(description: "'\(token)' has no ':'") }
             let key = String(token[..<colon]), raw = String(token[token.index(after: colon)...])
-            guard !seen.contains(key) else { throw ParseError(description: "'\(key)' given twice") }
-            seen.insert(key)
             func number(_ t: String, _ what: String) throws -> Double {
                 guard let v = Double(t), v.isFinite else { throw ParseError(description: "\(what): '\(t)' is not a number") }
                 return v
             }
+            // `mask:<id>/k=v,k=v`: one token per mask, any number of them (each id once).
+            if key == "mask" {
+                let local = try Self.local(raw, number)
+                guard !maskIDs.contains(local.mask) else { throw ParseError(description: "mask '\(local.mask)' given twice") }
+                maskIDs.insert(local.mask)
+                // A mask whose sliders are all at reset is no adjustment: dropped, so the look equals the one without it.
+                if !local.isNeutral { look.locals.append(local) }
+                continue
+            }
+            guard !seen.contains(key) else { throw ParseError(description: "'\(key)' given twice") }
+            seen.insert(key)
             if let field = Self.sliders[key] {
                 let v = try number(raw, key)
                 look[keyPath: field] = clamp(v, ranges[key]!)
@@ -318,10 +375,30 @@ nonisolated struct Look: Equatable, Sendable {
         return look
     }
 
+    /// One `mask:` token's value: `<id>` or `<id>/k=v,k=v,…`, the keys those of `Local.keys`, each
+    /// at most once, each clamped into its global slider's range. An empty list (`<id>` or `<id>/`)
+    /// is a mask at reset. Unknown keys are an error, as they are in the look itself.
+    private static func local(_ raw: String, _ number: (String, String) throws -> Double) throws -> Local {
+        let parts = raw.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+        guard let id = parts.first, Local.isID(id) else { throw ParseError(description: "mask wants <id>/k=v,…, an id of a-z, 0-9 and -, got '\(raw)'") }
+        var local = Local(mask: String(id))
+        guard parts.count == 2, !parts[1].isEmpty else { return local }
+        var seen: Set<String> = []
+        for pair in parts[1].split(separator: ",", omittingEmptySubsequences: false) {
+            let kv = pair.split(separator: "=", omittingEmptySubsequences: false).map(String.init)
+            guard kv.count == 2 else { throw ParseError(description: "mask '\(id)' wants k=v, got '\(pair)'") }
+            guard let field = Local.keys.first(where: { $0.key == kv[0] })?.field else { throw ParseError(description: "mask '\(id)': unknown key '\(kv[0])'") }
+            guard seen.insert(kv[0]).inserted else { throw ParseError(description: "mask '\(id)': '\(kv[0])' given twice") }
+            local[keyPath: field] = clamp(try number(kv[1], "mask \(id) \(kv[0])"), ranges[kv[0]]!)
+        }
+        return local
+    }
+
     // MARK: Format
 
     /// Canonical text. Reset values are written too (the page can diff two looks by eye); `wb`,
-    /// `vigs`, the curve keys, the mixer keys, `nr`, `bw`, `crop` and `rot` only when set.
+    /// `vigs`, the curve keys, the mixer keys, `nr`, `bw`, `crop` and `rot` only when set; each
+    /// `mask:` token only with the keys it has off reset (ev to 2 places, the others whole).
     func format() -> String {
         func signed(_ v: Double, _ decimals: Int) -> String {
             let r = (v * pow(10, Double(decimals))).rounded() / pow(10, Double(decimals))
@@ -364,6 +441,15 @@ nonisolated struct Look: Equatable, Sendable {
             out.append("crop:\(f(c.x)),\(f(c.y)),\(f(c.w)),\(f(c.h))" + (c.rotate == 0 ? "" : "/\(String(format: "%.2f", c.rotate))"))
         }
         if rot != 0 { out.append("rot:\(rot)") }
+        // The masks last, in their order: only the keys off reset, a mask with none left out.
+        // Without masks the string is exactly what it was before them (cache keys stay).
+        for local in locals {
+            let kv = Local.keys.compactMap { k -> String? in
+                let t = signed(local[keyPath: k.field], k.key == "ev" ? 2 : 0)
+                return t == "0" || t == "0.00" ? nil : "\(k.key)=\(t)"
+            }
+            if !kv.isEmpty { out.append("mask:\(local.mask)/" + kv.joined(separator: ",")) }
+        }
         return out.joined(separator: " ")
     }
 

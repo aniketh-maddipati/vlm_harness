@@ -147,7 +147,7 @@ final class LookStringTests: XCTestCase {
         let l = try Look.parse(s)
         XCTAssertEqual(l.format(), s)
         XCTAssertEqual(try Look.parse(s.split(separator: " ").reversed().joined(separator: " ")), l, "any order")
-        XCTAssertEqual(Look.keys, ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot"])
+        XCTAssertEqual(Look.keys, ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot", "mask"])
         let old = "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:-20 nr:40 bw:1 crop:0.1000,0.2000,0.5000,0.6000/-1.50"
         XCTAssertEqual(try Look.parse(old).format(), old)
     }
@@ -215,5 +215,67 @@ final class LookStringTests: XCTestCase {
         XCTAssertEqual(try Look.parse("wb:6000/+1").wb?.resolved(asShot: decoder), Look.WhiteBalance(kelvin: 6000, tint: 1))
         XCTAssertThrowsError(try Look.parse("wb:6000/0 wbref:0/0"))
         XCTAssertThrowsError(try Look.parse("wb:6000/0 wbref:5500"))
+    }
+
+    /// `mask:<id>/k=v,…`: adjustments inside one of the photo's automatic masks (DESIGN-ASKS
+    /// Prompt 29). Any number, in order, each id once; the keys and ranges of the global sliders;
+    /// written last, only the keys off reset, a mask at reset not at all.
+    func testMaskAdjustments() throws {
+        let s = "ev:+0.20 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:40 vig:0 rot:90 mask:subject/ev=+0.30,con=+10,hl=-20,sh=+15 mask:background/ev=-0.50,sat=-20,clr=+5"
+        let l = try Look.parse(s)
+        XCTAssertEqual(l.locals.map(\.mask), ["subject", "background"])
+        XCTAssertEqual(l.locals[0].ev, 0.3, accuracy: 1e-9); XCTAssertEqual(l.locals[0].contrast, 10)
+        XCTAssertEqual(l.locals[0].highlights, -20); XCTAssertEqual(l.locals[0].shadows, 15)
+        XCTAssertEqual(l.locals[1].saturation, -20); XCTAssertEqual(l.locals[1].clarity, 5)
+        XCTAssertEqual(l.format(), s)
+        XCTAssertEqual(try Look.parse(l.format()), l)
+        XCTAssertEqual(l.ev, 0.2, accuracy: 1e-9, "the global sliders are untouched")
+        XCTAssertFalse(try Look.parse("mask:subject/ev=+1").isNeutral)
+
+        // Keys in any order inside the token; zeros dropped; ev to 2 places, the others whole.
+        XCTAssertEqual(try Look.parse("mask:person-1/sat=+3,wh=0,ev=0.5,bl=-2.4,vib=7").format(),
+                       "ev:0.00 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:0 mask:person-1/ev=+0.50,bl=-2,vib=+7,sat=+3")
+        // A mask at reset is no mask: the look is the one without it, so the string and its cache key are too.
+        XCTAssertEqual(try Look.parse("ev:+1 mask:subject/ev=0,con=0"), try Look.parse("ev:+1"))
+        XCTAssertEqual(try Look.parse("mask:subject"), Look())
+        XCTAssertEqual(try Look.parse("mask:subject/"), Look())
+        XCTAssertEqual(try Look.parse("ev:+1 mask:subject/ev=0").format(), try Look.parse("ev:+1").format())
+        // The order of the masks is kept (a later mask is blended over an earlier one).
+        XCTAssertEqual(try Look.parse("mask:b/ev=1 mask:a/ev=1").locals.map(\.mask), ["b", "a"])
+        // Clamped into the global ranges.
+        let c = try Look.parse("mask:subject/ev=+9,con=-500")
+        XCTAssertEqual(c.locals[0].ev, 5); XCTAssertEqual(c.locals[0].contrast, -100)
+        // The local look is the same stages with those values.
+        let local = c.locals[0].look
+        XCTAssertEqual(local.ev, 5); XCTAssertEqual(local.contrast, -100); XCTAssertNil(local.wb); XCTAssertEqual(local.sharpen, 0); XCTAssertTrue(local.locals.isEmpty)
+    }
+
+    func testMaskAdjustmentsAreStrict() {
+        XCTAssertThrowsError(try Look.parse("mask:subject/exposure=1"), "an unknown key inside a mask")
+        XCTAssertThrowsError(try Look.parse("mask:subject/wb=5000"), "white balance is not a local adjustment (yet)")
+        XCTAssertThrowsError(try Look.parse("mask:subject/shp=10"), "nor is sharpening")
+        XCTAssertThrowsError(try Look.parse("mask:subject/ev=1,ev=2"), "a key twice")
+        XCTAssertThrowsError(try Look.parse("mask:subject/ev=1 mask:subject/con=2"), "a mask twice")
+        XCTAssertThrowsError(try Look.parse("mask:subject/ev"), "no value")
+        XCTAssertThrowsError(try Look.parse("mask:subject/ev=one"))
+        XCTAssertThrowsError(try Look.parse("mask:subject/ev=nan"))
+        XCTAssertThrowsError(try Look.parse("mask:subject/ev=1,"), "an empty pair")
+        XCTAssertThrowsError(try Look.parse("mask:Subject/ev=1"), "ids are lower case")
+        XCTAssertThrowsError(try Look.parse("mask:/ev=1"), "no id")
+        XCTAssertThrowsError(try Look.parse("mask:a_b/ev=1"))
+        XCTAssertThrowsError(try Look.parse("mask:" + String(repeating: "a", count: 65) + "/ev=1"), "an id longer than 64")
+        XCTAssertNoThrow(try Look.parse("mask:" + String(repeating: "a", count: 64) + "/ev=1"))
+    }
+
+    /// A look without masks formats exactly as it did before masks existed: every string the
+    /// session or a cache key holds stays the same.
+    func testLooksWithoutMasksAreUnchanged() throws {
+        for s in ["ev:0.00 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:0",
+                  "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:-20 nr:40 bw:1 crop:0.1000,0.2000,0.5000,0.6000/-1.50 rot:270"] {
+            let l = try Look.parse(s)
+            XCTAssertTrue(l.locals.isEmpty)
+            XCTAssertEqual(l.format(), s)
+            XCTAssertFalse(l.format().contains("mask"))
+        }
     }
 }

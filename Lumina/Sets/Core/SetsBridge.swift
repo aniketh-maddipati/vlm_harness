@@ -146,6 +146,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             c.onStats = { [weak self] stats in self?.push("__lumina.editStats(\(Self.json(stats)))") }
             c.onPresented = { [weak self] seq in self?.push("__lumina.editPresented(\(seq))") }
             c.onDecoderFallback = { [weak self] rel, from, to in self?.onEvent?("raw \(from) failed for \(rel): using raw \(to)") }
+            // A look's `mask:` tokens and `showMask` draw the photo's masks: the page's own finding
+            // (`lumina.masks`, cached), else found on the embedded preview the canvas was given.
+            c.findMasks = { [weak self] rel, pv, done in
+                guard let self else { done(nil); return }
+                let p = pv.map { SetsIngest.Preview(rel: rel, offset: $0.offset, length: $0.length, orientation: $0.orientation) }
+                let masks = self.masks
+                Task { done(await masks.masks(rel: rel, preview: p)) }
+            }
             canvas = c
             onEvent?("canvas: \(c.path.rawValue)")
         } catch {
@@ -579,6 +587,15 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "canvasLoupe":
             canvas?.loupe(on: body["on"] as? Bool ?? false, roi: roi(body["roi"]))
             return (true, nil)
+        case "canvasMask":
+            // `lumina.edit.showMask(id | null)` (DESIGN-ASKS Prompt 28 §3): the canvas draws that mask's
+            // outline over the photo, a hairline with a faint tint inside, in its own coordinates
+            // (crop, turn, zoom). Null or a missing id hides it. An id that is not one LookMasks names
+            // (a-z, 0-9, -; at most 64) is refused. False when nothing can draw it (the image path).
+            let id = body["id"] as? String
+            if let id, !Look.Local.isID(Substring(id)) { return (false, nil) }
+            guard let c = canvas else { return (false, nil) }
+            return (c.showMask(id), nil)
         case "canvasStats":
             var out = canvas?.snapshot() ?? ["path": "image"]
             out["facts"] = editFacts()
@@ -1179,7 +1196,15 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
                 let px = SetsNumber.exportEdge(l["px"])
                 let decoder = LookRawPolicy.version(for: .export, body: (l["model"] as? String).flatMap { header.bodies[$0] }, pinned: header.decoderVersion)
-                items.append(.look(name: name, source: src, look: l["look"] as? String ?? "", px: px, decoder: decoder))
+                let look = l["look"] as? String ?? ""
+                // A look with `mask:` tokens renders through the photo's masks: the ones the canvas and
+                // the page used (cached), else found now on the embedded preview plumbing names
+                // (`preview`). Without either the export renders the look without them, as the preview would.
+                var found: [LookMasks.Found] = []
+                if let parsed = try? Look.parse(look), !parsed.locals.isEmpty {
+                    found = await masks.masks(rel: rel, preview: Self.ingestPreview(l["preview"])) ?? []
+                }
+                items.append(.look(name: name, source: src, look: look, px: px, decoder: decoder, masks: found))
             } else {
                 // Not an item v5 has: nothing is written and no folder is asked for.
                 onEvent?("writeInto \(label): an item that is neither a look render nor sidecar bytes, nothing written")
@@ -1229,6 +1254,8 @@ enum SetsWebView {
         let conf = WKWebViewConfiguration()
         conf.websiteDataStore = .nonPersistent()
         let scheme = SetsSchemeHandler(pageRoot: pageRoot, vendorRoot: vendorRoot, standInPhotos: standInPhotos, ingest: bridge?.ingest)
+        // The image path renders a look's `mask:` tokens through the same masks the canvas and export use.
+        scheme.masks = bridge?.masks
         conf.setURLSchemeHandler(scheme, forURLScheme: SetsSchemeHandler.scheme)
         let ucc = conf.userContentController
         // First, in every frame: no WebRTC (SetsOffline).

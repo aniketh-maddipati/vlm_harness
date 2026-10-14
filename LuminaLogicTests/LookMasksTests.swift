@@ -301,3 +301,96 @@ private extension LookMasks.Plane {
         return p
     }
 }
+
+/// Rasterising an outline for the render (adjustments inside a mask, DESIGN-ASKS Prompt 29):
+/// the share of each pixel inside, even-odd, row 0 at the photo's top.
+extension LookMasksTests {
+    private typealias P = LookMasks.Point
+
+    private func mean(_ p: LookMasks.Plane) -> Double { p.values.reduce(0) { $0 + Double($1) } / Double(p.values.count) }
+
+    private func rect(_ x0: Double, _ y0: Double, _ x1: Double, _ y1: Double) -> [P] {
+        [P(x: x0, y: y0), P(x: x1, y: y0), P(x: x1, y: y1), P(x: x0, y: y1)]
+    }
+
+    private func circle(_ cx: Double, _ cy: Double, _ r: Double, n: Int = 360, clockwise: Bool = true) -> [P] {
+        (0..<n).map { i in
+            let a = 2 * Double.pi * Double(clockwise ? i : n - i) / Double(n)
+            return P(x: cx + r * cos(a), y: cy + r * sin(a))
+        }
+    }
+
+    func testRasterOfASquareIsItsArea() {
+        let grid = M.raster([rect(0.25, 0.25, 0.75, 0.75)], width: 64, height: 64)
+        XCTAssertEqual(mean(grid), 0.25, accuracy: 1e-6, "edges on pixel boundaries: exact")
+        XCTAssertEqual(grid[16, 16], 1); XCTAssertEqual(grid[15, 16], 0); XCTAssertEqual(grid[47, 47], 1); XCTAssertEqual(grid[48, 47], 0)
+        let off = M.raster([rect(0.13, 0.21, 0.71, 0.67)], width: 100, height: 80)
+        XCTAssertEqual(mean(off), 0.58 * 0.46, accuracy: 0.002, "off the grid: within a quarter row on each edge")
+    }
+
+    func testRasterAntialiasesAlongARow() {
+        // The left edge half way through pixel 10, the right edge a quarter into pixel 30.
+        let p = M.raster([rect(10.5 / 40, 0, 30.25 / 40, 1)], width: 40, height: 4)
+        for y in 0..<4 {
+            XCTAssertEqual(p[9, y], 0); XCTAssertEqual(p[10, y], 0.5, accuracy: 1e-6); XCTAssertEqual(p[11, y], 1)
+            XCTAssertEqual(p[29, y], 1); XCTAssertEqual(p[30, y], 0.25, accuracy: 1e-6); XCTAssertEqual(p[31, y], 0)
+        }
+    }
+
+    func testRasterOfADiscAndARing() {
+        let disc = M.raster([circle(0.5, 0.5, 0.3)], width: 200, height: 200)
+        XCTAssertEqual(mean(disc), Double.pi * 0.09, accuracy: 0.002)
+        XCTAssertEqual(disc[100, 100], 1); XCTAssertEqual(disc[2, 2], 0)
+        // A hole is a loop of its own, filled even-odd: either way round it is a hole.
+        for clockwise in [true, false] {
+            let ring = M.raster([circle(0.5, 0.5, 0.4), circle(0.5, 0.5, 0.2, clockwise: clockwise)], width: 200, height: 200)
+            XCTAssertEqual(mean(ring), Double.pi * (0.16 - 0.04), accuracy: 0.003)
+            XCTAssertEqual(ring[100, 100], 0, "the hole")
+            XCTAssertEqual(ring[100, 40], 1, "the ring, 0.3 above the centre")
+        }
+        // Two overlapping loops: the overlap is outside (even-odd), as on the page's canvas.
+        let two = M.raster([rect(0, 0, 0.6, 1), rect(0.4, 0, 1, 1)], width: 10, height: 2)
+        XCTAssertEqual(two.values.prefix(10).map { Int($0.rounded()) }, [1, 1, 1, 1, 0, 0, 1, 1, 1, 1])
+    }
+
+    func testRasterRowZeroIsThePhotosTop() {
+        let top = M.raster([rect(0, 0, 1, 0.25)], width: 8, height: 8)
+        XCTAssertEqual(top[3, 0], 1); XCTAssertEqual(top[3, 1], 1); XCTAssertEqual(top[3, 2], 0); XCTAssertEqual(top[3, 7], 0)
+        // The outline of a plane, rasterised again at its own size, is the plane.
+        let d = disc(64, 48, cx: 20, cy: 14, r: 9)
+        let again = M.raster(M.outline(d, tolerance: 0), width: 64, height: 48)
+        XCTAssertEqual(M.iou(d, again), 1, accuracy: 1e-9)
+        XCTAssertEqual(M.area(again), M.area(d), accuracy: 1e-9)
+    }
+
+    func testRasterFeatherSoftensTheEdgeAndKeepsTheInside() {
+        let hard = M.raster([rect(0.25, 0.25, 0.75, 0.75)], width: 128, height: 128)
+        let soft = M.raster([rect(0.25, 0.25, 0.75, 0.75)], width: 128, height: 128, feather: 0.06)
+        XCTAssertEqual(mean(soft), mean(hard), accuracy: 0.01, "the feather moves no area in or out")
+        XCTAssertEqual(soft[64, 64], 1, accuracy: 1e-5); XCTAssertEqual(soft[2, 2], 0, accuracy: 1e-5)
+        XCTAssertTrue(soft[32, 64] > 0.2 && soft[32, 64] < 0.8, "the edge is soft: \(soft[32, 64])")
+        XCTAssertTrue(soft[30, 64] > 0 && soft[30, 64] < soft[33, 64], "and rises across it")
+        // A whole-frame mask stays whole to the edges (the window is cut there, as boxMean's).
+        let all = M.raster([rect(0, 0, 1, 1)], width: 32, height: 16, feather: 0.2)
+        XCTAssertTrue(all.values.allSatisfy { abs($0 - 1) < 1e-5 })
+    }
+
+    func testRasterIgnoresWhatEnclosesNothing() {
+        XCTAssertEqual(mean(M.raster([], width: 8, height: 8)), 0)
+        XCTAssertEqual(mean(M.raster([[P(x: 0, y: 0), P(x: 1, y: 1)]], width: 8, height: 8)), 0, "two points are no loop")
+        XCTAssertEqual(mean(M.raster([[P(x: .nan, y: 0), P(x: 1, y: .infinity), P(x: 0, y: 1)]], width: 8, height: 8)), 0)
+        XCTAssertEqual(M.raster([rect(0, 0, 1, 1)], width: 0, height: 5).values.count, 0)
+        // Beyond the photo is clipped to it.
+        XCTAssertEqual(mean(M.raster([rect(-1, -1, 2, 0.5)], width: 10, height: 10)), 0.5, accuracy: 1e-6)
+    }
+
+    func testRasterSizeIsOneOfAFewWithThePhotosAspect() {
+        XCTAssertTrue(M.rasterSize(photo: 300, 200) == (512, 341))
+        XCTAssertTrue(M.rasterSize(photo: 200, 300) == (341, 512))
+        XCTAssertTrue(M.rasterSize(photo: 60, 40) == (256, 171))
+        XCTAssertTrue(M.rasterSize(photo: 6000, 4000) == (2048, 1365))
+        XCTAssertTrue(M.rasterSize(photo: 6000, 4000, cap: 1024) == (1024, 683))
+        XCTAssertTrue(M.rasterSize(photo: 0, 10) == (1, 1))
+        XCTAssertTrue(M.rasterSize(photo: .infinity, 10) == (1, 1))
+    }
+}
