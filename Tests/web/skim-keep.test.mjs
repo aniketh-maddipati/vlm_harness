@@ -107,3 +107,14 @@ test('Safari: the app keeps nothing in the tab (it reopens the clips itself)', (
   assert.match(src, /window\.addEventListener\('pagehide', this\._ph\)/);
   assert.match(src, /this\.calibrate\(\); this\.tabKeepLoad\(\);/);
 });
+
+// The web preview's stale-build notice (LOCAL-CHANGES 270): version.txt's first word against the page's own build.
+test('the web preview notices a newer build, and only the web preview asks', () => {
+  const staleOf = new Function('return function ' + extractMethod(src, 'staleOf', 'static staleOf(text, build) {').replace(/^static /, ''))();
+  assert.equal(staleOf('e8c2499 2026-10-14T04:20:00Z\n', 'e8c2499'), null);
+  assert.equal(staleOf('a1b2c3d 2026-10-14T04:20:00Z\n', 'e8c2499'), 'a1b2c3d');
+  assert.equal(staleOf('<!doctype html>', 'e8c2499'), null);
+  assert.equal(staleOf('', 'e8c2499'), null); assert.equal(staleOf('a1b2c3d', ''), null);
+  assert.match(src, /if \(!window\.luminaPreview \|\| !build \|\| !\/\^https\?:\$\/\.test\(location\.protocol\)/);
+  assert.match(src, /staleGo\(\) \{ if \(this\.hasShoot\(\)\) this\.tabKeepSave\(\);/);
+});

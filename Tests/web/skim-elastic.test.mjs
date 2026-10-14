@@ -13,7 +13,7 @@ for (const f of ['ZL', 'ZL_LINES', 'FIT_MAX', 'TI_GAP']) {
   const m = src.match(new RegExp('\\n  static ' + f + ' = ([^;]*);'));
   assert.ok(m, 'in the page: ' + f); C[f] = new Function('return ' + m[1])();
 }
-for (const name of ['zlGeo', 'zlFit', 'laySecs', 'dblSkip']) {
+for (const name of ['zlGeo', 'zlFit', 'laySecs', 'dblSkip', 'tileNear']) {
   const m = src.match(new RegExp('\\n  static ' + name + '\\(([^)]*)\\) \\{'));
   assert.ok(m, 'in the page: ' + name);
   C[name] = new Function('Component', 'return ' + extractMethod(src, name, 'static ' + name + '(' + m[1] + ') {').replace(/^static /, 'function '))(C);
@@ -68,12 +68,25 @@ test('the fit never shrinks a tile, and a smaller screen never gets larger tiles
 test('double-click in, double-click out: the hooks are wired', () => {
   assert.match(src, /viewDbl = e => \{[\s\S]{0,400}?this\.furl\(\); \};/, 'the Viewer goes back to the clips');
   assert.doesNotMatch(src, /viewDbl = [^\n]*setStep\('export'\)/, 'not to Export');
-  assert.match(src, /<div onDoubleClick="\{\{ viewDbl \}\}"/, 'the Viewer\'s left column takes it');
+  assert.match(src, /data-screen-label="Clip"[^>]*onDoubleClick="\{\{ viewDbl \}\}"/, 'the whole Viewer takes it');
+  assert.match(src, /viewDbl = e => \{[^\n]*\[data-lumina="info"\]/, 'not the info beside the picture');
+  for (const scr of ['Grid', 'Chapters', 'Takes']) assert.match(src, new RegExp('data-screen-label="' + scr + '"[^>]*onDoubleClick="\\{\\{ gridDbl \\}\\}"'), scr + ' takes a double-click around its tiles');
   assert.match(src, /dockDbl = e => \{[^\n]*st\.lv === 2 && st\.cur === id\) return this\.furl\(\)/, 'the dock clip open in the Viewer goes back');
   assert.match(src, /data-screen-label="Takes"[^>]*onDoubleClick="\{\{ gridDbl \}\}"/, 'Takes goes back to Chapters');
   assert.match(src, /hasAttribute\('data-pic'\)[\s\S]{0,400}this\.furl\(\)/, 'a double tap on a phone');
   const el = sel => ({closest:s => s.split(',').some(x => x.trim() === sel) ? {} : null});
   assert.equal(C.dblSkip(el('button')), true); assert.equal(C.dblSkip(el('div')), false); assert.equal(C.dblSkip(null), false);
+});
+
+test('a double-click on a tile\'s frame (its rounded corner, the ring around it) finds that tile', () => {
+  const tile = (left, top) => ({getBoundingClientRect:() => ({left, top, right:left + 200, bottom:top + 150})});
+  const a = tile(100, 100), b = tile(320, 100), root = {querySelectorAll:() => [a, b]};
+  assert.equal(C.tileNear(root, 101, 101), a, 'the corner');
+  assert.equal(C.tileNear(root, 200, 98), a, 'the ring above');
+  assert.equal(C.tileNear(root, 304, 120), a, 'just right of it');
+  assert.equal(C.tileNear(root, 316, 120), b, 'nearer the next one');
+  assert.equal(C.tileNear(root, 310, 300), null, 'the space between rows');
+  assert.equal(C.tileNear(null, 0, 0), null);
 });
 
 test('letting go of Space puts the grid back at the scroll it was opened from', () => {
