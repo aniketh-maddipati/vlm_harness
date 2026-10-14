@@ -3936,7 +3936,7 @@ class Component extends DCLogic {
     { const R = pl ? Component.wsRoots(pl) : null, none = host && R && !R.P.some(p => p.kind === 'kept') && !R.D.some(d => d.granted);
       v.wsPartSub = host ? 'The drives and folders Lumina has access to, each clip with its mark.' : 'The folder this shoot was opened from, and the shoots opened before.';
       v.wsConnOn = !host || !!none; v.wsFindOn = host;
-      v.wsConnT = !host ? 'This browser sees only the folder you opened. The Lumina app shows every drive and folder of this Mac.' : 'Lumina sees this shoot and Save to. Give it access to a drive or a folder to see and save there.';
+      v.wsConnT = !host ? 'This browser sees only the ' + (V && V.pl.places[0].path === '/' ? 'clips' : 'folder') + ' you opened. The Lumina app shows every drive and folder of this Mac.' : 'Lumina sees this shoot and Save to. Give it access to a drive or a folder to see and save there.';
       v.wsConnBtns = !host ? (this.canFolder() ? [btn('ws-conn-open', 'Open another folder…', 'Choose a folder of clips (⌘O)', true, this.pickFolder)] : [])
         : [btn('ws-conn-give', 'Give access…', 'Opens the folder panel: pick a drive, or a folder on it', true, () => this.wsLetIn(pl && pl.home ? pl.home + '/Movies' : ''))];
       const rec = host ? [] : this.recentVals().filter(r => r.st === 'clips not open');
