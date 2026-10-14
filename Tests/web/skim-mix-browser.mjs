@@ -1,6 +1,6 @@
 // Clips from several places, and Add clips (LOCAL-CHANGES 282), in a real browser: the web preview build in headless
 // Chromium over clips made here with ffmpeg. Open with clips in two folders a week apart shows the notice by day and
-// folder; unticking a folder leaves it out; a Live Photo's movie starts unticked; one folder opens with no notice.
+// folder, as rows that light when they go in (Export's look); a click on a day leaves it out; a Live Photo's movie starts unticked; one folder opens with no notice.
 // During Skim, Add clips and a drop on the window put more clips in the shoot with the marks kept, and clips already
 // there are left out. Bounded (LUMINA_WEB_LIMIT, 150 s).
 //
@@ -27,36 +27,40 @@ const b = await pw.chromium.launch({executablePath:process.env.CHROMIUM || undef
 p.on('pageerror', e => errs.push(String(e)));
 await p.goto('file://' + page); await p.waitForTimeout(1000);
 const until = async (fn, ms = 20000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await p.evaluate(fn).catch(() => false)) return true; await p.waitForTimeout(150); } return false; };
-const rows = () => p.evaluate(() => [...document.querySelectorAll('[data-lumina="mix-row"]')].map(r => ({kind:r.getAttribute('data-kind'), text:r.innerText.replace(/\s+/g, ' ').trim(), tick:r.querySelector('[data-lumina="mix-tick"]').getAttribute('aria-checked')})));
+const rows = () => p.evaluate(() => [...document.querySelectorAll('[data-lumina="mix-row"]')].map(r => ({kind:r.getAttribute('data-kind'), text:r.innerText.replace(/\s+/g, ' ').trim(), tick:r.querySelector('[data-lumina="mix-toggle"]').getAttribute('aria-checked'), on:r.getAttribute('data-on')})));
 const nClips = () => p.evaluate(() => (document.querySelector('[data-lumina="shoot-line"]') || {}).innerText || '');
 
 // 1. two folders a week apart: the notice, by day then folder
 await p.setInputFiles('input[type=file][webkitdirectory]:not([data-lumina])', dump);
 ok(await until(() => !!document.querySelector('[data-lumina="mix"]')), 'clips from two folders a week apart: the notice shows');
 const head = await p.evaluate(() => document.querySelector('[data-lumina="mix-head"]').innerText);
-ok(/These clips come from 2 folders and were shot 8 days apart/.test(head), 'it says how: ' + head);
+ok(/^These 6 clips come from 2 different folders and 2 different days/.test(head), 'it says how: ' + head);
 let r = await rows();
-ok(r.filter(x => x.kind === 'day').length === 2 && r.filter(x => x.kind === 'folder').length === 2, 'a row per day and per folder: ' + r.map(x => x.kind[0]).join(''));
-const f9 = r.find(x => x.kind === 'folder' && /day9/.test(x.text));
-ok(f9 && f9.tick === 'mixed' && /1 Live Photo movie/.test(f9.text) && /2 of 3/.test(f9.text), 'the Live Photo movie starts unticked: ' + (f9 && f9.text));
+ok(r.filter(x => x.kind === 'day').length === 2 && !r.some(x => x.kind === 'folder'), 'a row per day, no folder row when a day has one folder: ' + r.map(x => x.kind[0]).join(''));
+ok(!/\bapart\b|\b\d{4} apart/.test(head) && r.every(x => !/undefined|NaN/.test(x.text)), 'no stray numbers in the wording');
+const f9 = r.find(x => x.kind === 'day' && /day9/.test(x.text));
+ok(f9 && f9.tick === 'mixed' && f9.on === 'mixed' && /1 Live Photo/.test(f9.text) && /2 of 3/.test(f9.text), 'the Live Photo movie starts left out, the day half lit: ' + (f9 && f9.text));
+ok(r.find(x => x.kind === 'day' && /day1/.test(x.text)).on === 'true', 'a day that goes in whole is lit');
+ok(!(await p.$('[data-lumina="mix-row"] input[type=checkbox]')), 'no checkboxes');
 ok(/Open 5 clips/.test(await p.innerText('[data-lumina="mix-go"]')), 'the button says what goes in');
 // unfurl day9 and see its clips
-await p.locator('[data-lumina="mix-row"][data-kind="folder"]').nth(1).locator('[data-lumina="mix-name"]').click(); await p.waitForTimeout(150);
-r = await rows(); ok(r.filter(x => x.kind === 'clip').length === 3 && r.some(x => x.kind === 'clip' && /IMG_0001/.test(x.text) && x.tick === 'false'), 'a folder unfurls to its clips');
-// untick day1's folder
-await p.locator('[data-lumina="mix-row"][data-kind="folder"]').nth(0).locator('[data-lumina="mix-tick"]').click(); await p.waitForTimeout(150);
-ok(/Open 2 clips/.test(await p.innerText('[data-lumina="mix-go"]')), 'unticking a folder takes its clips out');
-// take day9 off with ×, then put it back
-await p.locator('[data-lumina="mix-row"][data-kind="folder"]').nth(1).locator('[data-lumina="mix-remove"]').click(); await p.waitForTimeout(150);
-ok((await p.getAttribute('[data-lumina="mix-go"]', 'aria-disabled')) === 'true' && /3 clips taken off/.test(await p.innerText('[data-lumina="mix-gone"]')), '× takes a folder off the list');
-await p.click('[data-lumina="mix-undo"]'); await p.waitForTimeout(150);
+await p.locator('[data-lumina="mix-row"][data-kind="day"]').nth(1).locator('[data-lumina="mix-open"]').click(); await p.waitForTimeout(150);
+r = await rows(); ok(r.filter(x => x.kind === 'clip').length === 3 && r.some(x => x.kind === 'clip' && /IMG_0001/.test(x.text) && x.on === 'false'), '› unfurls the day to its clips');
+// a click on the Live Photo's clip row lights it
+await p.locator('[data-lumina="mix-row"][data-kind="clip"]').filter({hasText:'IMG_0001'}).locator('[data-lumina="mix-toggle"]').click(); await p.waitForTimeout(150);
+ok(/Open 6 clips/.test(await p.innerText('[data-lumina="mix-go"]')), 'a click on a clip puts it in');
+await p.locator('[data-lumina="mix-row"][data-kind="clip"]').filter({hasText:'IMG_0001'}).locator('[data-lumina="mix-toggle"]').click(); await p.waitForTimeout(150);
+// dim day1
+await p.locator('[data-lumina="mix-row"][data-kind="day"]').nth(0).locator('[data-lumina="mix-toggle"]').click(); await p.waitForTimeout(150);
+ok(/Open 2 clips/.test(await p.innerText('[data-lumina="mix-go"]')), 'a click on a day takes its clips out');
+ok((await rows()).find(x => x.kind === 'day' && /day1/.test(x.text)).on === 'false', 'and dims it');
 // esc goes back, nothing opened
 await p.keyboard.press('Escape'); await p.waitForTimeout(200);
 ok(!(await p.$('[data-lumina="mix"]')) && !(await p.$('[data-lumina="shoot-close"]')), 'esc goes back to Open with nothing opened');
 // again, keep only day9 (2 clips), ⏎
 await p.setInputFiles('input[type=file][webkitdirectory]:not([data-lumina])', dump);
 await until(() => !!document.querySelector('[data-lumina="mix"]'));
-await p.locator('[data-lumina="mix-row"][data-kind="folder"]').nth(0).locator('[data-lumina="mix-tick"]').click(); await p.waitForTimeout(100);
+await p.locator('[data-lumina="mix-row"][data-kind="day"]').nth(0).locator('[data-lumina="mix-toggle"]').click(); await p.waitForTimeout(100);
 await p.keyboard.press('Enter');
 ok(await until(() => !document.querySelector('[data-lumina="mix"]') && !!document.querySelector('[data-lumina="shoot-close"]')), '⏎ opens what is ticked');
 ok(await until(() => { try { const a = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]')[0]; return !!(a && a.done != null); } catch (x) { return false; } }, 40000), 'the clips are read');
@@ -100,7 +104,7 @@ ok(!!(await p.$('[data-lumina="resume"]')), 'after a reload Open offers the shoo
 await p.setInputFiles('input[type=file][webkitdirectory]:not([data-lumina])', path.join(dump, 'day9'));
 ok(await until(() => !!document.querySelector('[data-lumina="mix"]')), 'clips missing from the folder chosen: the view shows');
 const rh = await p.evaluate(() => document.querySelector('[data-lumina="mix-head"]').innerText);
-ok(/^2 of 5 clips found · 3 not in what you chose$/.test(rh), 'it says how many were found: ' + rh);
+ok(/^Found 2 of the 5 clips in this shoot$/.test(rh), 'it says how many were found: ' + rh);
 ok((await rows()).filter(x => x.kind === 'missing').length === 3, 'the missing clips are listed');
 await p.keyboard.press('Enter');
 ok(await until(() => /\b2 clips\b/.test((document.querySelector('[data-lumina="shoot-line"]') || {}).innerText || '')), 'the found clips open: ' + await nClips());

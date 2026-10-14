@@ -1,4 +1,4 @@
-// Stop here and Cancel beside Go on while reading is paused (LOCAL-CHANGES 281): Stop here keeps what was read and goes on
+// Stop here and Cancel beside Proceed while reading is paused (LOCAL-CHANGES 281): Stop here keeps what was read and goes on
 // with it; Cancel asks, then throws the load away and goes back to Open. Read out of the page, run on a stand-in.
 //
 //   node --test Tests/web/skim-stop.test.mjs

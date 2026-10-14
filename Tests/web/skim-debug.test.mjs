@@ -1,5 +1,5 @@
 // What a creator sees by default and what waits behind the developer switch, read out of the page itself:
-// debug-mode detection (Component.isDebug), the footer's cut line (Component.cutLine), the Pause / Go on
+// debug-mode detection (Component.isDebug), the footer's cut line (Component.cutLine), the Pause / Proceed
 // step (Component.nextPace), and the page's template and defaults around the Working memory panel.
 //
 //   node --test Tests/web/skim-debug.test.mjs
@@ -33,7 +33,7 @@ test('the cut line reads as space to get back, in the page\'s own sizes', () => 
   assert.equal(cutLine(0, 0, fmtB), 'cut: none yet');
 });
 
-test('Pause goes to paused from any pace, Go on goes back to auto', () => {
+test('Pause goes to paused from any pace, Proceed goes back to auto', () => {
   assert.equal(nextPace('auto'), 'paused');
   assert.equal(nextPace('eased'), 'paused');
   assert.equal(nextPace('slow'), 'paused');

@@ -586,7 +586,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         return r.clips > 0 ? await skimHand(r) : urls
     }
 
-    /// Add clips (LOCAL-CHANGES 291): the same count, against the room the open shoot has left (`luminaSkimBig.room()`).
+    /// Add clips (LOCAL-CHANGES 295): the same count, against the room the open shoot has left (`luminaSkimBig.room()`).
     /// Past it, the page's card over Skim (`showAdd`); "Add the first N" is answered with the clips that fit, no panel.
     private func skimPickAdd() async -> [URL]? {
         if let held = skimBigHeld, skimBigForAdd {
