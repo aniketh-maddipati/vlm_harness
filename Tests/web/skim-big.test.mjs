@@ -21,7 +21,7 @@ test('the limits are the ones the page uses', () => {
 test('too many clips: the count, the size, and the first 1,500 offered', () => {
   const s = Component.bigSay({n:4812, bytes:1.93e12, cut:0, name:'DCIM'}, fmtB);
   assert.equal(s.h, 'Too many clips to skim at once');
-  assert.equal(s.line, '4,812 clips · 1.9 TB. Skim takes up to 1,500 at a time; more would slow every key. Pick the card or the day you want, or open the first 1,500 by name.');
+  assert.equal(s.line, '4,812 clips · 1.9 TB. Skim takes up to 1,500 at a time; more would make Skim slow to respond. Pick the card or the day you want, or open the first 1,500 by name.');
   assert.equal(s.go, 'Open the first 1,500');
 });
 

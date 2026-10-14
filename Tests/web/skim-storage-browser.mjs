@@ -1,7 +1,7 @@
 // The storage line in a real browser (STORAGE.md steps 1 and 2): the web preview build in headless Chromium,
 // over clips made here with ffmpeg (VP9 in .MP4, which Chromium plays). Bounded (LUMINA_WEB_LIMIT, 240 s).
-//   1. Drop frames gives back what it said and Esc closes the rows.
-//   2. Saved covers: a reopen reads nothing; Clear for shoots not open and Re-measure bring the full read back.
+//   1. Free frames frees what it said and Esc closes the rows.
+//   2. Saved covers: a reopen reads nothing; Clear other shoots and Measure this shoot again bring the full read back.
 //   3. A full quota (IndexedDB puts refused) says so in the row and the shoot still reads.
 //   4. The Mac app's way (a stand-in for the skimCover* bridge ops, kept in localStorage): a reopen reads nothing.
 //
@@ -54,7 +54,7 @@ async function run(quota, host) {
     const first = read; await p.close(); ({p, read} = await open(path.join(T, 'shoot')));
     ok(first >= 30 && read <= first - 30, 'through the app\'s store, a reopen reads nothing: ' + first + ' videos the first time, ' + read + ' again');
     await tap(p, '[data-lumina="storage"]'); const r = await rows(p);
-    ok(/30 of 30 clips opened from saved covers/.test(r) && !/Kept until Lumina quits/.test(r), 'the row says where they came from, and nothing about a quit');
+    ok(/30 of 30 clips opened from saved previews/.test(r) && !/Kept until Lumina quits/.test(r), 'the row says where they came from, and nothing about a quit');
     ok(/drive 150\.0 GB free · under 20% free/.test(await line(p)), 'the drive in the line, with the 20 % words: ' + await line(p));
     ok(/Drive · T7\n150\.0 GB free of 1000\.0 GB · 8\.0 GB purgeable/.test(r) && /Under 20% free on T7: 150\.0 GB left\./.test(r), 'the drive row: free, purgeable, the one plain line');
     ok(/Trash on T7\n3\.5 GB waiting/.test(r) && /Skim never empties the Trash/.test(r), 'the Trash row');
@@ -90,20 +90,20 @@ async function run(quota, host) {
     await p.keyboard.press('Escape'); await p.waitForTimeout(150); ok(!(await rows(p)), 'Esc closes them');
     const first = read; await p.close(); ({p, read} = await open(path.join(T, 'shoot')));
     ok(first >= 30 && read <= first - 30, 'a reopen reads nothing: ' + first + ' videos the first time, ' + read + ' again');
-    await tap(p, '[data-lumina="storage"]'); ok(/30 of 30 clips opened from saved covers/.test(await rows(p)), 'the row says the covers came from saved');
+    await tap(p, '[data-lumina="storage"]'); ok(/30 of 30 clips opened from saved previews/.test(await rows(p)), 'the row says the covers came from saved');
     await p.close(); ({p, read} = await open(path.join(T, 'other')));
-    await tap(p, '[data-lumina="storage"]'); ok(/· 2 shoots/.test(await rows(p)) && /Clear for shoots not open · \d+ MB/.test(await rows(p)), 'two shoots held, the clear says what it frees');
+    await tap(p, '[data-lumina="storage"]'); ok(/· 2 shoots/.test(await rows(p)) && /Clear other shoots · \d+ MB/.test(await rows(p)), 'two shoots held, the clear says what it frees');
     await tap(p, '[data-lumina="storage-clear"]'); ok(/Cleared \d+ MB from 1 shoot/.test(await rows(p)) && /· 1 shoot/.test(await rows(p)), 'cleared, and the row follows');
     await p.close(); ({p, read} = await open(path.join(T, 'shoot')));
     ok(read >= 30, 'after the clear the full read comes back: ' + read + ' videos');
     await tap(p, '[data-lumina="storage"]'); const v0 = await p.evaluate(() => window.__vids);
     await tap(p, '[data-lumina="storage-remeasure"]'); await p.waitForTimeout(6000);
-    ok(await p.evaluate(() => window.__vids) - v0 >= 30, 'Re-measure this shoot reads it again');
+    ok(await p.evaluate(() => window.__vids) - v0 >= 30, 'Measure this shoot again reads it again');
     // Open (⌘1): the saved-covers chip. Hover shows what is kept, Clear asks once more, and clears saved covers only.
     const pop = () => p.evaluate(() => document.querySelector('[data-lumina="cache-pop"]')?.innerText || '');
     await p.keyboard.press('Escape'); await p.keyboard.press('Control+1'); await p.waitForTimeout(800);   // the storage rows shut first
     const chip = await p.evaluate(() => document.querySelector('[data-lumina="cache-chip"]')?.textContent || '');
-    ok(/Saved covers · \d+ MB/.test(chip), 'Open shows the saved covers chip: ' + chip);
+    ok(/Saved previews · \d+ MB/.test(chip), 'Open shows the saved previews chip: ' + chip);
     await p.hover('[data-lumina="cache-chip"]'); await p.waitForTimeout(500); let pp = await pop();
     ok(/Saved in this browser/.test(pp) && /shoot\n30 clips · \d+ MB · open now/.test(pp) && /never touches your clips or your marks/.test(pp), 'hovering shows what is kept: ' + JSON.stringify(pp));
     await p.mouse.move(5, 880); await p.waitForTimeout(600); ok(!(await pop()), 'moving away closes it');
@@ -128,7 +128,7 @@ async function run(quota, host) {
     ok(!(await p.evaluate(() => sessionStorage.getItem('lumina-skim-tab:keep'))) && gap && gap.n === 30 && gap.found === 30 && /36 clips/.test(body), 'the thirty kept clips come back and the six others join them: ' + JSON.stringify(gap) + ' ' + (body.match(/\d+ clips/g) || []).slice(0, 4));
   } else {
     await tap(p, '[data-lumina="storage"]');
-    ok(/Storage here is full, so covers are not being saved now/.test(await rows(p)), 'a full quota says so');
+    ok(/Storage here is full, so previews are not being saved now/.test(await rows(p)), 'a full quota says so');
     ok(read >= 30 && /in memory/.test(await line(p)), 'and the shoot still reads: ' + read + ' videos');
   }
   ok(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.slice(0, 3).join(' | ') : ''));
