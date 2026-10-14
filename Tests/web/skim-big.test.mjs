@@ -33,7 +33,7 @@ test('a walk cut short: how far it looked, and what it found', () => {
 });
 
 const files = n => Array.from({length:n}, (_, i) => ({name:'C' + String(n - i).padStart(5, '0') + '.MP4', size:1e8, webkitRelativePath:'CARD/' + 'C' + String(n - i).padStart(5, '0') + '.MP4'}));
-const stand = () => ({state:{step:'skim'}, steps:[], listed:null, setState(o) { Object.assign(this.state, o); }, setStep(s) { this.steps.push(s); this.state.step = s; }, plural:(n, w) => n + ' ' + w + (n === 1 ? '' : 's'),
+const stand = () => ({state:{step:'skim'}, busy(t) { this.setState({impMsg:t, impBusyT:t}); }, steps:[], listed:null, setState(o) { Object.assign(this.state, o); }, setStep(s) { this.steps.push(s); this.state.step = s; }, plural:(n, w) => n + ' ' + w + (n === 1 ? '' : 's'),
   // the listing is where a let-through import goes next: record what it was handed and stop there
   inBatches(v) { this.listed = v; throw new Error('listed'); }});
 

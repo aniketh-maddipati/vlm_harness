@@ -101,7 +101,20 @@ test('a clip with no timecode starts at 0s', () => {
   const t = loadBuildX().fn.call(c).text;
   assert.match(t, /<asset id="a1" name="[^"]+" start="0s"/); assert.doesNotMatch(t, /<asset-clip [^>]*start=/);
 });
-test('real audio channel count and rate', { skip: 'not built: hasAudio=1 for every clip' }, () => {});
+// round 2, fcpxml item 3: the sound as the camera states it (LOCAL-CHANGES 296)
+test('real audio channel count and rate', () => {
+  const t = buildFixture({ all: true }).text;
+  for (const a of t.match(/<asset [^>]*>/g)) {
+    assert.match(a, /hasAudio="1" audioSources="1" audioChannels="2" audioRate="48k"/, a);
+  }
+  const c = ctxFromFixture(fx, { all: true });
+  c.d.clips[0].ach = 0; c.d.clips[1].ach = null; c.d.clips[2].ach = 4; c.d.clips[2].arate = 44100; c.d.clips[3].arate = 22050;
+  const u = loadBuildX().fn.call(c).text, as = u.match(/<asset [^>]*>/g);
+  assert.match(as[0], /hasAudio="0"/, 'a clip with no sound track says so'); assert.doesNotMatch(as[0], /audioChannels/);
+  assert.match(as[1], /hasAudio="1" format=/, 'sound never read keeps the bare hasAudio');
+  assert.match(as[2], /audioChannels="4" audioRate="44.1k"/);
+  assert.match(as[3], /audioChannels="2" format=/, 'a rate the DTD does not list is left out');
+});
 // S-Log3's Sony conversion, the clips' real location and the true frame rate: built, in Tests/web/skim-handoff.test.mjs.
 test('the export is DTD-valid against the version it declares', t => {
   const { text } = buildFixture();
@@ -189,3 +202,47 @@ function Component_checkX(text, n, kws) {
   const src = fs.readFileSync(PAGE, 'utf8'), body = extractMethod(src, 'checkX', 'static checkX(text, n, P, kws) {').replace(/^static /, '');
   return new Function('return function ' + body)()(text, n, MiniDOMParser, kws);
 }
+
+// round 2, fcpxml item 3: the Skim folder in the event's browser (LOCAL-CHANGES 296)
+test('a Skim folder: smart collections for Selected, Maybe and Cut, a keyword collection per scene', () => {
+  const x = fxBuild({ all: true, scenes: true });
+  const f = /<collection-folder name="Skim">([\s\S]*?)<\/collection-folder>/.exec(x.text);
+  assert.ok(f, 'the folder is in the event');
+  assert.ok(x.text.indexOf('<collection-folder') < x.text.indexOf('<project'), 'before the project');
+  assert.match(f[1], /<smart-collection name="Selected" match="all">\s*<match-ratings value="favorites"\/>/);
+  assert.match(f[1], /<smart-collection name="Maybe" match="all">\s*<match-keywords rule="includesAny">\s*<keyword-name value="maybe"\/>/);
+  assert.match(f[1], /<smart-collection name="Cut" match="all">\s*<match-ratings value="rejected"\/>/);
+  const kc = [...f[1].matchAll(/<keyword-collection name="([^"]*)"\/>/g)].map(m => m[1]);
+  assert.equal(kc.length, fx.scenes.length, 'one per scene');
+  for (const k of kc) assert.ok(x.kws.includes(k), k + ' is a keyword the clips carry');
+  assert.deepEqual(checkX(x.text, x.n, MiniDOMParser, x.kws), { ok: true, problems: [] });
+  const r = validateAgainstDTD(x.text);
+  if (!r.skipped) assert.ok(r.ok, r.errors);
+});
+test('the Skim folder holds only what the file can fill', () => {
+  const off = fxBuild({ all: true, rate: false, kw: '', scenes: false });
+  assert.doesNotMatch(off.text, /<collection-folder/, 'no ratings, no keyword, no scenes: no folder');
+  const sel = fxBuild({ all: false, maybes: false });
+  assert.doesNotMatch(sel.text, /name="Maybe"|name="Cut"/);
+  assert.match(sel.text, /<smart-collection name="Selected"/);
+  const bad = sel.text.replace('<match-ratings value="favorites"/>', '<match-text rule="includes" value="x"/>');
+  assert.equal(checkX(bad, sel.n, MiniDOMParser, sel.kws).ok, false, 'the check refuses what the page does not write');
+});
+
+// round 2, fcpxml item 4: Skim's flags as markers at their moment (LOCAL-CHANGES 296)
+test('soft frames and a brightness jump become markers at the frame Skim measured', () => {
+  const c = ctxFromFixture(fx, { all: true }), k = c.d.clips[0];
+  k.facts = { state: 'ready', idx: [0, 2, 5], sharpF: [0.8, 0.21, 0.9], bump: 2 };
+  const t = loadBuildX().fn.call(c).text, ev = t.slice(t.indexOf('<event'), t.indexOf('<project'));
+  const body = /<asset-clip ref="a1"[\s\S]*?<\/asset-clip>/.exec(ev)[0];
+  const mk = [...body.matchAll(/<marker start="(\d+)\/(\d+)s" duration="(\d+)\/\d+s" value="([^"]*)"\/>/g)];
+  assert.deepEqual(mk.map(m => m[4]), ['soft · sharpness 0.21', 'bump · brightness jumps']);
+  const s0 = /<asset-clip ref="a1"[^>]*start="(\d+)\/(\d+)s"/.exec(body), fr = m => +m[1] / +m[3];
+  const base = s0 ? +s0[1] / 1001 : 0, slot = j => Math.floor((j + 0.5) / 8 * k.dur * 24000 / 1001);
+  assert.equal(fr(mk[0]) - base, slot(2)); assert.equal(fr(mk[1]) - base, slot(5));
+  assert.ok(body.indexOf('<rating') < body.indexOf('<marker'), 'after the rating, as the DTD orders them');
+  assert.ok(Component_checkX(t, 6, ['maybe']).ok, 'the page check takes the markers');
+  for (const q of c.d.clips.slice(1)) assert.doesNotMatch(new RegExp('<asset-clip ref="a' + (c.d.clips.indexOf(q) + 1) + '"[\\s\\S]*?</asset-clip>').exec(ev)[0], /<marker /, 'no facts, no markers');
+  k.facts.state = 'reading';
+  const u = loadBuildX().fn.call(c).text; assert.doesNotMatch(u.slice(0, u.indexOf('<project')), /<marker /, 'only facts that finished');
+});

@@ -207,7 +207,7 @@ body:has([data-view=phone]){background:#111}
     </sc-if>
   </div>
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
-  <div data-lumina="skim-bar" style="flex:none;height:44px;padding:0 20px;display:{{ skimBarD }};align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
+  <div data-lumina="skim-bar" style="flex:none;min-height:52px;padding:6px 24px;box-sizing:border-box;display:{{ skimBarD }};align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
     <div style="flex:1;min-width:0;display:flex">
       <sc-if value="{{ lvTabsOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="levels" role="tablist" aria-label="levels" style="position:relative;display:grid;grid-template-columns:repeat({{ lvN }},68px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)">
@@ -218,13 +218,14 @@ body:has([data-view=phone]){background:#111}
       </div>
       </sc-if>
       <sc-if value="{{ unsupOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="unsupported" role="status" style="margin-left:16px;flex:none;color:#FFD27A;white-space:nowrap">{{ unsupLine }}</div></sc-if>
+      <sc-if value="{{ busyBarOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="busy" role="status" aria-live="polite" aria-busy="true" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite;will-change:opacity"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ impMsg }}</span></div></sc-if>
       <sc-if value="{{ recNoteOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="marks-back" role="status" style="margin-left:16px;flex:none;color:#A9D18E;white-space:nowrap;animation:fade 160ms ease-out">{{ recNote }}</div></sc-if>
       <sc-if value="{{ loadOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="load-status" role="status" aria-live="polite" onClick="{{ progToggle }}" title="P" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;cursor:pointer;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:{{ loadDot }};animation:{{ loadAnim }}"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ loadLine }}</span><span data-lumina="fill-note" style="flex:none;color:#9A958D">{{ fillNote }}</span></div></sc-if>
-      <sc-if value="{{ pauseOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-pause" aria-pressed="{{ pauseA }}" onClick="{{ pauseGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:{{ pauseBg }};color:{{ pauseFg }};font-weight:{{ pauseFw }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pauseT }}</button></sc-if>
-      <sc-if value="{{ stopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-stop" onClick="{{ readStop }}" title="{{ stopTip }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop here</button></sc-if>
-      <sc-if value="{{ cancelOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-cancel" onClick="{{ readCancel }}" title="Throw this load away and go back to Open" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#FF8A7A;cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Cancel</button></sc-if>
-      <sc-if value="{{ cancelAsk }}" hint-placeholder-val="{{ false }}"><div data-lumina="cancel-ask" role="alertdialog" aria-label="Throw away this load" style="margin-left:10px;flex:none;display:flex;align-items:center;gap:8px;height:34px;padding:0 3px 0 12px;border-radius:8px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,138,122,0.45);white-space:nowrap;animation:fade 140ms ease-out"><span style="color:#EFECE6">{{ cancelQ }}</span><button type="button" data-lumina="cancel-yes" onClick="{{ cancelYes }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:#FF8A7A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Throw away</button><button type="button" data-lumina="cancel-no" onClick="{{ cancelNo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Keep loading</button></div></sc-if>
-      <sc-if value="{{ haltOn }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ resumeRead }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Go on</button></sc-if>
+      <sc-if value="{{ pauseOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-pause" aria-pressed="{{ pauseA }}" onClick="{{ pauseGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:12px;flex:none;height:32px;padding:0 14px;border-radius:6px;display:flex;align-items:center;background:{{ pauseBg }};color:{{ pauseFg }};font-weight:{{ pauseFw }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pauseT }}</button></sc-if>
+      <sc-if value="{{ stopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-stop" onClick="{{ readStop }}" title="{{ stopTip }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:12px;flex:none;height:32px;padding:0 14px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop here</button></sc-if>
+      <sc-if value="{{ cancelOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-cancel" onClick="{{ readCancel }}" title="Throw this upload away and go back to Open" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:12px;flex:none;height:32px;padding:0 14px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#FF8A7A;cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Cancel</button></sc-if>
+      <sc-if value="{{ cancelAsk }}" hint-placeholder-val="{{ false }}"><div data-lumina="cancel-ask" role="alertdialog" aria-label="Throw away this upload" style="margin-left:12px;flex:none;display:flex;align-items:center;gap:10px;height:42px;padding:0 5px 0 16px;border-radius:9px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,138,122,0.45);white-space:nowrap;animation:fade 140ms ease-out"><span style="color:#EFECE6">{{ cancelQ }}</span><button type="button" data-lumina="cancel-yes" onClick="{{ cancelYes }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:32px;padding:0 14px;border-radius:7px;display:flex;align-items:center;background:#FF8A7A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Throw away</button><button type="button" data-lumina="cancel-no" onClick="{{ cancelNo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:32px;padding:0 14px;border-radius:7px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Keep loading</button></div></sc-if>
+      <sc-if value="{{ haltOn }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ resumeRead }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:12px;flex:none;height:32px;padding:0 14px;border-radius:6px;display:flex;align-items:center;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Proceed</button></sc-if>
     </div>
   </div>
   </sc-if>
@@ -253,6 +254,16 @@ body:has([data-view=phone]){background:#111}
     <sc-if value="{{ addHot }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="add-drop" style="position:absolute;inset:8px;z-index:44;border-radius:16px;box-shadow:inset 0 0 0 2px #FFD27A;background:rgba(255,210,122,0.08);display:grid;place-items:center;pointer-events:none;animation:fade 120ms ease-out"><span style="padding:10px 18px;border-radius:12px;background:#33312E;color:#EFECE6;font-size:15px;box-shadow:0 8px 28px rgba(0,0,0,0.45)">{{ addHotT }}</span></div>
     </sc-if>
+    <sc-if value="{{ bigAddOn }}" hint-placeholder-val="{{ false }}">
+      <div data-lumina="too-big-add" role="dialog" aria-modal="true" aria-label="{{ bigAddH }}" style="position:absolute;inset:0;z-index:46;box-sizing:border-box;padding:clamp(12px,4vh,48px) clamp(12px,3vw,40px);background:rgba(20,19,18,0.72);display:flex;align-items:flex-start;justify-content:center;animation:fade 140ms ease-out">
+        <div role="alert" style="width:min(680px,100%);box-sizing:border-box;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.35),0 18px 48px rgba(0,0,0,0.55);animation:rise 160ms ease-out">
+          <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A">{{ bigAddH }}</span><span style="font-size:14px;color:#EFECE6">{{ bigAddName }}</span><span data-lumina="too-big-add-line" style="color:#B8B3AB;line-height:1.45">{{ bigAddLine }}</span></div>
+          <button type="button" data-lumina="too-big-add-pick" onClick="{{ bigAddPick }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ bigAddPickT }}</button>
+          <sc-if value="{{ bigAddGoOn }}" hint-placeholder-val="{{ true }}"><button type="button" data-lumina="too-big-add-go" onClick="{{ bigAddGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ bigAddGoT }}</button></sc-if>
+          <button type="button" data-lumina="too-big-add-close" onClick="{{ bigAddClose }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#B8B3AB;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Not now</button>
+        </div>
+      </div>
+    </sc-if>
     <sc-if value="{{ mixOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="mix" role="dialog" aria-modal="true" aria-label="Clips from several places" style="position:absolute;inset:0;z-index:46;box-sizing:border-box;padding:clamp(12px,4vh,48px) clamp(12px,3vw,40px);background:rgba(20,19,18,0.72);display:flex;align-items:flex-start;justify-content:center;animation:fade 140ms ease-out">
         <div style="width:min(880px,100%);max-height:100%;box-sizing:border-box;border-radius:14px;background:#262523;box-shadow:0 0 0 1px rgba(255,210,122,0.35),0 18px 48px rgba(0,0,0,0.55);display:flex;flex-direction:column;font-size:14px;animation:lmFoldIn 180ms ease-out">
@@ -262,13 +273,13 @@ body:has([data-view=phone]){background:#111}
           </div>
           <div data-lumina="mix-list" role="tree" style="flex:1 1 auto;min-height:80px;overflow-y:auto;padding:4px 4px 8px">
             <sc-for list="{{ mixRows }}" as="r" hint-placeholder-count="6">
-              <div data-lumina="mix-row" data-kind="{{ r.kind }}" data-id="{{ r.id }}" data-on="{{ r.on }}" role="treeitem" aria-expanded="{{ r.open }}" style="display:flex;align-items:stretch;gap:6px;padding:3px 0 3px {{ r.pad }}">
-                <button type="button" data-lumina="mix-toggle" role="switch" data-press="1" aria-checked="{{ r.on }}" onClick="{{ r.go }}" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1 1 auto;min-width:0;min-height:{{ r.h }};padding:6px 14px;border-radius:10px;background:{{ r.bg }};box-shadow:inset 0 0 0 {{ r.ring }};color:{{ r.fg }};opacity:{{ r.op }};cursor:{{ r.cur }};text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto 76px;gap:14px;align-items:center" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
-                  <span style="min-width:0;display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:{{ r.fw }}">{{ r.name }}</span><sc-if value="{{ r.tagOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="mix-tag" style="flex:none;padding:1px 7px;border-radius:5px;background:rgba(255,210,122,0.14);color:#FFD27A;font-size:12px;font-weight:400">{{ r.tag }}</span></sc-if></span><sc-if value="{{ r.subOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="mix-where" style="font-size:13px;color:#9A958D;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.sub }}</span></sc-if></span>
-                  <span style="text-align:right;color:#B8B3AB;white-space:nowrap">{{ r.n }}</span>
-                  <span style="text-align:right;color:#B8B3AB;white-space:nowrap">{{ r.size }}</span>
+              <div data-lumina="mix-row" data-kind="{{ r.kind }}" data-id="{{ r.id }}" data-on="{{ r.on }}" data-odd="{{ r.odd }}" role="treeitem" aria-level="{{ r.level }}" aria-expanded="{{ r.open }}" style="display:flex;align-items:stretch;gap:4px;padding:2px 0 2px {{ r.pad }};background:linear-gradient(rgba(239,236,230,0.12),rgba(239,236,230,0.12)) no-repeat {{ r.guide }} 0 / 1px 100%">
+                <sc-if value="{{ r.chevOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="mix-open" aria-label="Show what is inside" aria-expanded="{{ r.open }}" onClick="{{ r.chevGo }}" style="box-sizing:border-box;border:0;margin:0;padding:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;width:28px;border-radius:8px;background:transparent;color:#B8B3AB;cursor:pointer;display:grid;place-items:center" style-hover="background:rgba(239,236,230,0.08);color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span data-rot="1" aria-hidden="true" style="display:inline-block;font-size:16px;transform:rotate({{ r.rot }})">›</span></button></sc-if>
+                <sc-if value="{{ r.noChev }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex:none;width:28px"></span></sc-if>
+                <button type="button" data-lumina="mix-toggle" role="switch" data-press="1" aria-checked="{{ r.on }}" onClick="{{ r.go }}" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1 1 auto;min-width:0;min-height:{{ r.h }};padding:5px 14px;border-radius:9px;background:{{ r.bg }};box-shadow:inset 0 0 0 {{ r.ring }};color:{{ r.fg }};opacity:{{ r.op }};cursor:{{ r.cur }};font-size:{{ r.fs }};text-align:left;display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:14px;align-items:center" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
+                  <span style="min-width:0;display:flex;align-items:baseline;gap:10px"><span style="flex:none;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:{{ r.fw }}">{{ r.name }}</span><sc-if value="{{ r.subOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="mix-where" style="min-width:0;font-size:13px;color:#9A958D;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.sub }}</span></sc-if><sc-if value="{{ r.tagOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="mix-tag" style="flex:none;padding:1px 7px;border-radius:5px;background:rgba(255,210,122,0.14);color:#FFD27A;font-size:12px;font-weight:400">{{ r.tag }}</span></sc-if></span>
+                  <span style="text-align:right;color:#B8B3AB;white-space:nowrap;font-variant-numeric:tabular-nums">{{ r.n }}</span>
                 </button>
-                <sc-if value="{{ r.chevOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="mix-open" aria-label="Show what is inside" aria-expanded="{{ r.open }}" onClick="{{ r.chevGo }}" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;width:36px;border-radius:10px;background:rgba(239,236,230,0.06);color:#B8B3AB;cursor:pointer;display:grid;place-items:center" style-hover="background:rgba(239,236,230,0.12);color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span data-rot="1" aria-hidden="true" style="display:inline-block;font-size:16px;transform:rotate({{ r.rot }})">›</span></button></sc-if>
               </div>
             </sc-for>
           </div>
@@ -319,7 +330,7 @@ body:has([data-view=phone]){background:#111}
           </button>
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <input ref="{{ clipRef }}" type="file" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
-          <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#FFD27A">{{ impMsg }}</div></sc-if>
+          <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" data-lumina="imp-msg" aria-busy="{{ impBusy }}" style="color:#FFD27A;display:flex;align-items:center;gap:9px"><sc-if value="{{ impBusy }}" hint-placeholder-val="{{ false }}"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite;will-change:opacity"></span></sc-if><span>{{ impMsg }}</span></div></sc-if>
           <sc-if value="{{ bigOn }}" hint-placeholder-val="{{ false }}">
             <div data-lumina="too-big" role="alert" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.35);animation:rise 160ms ease-out">
               <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A">{{ bigH }}</span><span style="font-size:14px;color:#EFECE6">{{ bigName }}</span><span data-lumina="too-big-line" style="color:#B8B3AB;line-height:1.45">{{ bigLine }}</span></div>
@@ -607,17 +618,18 @@ body:has([data-view=phone]){background:#111}
       <sc-if value="{{ tiSayOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="time-step" role="status" aria-live="polite" style="position:absolute;left:50%;top:14px;z-index:6;transform:translateX(-50%);padding:5px 12px;border-radius:8px;background:rgba(22,21,20,0.9);box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 6px 18px rgba(0,0,0,0.4);color:#EFECE6;font-weight:600;white-space:nowrap;pointer-events:none;animation:fade 100ms ease-out">{{ tiSay }}</div></sc-if>
       <div data-screen-label="Grid" data-lumina="fused" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" onDoubleClick="{{ gridDbl }}" onScroll="{{ scScroll }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:14px clamp(16px,2.2vw,40px) 0">
         <div data-lumina="fused-in" ref="{{ fInRef }}" style="position:relative;margin-left:{{ fGut }}px;height:{{ fH }}px;will-change:transform">
-          <div data-lumina="time-rod" style="position:absolute;left:{{ fRodX }}px;top:{{ fRodT }}px;width:4px;height:{{ fRodH }}px;border-radius:2px;background:#7C7872;pointer-events:none"></div>
-          <sc-for list="{{ fr }}" as="r" hint-placeholder-count="1"><div data-lumina="time-rod-run" style="position:absolute;left:{{ r.rodX }}px;top:{{ r.rodY }}px;width:4px;height:{{ r.rodH }}px;border-radius:2px;background:#7C7872;pointer-events:none"></div></sc-for>
+          <sc-for list="{{ fd }}" as="d" hint-placeholder-count="1"><div data-lumina="time-day" style="position:absolute;left:{{ d.x }}px;top:{{ d.y }}px;width:{{ d.w }}px;height:2px;background:linear-gradient(90deg,rgba(255,210,122,0.8),rgba(255,210,122,0.35) 40%,rgba(255,210,122,0));pointer-events:none"></div></sc-for>
+          <div data-lumina="time-rod" style="position:absolute;left:{{ fRodX }}px;top:{{ fRodT }}px;width:5px;height:{{ fRodH }}px;border-radius:3px;background:#8E8A83;pointer-events:none"></div>
+          <sc-for list="{{ fr }}" as="r" hint-placeholder-count="1"><div data-lumina="time-rod-run" style="position:absolute;left:{{ r.rodX }}px;top:{{ r.rodY }}px;width:5px;height:{{ r.rodH }}px;border-radius:3px;background:{{ r.rodC }};pointer-events:none"></div></sc-for>
           <sc-for list="{{ fh }}" as="h" hint-placeholder-count="2">
             <button type="button" data-scene="{{ h.s }}" data-nobox="1" onClick="{{ hClick }}" data-lumina="time-mark" title="{{ h.tip }}" aria-label="{{ h.tip }}" style="position:absolute;left:{{ h.x }}px;top:{{ h.y }}px;width:{{ fMarkW }}px;min-height:48px;margin:0;padding:0 0 0 6px;border:0;font:inherit;color:inherit;text-align:right;-webkit-appearance:none;appearance:none;display:flex;align-items:flex-start;white-space:nowrap;cursor:pointer;border-radius:8px;background:{{ h.bg }}" style-hover="background:rgba(239,236,230,0.07)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
               <span style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end;padding:3px 0 5px;overflow:hidden">
-                <sc-if value="{{ h.dateOn }}" hint-placeholder-val="{{ false }}"><span style="color:#FFD27A;font-size:13px;font-weight:700;line-height:17px">{{ h.date }}</span></sc-if>
-                <span data-lumina="time-at" style="font-size:{{ h.tSize }};font-weight:600;line-height:21px;color:#EFECE6;font-variant-numeric:tabular-nums">{{ h.time }}</span>
-                <span data-lumina="scene-marks" style="color:#B8B3AB;line-height:16px">{{ h.line }}</span>
-                <span data-lumina="time-len" style="color:#9A958D;line-height:15px;font-variant-numeric:tabular-nums">{{ h.len }}</span>
+                <sc-if value="{{ h.dateOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="time-date" style="color:#FFD27A;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;line-height:20px">{{ h.date }}</span></sc-if>
+                <span data-lumina="time-at" style="font-size:{{ h.tSize }};font-weight:700;line-height:36px;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:#EFECE6;font-variant-numeric:tabular-nums">{{ h.time }}</span>
+                <span data-lumina="scene-marks" style="color:#B8B3AB;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;line-height:16px">{{ h.line }}</span>
+                <span data-lumina="time-len" style="color:#9A958D;font-size:12px;line-height:16px;font-variant-numeric:tabular-nums">{{ h.len }}</span>
               </span>
-              <span style="flex:none;width:24px;height:30px;display:grid;place-items:center"><span style="width:13px;height:13px;border-radius:50%;background:{{ h.dot }};box-shadow:0 0 0 3px #1E1D1B"></span></span>
+              <span style="flex:none;width:30px;height:{{ h.dotH }}px;display:grid;place-items:center"><span style="width:17px;height:17px;border-radius:50%;background:{{ h.dot }};box-shadow:0 0 0 3px #1E1D1B"></span></span>
             </button>
           </sc-for>
           <sc-for list="{{ ft }}" as="g" hint-placeholder-count="8">
@@ -717,6 +729,7 @@ body:has([data-view=phone]){background:#111}
             <button type="button" data-lumina="nav-back" title="Back to the canvas · ⏎ · esc · 2×click" onClick="{{ backClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:40px;box-sizing:border-box;padding:0 14px;border-radius:9px;display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:14px;font-weight:600;background:{{ backBg }};color:#EFECE6;cursor:pointer;animation:{{ backAnim }}" style-hover="background:rgba(239,236,230,0.16)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">‹ Canvas<span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-size:11px;font-weight:700">esc</span></button>
             <span style="flex:none;width:8px"></span>
             <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><button type="button" data-well="{{ pk.m }}" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · on / off" onClick="{{ wClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1 1 0;min-width:104px;height:40px;box-sizing:border-box;padding:0 16px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;font-size:14px;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:{{ pk.capBg }};display:grid;place-items:center;font-weight:700;color:{{ pk.capFg }}">{{ pk.k }}</span><span style="color:{{ pk.fg }};font-weight:{{ pk.fw }}">{{ pk.l }}</span></button></sc-for>
+            <button type="button" data-lumina="clip-remove" title="Here by mistake? Take it out of this shoot. Not a cut: it leaves Export and the cut list, and the file stays where it is. ⌘Z puts it back." onClick="{{ clipOutGo }}" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:40px;padding:0 14px;border-radius:9px;display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:14px;background:transparent;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.16);color:#B8B3AB;cursor:pointer" style-hover="background:rgba(239,236,230,0.08);color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Not in this shoot<span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-size:11px;font-weight:700">⌘⌫</span></button>
           </div>
         <div style="grid-column:1;grid-row:{{ picRow }};display:flex;flex-direction:column;gap:10px;min-width:0">
           <div data-lumina="clip-row" style="display:flex;align-items:flex-end;gap:12px;min-width:0">
@@ -1124,11 +1137,11 @@ class Component extends DCLogic {
       this.storeSaid = {k:'cut', t:(ok.length ? 'Put back ' + this.plural(ok.length, 'clip') + '. ' : 'Nothing put back. ') + (why ? why.rel.split('/').pop() + ': ' + why.why + '.' : '')}; this.trashRead(); this.driveRead(); }, () => {}); };
   // Make frames again, from the storage line: the same as the debug panel's, and says so while reading runs.
   storeRemake = () => { if (this.realReading() || !this.d) return; this.storeSaid = {k:'frames', t:'Making frames again. Keys and marking work meanwhile.'}; this.clearFrames(); };
-  // Pause / Go on beside the reading line: pause sets the pace to paused, Go on returns it to auto.
+  // Pause / Proceed beside the reading line: pause sets the pace to paused, Proceed returns it to auto.
   static nextPace(pace) { return pace === 'paused' ? 'auto' : 'paused'; }
-  // Go on is saved with the other controls; a pause is for this tab only, so a later visit never starts paused.
+  // Proceed is saved with the other controls; a pause is for this tab only, so a later visit never starts paused.
   pauseToggle = () => { const to = Component.nextPace(this.mp.pace); if (to === 'auto') return this.setMp('pace', to); this.mp = {...this.mp, pace:to}; this.setState(s => ({tick:(s.tick || 0) + 1})); };
-  // Stop here and Cancel, beside Go on while reading is paused (or stopped on a bad card). Stop here keeps the clips read
+  // Stop here and Cancel, beside Proceed while reading is paused (or stopped on a bad card). Stop here keeps the clips read
   // so far and lets the rest go; the shoot goes on with them, their other frames filling in behind. Cancel asks first
   // (cancelAsk), then throws the load away and goes back to Open. Neither touches a file on the drive.
   static readKept(clips) { return clips.filter(c => (c.facts && c.facts.state !== 'pending') || (c.frames || []).some(Boolean)); }
@@ -1612,7 +1625,7 @@ class Component extends DCLogic {
   // first tile), so runs read left to right and then down, like words on a line, and a sparse shoot fills the width
   // instead of stacking one clip per row. A run is never split to share a row: one longer than what is left starts the
   // next row, and one longer than a row takes whole rows from the left, as before. Tiles keep the interval's size.
-  static FLOW_IN = 112;
+  static FLOW_IN = 136;
   // layFlow: per section {g (its first tile), n, r (its first row), x (its first tile's left: 0 starts a row), y (that
   // row's top), hy (its mark's band, hh above y when the section starts a row), rows}; Y every row's top; height as laySecs.
   static layFlow(geo, secs) {
@@ -1702,7 +1715,10 @@ class Component extends DCLogic {
   static TI = [[5, 4], [10, 3], [30, 3], [60, 2], [120, 2], [300, 2], [600, 1], [1800, 1], [3600, 1], [10800, 1], [86400, 1]];
   static TI_DEF = 3;
   static TI_GAP = 12;
-  static TI_GUT = 100;
+  static TI_GUT = 124;
+  // On a phone the gutter stays narrow (TI_GUT_NARROW, smaller type) so the one column of tiles keeps its width.
+  static TI_GUT_NARROW = 100;
+  static tiGut(vw) { return vw < 600 ? Component.TI_GUT_NARROW : Component.TI_GUT; }
   static TI_PINCH = 0.3;
   // No transitions (LOCAL-CHANGES 161): a regroup lands at once and a pinch let go snaps back. The pinch itself still
   // follows the fingers; true brings back the glide, the fade and the spring.
@@ -1745,7 +1761,7 @@ class Component extends DCLogic {
   // The grid sits right of the rod’s gutter, and runs of one interval are TI_GAP apart instead of under a header; a
   // run that fits beside the one before it shares its row (flow, layFlow).
   // Few clips: the tiles grow to fill the screen (zlFit); an explicit zl is a size asked for and stays as it is.
-  cvGeo(zl) { const st = this.state, sc = this.sc, g = Component.zlGeo({vw:st.vw, cw:(sc && sc.clientWidth ? sc.clientWidth : st.vw) - Component.TI_GUT, zl:zl != null ? zl : st.zl > 0 ? Component.TI[this.cvTi()][1] : 0}); if (!g.zl) return g;
+  cvGeo(zl) { const st = this.state, sc = this.sc, g = Component.zlGeo({vw:st.vw, cw:(sc && sc.clientWidth ? sc.clientWidth : st.vw) - Component.tiGut(st.vw), zl:zl != null ? zl : st.zl > 0 ? Component.TI[this.cvTi()][1] : 0}); if (!g.zl) return g;
     const t = {...g, hh:Component.TI_GAP, flow:true}; return zl != null ? t : Component.zlFit(t, this.cvSecs(), st.scH || (sc && sc.clientHeight) || 0); }
   cvTi() { const t = this.state.ti; return t == null ? Component.TI_DEF : t; }
   cvRub(pz) { const top = Component.TI.length - 1; return Component.rubber(pz, top - this.cvTi(), top); }
@@ -1885,8 +1901,8 @@ class Component extends DCLogic {
     const nm = c => c.name.replace(/\.\w+$/, ''), ncut = st.nCutUi != null ? st.nCutUi : st.nCut, compact = zl > 0 && zl < 3;
     vals.gapMax = gs.length; vals.nCut = ncut; vals.gapChange = this.gapChange; vals.fTh = geo.th; vals.fPh = geo.ph; vals.fH = L.height; vals.fHh = geo.hh; vals.fInRef = this.fInRef;
     // the rod: a gutter left of the grid, the rod 20 px from the tiles, a mark (time, count, dot on the rod) per run
-    const gut = Component.TI_GUT, iv = Component.TI[this.cvTi()][0];
-    vals.fGut = gut; vals.fMarkX = -gut; vals.fMarkW = gut - 8; vals.fRodX = -22; vals.fRodT = geo.hh + 11; vals.fRodH = Math.max(0, L.height - 40 - geo.hh - 11);
+    const gut = Component.tiGut(st.vw), iv = Component.TI[this.cvTi()][0], narrow = gut < Component.TI_GUT;
+    vals.fGut = gut; vals.fMarkX = -gut; vals.fMarkW = gut - 8; vals.fRodX = -25.5; vals.fRodT = geo.hh + 11; vals.fRodH = Math.max(0, L.height - 40 - geo.hh - 11);
     vals.tiSayOn = !!st.tiSay; vals.tiSay = 'every ' + Component.tiWord(iv) + ' · ' + this.plural(SC.length, 'group');
     const sk = st.skim, fi = this.firstIdx(), dotMax = Math.floor((geo.tw + 3) / 9);
     this.gSlot = this.gSlot || [];
@@ -1924,16 +1940,18 @@ class Component extends DCLogic {
       const s = SC[it.s]; if (!s) return null; const ids = s.clips.map(c => c.id), S = Component.foldSum(s.clips.map(c => ({id:c.id, dur:c.dur, bytes:c.bytes, notes:[], pending:false})), st.marks);
       const lab = Component.tiLabel(s.clips[0].t, iv, it.s > 0 && SC[it.s - 1] ? SC[it.s - 1].clips[0].t : null), allM = ['keep', 'maybe', 'cut'].find(m => S[m] === S.n) || null;
       const all = ids.length > 0 && ids.every(id => selSet.has(id)), when = lab.time ? (lab.date ? lab.date + ' ' : '') + lab.time : lab.date;
-      return {s:it.s, y:it.y + geo.hh, x:(it.x || 0) - gut, flow:!!it.flow, rodX:(it.x || 0) - 22, rodY:it.y + geo.hh + 11, rodH:Math.max(0, geo.th - 30), date:lab.date, dateOn:!!(lab.date && lab.time), time:lab.time || lab.date, line:this.plural(S.n, 'clip'), len:this.fmtDur(S.dur), tSize:iv < 60 ? '14px' : '16px', dot:allM ? MK[allM] : all ? '#FFD27A' : '#B8B3AB', bg:all ? 'rgba(255,210,122,0.07)' : 'transparent',
+      return {s:it.s, y:it.y + geo.hh, x:(it.x || 0) - gut, flow:!!it.flow, rodX:(it.x || 0) - 25.5, dayNew:!!lab.date, rodC:lab.date && it.s > 0 ? 'rgba(255,210,122,0.7)' : '#8E8A83', rodY:it.y + geo.hh + 11, rodH:Math.max(0, geo.th - 30), date:lab.date, dateOn:!!(lab.date && lab.time), time:lab.time || lab.date, line:this.plural(S.n, 'clip'), len:this.fmtDur(S.dur), tSize:iv < 60 ? (narrow ? '15px' : '19px') : narrow ? '22px' : '28px', dotH:lab.date && lab.time ? 78 : 38, dot:allM ? MK[allM] : all ? '#FFD27A' : '#B8B3AB', bg:all ? 'rgba(255,210,122,0.07)' : 'transparent',
         tip:when + ' · ' + this.plural(ids.length, 'clip') + ' · ' + this.fmtDur(S.dur) + ' · ' + this.fmtB(s.bytes) + ': click to select them, then K M C'};
     }).filter(Boolean);
     vals.fr = vals.fh.filter(h => h.flow);
+    // a new day that starts a row: a line across the canvas above it (one that shares a row has an amber rod instead)
+    vals.fd = vals.fh.filter(h => h.s > 0 && h.dayNew && !h.flow).map(h => ({x:-gut + 8, y:h.y - Math.round(geo.hh / 2) - 1, w:geo.W + gut - 8}));
   }
   cvHints() {
     const st = this.state, g = this.cvG(), out = [], add = (k, t) => { if (t) out.push({k, t}); }; if (!g) return {lead:'', list:out};
     const one = g.clips.length === 1, nm = g.clips[0].name.replace(/\.\w+$/, '');
     add('← → ↑ ↓', 'move'); add('pinch − =', 'every ' + Component.tiWord(Component.TI[this.cvTi()][0])); add('⏎ 2×click', one ? 'Viewer' : 'open');
-    add('K M C', one ? 'mark on / off' : 'mark ' + this.plural(g.clips.length, 'clip')); add('esc', 'put back'); add('⌘E', 'export');
+    add('K M C', one ? 'mark on / off' : 'mark ' + this.plural(g.clips.length, 'clip')); add('esc', 'put back'); add('⌘E', 'export'); add('⌘⌫', 'not in this shoot');
     // last, so a narrow footer that wraps it away keeps the hints it had
     add('space', 'preview');
     return {lead:(one ? nm : g.title), list:out};
@@ -1991,6 +2009,7 @@ class Component extends DCLogic {
       else this.api('mark', step.ids, step.next);
       return (back ? 'undid · ' : 'redid · ') + this.verb(step.next) + ' ' + this.plural(step.ids.length, 'clip');
     }
+    if (step.k === 'remove') { this.clipsOut(step, back); return (back ? 'put back · ' : 'took out again · ') + this.plural(step.ids.length, 'clip'); }
   }
   undo() { const st = this.state; if (!st.undo.length) return; const step = st.undo[st.undo.length - 1]; this.setState({undo:st.undo.slice(0, -1), redo:[...st.redo, step]}); this.flash(this.apply(step, true)); }
   redo() { const st = this.state; if (!st.redo.length) return; const step = st.redo[st.redo.length - 1]; this.setState({redo:st.redo.slice(0, -1), undo:[...st.undo, step]}); this.flash(this.apply(step, false)); }
@@ -2175,7 +2194,7 @@ class Component extends DCLogic {
   }
   isCtl(t) { if (!t || t === document.body || !t.getAttribute) return false; return ['button', 'switch', 'tab', 'menuitem', 'checkbox'].includes(t.getAttribute('role')) || t.tagName === 'BUTTON' || t.tagName === 'A'; }
   kd(e) {
-    const st = this.state; if (st.mix && this.mixKey(e)) return; if (!st.ready) return;
+    const st = this.state; if (st.bigAdd && e.key === 'Escape') { e.preventDefault(); return this.bigAddClose(); } if (st.mix && this.mixKey(e)) return; if (!st.ready) return;
     const k = e.key, kl = k.length === 1 ? k.toLowerCase() : k, meta = e.metaKey || e.ctrlKey, t = e.target;
     if (k === 'Shift' || k === 'Meta' || k === 'Alt' || k === 'Control') return;
     this.kbNote(e);
@@ -2196,6 +2215,7 @@ class Component extends DCLogic {
     if (st.noKeep && k === 'Enter' && !meta) { e.preventDefault(); return this.noKeepBack(); }
     if (meta && (k === 'Enter' || kl === 'e')) { e.preventDefault(); return this.setStep('export'); }
     if (meta && kl === 'z') { e.preventDefault(); return e.shiftKey ? this.redo() : this.undo(); }
+    if (meta && (k === 'Backspace' || k === 'Delete') && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); if (!e.repeat) this.removeClips(this.removeIds()); return; }
     if (meta) return;
     if (t && t.tagName === 'INPUT' && k.startsWith('Arrow')) return;
     // Tab is the next clip and ⇧Tab the one before, as → and ← are (scenes on Scenes, frames' clips in the Viewer);
@@ -2588,7 +2608,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {lv2Cols:'minmax(0,1fr) minmax(240px,300px)', storeOn:false, storeFlex:'0 4 auto', storeLine:'', storeRows:[], storeFg:'#9A958D', storeBg:'rgba(239,236,230,0.06)', storeArrow:'▴', notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', pvDis:'false', pvTip:'Rec.709 preview · ⇧R', pvOp:'1', pvCur:'pointer', pvHov:'1.2', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, stopOn:false, cancelOn:false, cancelAsk:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, dockExOn:false, dockExN:'', memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {lv2Cols:'minmax(0,1fr) minmax(240px,300px)', storeOn:false, storeFlex:'0 4 auto', storeLine:'', storeRows:[], storeFg:'#9A958D', storeBg:'rgba(239,236,230,0.06)', storeArrow:'▴', notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', pvDis:'false', pvTip:'Rec.709 preview · ⇧R', pvOp:'1', pvCur:'pointer', pvHov:'1.2', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, stopOn:false, cancelOn:false, cancelAsk:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, dockExOn:false, dockExN:'', memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:'', clipOutGo:() => {}};
     if (!st.ready || !this.d) return base;
     this.index();
     // Export is a page of its own: the shortcuts across the top, the files and folders below
@@ -2794,6 +2814,7 @@ class Component extends DCLogic {
       { const i = this.flat.indexOf(c.id), P = this.flat[i - 1], N = this.flat[i + 1], nb = (id, col, arrow) => { const cc = this.byId[id], mm = st.marks[id], t0 = this.tone(cc, this.firstIdx()), nm = cc.name.replace(/\.\w+$/, '');
           return {id, col, op:mm === 'cut' ? 0.55 : 1, bg:t0.bg, flt:t0.flt, edge:mm ? 'inset 0 0 0 3px ' + MK[mm] : 'inset 0 0 0 1px rgba(239,236,230,0.12)', say:arrow + ' ' + nm + (mm ? ' · ' + this.W(mm) : ''), tip:nm + ' · ' + arrow}; };
         vals.nbrs = [P && nb(P, '1', '←'), N && nb(N, '2', '→')].filter(Boolean); vals.nbOn = st.vw > 640 && vals.nbrs.length > 0; }
+      vals.clipOutGo = () => this.removeClips([c.id]);
       vals.backBg = st.backHit ? 'rgba(255,210,122,0.4)' : 'rgba(239,236,230,0.1)'; vals.backAnim = st.backHit ? 'press 140ms ease-out' : 'none';
       vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
       // the row: this clip and as many of its chapter as fit, joined by a bracket
@@ -3997,8 +4018,32 @@ class Component extends DCLogic {
   // A phone or a tablet picks clips (iPhone: Photos or Files; Android: its photo picker), a computer a folder; the other is
   // one button below. Neither shows a folder picker where the browser has none (iOS Safari before 18.4).
   canFolder() { return typeof document !== 'undefined' && 'webkitdirectory' in document.createElement('input') && !/iPhone|iPod/.test(navigator.userAgent); }
-  pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) el.click(); };
-  filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.walkTok = null; this.pickNext = true; this.importFiles(fs); };
+  pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) { this.pickWait(el); el.click(); } };
+  // A status that is still going on (Looking through…, Listing…, Adding…): Open's line and Skim's bar show it with a
+  // breathing dot. Any other status, or none, ends it.
+  busy(t) { this.setState({impMsg:t, impBusyT:t}); }
+  // In a browser, the picker hands over a folder only once the browser has listed every file in it: for a card that is
+  // a moment, for a whole drive it can be minutes, and the page hears nothing until then. When the window comes back
+  // from the picker and nothing has arrived, Open says what is happening, until the files come or the pick is cancelled.
+  // Not in the app, which counts the folder itself (luminaSkimBig.looking).
+  pickWait(el) {
+    if (this.exHostApi() || typeof window === 'undefined' || !('oncancel' in el)) return;
+    const tok = this.pickTok = {}, off = () => { window.removeEventListener('focus', back); el.removeEventListener('cancel', gone); el.removeEventListener('change', got); };
+    const say = 'Opening what you picked… the browser lists every file in a folder before Skim sees it, and a whole drive takes a while.';
+    const back = () => { setTimeout(() => { if (this.pickTok === tok && !this.state.impMsg) this.busy(say); }, 400); };
+    const gone = () => { off(); if (this.pickTok === tok) { this.pickTok = null; if (this.state.impMsg === say) this.setState({impMsg:null}); } };
+    const got = () => { off(); if (this.pickTok === tok) this.pickTok = null; };
+    window.addEventListener('focus', back, {once:true}); el.addEventListener('cancel', gone, {once:true}); el.addEventListener('change', got, {once:true});
+  }
+  filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = Component.hostRel(fs); this.walkTok = null; this.pickNext = true; this.importFiles(fs); };
+  // In the app a picked folder comes as its clips and sidecars, not the folder (SetsRootView.skimHand, LOCAL-CHANGES 298),
+  // with each one's place inside it ([name, size, place], window.luminaSkimRel): the places the folder input would have
+  // given. Matched by name and size, in order. Null when there is none (a browser, a drop).
+  static hostRel(files) {
+    let list = null; try { list = window.luminaSkimRel; window.luminaSkimRel = null; } catch (x) {} if (!Array.isArray(list) || !list.length) return null;
+    const q = {}; list.forEach(([n, b, r]) => { (q[n + '|' + b] = q[n + '|' + b] || []).push(r); });
+    const m = new Map(); files.forEach(f => { const a = q[f.name + '|' + f.size]; if (a && a.length) m.set(f, a.shift()); }); return m.size ? m : null;
+  }
   dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
   dropLeave = () => this.setState({dropHot:false});
   dropIn = async e => {
@@ -4011,7 +4056,7 @@ class Component extends DCLogic {
     // A whole drive or a home folder is a firehose: the walk counts files and clips as it goes, says so on Open, and
     // stops past B.files (cut), so what was found so far is offered instead of a page that never answers.
     let n = 0, clips = 0, bytes = 0, cut = false, said = 0;
-    const tell = () => { const t = performance.now(); if (t - said < 200) return; said = t; this.setState({impMsg:'Looking through ' + n.toLocaleString('en-US') + ' files · ' + this.plural(clips, 'clip') + ' so far…'}); };
+    const tell = () => { const t = performance.now(); if (t - said < 200) return; said = t; this.busy('Looking through ' + n.toLocaleString('en-US') + ' files · ' + this.plural(clips, 'clip') + ' so far…'); };
     const walk = (en, p) => new Promise(res => {
       if (cut || tok !== this.walkTok) return res();
       if (en.isFile) en.file(f => { if (cut) return res(); rel.set(f, p + f.name); out.push(f); n++; if (Component.isClip(f)) { clips++; bytes += f.size; } if (n >= B.files) cut = true; tell(); res(); }, () => res());
@@ -4030,6 +4075,12 @@ class Component extends DCLogic {
   static BIG = {clips:1500, files:50000};
   static bigSay(b, fmtB) {
     const N = x => x.toLocaleString('en-US'), sz = b.bytes >= 1e12 ? (b.bytes / 1e12).toFixed(1) + ' TB' : fmtB(b.bytes), lim = Component.BIG.clips, over = b.n > lim;
+    if (b.room != null) { const fit = Math.min(b.n, b.room);
+      return {h:b.cut ? 'Too many files to look through' : b.room ? 'Too many clips to add at once' : 'This shoot is full', name:b.name,
+        line:(b.cut ? 'Skim stopped looking after ' + N(b.cut) + ' files and found ' + N(b.n) + ' clip' + (b.n === 1 ? '' : 's') + ' (' + sz + ') so far. ' : N(b.n) + ' clip' + (b.n === 1 ? '' : 's') + ' · ' + sz + '. ') +
+          'This shoot has ' + N(b.have) + ' and Skim takes up to ' + N(lim) + ' at a time, so ' + (b.room ? N(b.room) + ' more fit.' : 'no more fit. Cut this shoot down, or open the rest as a shoot of its own.'),
+        go:fit > 0 ? (fit === b.n ? 'Add the ' + N(fit) + ' found' : 'Add the first ' + N(fit)) : '', goOn:fit > 0, pick:b.room ? 'Pick fewer clips' : 'Open them as a new shoot'};
+    }
     return {h:b.cut ? 'Too many files to look through' : 'Too many clips to skim at once', name:b.name,
       line:(b.cut ? 'Skim stopped looking after ' + N(b.cut) + ' files and found ' + N(b.n) + ' clip' + (b.n === 1 ? '' : 's') + ' (' + sz + ') so far.'
         : N(b.n) + ' clips · ' + sz + '. Skim takes up to ' + N(lim) + ' at a time; more would slow every key.') + ' Pick the card or the day you want, or open ' + (over ? 'the first ' + N(lim) + ' by name.' : 'what was found.'),
@@ -4044,11 +4095,17 @@ class Component extends DCLogic {
   bigHost() {
     const N = x => Number(x).toLocaleString('en-US');
     return {
-      looking:(name, n, clips) => this.setState({impMsg:name == null ? null : n ? 'Looking through ' + N(n) + ' files in “' + name + '” · ' + this.plural(clips, 'clip') + ' so far…' : 'Looking through “' + name + '”…'}),
+      looking:(name, n, clips) => name == null ? this.setState({impMsg:null}) : this.busy(n ? 'Looking through ' + N(n) + ' files in “' + name + '” · ' + this.plural(clips, 'clip') + ' so far…' : 'Looking through “' + name + '”…'),
       show:o => { if (!o) return; this.keepAt = 'done';
         if (!o.n) { this.bigHeld = null; this.setState({big:null, impMsg:'No clips in the first ' + N(o.cut) + ' files of “' + o.name + '”. Pick the folder the clips are in.'}); return; }
         this.bigHeld = {host:true}; this.bigRoot = o.name; this.setState({impMsg:null, big:{n:o.n, bytes:o.bytes, cut:o.cut || 0, name:o.name}}); if (this.state.step !== 'import') this.setStep('import'); },
-      want:() => { const w = !!this.bigWant; this.bigWant = false; return w; }};
+      want:() => { const w = !!this.bigWant; this.bigWant = false; return w; },
+      // Add clips in the app: how many more the open shoot takes, and the card over Skim when a pick is more than that
+      room:() => { const d = this.d; return d && d.shoot && d.shoot.real ? Math.max(0, Component.BIG.clips - d.clips.length) : Component.BIG.clips; },
+      showAdd:o => { const d = this.d; if (!o || !d || !d.shoot || !d.shoot.real) return; this.setState({impMsg:null});
+        if (!o.n) { this.recNote = {t:'Nothing added · no clips in the first ' + N(o.cut) + ' files', at:Date.now()}; return this.bump(); }
+        const room = Math.max(0, Component.BIG.clips - d.clips.length); this.bigAddHeld = {host:true, room};
+        this.setState({bigAdd:{n:o.n, bytes:o.bytes, cut:o.cut || 0, name:o.name, room, have:d.clips.length}}); }};
   }
   async importFiles(files, cap, walked, pre) {
     const rel = f => (this.rel && this.rel.get(f)) || f.webkitRelativePath || f.name;
@@ -4078,7 +4135,7 @@ class Component extends DCLogic {
     const tL = performance.now(), lt = this.listTok = {};
     let metas = pre && pre.metas;
     if (!pre) {
-      this.setState({impMsg:'Listing ' + this.plural(vids.length, 'clip') + '…'});
+      this.busy('Listing ' + this.plural(vids.length, 'clip') + '…');
       metas = await this.inBatches(vids, 16, f => this.tailMeta(f, xml[f.name.replace(/\.\w+$/, '').toUpperCase()]));
       if (lt !== this.listTok) return;
       const picked = this.picked, relMap = this.rel, again = (vs, ms) => { this.rel = relMap; return this.importFiles(files, cap, null, {vids:vs, metas:ms, picked}); };
@@ -4109,7 +4166,7 @@ class Component extends DCLogic {
     { const tok = this.qTok; this.coverLoad(d).then(() => { if (tok === this.qTok) this.runQueue(clips.slice(), tok); }); }
   }
   // One clip as the page holds it, from its file and what the listing read (importFiles, appendClips).
-  clipOf(f, m, id, path) { return {id, name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, path, t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, fd:m.fd || null, nf:m.nf || 0, w:0, h:0, bytes:f.size, codec:Component.extOf(f), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; }
+  clipOf(f, m, id, path) { return {id, name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, ach:m.ach == null ? null : m.ach, arate:m.arate || 0, path, t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, fd:m.fd || null, nf:m.nf || 0, w:0, h:0, bytes:f.size, codec:Component.extOf(f), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; }
   // Reopening a kept shoot (a reload in the app, Pick up where you were in Safari): only the clips it held, so a folder
   // pruned on the notice or clips added from elsewhere come back as they were, with no notice. Null: nothing to narrow.
   keptOnly(vids, metas) {
@@ -4135,12 +4192,30 @@ class Component extends DCLogic {
     let gap = 0; for (let k = 1; k < days.length; k++) gap = Math.max(gap, (Date.parse(days[k]) - Date.parse(days[k - 1])) / 864e5);
     const lives = items.filter(x => x.live).length;
     const miss = (o && o.missing) || [];
-    if (!(o && o.force) && folders.size < 2 && !(gap >= Component.MIX_GAP_DAYS) && !lives) return null;
+    const odd = Component.mixOdd(items), nOdd = Object.keys(odd).length;
+    if (!(o && o.force) && folders.size < 2 && !(gap >= Component.MIX_GAP_DAYS) && !lives && !nOdd) return null;
     const by = {}, groups = [];
     items.forEach(x => { const day = String(x.t).slice(0, 10), dir = D(x.path), key = day + '\u0000' + dir; let g = by[key]; if (!g) { g = by[key] = {key, day, dir, items:[]}; groups.push(g); } g.items.push(x); });
     const tc = (a, b) => a < b ? -1 : a > b ? 1 : 0;
     groups.forEach(g => g.items.sort((a, b) => tc(a.t, b.t) || tc(a.name, b.name))); groups.sort((a, b) => tc(a.day, b.day) || tc(a.dir, b.dir));
-    return {folders:folders.size, days:days.length, gap:Math.round(gap), first:days[0], last:days[days.length - 1], lives, n:items.length, groups, missing:miss, expect:!!(o && o.force)};
+    return {folders:folders.size, days:days.length, gap:Math.round(gap), first:days[0], last:days[days.length - 1], lives, n:items.length, groups, missing:miss, expect:!!(o && o.force), odd, nOdd};
+  }
+  // Clips that look like they are there by mistake, which the notice starts left out: {i: 'far' | 'big'}.
+  // far: shot on days set apart from most of the clips. Days within MIX_FAR_DAYS of each other are one run; the run with
+  // the most clips is the shoot, and a run with a third of its clips or fewer is far (a card with last year's clips on it).
+  // big: a file MIX_BIG times the median size of the others or more (with four clips or more), a recording left running
+  // or a file that is not this camera's.
+  static MIX_FAR_DAYS = 30;
+  static MIX_BIG = 8;
+  static mixOdd(items) {
+    const out = {}, ms = x => Date.parse(String(x.t).slice(0, 10)), by = items.filter(x => !isNaN(ms(x))).slice().sort((a, b) => ms(a) - ms(b)), runs = [];
+    by.forEach(x => { const r = runs[runs.length - 1]; if (r && (ms(x) - r.end) / 864e5 < Component.MIX_FAR_DAYS) { r.xs.push(x); r.end = ms(x); } else runs.push({xs:[x], end:ms(x)}); });
+    if (runs.length > 1) { const main = runs.reduce((a, r) => r.xs.length > a.xs.length ? r : a, runs[0]); runs.forEach(r => { if (r !== main && r.xs.length * 3 <= main.xs.length) r.xs.forEach(x => { out[x.i] = 'far'; }); }); }
+    if (items.length >= 4) items.forEach(x => {
+      const rest = items.filter(y => y !== x).map(y => y.bytes || 0).sort((a, b) => a - b), med = rest[rest.length >> 1];
+      if (med > 0 && (x.bytes || 0) >= med * Component.MIX_BIG && !out[x.i]) out[x.i] = 'big';
+    });
+    return out;
   }
   // What the notice lets in: every clip not unticked, in a folder not removed.
   static mixPicked(mx) { const out = []; mx.m.groups.forEach(g => { if (mx.gone[g.key]) return; g.items.forEach(x => { if (!mx.off[x.i]) out.push(x); }); }); return out; }
@@ -4148,7 +4223,7 @@ class Component extends DCLogic {
   static liveSet(files, relOf) { const s = new Set(); files.forEach(f => { if (/\.(heic|jpe?g)$/i.test(f.name || '')) s.add(relOf(f).replace(/\.\w+$/, '').toUpperCase()); }); return s; }
   mixAsk(items, go, add, o) {
     const m = Component.mixOf(items, o); if (!m) return false;
-    const off = {}; items.forEach(x => { if (x.live) off[x.i] = true; });
+    const off = {}; items.forEach(x => { if (x.live || m.odd[x.i]) off[x.i] = true; });
     this.mixRun = go; this.setState({mix:{m, off, gone:{}, open:{}, add:!!add}, impMsg:null}); return true;
   }
   mixSet(f) { this.setState(s => s.mix ? {mix:{...s.mix, ...(typeof f === 'function' ? f(s.mix) : f)}} : null); }
@@ -4171,36 +4246,43 @@ class Component extends DCLogic {
     // a row lights when what it holds goes in (Export's Clips cards: gold edge and tint), half-lit when some of it does,
     // and dims when it is left out; a click lights or dims all of it
     const look = (all, on) => on === 0 ? {on:'false', bg:'#1E1D1B', ring:'1px rgba(239,236,230,0.08)', fg:'#9A958D', op:0.6} : on === all ? {on:'true', bg:'rgba(255,210,122,0.14)', ring:'1.5px #FFD27A', fg:'#EFECE6', op:1} : {on:'mixed', bg:'rgba(255,210,122,0.06)', ring:'1px rgba(255,210,122,0.5)', fg:'#EFECE6', op:1};
-    const count = (on, all) => (on.length < all.length ? on.length + ' of ' : '') + this.plural(all.length, 'clip');
-    const where = dir => dir ? this.tilde(dir) : 'Picked one by one';
-    const clipRows = (items, pad) => items.forEach(x => rows.push({id:'mix-clip-' + x.i, kind:'clip', name:x.name, sub:'', subOn:false, n:this.hm(String(x.t)), size:fb(x.bytes), pad, h:'36px', fw:'400', cur:'pointer', chevOn:false, rot:'0deg', open:'false', tagOn:!!x.live, tag:x.live ? 'Live Photo' : '',
-      ...look(1, off[x.i] ? 0 : 1), go:() => setOff([x], !off[x.i]), chevGo:() => {}}));
+    // one column on the right: a day or folder says how many clips (2 of 3 when some are out), a clip its time
+    const count = (on, all) => on.length < all.length ? on.length + ' of ' + all.length : this.plural(all.length, 'clip');
+    const where = dir => dir ? this.tilde(dir) : 'picked one by one';
+    // the tree: each level 24 px in, a faint line down the left of what a row holds, the › before the name
+    const lv = n => ({level:String(n + 1), pad:(n * 24) + 'px', guide:n ? (n * 24 - 10) + 'px' : '-2px'});
+    const row = o => rows.push(Object.assign({odd:'', sub:'', subOn:false, tagOn:false, tag:'', chevOn:false, noChev:true, rot:'0deg', open:'false', cur:'pointer', chevGo:() => {}}, o));
+    // what marks a clip out: shot far from the rest, a file far bigger than the others (with its size), a Live Photo's movie
+    const why = x => m.odd[x.i] === 'far' ? 'far from the rest' : m.odd[x.i] === 'big' ? 'much bigger · ' + fb(x.bytes) : x.live ? 'Live Photo' : '';
+    const clipRows = (items, n) => items.forEach(x => row({id:'mix-clip-' + x.i, kind:'clip', name:x.name, n:this.hm(String(x.t)), ...lv(n), h:'32px', fw:'400', fs:'13px', tagOn:!!why(x), tag:why(x), odd:m.odd[x.i] || '',
+      ...look(1, off[x.i] ? 0 : 1), go:() => setOff([x], !off[x.i])}));
+    const chev = (isOpen, key) => ({chevOn:true, noChev:false, rot:isOpen ? '90deg' : '0deg', open:String(isOpen), chevGo:() => flip(key)});
     const days = []; m.groups.forEach(g => { let dd = days[days.length - 1]; if (!dd || dd.day !== g.day) days.push(dd = {day:g.day, gs:[]}); dd.gs.push(g); });
     days.forEach(dd => {
       const xs = [].concat(...dd.gs.map(g => g.items)), on = xs.filter(x => !off[x.i]), one = dd.gs.length === 1, key = one ? dd.gs[0].key : 'day:' + dd.day, isOpen = !!open[key];
-      const lives = xs.filter(x => x.live).length;
-      // a day with one folder is one row (the folder under its name); with several, a row per folder under it
-      rows.push({id:'mix-day-' + dd.day, kind:'day', name:this.mixDay(dd.day), sub:one ? where(dd.gs[0].dir) : this.plural(dd.gs.length, 'folder'), subOn:true, n:count(on, xs), size:fb(on.reduce((a, x) => a + x.bytes, 0)), pad:'0px', h:'52px', fw:'600', cur:'pointer',
-        chevOn:true, rot:isOpen ? '90deg' : '0deg', open:String(isOpen), tagOn:lives > 0, tag:lives ? this.plural(lives, 'Live Photo') : '', ...look(xs.length, on.length), go:() => setOff(xs, on.length === xs.length), chevGo:() => flip(key)});
+      const lives = xs.filter(x => x.live).length, far = xs.every(x => m.odd[x.i] === 'far'), big = xs.filter(x => m.odd[x.i] === 'big').length;
+      const dtag = far ? 'far from the rest' : big ? this.plural(big, 'much bigger clip') : lives ? this.plural(lives, 'Live Photo') : '';
+      // a day with one folder is one row (the folder beside its date); with several, a row per folder under it
+      row({id:'mix-day-' + dd.day, kind:'day', name:this.mixDay(dd.day), sub:one ? where(dd.gs[0].dir) : '', subOn:one, n:count(on, xs), ...lv(0), h:'42px', fw:'600', fs:'14px',
+        tagOn:!!dtag, tag:dtag, odd:far ? 'far' : big ? 'big' : '', ...chev(isOpen, key), ...look(xs.length, on.length), go:() => setOff(xs, on.length === xs.length)});
       if (!isOpen) return;
-      if (one) return clipRows(dd.gs[0].items, '28px');
+      if (one) return clipRows(dd.gs[0].items, 1);
       dd.gs.forEach(g => {
         const gon = g.items.filter(x => !off[x.i]), gOpen = !!open[g.key];
-        rows.push({id:'mix-dir-' + g.key, kind:'folder', name:where(g.dir), sub:'', subOn:false, n:count(gon, g.items), size:fb(gon.reduce((a, x) => a + x.bytes, 0)), pad:'28px', h:'40px', fw:'400', cur:'pointer',
-          chevOn:true, rot:gOpen ? '90deg' : '0deg', open:String(gOpen), tagOn:false, tag:'', ...look(g.items.length, gon.length), go:() => setOff(g.items, gon.length === g.items.length), chevGo:() => flip(g.key)});
-        if (gOpen) clipRows(g.items, '56px');
+        row({id:'mix-dir-' + g.key, kind:'folder', name:where(g.dir), n:count(gon, g.items), ...lv(1), h:'36px', fw:'500', fs:'13px', ...chev(gOpen, g.key), ...look(g.items.length, gon.length), go:() => setOff(g.items, gon.length === g.items.length)});
+        if (gOpen) clipRows(g.items, 2);
       });
     });
-    if (m.missing.length) m.missing.forEach((x, j) => rows.push({id:'mix-miss-' + j, kind:'missing', name:x.name, sub:x.path && x.path !== x.name ? this.tilde(x.path) : 'Not in the folder you chose', subOn:true, n:x.t ? this.mixDay(String(x.t).slice(0, 10)) : '', size:'', pad:'0px', h:'44px', fw:'400', cur:'default', chevOn:false, rot:'0deg', open:'false', tagOn:true, tag:'Missing',
-      on:'false', bg:'transparent', ring:'1px dashed rgba(255,210,122,0.35)', fg:'#B8B3AB', op:0.8, go:() => {}, chevGo:() => {}}));
+    m.missing.forEach((x, j) => row({id:'mix-miss-' + j, kind:'missing', name:x.name, sub:x.path && x.path !== x.name ? this.tilde(x.path).replace(/\/[^\/]*$/, '') : '', subOn:!!(x.path && x.path !== x.name), n:'missing', ...lv(0), h:'36px', fw:'400', fs:'13px', cur:'default',
+      on:'false', bg:'transparent', ring:'1px dashed rgba(255,210,122,0.35)', fg:'#B8B3AB', op:0.8, go:() => {}}));
     const sel = Component.mixPicked(mx), yr = d => (d || '').slice(0, 4), mon = d => { const p = /^(\d{4})-(\d\d)/.exec(d || ''); return p ? new Date(+p[1], +p[2] - 1, 1).toLocaleDateString(undefined, {month:'short', year:'numeric'}) : ''; };
     const range = m.first === m.last ? '' : yr(m.first) !== yr(m.last) ? yr(m.first) + ' to ' + yr(m.last) : mon(m.first) === mon(m.last) ? mon(m.first) : mon(m.first) + ' to ' + mon(m.last);
-    const what = [m.folders > 1 ? this.plural(m.folders, 'different folder') : '', m.days > 1 ? this.plural(m.days, 'different day') + (range ? ' (' + range + ')' : '') : ''].filter(Boolean).join(' and ');
-    const who = (mx.add ? 'The ' + m.n + ' clips you are adding' : 'These ' + m.n + ' clips');
+    const what = [m.folders > 1 ? this.plural(m.folders, 'folder') : '', m.days > 1 ? this.plural(m.days, 'day') + (range ? ', ' + range : '') : ''].filter(Boolean).join(' and ');
+    const who = (mx.add ? 'Adding ' : '') + this.plural(m.n, 'clip');
     const head = m.expect ? 'Found ' + m.n + ' of the ' + this.plural(m.n + m.missing.length, 'clip') + ' in this shoot'
-      : what ? who + ' come from ' + what : who + ' include ' + (m.lives === 1 ? 'a Live Photo' : m.lives + ' Live Photos');
-    const sub = m.expect ? (m.missing.length ? 'The ' + (m.missing.length === 1 ? 'one' : m.missing.length) + ' marked Missing ' + (m.missing.length === 1 ? 'isn’t' : 'aren’t') + ' in the folder you chose. Open the rest, or go back and choose the folder ' + (m.missing.length === 1 ? 'it’s' : 'they’re') + ' in.' : '')
-      : 'Gold goes in. Click a day, a folder or a clip to leave it out, and again to bring it back. › shows what is inside.' + (m.lives ? ' Live Photos (the short movie an iPhone saves with a photo) start left out.' : '') + ' Nothing on disk changes.';
+      : what ? who + ' from ' + what : who + ' with ' + (m.lives === 1 ? 'a Live Photo' : m.lives + ' Live Photos');
+    const sub = m.expect ? (m.missing.length ? 'The missing ' + (m.missing.length === 1 ? 'one isn’t' : 'ones aren’t') + ' in the folder you chose.' : '')
+      : 'Gold goes in. Click a row to leave it out.' + (m.nOdd ? ' ' + (m.nOdd === 1 ? 'One clip looks' : m.nOdd + ' clips look') + ' out of place and ' + (m.nOdd === 1 ? 'starts' : 'start') + ' out.' : '') + (m.lives ? ' Live Photo movies start out.' : '');
     return {mixOn:true, mixHead:head, mixSpan:'', mixSub:sub, mixRows:rows,
       mixGoT:(mx.add ? 'Add ' : 'Open ') + this.plural(sel.length, 'clip') + ' · ' + fb(sel.reduce((a, x) => a + x.bytes, 0)), mixGoOff:String(!sel.length), mixGoOp:sel.length ? 1 : 0.45, mixGoCur:sel.length ? 'pointer' : 'default',
       mixBackT:mx.add ? 'Don’t add' : 'Back', mixGoneOn:false, mixGone:'', mixUndo:() => {}, mixGo:this.mixGo, mixBack:this.mixBack};
@@ -4215,9 +4297,9 @@ class Component extends DCLogic {
   canAdd() { const d = this.d, st = this.state; return !!(d && d.shoot && d.shoot.real && d.clips.length && st.step === 'skim' && !st.mix); }
   addClips = () => {
     if (!this.canAdd()) return; const app = !!this.exHostApi(), el = app && !this.isTouch() ? this.addDirEl || this.addEl : this.addEl;
-    if (!el) return; if (app) window.luminaSkimAdding = true; el.click();
+    if (!el) return; if (app) window.luminaSkimAdding = true; this.pickWait(el); el.click();
   };
-  addIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.addFiles(fs, {rel:null, dropped:false}); };
+  addIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.addFiles(fs, {rel:Component.hostRel(fs), dropped:false}); };
   static hasFiles(e) { const t = e && e.dataTransfer && e.dataTransfer.types; return !!t && [...t].indexOf('Files') >= 0; }
   addEnter = e => { if (!this.canAdd() || !Component.hasFiles(e)) return; this.addN = (this.addN || 0) + 1; if (!this.state.addHot) this.setState({addHot:true}); };
   addLeave = e => { if (!this.state.addHot) return; this.addN = Math.max(0, (this.addN || 0) - 1); if (!this.addN) this.setState({addHot:false}); };
@@ -4225,7 +4307,7 @@ class Component extends DCLogic {
   addDrop = async e => {
     this.addN = 0; if (this.state.addHot) this.setState({addHot:false});
     if (!this.canAdd() || !Component.hasFiles(e)) return; e.preventDefault();
-    const got = await this.dropFiles(e); if (!got) return; this.addFiles(got.files, {rel:got.rel, dropped:true});
+    const got = await this.dropFiles(e); if (!got) return; this.addFiles(got.files, {rel:got.rel, dropped:true, cut:got.cut});
   };
   async addFiles(files, how) {
     const d = this.d; if (!d || !d.shoot || !d.shoot.real || !d.clips.length) { this.rel = how.rel; this.pickNext = !how.dropped; return this.importFiles(files); }
@@ -4233,12 +4315,23 @@ class Component extends DCLogic {
     const relOf = f => (how.rel && how.rel.get(f)) || f.webkitRelativePath || f.name;
     // the place the app gave: the picked file itself, or the picked folder the file's relative path starts with
     const pathOf = f => { const r = relOf(f), first = r.split('/')[0]; const p = Array.isArray(picked) ? picked.find(q => String(q).replace(/\/+$/, '').split('/').pop() === first) : null; return p ? String(p).replace(/\/+$/, '').replace(/\/[^\/]*$/, '') + '/' + r : r; };
-    const vids = files.filter(f => Component.isClip(f));
-    if (!vids.length) { this.recNote = {t:'Nothing added · no clips in that', at:Date.now()}; return this.bump(); }
+    let vids = files.filter(f => Component.isClip(f));
+    if (this.state.impMsg && this.state.impMsg === this.state.impBusyT) this.setState({impMsg:null});
+    if (!vids.length) { this.recNote = {t:how.cut ? 'Nothing added · no clips in the first ' + how.cut.toLocaleString('en-US') + ' files' : 'Nothing added · no clips in that', at:Date.now()}; return this.bump(); }
+    // More than the shoot has room for (BIG.clips in all), or a drop cut short: the card over Skim, before anything is listed
+    const room = Math.max(0, Component.BIG.clips - d.clips.length);
+    if (!how.cap && (vids.length > room || how.cut)) {
+      const root = relOf(vids[0]).split('/')[0] || 'These clips';
+      this.bigAddHeld = {files, how, room}; this.recNote = null;
+      this.setState({bigAdd:{n:vids.length, bytes:vids.reduce((a, f) => a + f.size, 0), cut:how.cut || 0, name:/\.\w+$/.test(root) ? 'These clips' : root, room, have:d.clips.length}});
+      return;
+    }
+    if (how.cap && vids.length > how.cap) vids = vids.map(f => [relOf(f), f]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).slice(0, how.cap).map(x => x[1]);
     const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
-    this.recNote = {t:'Adding ' + this.plural(vids.length, 'clip') + '…', at:Date.now()}; this.bump();
+    this.recNote = null; this.busy('Adding ' + this.plural(vids.length, 'clip') + '…');
     const tok = this.addTok = {}, metas = await this.inBatches(vids, 16, f => this.tailMeta(f, xml[f.name.replace(/\.\w+$/, '').toUpperCase()]));
     if (tok !== this.addTok || this.d !== d) return;
+    this.setState({impMsg:null});
     const have = new Set(d.clips.map(c => this.clipKey(c))), lives = Component.liveSet(files, relOf);
     const items = vids.map((f, i) => ({i, name:f.name, path:pathOf(f), t:metas[i].t || this.iso(f.lastModified), bytes:f.size, live:/\.mov$/i.test(f.name) && lives.has(relOf(f).replace(/\.\w+$/, '').toUpperCase())}));
     const fresh = items.filter(x => !have.has(this.clipKey(x))), dup = items.length - fresh.length;
@@ -4246,24 +4339,56 @@ class Component extends DCLogic {
     const go = sel => this.appendClips(sel.map(x => this.clipOf(vids[x.i], metas[x.i], null, x.path)), dup, how.dropped);
     this.recNote = null; if (this.mixAsk(fresh, go, true)) return; go(fresh);
   }
+  // Add clips' card: a smaller pick, the first clips that fit, or not now. In the app the folder was counted before WebKit
+  // listed it and the app holds the first clips that fit: the add input is clicked again and answered with them.
+  bigAddPick = () => { const h = this.bigAddHeld; this.bigAddHeld = null; this.bigWant = false; this.setState({bigAdd:null}); if (h && !h.room) { this.save(); this.clearMemory(); if (h.host) return this.pickFolder(); this.rel = h.how.rel; this.pickNext = !h.how.dropped; return this.importFiles(h.files, 0, h.how.cut ? {files:h.how.cut} : null); } this.addClips(); };
+  bigAddGo = () => { const h = this.bigAddHeld; this.bigAddHeld = null; this.setState({bigAdd:null}); if (!h || !h.room) return;
+    if (h.host) { this.bigWant = true; const el = this.addDirEl || this.addEl; if (el) { window.luminaSkimAdding = true; el.click(); } } else this.addFiles(h.files, {...h.how, cap:h.room}); };
+  bigAddClose = () => { this.bigAddHeld = null; this.bigWant = false; this.setState({bigAdd:null}); };
   appendClips(cs, dup, dropped) {
     const d = this.d; if (!d || !cs.length) return;
     let n = d.clips.reduce((a, c) => Math.max(a, +((/^F(\d+)$/.exec(c.id) || [0, 0])[1])), 0); cs.forEach(c => { c.id = 'F' + String(++n).padStart(4, '0'); });
-    d.clips = d.clips.concat(cs).sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0); this.byId = {}; d.clips.forEach((c, i) => { c._i = i; this.byId[c.id] = c; });
-    const days = {}; d.clips.forEach(c => { days[c.t.slice(0, 10)] = 1; }); d.shoot.days = Object.keys(days).length; d.shoot.bytes = d.clips.reduce((s, c) => s + c.bytes, 0);
-    this.regap(d); if (dropped) this.addDropped = true;
+    this.clipsSet(d, d.clips.concat(cs)); if (dropped) this.addDropped = true;
     this.recNote = {t:this.plural(cs.length, 'clip') + ' added' + (dup ? ' · ' + dup + ' already here' : ''), at:Date.now()};
     // the reading starts over for what has no picture yet (the new clips, and any the last pass had not reached)
     const f = this.firstIdx(), tok = this.qTok = {};
     this.setState(s => ({tick:(s.tick || 0) + 1}));
     this.coverLoad(d).then(() => { if (tok === this.qTok) this.runQueue(d.clips.filter(c => c._file && !c.trashed && !c.frames[f]), tok); });
   }
+  // The shoot's clips after some came in or went out: in capture order, with the lookups, the day count, the size and the gaps.
+  clipsSet(d, cs) {
+    d.clips = cs.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0); this.byId = {}; d.clips.forEach((c, i) => { c._i = i; this.byId[c.id] = c; });
+    const days = {}; d.clips.forEach(c => { days[c.t.slice(0, 10)] = 1; }); d.shoot.days = Object.keys(days).length; d.shoot.bytes = d.clips.reduce((s, c) => s + c.bytes, 0);
+    this.regap(d);
+  }
+  // Take out of the shoot (⌘⌫, or Not in this shoot in the Viewer): for a clip that is there by mistake, not one that didn't
+  // make the cut (that is C). The clip leaves the grid, the dock, Export, the Final Cut file and the cut list, and its mark
+  // goes with it; the file is never touched. ⌘Z puts it back with its mark. A reload keeps it out (keepTake lists the
+  // shoot's clips). A shoot keeps at least one clip.
+  removeIds() { const st = this.state; return st.sel.length ? st.sel.slice() : st.cur ? [st.cur] : []; }
+  removeClips(ids) {
+    const d = this.d, st = this.state; if (!d || !d.shoot || st.step !== 'skim') return;
+    ids = (ids || []).filter((x, i, a) => this.byId[x] && a.indexOf(x) === i); if (!ids.length) return;
+    if (ids.length >= d.clips.length) return this.flash('A shoot keeps at least one clip. Back on Open, choose other clips.');
+    const set = new Set(ids), prev = {}, dis = {}; ids.forEach(id => { prev[id] = st.marks[id] || null; if (st.dis[id]) dis[id] = st.dis[id]; });
+    const fl = this.flat || [], i = fl.indexOf(st.cur), cur = set.has(st.cur) ? (fl.slice(i + 1).find(x => !set.has(x)) || fl.slice(0, Math.max(0, i)).reverse().find(x => !set.has(x)) || d.clips.find(c => !set.has(c.id)).id) : st.cur;
+    const step = {k:'remove', ids, clips:d.clips.filter(c => set.has(c.id)), prev, dis, cur:st.cur, after:cur};
+    this.lastMark = null; this.pushStep(step, {sel:[], box:null}); this.clipsOut(step, false);
+    this.flash('Took ' + (ids.length === 1 ? step.clips[0].name : this.plural(ids.length, 'clip')) + ' out of the shoot · the file stays · ⌘Z puts it back', 4000);
+  }
+  clipsOut(step, back) {
+    const d = this.d, st = this.state; if (!d) return; const set = new Set(step.ids), marks = {...st.marks}, dis = {...st.dis};
+    if (back) { const have = new Set(d.clips.map(c => c.id)); this.clipsSet(d, d.clips.concat(step.clips.filter(c => !have.has(c.id)))); step.ids.forEach(id => { if (step.prev[id]) marks[id] = step.prev[id]; if (step.dis[id]) dis[id] = step.dis[id]; }); }
+    else { this.clipsSet(d, d.clips.filter(c => !set.has(c.id))); step.clips.forEach(c => { if (this.fill && this.fill.set) this.fill.set.delete(c); }); step.ids.forEach(id => { delete marks[id]; delete dis[id]; }); }
+    const by = {}; step.ids.forEach(id => { const v = step.prev[id]; if (v) (by[v] = by[v] || []).push(id); }); Object.keys(by).forEach(v => this.api('mark', by[v], back ? v : null));
+    this.setState(s => ({marks, dis, cur:back ? step.cur : step.after, sel:s.sel.filter(x => !set.has(x)), tick:(s.tick || 0) + 1}));
+  }
   // What a Sony clip says about itself (NonRealTimeMeta, from the sidecar or the end of the file): no decode.
   // fd is the length of one frame as [n, d] for n/d seconds: 23.98 is 1001/24000, 24 is 100/2400. nf is the camera's frame count.
   sonyMeta(tx, src) {
-    const o = {prof:{gamma:null, primaries:null, source:'none'}, t:null, fps:0, fd:null, nf:0, xdur:0, cam:'', ltc:''}; if (!tx) return o;
+    const o = {prof:{gamma:null, primaries:null, source:'none'}, t:null, fps:0, fd:null, nf:0, xdur:0, cam:'', ltc:'', ach:null, arate:0}; if (!tx) return o;
     try { const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1], ff = (tx.match(/formatFps="([\d.]+)/i) || [])[1] || fr;
-      o.prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:src}; o.ltc = (tx.match(/<LtcChange[^>]*value="([0-9A-Fa-f]{8})"/) || [])[1] || ''; if (cd) o.t = cd.slice(0, 19); if (fr) o.fps = Math.round(+fr); if (ff) { const r = Math.round(+ff); if (r > 0) o.fd = Math.abs(+ff - r) > 0.005 ? [1001, r * 1000] : [100, r * 100]; } const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) o.xdur = +du / +fr; if (du) o.nf = +du; o.cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {}
+      o.prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:src}; o.ltc = (tx.match(/<LtcChange[^>]*value="([0-9A-Fa-f]{8})"/) || [])[1] || ''; { const na = (tx.match(/<AudioFormat[^>]*numOfChannel="(\d+)"/i) || [])[1]; if (na != null) { o.ach = +na; o.arate = +na ? 48000 : 0; } } if (cd) o.t = cd.slice(0, 19); if (fr) o.fps = Math.round(+fr); if (ff) { const r = Math.round(+ff); if (r > 0) o.fd = Math.abs(+ff - r) > 0.005 ? [1001, r * 1000] : [100, r * 100]; } const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) o.xdur = +du / +fr; if (du) o.nf = +du; o.cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {}
     return o;
   }
   // Sony writes the same NonRealTimeMeta XML into the end of every XAVC file (the last ~2 KB), so a clip
@@ -4277,7 +4402,7 @@ class Component extends DCLogic {
     const o = this.sonyMeta(tx, src);
     // No Sony metadata: the rate and the capture time from the file's own header. A clip picked from Photos on an iPhone or
     // from Android's picker carries the time it was picked as its date, not the time it was shot.
-    if (!o.fd || !o.t || !o.prof.gamma) { try { const mv = await this.fileMoov(f); if (mv) { if (!o.prof.gamma && Component.moovTransfer(mv) === 18) o.prof = {gamma:'HLG', primaries:'Rec.2020', source:'file'}; const r = !o.fd && Component.moovRate(mv); if (r) { o.fd = r; if (!o.fps) o.fps = Math.round(r[1] / r[0]); } if (!o.t) { const w = Component.moovTime(mv); if (w) o.t = w.local || this.iso(w.utc); } } } catch (x) {} }
+    if (!o.fd || !o.t || !o.prof.gamma) { try { const mv = await this.fileMoov(f); if (mv) { if (!o.prof.gamma && Component.moovTransfer(mv) === 18) o.prof = {gamma:'HLG', primaries:'Rec.2020', source:'file'}; if (o.ach == null) { const a = Component.moovAudio(mv); if (a) { o.ach = a.ch; o.arate = a.rate; } } const r = !o.fd && Component.moovRate(mv); if (r) { o.fd = r; if (!o.fps) o.fps = Math.round(r[1] / r[0]); } if (!o.t) { const w = Component.moovTime(mv); if (w) o.t = w.local || this.iso(w.utc); } } } catch (x) {} }
     return o;
   }
   // A clip with no camera metadata says its rate in its own header. 24 is not 23.98: a 24.000 clip described as 23.98
@@ -4305,6 +4430,27 @@ class Component extends DCLogic {
       }
       if (ud) { const day = kids(ud.a, ud.b).filter(k => k.t === '\u00a9day')[0]; if (day) { const w = wall(txt(day.a + 4, day.b)) || wall(txt(day.a, day.b)); if (w) return {local:w}; } }
       const mh = one(mk, 'mvhd'); if (mh) { const v = u8[mh.a], s = v === 1 ? dv.getUint32(mh.a + 4) * 4294967296 + dv.getUint32(mh.a + 8) : dv.getUint32(mh.a + 4), ms = (s - 2082844800) * 1000; if (ms > Date.UTC(2000, 0, 1) && ms < Date.now() + 864e5 * 2) return {utc:ms}; }
+    } catch (x) {}
+    return null;
+  }
+  // The sound a QuickTime or MP4 file holds (round 2, fcpxml item 3): the first sound track's channel count and sample rate,
+  // from its sample description (QuickTime's version 2 form keeps them further in). {ch:0} when the file has no sound track;
+  // null when it cannot be read. Sony clips say their channels in their own metadata (XAVC records at 48 kHz).
+  static moovAudio(u8) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), ty = o => String.fromCharCode(u8[o + 4], u8[o + 5], u8[o + 6], u8[o + 7]);
+    const kids = (a, b) => { const out = []; for (let o = a; o + 8 <= b;) { let n = dv.getUint32(o), h = 8; if (n === 1) { if (o + 16 > b) break; n = dv.getUint32(o + 8) * 4294967296 + dv.getUint32(o + 12); h = 16; } else if (n === 0) n = b - o; if (n < h || o + n > b) break; out.push({t:ty(o), a:o + h, b:o + n}); o += n; } return out; };
+    const one = (list, t) => list.filter(k => k.t === t)[0];
+    try {
+      const top = kids(0, u8.length), moov = one(top, 'moov') || {a:0, b:u8.length}; let seen = false;
+      for (const tr of kids(moov.a, moov.b).filter(k => k.t === 'trak')) {
+        const mdia = one(kids(tr.a, tr.b), 'mdia'); if (!mdia) continue; const mk = kids(mdia.a, mdia.b), hd = one(mk, 'hdlr'), minf = one(mk, 'minf');
+        if (!hd || !minf) continue; seen = true; if (ty(hd.a + 4) !== 'soun') continue;
+        const stbl = one(kids(minf.a, minf.b), 'stbl'), stsd = stbl && one(kids(stbl.a, stbl.b), 'stsd'); if (!stsd || stsd.a + 8 + 36 > stsd.b) continue;
+        const e = stsd.a + 8, v = dv.getUint16(e + 16);
+        const ch = v === 2 && e + 52 <= stsd.b ? dv.getUint32(e + 48) : dv.getUint16(e + 24), rate = v === 2 && e + 48 <= stsd.b ? Math.round(dv.getFloat64(e + 40)) : dv.getUint32(e + 32) >>> 16;
+        if (ch > 0 && ch <= 64 && rate >= 8000 && rate <= 384000) return {ch, rate};
+      }
+      return seen ? {ch:0, rate:0} : null;
     } catch (x) {}
     return null;
   }
@@ -4469,8 +4615,8 @@ class Component extends DCLogic {
       progGo:e => { const id = e.currentTarget.getAttribute('data-prog'); if (!this.byId || !this.byId[id]) return; this.wantScroll = ['[data-clip="' + id + '"]']; if (st.cv) { if (st.lv < 2) this.wantScroll = ['@cur']; return this.setState({step:'skim', lv:st.lv >= 2 ? 2 : 0, cur:id, sel:[], box:null}); } this.setState({step:'skim', lv:Math.max(1, Math.min(st.lv, 2)), cur:id, gi:this.gOfAll ? (this.gOfAll[id] ?? st.gi) : st.gi, sel:[], box:null}); },
       progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:e => { Component.letGo(e); this.setState(s => ({pfOn:!s.pfOn})); }, recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running && st.dbg ? ' · listed ' + (this.lastClock.listed != null ? this.lastClock.listed + ' ms' : '—') + ', covers and flags ' + this.fmtSec(this.lastClock.done) + (this.lastClock.filled != null ? ', detail ' + this.fmtSec(this.lastClock.filled) : this.lastClock.fillStop ? ', detail stopped at the frames limit' : '') : ''), unsupOn:(this.unsup || 0) + (this.skipped || 0) > 0, unsupLine:(this.unsup || 0) + (this.skipped || 0) > 0 ? ((this.skipped || 0) ? this.plural(this.skipped, 'clip') + ' skipped' : this.plural(this.unsup, 'clip') + ' to skip') + ' · a format this browser can\u2019t play' + (this.notSafari() ? ' · open in Safari' : '') : '', haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
       ...((held, kept) => ({stopOn:held && kept > 0 && !st.cancelAsk, stopTip:'Keep the ' + this.plural(kept, 'clip') + ' read so far and skim them', readStop:this.readStop,
-        cancelOn:held && !st.cancelAsk, readCancel:this.readCancel, cancelAsk:running && n > 0 && !!st.cancelAsk, cancelQ:'Throw away this load and go back to Open?', cancelYes:this.cancelYes, cancelNo:this.cancelNo}))(running && n > 0 && (this.mp.pace === 'paused' || !!this.halt), running ? Component.readKept(C).length : 0),
-      pauseOn:running && n > 0 && !this.halt, pauseGo:this.pauseToggle, pauseA:this.mp.pace === 'paused', pauseT:this.mp.pace === 'paused' ? 'Go on' : 'Pause', pauseBg:this.mp.pace === 'paused' ? '#FFD27A' : 'rgba(239,236,230,0.08)', pauseFg:this.mp.pace === 'paused' ? '#1E1D1B' : '#EFECE6', pauseFw:this.mp.pace === 'paused' ? 800 : 400,
+        cancelOn:held && !st.cancelAsk, readCancel:this.readCancel, cancelAsk:running && n > 0 && !!st.cancelAsk, cancelQ:'Throw away this upload and go back to Open?', cancelYes:this.cancelYes, cancelNo:this.cancelNo}))(running && n > 0 && (this.mp.pace === 'paused' || !!this.halt), running ? Component.readKept(C).length : 0),
+      pauseOn:running && n > 0 && !this.halt, pauseGo:this.pauseToggle, pauseA:this.mp.pace === 'paused', pauseT:this.mp.pace === 'paused' ? 'Proceed' : 'Pause', pauseBg:this.mp.pace === 'paused' ? '#FFD27A' : 'rgba(239,236,230,0.08)', pauseFg:this.mp.pace === 'paused' ? '#1E1D1B' : '#EFECE6', pauseFw:this.mp.pace === 'paused' ? 800 : 400,
       paceOn, paceLine:paceOn ? 'Reading ' + this.paceWord(h) : '',
       progPill:running ? (st.imp.pass === 2 ? 'measuring ' : 'reading ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + (bad ? ' · ' + bad + ' can\u2019t read' : ''), loadOn:(running || readyOn) && n > 0, loadLine, fillNote, loadDot:running ? '#FFD27A' : '#A9D18E', loadAnim:running ? 'breathe 1.2s ease-in-out infinite' : 'none',
       progPillC:running ? '#EFECE6' : '#B8B3AB', progPillBg:st.progOn ? 'rgba(239,236,230,0.1)' : 'transparent',
@@ -4931,7 +5077,7 @@ class Component extends DCLogic {
   // The .fcpxml is built once per change (marks, choices, the clips' facts, the folder), not on every render of the page.
   buildX() {
     const st = this.state, d = this.d, ex = st.ex; if (!d) return {n:0, text:''};
-    let fp = 0; d.clips.forEach(c => { const t = [c.dur, c.nf, c.fd, c.fps, c.w, c.h, c.ltc, c.path, c.profile && c.profile.gamma, c.profile && c.profile.primaries].join('|'); for (let i = 0; i < t.length; i++) fp = (fp * 31 + t.charCodeAt(i)) | 0; });
+    let fp = 0; d.clips.forEach(c => { const t = [c.dur, c.nf, c.fd, c.fps, c.w, c.h, c.ltc, c.path, c.profile && c.profile.gamma, c.profile && c.profile.primaries, c.ach, c.arate, c.facts && c.facts.state, c.facts && String(c.facts.idx), c.facts && String(c.facts.sharpF), c.facts && c.facts.bump].join('|'); for (let i = 0; i < t.length; i++) fp = (fp * 31 + t.charCodeAt(i)) | 0; });
     const bk = [d, d.clips.length, fp, st.marks, JSON.stringify(ex), this.SC, this.G, JSON.stringify(this.exHost || null)], bm = this.bxM;
     if (bm && bm.k.every((v, i) => v === bk[i])) return bm.x;
     const bx = (() => {
@@ -4961,11 +5107,22 @@ class Component extends DCLogic {
     // (the LtcChange value is eight digits, frames, seconds, minutes, hours as decimal pairs: "16324420" is 20:44:32:16)
     const ltcF = (v, rate) => { const s = String(v || ''); if (!/^\d{8}$/.test(s) || !(rate > 0)) return 0; const ff = +s.slice(0, 2), ss = +s.slice(2, 4), mm = +s.slice(4, 6), hh = +s.slice(6, 8); return hh > 23 || mm > 59 || ss > 59 || ff >= rate ? 0 : ((hh * 60 + mm) * 60 + ss) * rate + ff; };
     const t0 = (c, f) => { const fr = ltcF(c.ltc, Math.round(f.dd / f.n)); return fr ? fr * f.n + '/' + f.dd + 's' : '0s'; };
+    // the sound as the camera or the file states it (round 2, fcpxml item 3); a clip whose sound was never read keeps hasAudio="1"
+    const AR = {32000:'32k', 44100:'44.1k', 48000:'48k', 88200:'88.2k', 96000:'96k', 176400:'176.4k', 192000:'192k'};
+    const aud = c => c.ach > 0 ? ' hasAudio="1" audioSources="1" audioChannels="' + c.ach + '"' + (AR[c.arate] ? ' audioRate="' + AR[c.arate] + '"' : '') : c.ach === 0 ? ' hasAudio="0"' : ' hasAudio="1"';
+    // Skim's flags as plain markers at the moment they were seen (round 2, fcpxml item 4), only those with a time: a soft frame
+    // (its sharpness under 0.35) and a sudden change of brightness, each at the frame Skim measured. Never ratings.
+    const flagMk = (c, f, s0) => { const F = c.facts; if (!F || F.state !== 'ready' || !Array.isArray(F.idx)) return [];
+      const nf = c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01)), base = s0 === '0s' ? 0 : +s0.split('/')[0] / f.n, out = [];
+      const at = slot => Math.max(0, Math.min(nf - 1, Math.floor(Math.min((c.dur || 0) - 0.05, (slot + 0.5) / 8 * (c.dur || 0)) * f.dd / f.n)));
+      (F.sharpF || []).forEach((v, j) => { if (v < 0.35 && F.idx[j] != null) out.push({k:at(F.idx[j]), t:'soft · sharpness ' + v.toFixed(2)}); });
+      if (F.bump != null && F.idx[F.bump] != null) out.push({k:at(F.idx[F.bump]), t:'bump · brightness jumps'});
+      const seen = new Set(); return out.sort((a, b) => a.k - b.k).filter(m => !seen.has(m.k + m.t) && seen.add(m.k + m.t)).map(m => '        <marker start="' + (base + m.k) * f.n + '/' + f.dd + 's" duration="' + f.n + '/' + f.dd + 's" value="' + xe(m.t) + '"/>'); };
     const al = [], cl = [], sq = [];
     clips.forEach((c, i) => {
       const f = fmt(c), du = rt(c, f), s0 = t0(c, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
       sq.push({c, i, f, nm, s0, m, nf:c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01))});
-      al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="' + s0 + '" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '"' + lut(c) + '>', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
+      al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="' + s0 + '" duration="' + du + '" hasVideo="1"' + aud(c) + ' format="' + f.id + '"' + lut(c) + '>', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
       const kw = []; if (m === 'maybe' && kwM) kw.push(kwM); if (scOf[c.id] && kw.indexOf(scOf[c.id]) < 0) kw.push(scOf[c.id]); kw.forEach(k => kws.add(k));
       // Final Cut's own ratings: selected clips are favorites, cut ones rejected (hidden by Final Cut's Hide Rejected), the rest unrated
       const rate = ex.rate === false ? null : m === 'keep' ? 'favorite' : m === 'cut' ? 'reject' : null;
@@ -4974,14 +5131,26 @@ class Component extends DCLogic {
       cl.push('      <asset-clip ref="a' + (i + 1) + '" name="' + nm + '"' + (s0 !== '0s' ? ' start="' + s0 + '"' : '') + ' duration="' + du + '" format="' + f.id + '" tcFormat="NDF">');
       if (kw.length) cl.push('        <keyword start="' + s0 + '" duration="' + du + '" value="' + xe(kw.join(', ')) + '"/>');
       if (rate) cl.push('        <rating start="' + s0 + '" duration="' + du + '" value="' + rate + '"/>');
+      cl.push(...flagMk(c, f, s0));
       cl.push('      </asset-clip>');
     });
+    // A "Skim" folder in the event's browser (round 2, fcpxml item 3): a keyword collection per scene (with Scenes on), and smart
+    // collections for Selected (favorites), Maybe (the maybe keyword) and Cut (rejected), each only when the file can fill it.
+    const Wd = m => { const w = this.W ? this.W(m) : m === 'keep' ? 'selected' : m; return w[0].toUpperCase() + w.slice(1); };
+    const co = [], scK = [...new Set(sq.map(x => scOf[x.c.id]).filter(Boolean))];
+    if (sq.length) {
+      if (ex.rate !== false && sq.some(x => x.m === 'keep')) co.push('        <smart-collection name="' + xe(Wd('keep')) + '" match="all">', '          <match-ratings value="favorites"/>', '        </smart-collection>');
+      if (kwM && sq.some(x => x.m === 'maybe')) co.push('        <smart-collection name="Maybe" match="all">', '          <match-keywords rule="includesAny">', '            <keyword-name value="' + xe(kwM) + '"/>', '          </match-keywords>', '        </smart-collection>');
+      if (ex.rate !== false && sq.some(x => x.m === 'cut')) co.push('        <smart-collection name="' + xe(Wd('cut')) + '" match="all">', '          <match-ratings value="rejected"/>', '        </smart-collection>');
+      scK.forEach(k => co.push('        <keyword-collection name="' + xe(k) + '"/>'));
+      if (co.length) { co.unshift('      <collection-folder name="Skim">'); co.push('      </collection-folder>'); }
+    }
+    const pj = [];
     // The sorted timeline (round 2, F1): a project in the same event, Selected first, then Maybe, then unmarked, cut last, each
     // part in capture order, with one marker on the first clip of each part naming it. The event's clips, ratings and keywords
     // are as before. The timeline runs at the first clip's format; a clip at another rate is cut to whole frames of it.
-    const pj = [];
     if (ex.sorted !== false && sq.length) {
-      const P = {keep:0, maybe:1, und:2, cut:3}, Wd = m => { const w = this.W ? this.W(m) : m === 'keep' ? 'selected' : m; return w[0].toUpperCase() + w.slice(1); }, NM = {keep:Wd('keep'), maybe:'Maybe', und:'Unmarked', cut:Wd('cut')}, S = sq[0].f;
+      const P = {keep:0, maybe:1, und:2, cut:3}, NM = {keep:Wd('keep'), maybe:'Maybe', und:'Unmarked', cut:Wd('cut')}, S = sq[0].f;
       const order = sq.map((x, j) => ({...x, p:P[x.m || 'und'], j})).sort((a, b) => a.p - b.p || a.j - b.j), n = {};
       order.forEach(x => { n[x.p] = (n[x.p] || 0) + 1; });
       let at = 0, last = -1;
@@ -4994,7 +5163,7 @@ class Component extends DCLogic {
       pj.unshift('      <project name="' + xe((ex.event || d.shoot.name) + ' · sorted') + '">', '        <sequence format="' + S.id + '" duration="' + (at * S.n) + '/' + S.dd + 's" tcStart="0s" tcFormat="NDF">', '          <spine>');
       pj.push('          </spine>', '        </sequence>', '      </project>');
     }
-    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
+    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...co, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
     return {n:clips.length, text, kws:[...kws]};
   })();
     this.bxM = {k:bk, x:bx}; return bx;
@@ -5101,8 +5270,12 @@ class Component extends DCLogic {
       if (a.getAttribute('id')) assets[a.getAttribute('id')] = {du, f:a.getAttribute('format'), s:a.getAttribute('start') || '0s'};
     });
     rk.forEach(r => { if (tag(r) !== 'format' && tag(r) !== 'asset') say('The resources hold something this page does not write.'); });
-    const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip'), pj = ek.filter(c => tag(c) === 'project');
-    if (cl.length + pj.length !== ek.length || pj.length > 1) say('The event holds something this page does not write.');
+    const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip'), pj = ek.filter(c => tag(c) === 'project'), cf = ek.filter(c => tag(c) === 'collection-folder');
+    if (cl.length + pj.length + cf.length !== ek.length || pj.length > 1 || cf.length > 1) say('The event holds something this page does not write.');
+    // the Skim folder: keyword collections and smart collections that match a rating or a keyword, nothing else
+    cf.forEach(f => kids(f).forEach(k => { const t = tag(k), m = kids(k);
+      if (t === 'keyword-collection' ? !k.getAttribute('name') || m.length : t !== 'smart-collection' || !k.getAttribute('name') || m.length !== 1 || !((tag(m[0]) === 'match-ratings' && /^(favorites|rejected)$/.test(m[0].getAttribute('value') || '')) || (tag(m[0]) === 'match-keywords' && kids(m[0]).length && kids(m[0]).every(x => tag(x) === 'keyword-name' && x.getAttribute('value')))))
+        say('The Skim folder holds something this page does not write.'); }));
     // the sorted timeline: one sequence in a known format, its spine the event's media, each clip placed and marked at most once
     pj.forEach(p => { const sq = kids(p, 'sequence'), sp = sq.length === 1 ? kids(sq[0], 'spine') : [];
       if (sq.length !== 1 || kids(p).length !== 1 || sp.length !== 1 || kids(sq[0]).length !== 1) { say('The timeline is not one sequence with one spine.'); return; }
@@ -5127,6 +5300,7 @@ class Component extends DCLogic {
         const t = tag(k), val = k.getAttribute('value'), whole = k.getAttribute('start') === cs && k.getAttribute('duration') === c.getAttribute('duration') && !kids(k).length;
         if (t === 'rating') { nr++; if (!whole || (val !== 'favorite' && val !== 'reject')) say(who + ' carries a rating this page does not write.'); }
         else if (t === 'keyword') { nk++; if (!whole || !val || val.split(', ').some(w => (kws || ['maybe']).indexOf(w) < 0)) say(who + ' carries a keyword this page does not write.'); }
+        else if (t === 'marker') { const ms = time(k.getAttribute('start')), c0 = time(cs), md = time(k.getAttribute('duration')); if (!val || !ms || !md || kids(k).length || (c0 && du && (ms[0] * c0[1] < c0[0] * ms[1] || ms[0] * c0[1] * du[1] >= (c0[0] * du[1] + du[0] * c0[1]) * ms[1]))) say(who + ' has a marker outside it or one this page does not write.'); }
         else say(who + ' carries something this page does not write.');
       });
       if (nr > 1 || nk > 1) say(who + ' is rated or tagged more than once.');
@@ -5260,12 +5434,12 @@ class Component extends DCLogic {
     const ng = cg ? G.slice(cg.i + 1).find(x => x.vis.length) : null;
     if (st.lv === 1) {
       add('↑', 'Scenes · ' + (cg ? cg.title : '')); add('↓', 'open ' + nm(st.cur)); add('←', prev && nm(prev)); add('→', next && nm(next));
-      add('⇧↓', ng && 'next scene · ' + ng.title); add('K M C', 'mark ' + nm(st.cur) + ' on / off'); add('esc', 'put back');
+      add('⇧↓', ng && 'next scene · ' + ng.title); add('K M C', 'mark ' + nm(st.cur) + ' on / off'); add('esc', 'put back'); add('⌘⌫', 'not in this shoot');
       return {lead:'Clips · ' + nm(st.cur), list:out};
     }
     const fi = Math.round(st.fx);
     if (st.lv === 2) {
-      add('← →', (prev || next) && 'clips'); add('K M C', 'mark on / off'); add('⇧← ⇧→', 'scrub'); add('⇧C', 'cuts'); add('⇧R', 'Rec.709 ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('⏎ esc 2×click', 'canvas');
+      add('← →', (prev || next) && 'clips'); add('K M C', 'mark on / off'); add('⇧← ⇧→', 'scrub'); add('⇧C', 'cuts'); add('⇧R', 'Rec.709 ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('⏎ esc 2×click', 'canvas'); add('⌘⌫', 'not in this shoot');
       return {lead:'Viewer · ' + nm(st.cur), list:out};
     }
     add('↑', 'Viewer · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M C', 'mark ' + nm(st.cur));
@@ -5317,7 +5491,8 @@ class Component extends DCLogic {
       impOn:!!(st.imp && st.imp.done < st.imp.n), impW:st.imp ? Math.round(st.imp.done / Math.max(1, st.imp.n) * 100) + '%' : '0%',
       fileRef:this.fileRef, clipRef:this.clipRef, navGrid:this.navGrid, navPrev:this.navPrev, navNext:this.navNext, phoneToggle:this.phoneToggle, ...this.touchVals(), pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
       dropRing:st.dropHot ? '#FFD27A' : 'rgba(239,236,230,0.18)', dropBg:st.dropHot ? 'rgba(255,210,122,0.06)' : '#232220',
-      impMsg:st.impMsg || '', impMsgOn:!!st.impMsg,
+      impMsg:st.impMsg || '', impMsgOn:!!st.impMsg, impBusy:!!st.impMsg && st.impMsg === st.impBusyT, busyBarOn:!!st.impMsg && st.impMsg === st.impBusyT && st.step !== 'import',
+      ...(b => ({bigAddOn:!!b, bigAddH:b ? b.h : '', bigAddName:b ? b.name : '', bigAddLine:b ? b.line : '', bigAddGoT:b ? b.go : '', bigAddGoOn:!!(b && b.goOn), bigAddPickT:b ? b.pick : '', bigAddPick:this.bigAddPick, bigAddGo:this.bigAddGo, bigAddClose:this.bigAddClose}))(st.bigAdd ? Component.bigSay(st.bigAdd, x => this.fmtB(x)) : null),
       ...(b => ({bigOn:!!b, bigH:b ? b.h : '', bigName:b ? b.name : '', bigLine:b ? b.line : '', bigGoT:b ? b.go : '', bigPick:this.bigPick, bigGo:this.bigGo}))(st.big ? Component.bigSay(st.big, x => this.fmtB(x)) : null),
       impLineOn:!!(st.imp && st.imp.done < st.imp.n), impLine:st.imp ? 'measuring ' + st.imp.done + ' of ' + this.plural(st.imp.n, 'clip') : '',
       staleOn:!!st.stale, staleGo:() => this.staleGo(), staleLater:() => this.staleLater(),

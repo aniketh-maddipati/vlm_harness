@@ -34,7 +34,7 @@ const nClips = () => p.evaluate(() => (document.querySelector('[data-lumina="sho
 await p.setInputFiles('input[type=file][webkitdirectory]:not([data-lumina])', dump);
 ok(await until(() => !!document.querySelector('[data-lumina="mix"]')), 'clips from two folders a week apart: the notice shows');
 const head = await p.evaluate(() => document.querySelector('[data-lumina="mix-head"]').innerText);
-ok(/^These 6 clips come from 2 different folders and 2 different days/.test(head), 'it says how: ' + head);
+ok(/^6 clips from 2 folders and 2 days, Oct 2026$/.test(head), 'it says how: ' + head);
 let r = await rows();
 ok(r.filter(x => x.kind === 'day').length === 2 && !r.some(x => x.kind === 'folder'), 'a row per day, no folder row when a day has one folder: ' + r.map(x => x.kind[0]).join(''));
 ok(!/\bapart\b|\b\d{4} apart/.test(head) && r.every(x => !/undefined|NaN/.test(x.text)), 'no stray numbers in the wording');
@@ -80,6 +80,17 @@ ok(JSON.stringify(kept.marks) === JSON.stringify(marks0), 'the mark is still the
 ok(kept.ks.length === 4, 'the shoot lists its 4 clips for a reload');
 ok(await until(() => /2 clips added/.test(document.body.innerText)), 'the bar says 2 clips added');
 
+// 2b. a clip there by mistake: ⌘⌫ takes it out of the shoot (not a cut), ⌘Z puts it back with its mark
+await p.keyboard.press('m'); await p.waitForTimeout(300);
+const marked = JSON.parse(await p.evaluate(() => window.luminaSkimKeep.take())), curK = marked.cur;
+await p.keyboard.press('Control+Backspace');
+ok(await until(() => /\b3 clips\b/.test((document.querySelector('[data-lumina="shoot-line"]') || {}).innerText || '')), '⌘⌫ takes the clip out of the shoot: ' + await nClips());
+const outK = JSON.parse(await p.evaluate(() => window.luminaSkimKeep.take()));
+ok(outK.ks.length === 3 && outK.ks.indexOf(curK) < 0 && !outK.marks[curK], 'it leaves the shoot list and its mark goes with it');
+ok(/out of the shoot/.test(await p.evaluate(() => document.body.innerText)), 'the bar says so, and that the file stays');
+await p.keyboard.press('Control+z');
+ok(await until(() => /\b4 clips\b/.test((document.querySelector('[data-lumina="shoot-line"]') || {}).innerText || '')), '⌘Z puts it back');
+ok(!!marked.marks[curK] && JSON.parse(await p.evaluate(() => window.luminaSkimKeep.take())).marks[curK] === marked.marks[curK], 'with its mark: ' + marked.marks[curK]);
 // 3. the same clips dropped on the window: already here, nothing added
 const drop = async files => {
   const dt = await p.evaluateHandle(async fs => { const d = new DataTransfer(); for (const f of fs) d.items.add(new File([new Uint8Array(f.b)], f.n, {type:'video/webm', lastModified:f.t})); return d; },

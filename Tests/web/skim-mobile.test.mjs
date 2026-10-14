@@ -64,7 +64,7 @@ test('isClip / extOf: what a phone’s picker hands over is a clip by its type w
 
 test('tailMeta: a phone clip with no Sony metadata is timed by when it was shot, not by when it was picked', async () => {
   const P = new Function('return class Component {\n' + [['gammaName', 'gammaName(g) {'], ['primName', 'primName(p) {'], ['sonyMeta', 'sonyMeta(tx, src) {'], ['tailMeta', 'async tailMeta(f, sc) {'],
-    ['moovRate', 'static moovRate(u8) {'], ['moovTransfer', 'static moovTransfer(u8) {'], ['moovTime', 'static moovTime(u8) {'], ['fileRate', 'async fileRate(f) {'], ['fileMoov', 'async fileMoov(f) {'], ['iso', 'iso(ms) {']].map(([n, h]) => extractMethod(src, n, h)).join('\n') + '\n}')();
+    ['moovRate', 'static moovRate(u8) {'], ['moovAudio', 'static moovAudio(u8) {'], ['moovTransfer', 'static moovTransfer(u8) {'], ['moovTime', 'static moovTime(u8) {'], ['fileRate', 'async fileRate(f) {'], ['fileMoov', 'async fileMoov(f) {'], ['iso', 'iso(ms) {']].map(([n, h]) => extractMethod(src, n, h)).join('\n') + '\n}')();
   const bytes = new Uint8Array([...box('ftyp', str('qt  ')), ...box('mdat', new Array(4000).fill(9)), ...box('moov', mvhd(at1904('2026-07-04T19:02:11Z')), appleMeta('2026-07-04T12:02:11-0700'))]);
   const f = { name:'IMG_4012.MOV', type:'video/quicktime', size:bytes.length, lastModified:Date.parse('2026-10-12T21:00:00Z'),
     slice:(a, b = bytes.length) => { const part = bytes.slice(Math.max(0, a), Math.min(bytes.length, b)); return { text:async () => Buffer.from(part).toString('latin1'), arrayBuffer:async () => part.buffer.slice(part.byteOffset, part.byteOffset + part.length) }; } };
