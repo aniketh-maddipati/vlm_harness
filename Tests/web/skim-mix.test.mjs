@@ -14,7 +14,7 @@ import { PAGE, extractMethod } from './skim-export.mjs';
 const src = fs.readFileSync(PAGE, 'utf8');
 const st = (name, head) => new Function('Component', 'return function ' + extractMethod(src, name, head).replace(/^static /, ''));
 const Component = {MIX_GAP_DAYS:+(/static MIX_GAP_DAYS = (\d+);/.exec(src) || [])[1]};
-for (const [n, h] of [['mixDir', 'static mixDir(p) {'], ['mixOf', 'static mixOf(items) {'], ['mixPicked', 'static mixPicked(mx) {'], ['liveSet', 'static liveSet(files, relOf) {'], ['isClip', 'static isClip(f) {'],
+for (const [n, h] of [['mixDir', 'static mixDir(p) {'], ['mixOf', 'static mixOf(items, o) {'], ['mixPicked', 'static mixPicked(mx) {'], ['liveSet', 'static liveSet(files, relOf) {'], ['isClip', 'static isClip(f) {'],
   ['moovTime', 'static moovTime(u8) {'], ['moovRate', 'static moovRate(u8) {'], ['moovTransfer', 'static moovTransfer(u8) {']]) Component[n] = st(n, h)(Component);
 const it = (i, path, t, extra = {}) => ({i, name:path.split('/').pop(), path, t, bytes:1e6, live:false, ...extra});
 
@@ -54,6 +54,19 @@ test('the page keeps the shoot’s clips and the added clips’ places for a rel
   assert.match(extractMethod(src, 'keepApply', 'keepApply() {'), /k\.ap\[this\.clipKey\(c\)\]/);
   const imp = extractMethod(src, 'importFiles', 'async importFiles(files, pre) {');
   assert.ok(imp.indexOf('this.keptOnly(') < imp.indexOf('this.mixAsk('), 'a kept shoot coming back never asks');
+});
+
+test('a resume: every kept clip found goes straight in; some missing opens the view with what is not found', () => {
+  const keptOnly = new Function('return function ' + extractMethod(src, 'keptOnly', 'keptOnly(vids, metas) {'))();
+  const pg = ks => ({kept:{ks, ap:{'C3.MP4@2026-10-01T10:03:00':'/Volumes/T7/C3.MP4'}}, clipKey:c => (c.name || '').toUpperCase() + '@' + (c.t || '').slice(0, 19), iso:() => ''});
+  const vids = ['C1.MP4', 'C2.MP4', 'X.MP4'].map(name => ({name})), metas = ['2026-10-01T10:01:00', '2026-10-01T10:02:00', '2026-10-01T11:00:00'].map(t => ({t}));
+  const all = keptOnly.call(pg(['C1.MP4@2026-10-01T10:01:00', 'C2.MP4@2026-10-01T10:02:00']), vids, metas);
+  assert.deepEqual(all.at, [0, 1]); assert.deepEqual(all.missing, []);
+  const some = keptOnly.call(pg(['C1.MP4@2026-10-01T10:01:00', 'C3.MP4@2026-10-01T10:03:00']), vids, metas);
+  assert.deepEqual(some.at, [0]); assert.deepEqual(some.missing, [{name:'C3.MP4', t:'2026-10-01T10:03:00', path:'/Volumes/T7/C3.MP4'}]);
+  assert.equal(keptOnly.call(pg(['Z.MP4@2026-01-01T00:00:00']), vids, metas), null, 'another folder: as it is');
+  const m = Component.mixOf([it(0, 'card/C1.MP4', '2026-10-01T10:01:00')], {force:true, missing:some.missing});
+  assert.ok(m && m.expect && m.missing.length === 1 && m.n === 1, 'one folder still shows when clips are missing');
 });
 
 let hevc = false; try { hevc = /libx265/.test(execFileSync('ffmpeg', ['-hide_banner', '-encoders'], {encoding:'utf8'})); } catch (x) {}

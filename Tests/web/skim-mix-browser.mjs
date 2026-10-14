@@ -11,7 +11,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pw, ROOT, deadline } from './lib.mjs';
 
-deadline('skim-mix-browser', 150);
+deadline('skim-mix-browser', 180);
 const T = fs.mkdtempSync(path.join(os.tmpdir(), 'skim-mix-')), page = path.join(T, 'preview.html');
 execFileSync('python3', [path.join(ROOT, 'Scripts/build-skim-preview.py'), page], {stdio:'ignore'});
 const clip = (file, hue, when) => { fs.mkdirSync(path.dirname(file), {recursive:true}); execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=24:duration=2', '-vf', 'hue=h=' + hue, '-c:v', 'libvpx-vp9', '-b:v', '300k', '-f', 'webm', file]); const t = new Date(when); fs.utimesSync(file, t, t); };
@@ -94,6 +94,16 @@ await drop([path.join(extra, 'C0009.webm')]);
 ok(await until(() => /\b5 clips\b/.test((document.querySelector('[data-lumina="shoot-line"]') || {}).innerText || '')), 'a dropped clip is added: ' + await nClips());
 ok(!(await p.$('[data-lumina="add-drop"]')), 'the drop outline goes');
 ok(JSON.parse(await p.evaluate(() => window.luminaSkimKeep.take())).dropped === true, 'with dropped clips in it the app does not reload the shoot (they can’t be reopened)');
+// 5. Safari's Pick up where you were, with some of the clips not in the folder chosen: the same view, with what is missing
+await p.evaluate(() => window.dispatchEvent(new Event('pagehide'))); await p.reload(); await p.waitForTimeout(1000);
+ok(!!(await p.$('[data-lumina="resume"]')), 'after a reload Open offers the shoot back');
+await p.setInputFiles('input[type=file][webkitdirectory]:not([data-lumina])', path.join(dump, 'day9'));
+ok(await until(() => !!document.querySelector('[data-lumina="mix"]')), 'clips missing from the folder chosen: the view shows');
+const rh = await p.evaluate(() => document.querySelector('[data-lumina="mix-head"]').innerText);
+ok(/^2 of 5 clips found · 3 not in what you chose$/.test(rh), 'it says how many were found: ' + rh);
+ok((await rows()).filter(x => x.kind === 'missing').length === 3, 'the missing clips are listed');
+await p.keyboard.press('Enter');
+ok(await until(() => /\b2 clips\b/.test((document.querySelector('[data-lumina="shoot-line"]') || {}).innerText || '')), 'the found clips open: ' + await nClips());
 ok(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.join(' | ') : ''));
 await b.close(); fs.rmSync(T, {recursive:true, force:true});
 process.exit(fails ? 1 : 0);

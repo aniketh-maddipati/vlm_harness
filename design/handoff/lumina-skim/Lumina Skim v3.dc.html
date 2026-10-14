@@ -3709,7 +3709,10 @@ class Component extends DCLogic {
       if (lt !== this.listTok) return;
       const picked = this.picked, relMap = this.rel, again = (vs, ms) => { this.rel = relMap; return this.importFiles(files, {vids:vs, metas:ms, picked}); };
       // a kept shoot coming back: its own clips, no notice (LOCAL-CHANGES 272)
-      const kept = this.keptOnly(vids, metas); if (kept) return again(kept.vids, kept.metas);
+      const kept = this.keptOnly(vids, metas);
+      if (kept && kept.missing.length) { const lives = Component.liveSet(files, rel), items = kept.at.map(i => ({i, name:vids[i].name, path:rel(vids[i]), t:metas[i].t || this.iso(vids[i].lastModified), bytes:vids[i].size, live:false}));
+        if (this.mixAsk(items, sel => again(sel.map(x => vids[x.i]), sel.map(x => metas[x.i])), false, {force:true, missing:kept.missing})) return; }
+      if (kept && kept.at.length < vids.length) return again(kept.vids, kept.metas);
       // clips from several folders or days far apart: Open shows them first, and only what is ticked goes in
       if (!this.kept) { const lives = Component.liveSet(files, rel), items = vids.map((f, i) => ({i, name:f.name, path:rel(f), t:metas[i].t || this.iso(f.lastModified), bytes:f.size, live:/\.mov$/i.test(f.name) && lives.has(rel(f).replace(/\.\w+$/, '').toUpperCase())}));
         if (this.mixAsk(items, sel => again(sel.map(x => vids[x.i]), sel.map(x => metas[x.i])))) return; }
@@ -3738,7 +3741,10 @@ class Component extends DCLogic {
   keptOnly(vids, metas) {
     const k = this.kept; if (!k || !Array.isArray(k.ks) || !k.ks.length) return null; const ks = new Set(k.ks), at = [];
     vids.forEach((f, i) => { if (ks.has(this.clipKey({name:f.name, t:metas[i].t || this.iso(f.lastModified)}))) at.push(i); });
-    return at.length && at.length < vids.length ? {vids:at.map(i => vids[i]), metas:at.map(i => metas[i])} : null;
+    if (!at.length) return null; const got = new Set(at.map(i => this.clipKey({name:vids[i].name, t:metas[i].t || this.iso(vids[i].lastModified)})));
+    // what the kept shoot held and this pick doesn't: by name and time (clipKey is NAME@time), with its place when the app gave one
+    const missing = k.ks.filter(key => !got.has(key)).map(key => { const a = key.lastIndexOf('@'); return {name:key.slice(0, a), t:key.slice(a + 1), path:(k.ap && k.ap[key]) || ''}; });
+    return {at, vids:at.map(i => vids[i]), metas:at.map(i => metas[i]), missing};
   }
   // Clips from several places (LOCAL-CHANGES 272). After the listing, before anything is drawn: when the clips come from
   // more than one folder, from days far apart (MIX_GAP_DAYS between two of them), or include a Live Photo's movie (a .MOV
@@ -3747,29 +3753,33 @@ class Component extends DCLogic {
   // unticked. Nothing on disk changes. items: [{i, name, path, t, bytes, live}].
   static MIX_GAP_DAYS = 3;
   static mixDir(p) { const s = String(p || ''), k = s.lastIndexOf('/'); return k > 0 ? s.slice(0, k) : ''; }
-  static mixOf(items) {
+  // o.missing: clips the caller expected and did not get ([{name, t, path}]), listed under Not found; o.force: show even
+  // when the clips are one folder and close days (a resume with clips missing). The view is the one file manager for
+  // what is about to go in: a resume (keptOnly, Pick up where you were, the app's reopen) opens it with what it expected.
+  static mixOf(items, o) {
     const D = Component.mixDir, folders = new Set(items.map(x => D(x.path))), days = [...new Set(items.map(x => String(x.t).slice(0, 10)))].sort();
     let gap = 0; for (let k = 1; k < days.length; k++) gap = Math.max(gap, (Date.parse(days[k]) - Date.parse(days[k - 1])) / 864e5);
     const lives = items.filter(x => x.live).length;
-    if (folders.size < 2 && !(gap >= Component.MIX_GAP_DAYS) && !lives) return null;
+    const miss = (o && o.missing) || [];
+    if (!(o && o.force) && folders.size < 2 && !(gap >= Component.MIX_GAP_DAYS) && !lives) return null;
     const by = {}, groups = [];
     items.forEach(x => { const day = String(x.t).slice(0, 10), dir = D(x.path), key = day + '\u0000' + dir; let g = by[key]; if (!g) { g = by[key] = {key, day, dir, items:[]}; groups.push(g); } g.items.push(x); });
     const tc = (a, b) => a < b ? -1 : a > b ? 1 : 0;
     groups.forEach(g => g.items.sort((a, b) => tc(a.t, b.t) || tc(a.name, b.name))); groups.sort((a, b) => tc(a.day, b.day) || tc(a.dir, b.dir));
-    return {folders:folders.size, days:days.length, gap:Math.round(gap), first:days[0], last:days[days.length - 1], lives, n:items.length, groups};
+    return {folders:folders.size, days:days.length, gap:Math.round(gap), first:days[0], last:days[days.length - 1], lives, n:items.length, groups, missing:miss, expect:!!(o && o.force)};
   }
   // What the notice lets in: every clip not unticked, in a folder not removed.
   static mixPicked(mx) { const out = []; mx.m.groups.forEach(g => { if (mx.gone[g.key]) return; g.items.forEach(x => { if (!mx.off[x.i]) out.push(x); }); }); return out; }
   // A Live Photo's movie: a .MOV with a still of the same name beside it in what was opened.
   static liveSet(files, relOf) { const s = new Set(); files.forEach(f => { if (/\.(heic|jpe?g)$/i.test(f.name || '')) s.add(relOf(f).replace(/\.\w+$/, '').toUpperCase()); }); return s; }
-  mixAsk(items, go, add) {
-    const m = Component.mixOf(items); if (!m) return false;
+  mixAsk(items, go, add, o) {
+    const m = Component.mixOf(items, o); if (!m) return false;
     const off = {}; items.forEach(x => { if (x.live) off[x.i] = true; });
     this.mixRun = go; this.setState({mix:{m, off, gone:{}, open:{}, add:!!add}, impMsg:null}); return true;
   }
   mixSet(f) { this.setState(s => s.mix ? {mix:{...s.mix, ...(typeof f === 'function' ? f(s.mix) : f)}} : null); }
   mixGo = () => { const mx = this.state.mix; if (!mx) return; const sel = Component.mixPicked(mx); if (!sel.length) return; const go = this.mixRun; this.mixRun = null; this.setState({mix:null}, () => go && go(sel)); };
-  mixBack = () => { if (!this.state.mix) return; this.mixRun = null; this.setState({mix:null}); };
+  mixBack = () => { if (!this.state.mix) return; this.mixRun = null; if (this.keepAt === 'opening') this.keepAt = 'done'; this.setState({mix:null}); };
   mixKey(e) {
     const k = e.key, t = e.target;
     if (k === 'Escape') { e.preventDefault(); this.mixBack(); return true; }
@@ -3797,9 +3807,14 @@ class Component extends DCLogic {
           tickGo:() => setOff([x], !off[x.i]), openGo:() => {}, xGo:() => {}}));
       });
     });
+    if (m.missing.length) {
+      rows.push({id:'mix-missing', kind:'day', name:'Not found in what you chose', pad:'0px', chevOp:0, rot:'0deg', open:'false', tick:'false', n:String(m.missing.length), size:'', fg:'#FFD27A', fw:'600', bg:'rgba(255,210,122,0.06)', op:1, tagOn:false, tag:'', xOn:false, tickGo:() => {}, openGo:() => {}, xGo:() => {}});
+      m.missing.forEach((x, j) => rows.push({id:'mix-miss-' + j, kind:'missing', name:x.path || x.name, pad:'18px', chevOp:0, rot:'0deg', open:'false', tick:'false', n:x.t ? this.hm(String(x.t)) : '', size:'', fg:'#9A958D', fw:'400', bg:'transparent', op:0.7, tagOn:true, tag:'Missing', xOn:false, tickGo:() => {}, openGo:() => {}, xGo:() => {}}));
+    }
     const sel = Component.mixPicked(mx), goneN = m.groups.filter(g => gone[g.key]).reduce((a, g) => a + g.items.length, 0);
     const far = m.gap >= Component.MIX_GAP_DAYS, parts = [m.folders > 1 ? 'come from ' + this.plural(m.folders, 'folder') : '', far ? (m.days === 2 ? 'were shot ' + m.gap + ' days apart' : 'span ' + m.days + ' days, up to ' + m.gap + ' apart') : ''].filter(Boolean);
-    const head = (mx.add ? 'The clips you are adding ' : 'These clips ') + (parts.length ? parts.join(' and ') : 'include ' + this.plural(m.lives, 'Live Photo movie'));
+    const head = m.expect ? m.n + ' of ' + this.plural(m.n + m.missing.length, 'clip') + ' found' + (m.missing.length ? ' · ' + m.missing.length + ' not in what you chose' : '')
+      : (mx.add ? 'The clips you are adding ' : 'These clips ') + (parts.length ? parts.join(' and ') : 'include ' + this.plural(m.lives, 'Live Photo movie'));
     const span = m.first === m.last ? this.mixDay(m.first) : this.mixDay(m.first) + ' to ' + this.mixDay(m.last);
     return {mixOn:true, mixHead:head, mixSpan:span + ' · ' + this.plural(m.n, 'clip') + (m.lives ? ' · ' + this.plural(m.lives, 'Live Photo movie') + ', left out' : ''),
       mixSub:'Untick a day, a folder or a clip that isn’t part of this shoot, or take a folder off with ×. Nothing on disk changes.', mixRows:rows,
