@@ -302,7 +302,7 @@ test('each tile leads with its profile and whether it is on screen as Rec.709', 
   assert.equal(on.profChip(HLG).t, 'HLG → 709');
   assert.match(on.profChip(HLG).tip, /approximately/);
   assert.equal(on.profChip(REC).t, 'Rec.709');
-  assert.match(on.profChip(REC).tip, /^Rec\.709 from the clip's sidecar · shown as recorded, nothing to convert$/);
+  assert.match(on.profChip(REC).tip, /^Rec\.709 from the clip's .XML file · shown as recorded, nothing to convert$/);
   assert.equal(on.profChip(clip('S-Log3', 'picture')).t, 'S-Log3? → 709', 'a profile read from the picture is marked as a guess');
   assert.equal(on.profChip(UNKNOWN), null, 'no profile: the "profile unknown" chip says it');
   const ch = { pending:false, list:[{key:'soft', t:'soft'}, {key:'bump', t:'bump'}, {key:'rate', t:'60p'}] };

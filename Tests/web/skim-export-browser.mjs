@@ -342,13 +342,13 @@ async function run(host) {
     // its menu: a right-click, every thing that can be done with it
     await p.click('[data-lumina="ws-row"][data-path="/Volumes/T7"]', {button:'right'}); await p.waitForTimeout(500);
     const menu = (await p.$$eval('[data-lumina="ws-menu"] [role=menuitem]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()))).join(' | ');
-    ok(/Unfurl everything inside/.test(menu) && /Show in Finder/.test(menu) && /Copy path/.test(menu) && /Remove access/.test(menu) && /New folder inside/.test(menu), 'app: a right-click opens the row’s menu: ' + menu);
+    ok(/Expand everything inside/.test(menu) && /Show in Finder/.test(menu) && /Copy path/.test(menu) && /Remove access/.test(menu) && /New folder inside/.test(menu), 'app: a right-click opens the row’s menu: ' + menu);
     await p.keyboard.press('Escape'); await p.waitForTimeout(250);
     ok(!await p.$('[data-lumina="ws-menu"]'), 'app: esc closes the menu');
     await p.click('[data-lumina="ws-row"][data-path="/Volumes/T7"]', {button:'right'}); await p.waitForTimeout(450);
     await p.click('[data-lumina="ws-menu-all"]'); await p.waitForTimeout(700);
     const deep = '[data-lumina="ws-row"][data-path="/Volumes/T7/Archive/2025/Wedding Café"]';
-    ok(await p.$(deep) && await p.$('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]'), 'app: Unfurl everything inside shows the folders levels down');
+    ok(await p.$(deep) && await p.$('[data-lumina="ws-row"][data-path="/Volumes/T7/Projects"]'), 'app: Expand everything inside shows the folders levels down');
     await p.click(deep); await p.waitForTimeout(200);
     const crumbs = (await p.$$eval('[data-lumina="ws-path"] button', es => es.map(e => e.innerText.trim()))).join(' › ');
     ok(crumbs === 'T7 › Archive › 2025 › Wedding Café', 'app: the path bar shows where the selected folder is: ' + crumbs);
@@ -364,7 +364,7 @@ async function run(host) {
     await p.keyboard.press('Shift+F10'); await p.waitForTimeout(450);
     ok(await p.$('[data-lumina="ws-menu"]'), 'app: ⇧F10 opens the menu of the selected row');
     await p.keyboard.press('ArrowDown'); await p.keyboard.press('Enter'); await p.waitForTimeout(500);
-    ok(!await p.$('[data-lumina="ws-menu"]') && await p.getAttribute('[data-lumina="ws-row"][data-path="/Volumes/T7"]', 'aria-expanded') === 'true', 'app: ↓ ⏎ in the menu runs its first item (Unfurl)');
+    ok(!await p.$('[data-lumina="ws-menu"]') && await p.getAttribute('[data-lumina="ws-row"][data-path="/Volumes/T7"]', 'aria-expanded') === 'true', 'app: ↓ ⏎ in the menu runs its first item (Expand)');
     // the options: Clips as three cards with their counts, Then as switches with what each does
     const sc = (await p.$$eval('[data-lumina="export-scope"] [role=radio]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()))).join(' | ');
     ok(/Selected \d+ clips?/.test(sc) && /Everything 8 clips/.test(sc), 'app: Clips, three cards each with its count: ' + sc);
