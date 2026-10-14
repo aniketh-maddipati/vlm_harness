@@ -103,3 +103,21 @@ test('a browser picker that is still listing a folder says so, until the files c
   assert.match(pw, /window\.addEventListener\('focus', back, \{once:true\}\); el\.addEventListener\('cancel', gone, \{once:true\}\); el\.addEventListener\('change', got, \{once:true\}\);/);
   assert.match(src, /if \(el\) \{ this\.pickWait\(el\); el\.click\(\); \}/); assert.match(src, /this\.pickWait\(el\); el\.click\(\);\n  \};/);
 });
+
+const hostRel = new Function('window', 'return function ' + extractMethod(src, 'hostRel', 'static hostRel(files) {').replace(/^static /, ''));
+
+test('in the app the picker gets only clips and sidecars, and each keeps the place the Mac sent for it (292)', () => {
+  const w = {luminaSkimRel:[['C0001.MP4', 10, 'T7/DCIM/A/C0001.MP4'], ['C0001.MP4', 10, 'T7/DCIM/B/C0001.MP4'], ['C0001M01.XML', 3, 'T7/DCIM/A/C0001M01.XML']]};
+  const a = {name:'C0001.MP4', size:10}, b = {name:'C0001.MP4', size:10}, x = {name:'C0001M01.XML', size:3}, z = {name:'other.MP4', size:1};
+  const m = hostRel(w)([a, b, x, z]);
+  assert.equal(m.get(a), 'T7/DCIM/A/C0001.MP4'); assert.equal(m.get(b), 'T7/DCIM/B/C0001.MP4'); assert.equal(m.get(x), 'T7/DCIM/A/C0001M01.XML');
+  assert.equal(m.has(z), false); assert.equal(w.luminaSkimRel, null, 'used once');
+  assert.equal(hostRel({})([a]), null, 'a browser: the files carry their own paths');
+  assert.match(src, /filesIn = e => \{ const fs = \[\.\.\.\(e\.target\.files \|\| \[\]\)\]; e\.target\.value = ''; this\.rel = Component\.hostRel\(fs\);/);
+  assert.match(src, /this\.addFiles\(fs, \{rel:Component\.hostRel\(fs\), dropped:false\}\)/);
+});
+
+test('the breathing dot runs on the compositor, so it keeps moving while the page thread is held', () => {
+  const dots = src.match(/animation:breathe 1\.2s[^"]*/g) || [];
+  assert.ok(dots.length >= 2); for (const d of dots) assert.match(d, /will-change:opacity/);
+});

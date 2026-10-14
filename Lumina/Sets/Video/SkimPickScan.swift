@@ -18,6 +18,11 @@ nonisolated enum SkimPickScan {
         var files: Int
         var cut: Bool
         var first: [URL]
+        /// Each of `first`'s place as the page's folder input would give it (webkitRelativePath: the picked folder's name,
+        /// then the path inside it), or its name for a file picked by itself.
+        var rels: [String] = []
+        /// What was picked in the panel (Add clips tells the page, for the Final Cut file's paths).
+        var picked: [URL] = []
         var tooBig: Bool { cut || clips > SkimPickScan.clips }
         /// What the page's card says (`luminaSkimBig.show`).
         var json: [String: Any] { ["name": name, "n": clips, "bytes": bytes, "cut": cut ? files : 0] }
@@ -42,11 +47,12 @@ nonisolated enum SkimPickScan {
     static func scan(_ urls: [URL], maxClips: Int = clips, maxFiles: Int = files,
                      progress: ((Int, Int) -> Void)? = nil, stop: () -> Bool = { false }) -> Result {
         var n = 0, nClips = 0, bytes: Int64 = 0, cut = false
-        var found: [(String, URL)] = [], sidecars: [String: [URL]] = [:]
+        var found: [(String, URL)] = [], sidecars: [String: [URL]] = [:], rel: [URL: String] = [:]
         let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey]
-        func take(_ u: URL, _ v: URLResourceValues?) {
+        func take(_ u: URL, _ v: URLResourceValues?, under root: URL?) {
             n += 1
             let name = u.lastPathComponent
+            if isClip(name) || sidecarStem(name) != nil { rel[u] = relPath(u, under: root) }
             if isClip(name) { nClips += 1; bytes += Int64(v?.fileSize ?? 0); found.append((u.path, u)) }
             else if let s = sidecarStem(name) { sidecars[s, default: []].append(u) }
             if n % 2000 == 0 { progress?(n, nClips) }
@@ -54,13 +60,13 @@ nonisolated enum SkimPickScan {
         }
         outer: for url in urls {
             let v = try? url.resourceValues(forKeys: Set(keys + [.isDirectoryKey]))
-            if v?.isDirectory != true { if v?.isRegularFile == true { take(url, v) }; if cut { break }; continue }
+            if v?.isDirectory != true { if v?.isRegularFile == true { take(url, v, under: nil) }; if cut { break }; continue }
             guard let en = FileManager.default.enumerator(at: url, includingPropertiesForKeys: keys, options: [], errorHandler: { _, _ in true }) else { continue }
             for case let u as URL in en {
                 if stop() { cut = true; break outer }
                 let rv = try? u.resourceValues(forKeys: Set(keys))
                 guard rv?.isRegularFile == true else { continue }
-                take(u, rv)
+                take(u, rv, under: url)
                 if cut { break outer }
             }
         }
@@ -71,7 +77,17 @@ nonisolated enum SkimPickScan {
             let stem = (u.lastPathComponent as NSString).deletingPathExtension.uppercased()
             first += (sidecars[stem] ?? []).filter { $0.deletingLastPathComponent() == u.deletingLastPathComponent() }
         }
-        return Result(name: name(of: urls), clips: nClips, bytes: bytes, files: n, cut: cut, first: first)
+        return Result(name: name(of: urls), clips: nClips, bytes: bytes, files: n, cut: cut, first: first, rels: first.map { rel[$0] ?? $0.lastPathComponent })
+    }
+
+    /// `u`'s place as webkitRelativePath gives it: "CARD/PRIVATE/M4ROOT/CLIP/C0001.MP4" for a file inside the picked folder
+    /// CARD; the name alone for a file picked by itself.
+    static func relPath(_ u: URL, under root: URL?) -> String {
+        guard let root else { return u.lastPathComponent }
+        let r = root.standardizedFileURL.path, p = u.standardizedFileURL.path
+        let top = root.path == "/" ? ((try? root.resourceValues(forKeys: [.volumeNameKey]))?.volumeName ?? "Disk") : root.lastPathComponent
+        guard p.hasPrefix(r.hasSuffix("/") ? r : r + "/") else { return top + "/" + u.lastPathComponent }
+        return top + "/" + String(p.dropFirst(r.hasSuffix("/") ? r.count : r.count + 1))
     }
 
     /// The card's name: the folder or drive picked; "These clips" for several things or loose clips.

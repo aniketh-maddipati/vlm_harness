@@ -65,4 +65,12 @@ final class SkimPickScanTests: XCTestCase {
         XCTAssertTrue(SkimPickScan.isClip("C0001.MP4")); XCTAssertTrue(SkimPickScan.isClip("a.mxf")); XCTAssertFalse(SkimPickScan.isClip("._C0001.MP4")); XCTAssertFalse(SkimPickScan.isClip("C0001M01.XML"))
         XCTAssertEqual(SkimPickScan.sidecarStem("C0001M01.XML"), "C0001"); XCTAssertEqual(SkimPickScan.sidecarStem("clip.xml"), "CLIP"); XCTAssertNil(SkimPickScan.sidecarStem("C0001.MP4"))
     }
+
+    func testEachClipAndSidecarCarriesItsPlaceAsTheFolderInputWouldGiveIt() throws {
+        try make("CARD/PRIVATE/M4ROOT/CLIP/C0001.MP4"); try make("CARD/PRIVATE/M4ROOT/CLIP/C0001M01.XML"); try make("CARD/junk.txt")
+        let r = SkimPickScan.scan([tmp.appendingPathComponent("CARD")])
+        XCTAssertEqual(r.rels, ["CARD/PRIVATE/M4ROOT/CLIP/C0001.MP4", "CARD/PRIVATE/M4ROOT/CLIP/C0001M01.XML"])
+        try make("loose/C0009.MP4")
+        XCTAssertEqual(SkimPickScan.scan([tmp.appendingPathComponent("loose/C0009.MP4")]).rels, ["C0009.MP4"], "a file picked by itself: its name")
+    }
 }

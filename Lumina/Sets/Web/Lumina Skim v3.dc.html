@@ -217,7 +217,7 @@ body:has([data-view=phone]){background:#111}
       </div>
       </sc-if>
       <sc-if value="{{ unsupOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="unsupported" role="status" style="margin-left:16px;flex:none;color:#FFD27A;white-space:nowrap">{{ unsupLine }}</div></sc-if>
-      <sc-if value="{{ busyBarOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="busy" role="status" aria-live="polite" aria-busy="true" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ impMsg }}</span></div></sc-if>
+      <sc-if value="{{ busyBarOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="busy" role="status" aria-live="polite" aria-busy="true" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite;will-change:opacity"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ impMsg }}</span></div></sc-if>
       <sc-if value="{{ recNoteOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="marks-back" role="status" style="margin-left:16px;flex:none;color:#A9D18E;white-space:nowrap;animation:fade 160ms ease-out">{{ recNote }}</div></sc-if>
       <sc-if value="{{ loadOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="load-status" role="status" aria-live="polite" onClick="{{ progToggle }}" title="P" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;cursor:pointer;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:{{ loadDot }};animation:{{ loadAnim }}"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ loadLine }}</span><span data-lumina="fill-note" style="flex:none;color:#9A958D">{{ fillNote }}</span></div></sc-if>
       <sc-if value="{{ pauseOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-pause" aria-pressed="{{ pauseA }}" onClick="{{ pauseGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:{{ pauseBg }};color:{{ pauseFg }};font-weight:{{ pauseFw }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pauseT }}</button></sc-if>
@@ -331,7 +331,7 @@ body:has([data-view=phone]){background:#111}
           </button>
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <input ref="{{ clipRef }}" type="file" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
-          <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" data-lumina="imp-msg" aria-busy="{{ impBusy }}" style="color:#FFD27A;display:flex;align-items:center;gap:9px"><sc-if value="{{ impBusy }}" hint-placeholder-val="{{ false }}"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite"></span></sc-if><span>{{ impMsg }}</span></div></sc-if>
+          <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" data-lumina="imp-msg" aria-busy="{{ impBusy }}" style="color:#FFD27A;display:flex;align-items:center;gap:9px"><sc-if value="{{ impBusy }}" hint-placeholder-val="{{ false }}"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite;will-change:opacity"></span></sc-if><span>{{ impMsg }}</span></div></sc-if>
           <sc-if value="{{ bigOn }}" hint-placeholder-val="{{ false }}">
             <div data-lumina="too-big" role="alert" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.35);animation:rise 160ms ease-out">
               <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A">{{ bigH }}</span><span style="font-size:14px;color:#EFECE6">{{ bigName }}</span><span data-lumina="too-big-line" style="color:#B8B3AB;line-height:1.45">{{ bigLine }}</span></div>
@@ -3986,7 +3986,15 @@ class Component extends DCLogic {
     const got = () => { off(); if (this.pickTok === tok) this.pickTok = null; };
     window.addEventListener('focus', back, {once:true}); el.addEventListener('cancel', gone, {once:true}); el.addEventListener('change', got, {once:true});
   }
-  filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.walkTok = null; this.pickNext = true; this.importFiles(fs); };
+  filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = Component.hostRel(fs); this.walkTok = null; this.pickNext = true; this.importFiles(fs); };
+  // In the app a picked folder comes as its clips and sidecars, not the folder (SetsRootView.skimHand, LOCAL-CHANGES 292),
+  // with each one's place inside it ([name, size, place], window.luminaSkimRel): the places the folder input would have
+  // given. Matched by name and size, in order. Null when there is none (a browser, a drop).
+  static hostRel(files) {
+    let list = null; try { list = window.luminaSkimRel; window.luminaSkimRel = null; } catch (x) {} if (!Array.isArray(list) || !list.length) return null;
+    const q = {}; list.forEach(([n, b, r]) => { (q[n + '|' + b] = q[n + '|' + b] || []).push(r); });
+    const m = new Map(); files.forEach(f => { const a = q[f.name + '|' + f.size]; if (a && a.length) m.set(f, a.shift()); }); return m.size ? m : null;
+  }
   dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
   dropLeave = () => this.setState({dropHot:false});
   dropIn = async e => {
@@ -4207,7 +4215,7 @@ class Component extends DCLogic {
     if (!this.canAdd()) return; const app = !!this.exHostApi(), el = app && !this.isTouch() ? this.addDirEl || this.addEl : this.addEl;
     if (!el) return; if (app) window.luminaSkimAdding = true; this.pickWait(el); el.click();
   };
-  addIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.addFiles(fs, {rel:null, dropped:false}); };
+  addIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.addFiles(fs, {rel:Component.hostRel(fs), dropped:false}); };
   static hasFiles(e) { const t = e && e.dataTransfer && e.dataTransfer.types; return !!t && [...t].indexOf('Files') >= 0; }
   addEnter = e => { if (!this.canAdd() || !Component.hasFiles(e)) return; this.addN = (this.addN || 0) + 1; if (!this.state.addHot) this.setState({addHot:true}); };
   addLeave = e => { if (!this.state.addHot) return; this.addN = Math.max(0, (this.addN || 0) - 1); if (!this.addN) this.setState({addHot:false}); };
