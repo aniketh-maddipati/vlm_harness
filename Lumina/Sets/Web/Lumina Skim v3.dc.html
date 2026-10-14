@@ -170,7 +170,7 @@ body:has([data-view=phone]){background:#111}
     </div>
   <div data-lumina="look-controls" style="flex:0 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;white-space:nowrap">
     <button type="button" data-lumina="phone-view" aria-pressed="{{ phoneA }}" onClick="{{ phoneToggle }}" title="Phone view: the page at an iPhone’s width (?phone=1)" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:32px;min-width:44px;padding:0 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;background:{{ phoneBg }};color:#EFECE6;font-weight:600" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Phone</button>
-    <button type="button" data-lumina="preview" role="switch" aria-checked="{{ pvA }}" onClick="{{ pvToggle }}" title="Rec.709 preview · ⇧R" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:32px;min-width:44px;padding:0 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;cursor:pointer;background:{{ pvBg }};color:#EFECE6;font-weight:600" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Rec.709<span style="position:relative;width:28px;height:16px;border-radius:8px;background:{{ pvTrack }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ pvKnob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span></button>
+    <button type="button" data-lumina="preview" role="switch" aria-checked="{{ pvA }}" aria-disabled="{{ pvDis }}" onClick="{{ pvToggle }}" title="{{ pvTip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:32px;min-width:44px;padding:0 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;cursor:{{ pvCur }};opacity:{{ pvOp }};background:{{ pvBg }};color:#EFECE6;font-weight:600" style-hover="filter:brightness({{ pvHov }})" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Rec.709<span style="position:relative;width:28px;height:16px;border-radius:8px;background:{{ pvTrack }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ pvKnob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span></button>
   </div>
     <sc-if value="{{ dbgOn }}" hint-placeholder-val="{{ false }}">
     <button type="button" data-lumina="canvas-toggle" role="switch" aria-checked="{{ cvA }}" aria-label="One grid" onClick="{{ cvToggle }}" title="One grid: Scenes and Clips as one, folded and unfolded (?canvas=1). Off: Scenes, Clips, Viewer." style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:32px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:7px;color:{{ cvFg }};cursor:pointer;background:{{ cvBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ cvT }}</button>
@@ -1692,13 +1692,13 @@ class Component extends DCLogic {
       const base = {i:g.i, n, first:c0.id, x:it.x, y:it.y, w:it.w, fold:!one, one, why:one ? '' : g.why || '', bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.65)' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
         cell:'', durOn:false, dots:[], dotsOn:false, barOn:false, segs:[], cnt:[], cntT:'', note:'', noteT:'', noteC:'#9A958D', chips:[], chipNone:'', state:'', stateC:'#9A958D', badgeOn:false, badge:'', markOn:false, mark:'', markC:'', thumb:Component.PH, flt:'none', phName:nm(c0), skOn:false, sk:[], l2:true, l3:false, tH:'24px', rightC:'#9A958D'};
       if (one) {
-        const m = st.marks[c0.id] || null, ch = this.chips(c0), t = this.tone(c0, skI != null ? skI : fi);
+        const m = st.marks[c0.id] || null, ch = this.chips(c0), t = this.tone(c0, skI != null ? skI : fi), pc0 = compact && this.profChip(c0);   // compact tiles have no chip row: the profile goes on the line
         return {...base, thumb:t.bg, flt:t.flt, cell:c0.dur ? this.fmtDur(c0.dur) : '—', durOn:!compact || zl === 2, phOn:this.waiting(c0), phSub:this.phSub(c0), title:nm(c0), tFont:'inherit', tSize:compact ? '12px' : '13px', tH:compact ? '18px' : '24px',
           right:zl === 1 ? (m ? this.W(m) : '') : this.hm(c0.t), rightC:zl === 1 && m ? MK[m] : '#9A958D', l2:zl !== 1, l3:!compact,
-          line:compact ? (m ? this.W(m) + ' · ' : '') + this.fmtB(c0.bytes) : (c0.dur ? this.fmtDur(c0.dur) : '—') + ' · ' + this.fmtB(c0.bytes),
+          line:compact ? (m ? this.W(m) + ' · ' : '') + this.fmtB(c0.bytes) + (pc0 ? ' · ' + pc0.t : '') : (c0.dur ? this.fmtDur(c0.dur) : '—') + ' · ' + this.fmtB(c0.bytes),
           edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm && !compact, mark:this.W(m), markC:m ? MK[m] : '',
           skOn:skI != null, sk:skI != null ? [0, 1, 2, 3, 4, 5, 6, 7].map(k => ({c:k === skI ? '#FFD27A' : 'rgba(22,21,20,0.55)'})) : [],
-          chips:compact ? [] : ch.pending ? [this.pendV(), this.pendV()] : ch.list.slice(0, 3).map(x => this.chipV(c0, x)), chipNone:compact ? '' : ch.list.length > 3 ? '+' + (ch.list.length - 3) : '',
+          chips:compact ? [] : this.chipRow(c0, ch, 3, 2).chips, chipNone:compact ? '' : this.chipRow(c0, ch, 3, 2).more,
           state:m ? this.W(m) : '', stateC:m ? MK[m] : '#9A958D'};
       }
       // a scene tile: skimming shows its clips one by one; else the first clip that has a frame
@@ -2325,10 +2325,34 @@ class Component extends DCLogic {
   phoneSaved() { try { if (/[?&]phone=1\b/.test(location.search)) return true; return localStorage.getItem('lumina-skimview') === 'phone'; } catch (x) { return false; } }
   setPhone(on, save = true) { if (save) { try { if (on) localStorage.setItem('lumina-skimview', 'phone'); else localStorage.removeItem('lumina-skimview'); } catch (x) {} } this.setState({phone:on, vw:this.vwNow(on)}); }
   phoneToggle = e => { Component.letGo(e); this.setPhone(!this.state.phone); };
-  pvToggle = e => { Component.letGo(e); const st = this.state; this.setState({pv:!st.pv}); this.api('preview', !st.pv); };
+  // Nothing in the shoot to convert: the switch stays as it is (its title says why), so a log clip opened later still gets the preview.
+  pvToggle = e => { Component.letGo(e); if (this.pvDisabled()) return; const st = this.state; this.setState({pv:!st.pv}); this.api('preview', !st.pv); };
   needsPv(c) { const g = c.profile && c.profile.gamma; return g === 'S-Log3' || g === 'S-Log2' || g === 'HLG'; }
   // Nothing to convert: every clip is already Rec.709 or has no profile we know.
   pvDisabled() { return this.d && this.d.clips.length > 0 && !this.d.clips.some(c => this.needsPv(c)); }
+  // The switch's title: what the shoot was shot in, and what the switch does with it (or why it does nothing).
+  pvTip() {
+    const C = this.d ? this.d.clips : [], n = {}; if (!C.length) return 'Rec.709 preview · ⇧R';
+    C.forEach(c => { const g = c.profile && c.profile.gamma ? (c.profile.gamma === 'none' ? 'Rec.709' : c.profile.gamma) : 'no profile'; n[g] = (n[g] || 0) + 1; });
+    const list = Object.keys(n).sort((a, b) => n[b] - n[a]).map(g => n[g] + ' ' + g).join(', '), conv = C.filter(c => this.needsPv(c)).length;
+    if (conv) return 'Rec.709 preview · ⇧R · converts ' + this.plural(conv, 'log clip') + ' (' + list + ')';
+    if (n['Rec.709'] === C.length) return C.length === 1 ? 'This clip is already Rec.709' : 'All ' + C.length + ' clips are already Rec.709';
+    return 'No log clips to convert (' + list + ')';
+  }
+  // The chip each tile leads with: the clip's profile, and whether it is on screen converted to Rec.709 or as shot.
+  profChip(c) {
+    const p = this.prof(c); if (!p) return null;
+    const name = p.g === 'none' ? 'Rec.709' : p.g, log = this.needsPv(c), on = this.pvOn(c), exact = p.g === 'S-Log3', guess = c.profile.source === 'picture';
+    return {key:'look', cid:c.id, t:log ? name + (guess ? '?' : '') + (on ? ' → 709' : ' · as shot') : name, bg:'rgba(239,236,230,0.1)', sh:guess ? 'inset 0 0 0 1px rgba(255,210,122,0.45)' : 'none',
+      fg:on ? (exact ? '#A9D18E' : '#FFD27A') : '#B8B3AB', cur:'default',
+      tip:name + ' ' + p.src + ' · ' + (on ? 'shown converted to Rec.709' + (exact ? '' : ', approximately') : log ? 'shown as shot · ⇧R converts it' : 'shown as recorded, nothing to convert')};
+  }
+  // A tile's chip row: the profile chip first, then the n − 1 chips that matter most (n with no profile chip).
+  chipRow(c, ch, n, pend) {
+    const pc = this.profChip(c), k = pc ? n - 1 : n;
+    const rest = ch.pending ? Array.from({length:Math.max(0, pend - (pc ? 1 : 0))}, () => this.pendV()) : (n == null ? ch.list : ch.list.slice(0, k)).map(x => this.chipV(c, x));
+    return {chips:(pc ? [pc] : []).concat(rest), more:!ch.pending && n != null && ch.list.length > k ? '+' + (ch.list.length - k) : ''};
+  }
   // One row per profile and camera: what the preview does for those clips.
   profRows() {
     const C = this.d ? this.d.clips : [], by = {}, CAM = {'ILCE-7M3':'a7 III', 'ILCE-7SM3':'a7S III', 'ILCE-7M4':'a7 IV', 'ILCE-7RM5':'a7R V', 'ILME-FX3':'FX3', 'ILME-FX30':'FX30', 'ILME-FX6V':'FX6'};
@@ -2355,7 +2379,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {lv2Cols:'minmax(0,1fr) minmax(240px,300px)', storeOn:false, storeFlex:'0 4 auto', storeLine:'', storeRows:[], storeFg:'#9A958D', storeBg:'rgba(239,236,230,0.06)', storeArrow:'▴', notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {lv2Cols:'minmax(0,1fr) minmax(240px,300px)', storeOn:false, storeFlex:'0 4 auto', storeLine:'', storeRows:[], storeFg:'#9A958D', storeBg:'rgba(239,236,230,0.06)', storeArrow:'▴', notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', pvDis:'false', pvTip:'Rec.709 preview · ⇧R', pvOp:'1', pvCur:'pointer', pvHov:'1.2', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
     // Export is a page of its own: the shortcuts across the top, the files and folders below
@@ -2381,7 +2405,7 @@ class Component extends DCLogic {
     else if (pr0.src === 'as you set it') pvLine = 'shot in';
     else if (pr0.g === 'none') pvLine = 'this clip is already Rec.709';
     else pvLine = 'sensed ' + pr0.src + (pr0.g === 'S-Log3' ? '' : ' · approximate');
-    const pvOnUi = !!st.pv;
+    const pvOnUi = !!st.pv && !noPv;
     const ans = this.d && this.d.profAns, askOn = !empty && (allUnknown || !!curC);
     const sensed = curC && curC._sensed ? curC._sensed.gamma : pr0 && pr0.src !== 'as you set it' ? pr0.g : null, picked = sensed ? (pr0 ? pr0.g : null) : ans;
     const askOpts = askOn ? ['S-Log3', 'S-Log2', 'HLG', 'none'].map(g => ({t:g === 'none' ? 'Rec.709' : g, on:picked === g, bg:picked === g ? '#B8B3AB' : 'rgba(239,236,230,0.1)', fg:picked === g ? '#1E1D1B' : '#EFECE6', fw:picked === g ? 700 : 400,
@@ -2394,7 +2418,7 @@ class Component extends DCLogic {
       ...base,
       shootName:d.shoot.name, shootLine:empty ? 'no clips' : this.plural(C.length, 'clip') + (d.shoot.photos ? ' · ' + d.shoot.photos + ' photos' : '') + ' · ' + this.plural(d.shoot.days, 'day') + ' · ' + this.fmtB(d.shoot.bytes),
       lvX:(st.cv ? (st.lv >= 2 ? 1 : 0) : st.lv) * 68, lvN:st.cv ? 2 : 3, lvTabs, lvTabsOn:!st.cv, lvF:sk && !empty && !!st.cv && st.lv === 0, fEnter:this.fEnter, fClick:this.fClick, fDbl:this.fDbl, fMove:this.fMove, fLeave:this.fLeave, hClick:this.hClick,
-      pvA:pvOnUi, pvBg:pvOnUi ? 'rgba(239,236,230,0.16)' : 'rgba(239,236,230,0.08)', pvTrack:pvOnUi ? '#B8B3AB' : 'rgba(239,236,230,0.18)', pvKnob:pvOnUi ? '14px' : '2px', pvLine, askOpts, pvToggle:this.pvToggle,
+      pvA:pvOnUi, pvBg:pvOnUi ? 'rgba(239,236,230,0.16)' : 'rgba(239,236,230,0.08)', pvTrack:pvOnUi ? '#B8B3AB' : 'rgba(239,236,230,0.18)', pvKnob:pvOnUi ? '14px' : '2px', pvDis:noPv ? 'true' : 'false', pvTip:this.pvTip(), pvOp:noPv ? '0.45' : '1', pvCur:noPv ? 'default' : 'pointer', pvHov:noPv ? '1' : '1.2', pvLine, askOpts, pvToggle:this.pvToggle,
       isEmpty:sk && empty,
       stripOn:sk && !empty && st.lv === 1, takeStripOn:sk && !empty && st.lv >= 2,
       lv0:sk && !empty && !st.cv && st.lv === 0, lv1:sk && !empty && !st.cv && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
@@ -2516,7 +2540,7 @@ class Component extends DCLogic {
             const gc = gm ? (MK[gm] || '#B8B3AB') : null, ch = this.chips(c);
             return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:c.dur ? this.fmtDur(c.dur) : '—', size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c), phOn:this.waiting(c), phSub:this.phSub(c),
               edge:gm ? 'inset 0 0 0 2px ' + gc + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gc || '',
-              chips:ch.pending ? [this.pendV(), this.pendV()] : ch.list.slice(0, 3).map(x => this.chipV(c, x)),
+              chips:this.chipRow(c, ch, 3, 2).chips,
               bg:isSel ? 'rgba(255,210,122,0.08)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.7)' : 'none'};
           })};
       });
@@ -2557,7 +2581,7 @@ class Component extends DCLogic {
         picks:[['keep', 'K'], ['maybe', 'M'], ['cut', 'C']].map(([pm, pk]) => ({m:pm, k:pk, l:this.W(pm), on:m === pm, fg:m === pm ? '#1E1D1B' : MK[pm], fw:m === pm ? 800 : 400, bg:m === pm ? MK[pm] : 'transparent', ring:'1px ' + MK[pm] + (m === pm ? '' : '80'), capBg:m === pm ? 'rgba(30,29,27,0.14)' : 'rgba(239,236,230,0.12)', capFg:m === pm ? '#1E1D1B' : '#EFECE6'})),
         markNow:m ? this.W(m) : 'undecided', markNowC:m ? MK[m] : '#9A958D', groups, hdBg:m ? 'linear-gradient(90deg,' + MK[m] + '33,' + MK[m] + '0A 70%),rgba(239,236,230,0.04)' : 'rgba(239,236,230,0.06)',
         ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
-        chips:ch.pending ? [this.pendV(), this.pendV(), this.pendV()] : ch.list.map(x => this.chipV(c, x))};
+        chips:this.chipRow(c, ch, null, 3).chips};
       { const i = this.flat.indexOf(c.id), P = this.flat[i - 1], N = this.flat[i + 1], nb = (id, col, arrow) => { const cc = this.byId[id], mm = st.marks[id], t0 = this.tone(cc, this.firstIdx()), nm = cc.name.replace(/\.\w+$/, '');
           return {id, col, op:mm === 'cut' ? 0.55 : 1, bg:t0.bg, flt:t0.flt, edge:mm ? 'inset 0 0 0 3px ' + MK[mm] : 'inset 0 0 0 1px rgba(239,236,230,0.12)', say:arrow + ' ' + nm + (mm ? ' · ' + this.W(mm) : ''), tip:nm + ' · ' + arrow}; };
         vals.nbrs = [P && nb(P, '1', '←'), N && nb(N, '2', '→')].filter(Boolean); vals.nbOn = st.vw > 640 && vals.nbrs.length > 0; }
@@ -3806,6 +3830,32 @@ class Component extends DCLogic {
     const ok = L.filter(f => f.p2 >= 0.03 && f.p98 <= 0.85 && f.p98 - f.p2 >= 0.08 && f.sat <= 0.15).length;
     return L.length < 4 ? ok === L.length : ok >= Math.ceil(L.length * 0.75);
   }
+  // A picture alone does not tell a flat Rec.709 scene from S-Log3: an a7S III Rec.709 clip of a hazy river
+  // (C0095 on the T7: blacks at 0.10, whites at 0.80, colour 0.075) reads like the friend's S-Log3 clips (C4866:
+  // 0.22, 0.57, 0.075). A camera is seldom switched between log and Rec.709 within minutes, so a clip with no
+  // profile in its metadata is S-Log3 by its picture only when the clips shot within LOG_NEAR of it do not say
+  // otherwise: by their metadata, or by their own pictures once read. Ties and no neighbours go to the picture.
+  static LOG_NEAR = 900;
+  pictureLog(c) { const r = c._raw ? Object.values(c._raw) : []; return r.length ? Component.looksLog(r) : null; }
+  near(c, fn) {
+    const C = this.d.clips, i = C.indexOf(c), t0 = Date.parse(c.t); if (i < 0) return;
+    for (const dir of [-1, 1]) for (let j = i + dir; j >= 0 && j < C.length; j += dir) { if (Math.abs(Date.parse(C[j].t) - t0) > Component.LOG_NEAR * 1000) break; fn(C[j]); }
+  }
+  nearVote(c) {
+    const v = {log:0, rec:0};
+    this.near(c, o => { const s = o.profile && o.profile.source, said = (s === 'sidecar' || s === 'file') && o.profile.gamma, l = said ? this.needsPv(o) : s === 'you' ? null : this.pictureLog(o);
+      if (l === true) v.log++; else if (l === false) v.rec++; });
+    return v;
+  }
+  // After a clip's frames are read: decides it, and the clips around it whose vote it may have changed.
+  senseNear(c) {
+    if (!this.d) return; const all = [c], ch = []; this.near(c, o => all.push(o));
+    all.forEach(o => { if (o._sensed || (o.profile && o.profile.gamma && o.profile.source !== 'picture')) return;
+      const pl = this.pictureLog(o); if (pl == null) return;
+      const v = this.nearVote(o), want = pl && v.log >= v.rec, is = !!(o.profile && o.profile.source === 'picture');
+      if (want === is) return; o.profile = want ? {gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'picture'} : {gamma:null, primaries:null, source:'none'}; ch.push(o); });
+    if (ch.length) this.remeasure(ch);
+  }
   // Finds the moov box by its headers (16 bytes read per box, the picture data is skipped) and reads it, 8 MB at most.
   async fileRate(f) { const mv = await this.fileMoov(f); return mv ? Component.moovRate(mv) : null; }
   async fileMoov(f) {
@@ -4122,12 +4172,12 @@ class Component extends DCLogic {
           // still dark then is what the clip holds (a black clip is a clip: it gets its cover and reads as dark).
           let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!Component.lookAgain(this.blank(im), c._dark ? 2 : k)) break; await new Promise(r => setTimeout(r, 120 + k * 160)); }
           if (this.blank(im)) c._dark = true;   // a clip known to hold dark frames is not looked at three times for each
-          if (!this.prof(c)) (c._raw || (c._raw = {}))[i] = Component.rawSpread(im);
+          if (!this.prof(c) || c.profile.source === 'picture') (c._raw || (c._raw = {}))[i] = Component.rawSpread(im);
           const fb = await this.frameBlob(cv); this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
           this.bump();
         }
         if (px.length) this.noteSpeed((performance.now() - t0) / px.length); c.facts = this.factsAll(c); c.why = null; c.tries = 0;
-        if (!this.prof(c) && c._raw && Component.looksLog(Object.values(c._raw))) { c.profile = {gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'picture'}; this.remeasure([c]); }
+        this.senseNear(c);
       } catch (x) { if (x !== 'stopped') { c.why = document.hidden || this.wasHidden ? 'hidden' : typeof x === 'string' ? x : 'error'; this.wasHidden = false; if (c.facts.state === 'pending') c.facts = {state:'unreliable'}; } }
       URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {} this.vOpen--; this.reading.delete(c.id); this.readMs = performance.now() - t0;
       this.bump(); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);
