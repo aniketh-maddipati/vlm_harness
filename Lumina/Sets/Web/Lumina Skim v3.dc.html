@@ -975,7 +975,7 @@ class Component extends DCLogic {
   static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
   W(m) { return m ? Component.WORD[m] || m : ''; }
   static LV = ['Scenes','Clips','Viewer'];
-  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,bk:null,cutsOpen:false,dragN:0,dropOn:null,backHit:false,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:'',rate:true,scenes:false,lut:true,openFc:false,trash:false,mem:false},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
+  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,bk:null,cutsOpen:false,dragN:0,dropOn:null,backHit:false,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:'',rate:true,scenes:false,lut:true,openFc:false,trash:false,mem:false,sorted:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
   covers = (() => { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.coverGet ? new Component.HostCovers(v, 200e6) : new Component.CoverCache('lumina-skim-covers', 200e6); })();
@@ -3142,7 +3142,7 @@ class Component extends DCLogic {
   }
   // Export's choices that are not about one shoot (ratings, keyword, scenes, LUT, Open in Final Cut, Clear working memory)
   // are kept for the next export. Move cut to Trash never is: it is chosen for each shoot.
-  static EX_PREFS = ['rate', 'kw', 'scenes', 'lut', 'openFc', 'mem'];
+  static EX_PREFS = ['rate', 'kw', 'scenes', 'lut', 'openFc', 'mem', 'sorted'];
   exPrefs() { this.exPrefsIn = true; try { const o = JSON.parse(localStorage.getItem('lumina-skimexport') || '{}') || {}, out = {}; Component.EX_PREFS.forEach(k => { if (k in o && typeof o[k] === typeof this.state.ex[k]) out[k] = o[k]; }); return out; } catch (x) { return {}; } }
   exPrefsSave(ex) { const o = {}; Component.EX_PREFS.forEach(k => { o[k] = ex[k]; }); this.persist('lumina-skimexport', JSON.stringify(o)); }
   exSet(k, val) { this.setState(s => { const ex = {...s.ex, [k]:val}; if (Component.EX_PREFS.indexOf(k) >= 0) this.exPrefsSave(ex); return {exDone:null, exRes:null, ex}; }); }
@@ -4914,9 +4914,10 @@ class Component extends DCLogic {
     // (the LtcChange value is eight digits, frames, seconds, minutes, hours as decimal pairs: "16324420" is 20:44:32:16)
     const ltcF = (v, rate) => { const s = String(v || ''); if (!/^\d{8}$/.test(s) || !(rate > 0)) return 0; const ff = +s.slice(0, 2), ss = +s.slice(2, 4), mm = +s.slice(4, 6), hh = +s.slice(6, 8); return hh > 23 || mm > 59 || ss > 59 || ff >= rate ? 0 : ((hh * 60 + mm) * 60 + ss) * rate + ff; };
     const t0 = (c, f) => { const fr = ltcF(c.ltc, Math.round(f.dd / f.n)); return fr ? fr * f.n + '/' + f.dd + 's' : '0s'; };
-    const al = [], cl = [];
+    const al = [], cl = [], sq = [];
     clips.forEach((c, i) => {
       const f = fmt(c), du = rt(c, f), s0 = t0(c, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
+      sq.push({c, i, f, nm, s0, m, nf:c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01))});
       al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="' + s0 + '" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '"' + lut(c) + '>', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
       const kw = []; if (m === 'maybe' && kwM) kw.push(kwM); if (scOf[c.id] && kw.indexOf(scOf[c.id]) < 0) kw.push(scOf[c.id]); kw.forEach(k => kws.add(k));
       // Final Cut's own ratings: selected clips are favorites, cut ones rejected (hidden by Final Cut's Hide Rejected), the rest unrated
@@ -4928,7 +4929,25 @@ class Component extends DCLogic {
       if (rate) cl.push('        <rating start="' + s0 + '" duration="' + du + '" value="' + rate + '"/>');
       cl.push('      </asset-clip>');
     });
-    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
+    // The sorted timeline (round 2, F1): a project in the same event, Selected first, then Maybe, then unmarked, cut last, each
+    // part in capture order, with one marker on the first clip of each part naming it. The event's clips, ratings and keywords
+    // are as before. The timeline runs at the first clip's format; a clip at another rate is cut to whole frames of it.
+    const pj = [];
+    if (ex.sorted !== false && sq.length) {
+      const P = {keep:0, maybe:1, und:2, cut:3}, Wd = m => { const w = this.W ? this.W(m) : m === 'keep' ? 'selected' : m; return w[0].toUpperCase() + w.slice(1); }, NM = {keep:Wd('keep'), maybe:'Maybe', und:'Unmarked', cut:Wd('cut')}, S = sq[0].f;
+      const order = sq.map((x, j) => ({...x, p:P[x.m || 'und'], j})).sort((a, b) => a.p - b.p || a.j - b.j), n = {};
+      order.forEach(x => { n[x.p] = (n[x.p] || 0) + 1; });
+      let at = 0, last = -1;
+      order.forEach(x => {
+        const k = Math.max(1, Math.floor(x.nf * x.f.n * S.dd / (x.f.dd * S.n))), du = k * S.n + '/' + S.dd + 's';
+        pj.push('            <asset-clip ref="a' + (x.i + 1) + '" offset="' + (at ? at * S.n + '/' + S.dd + 's' : '0s') + '" name="' + x.nm + '"' + (x.s0 !== '0s' ? ' start="' + x.s0 + '"' : '') + ' duration="' + du + '" format="' + x.f.id + '" tcFormat="NDF"' + (x.p === last ? '/>' : '>'));
+        if (x.p !== last) { const mk = x.m || 'und'; pj.push('              <marker start="' + x.s0 + '" duration="' + x.f.n + '/' + x.f.dd + 's" value="' + xe(NM[mk] + ' · ' + n[x.p] + (n[x.p] === 1 ? ' clip' : ' clips')) + '"/>', '            </asset-clip>'); last = x.p; }
+        at += k;
+      });
+      pj.unshift('      <project name="' + xe((ex.event || d.shoot.name) + ' · sorted') + '">', '        <sequence format="' + S.id + '" duration="' + (at * S.n) + '/' + S.dd + 's" tcStart="0s" tcFormat="NDF">', '          <spine>');
+      pj.push('          </spine>', '        </sequence>', '      </project>');
+    }
+    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
     return {n:clips.length, text, kws:[...kws]};
   })();
     this.bxM = {k:bk, x:bx}; return bx;
@@ -5035,8 +5054,17 @@ class Component extends DCLogic {
       if (a.getAttribute('id')) assets[a.getAttribute('id')] = {du, f:a.getAttribute('format'), s:a.getAttribute('start') || '0s'};
     });
     rk.forEach(r => { if (tag(r) !== 'format' && tag(r) !== 'asset') say('The resources hold something this page does not write.'); });
-    const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip');
-    if (cl.length !== ek.length) say('The event holds something this page does not write.');
+    const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip'), pj = ek.filter(c => tag(c) === 'project');
+    if (cl.length + pj.length !== ek.length || pj.length > 1) say('The event holds something this page does not write.');
+    // the sorted timeline: one sequence in a known format, its spine the event's media, each clip placed and marked at most once
+    pj.forEach(p => { const sq = kids(p, 'sequence'), sp = sq.length === 1 ? kids(sq[0], 'spine') : [];
+      if (sq.length !== 1 || kids(p).length !== 1 || sp.length !== 1 || kids(sq[0]).length !== 1) { say('The timeline is not one sequence with one spine.'); return; }
+      if (!fmts[sq[0].getAttribute('format')] || !time(sq[0].getAttribute('duration'))) say('The timeline has no format or length.');
+      kids(sp[0]).forEach(c => { const who = 'Timeline clip “' + (c.getAttribute('name') || c.getAttribute('ref') || '') + '”';
+        if (tag(c) !== 'asset-clip') { say('The timeline holds something this page does not write.'); return; }
+        if (!assets[c.getAttribute('ref')]) say(who + ' refers to media that is not in the file.');
+        if (!time(c.getAttribute('offset')) || !time(c.getAttribute('duration'))) say(who + ' has a position or length that cannot be read.');
+        const mk = kids(c); if (mk.length > 1 || mk.some(k => tag(k) !== 'marker' || !k.getAttribute('value') || !time(k.getAttribute('start')))) say(who + ' carries something this page does not write.'); }); });
     cl.forEach(c => {
       const who = 'Clip “' + (c.getAttribute('name') || c.getAttribute('ref') || '') + '”', a = assets[c.getAttribute('ref')], du = time(c.getAttribute('duration'));
       const fid = c.getAttribute('format'), f = fmts[fid != null ? fid : a && a.f];
@@ -5268,7 +5296,8 @@ class Component extends DCLogic {
       v.exOpts = [sw('ex-all', 'Everything', ex.all ? 'Every clip; selected ones as Favorites, cut ones marked as not wanted.' : 'Only selected clips' + (ex.maybes ? ' and maybes.' : '.'), ex.all, 'all'),
         sw('ex-maybes', 'Include maybes', kwM ? 'Tagged \u201c' + kwM + '\u201d in Final Cut.' : 'With no keyword.', ex.all || ex.maybes, 'maybes', ex.all)];
       v.exOpts2 = [sw('ex-rate', 'Ratings', ex.rate !== false ? 'Selected clips are Favorites' + (ex.all ? ', cut clips marked as not wanted.' : '.') : 'Every clip arrives unrated.', ex.rate !== false, 'rate'),
-        sw('ex-scenes', 'Scenes as keywords', 'Each clip carries its scene, so the browser has a keyword collection per scene.', !!ex.scenes, 'scenes')]
+        sw('ex-scenes', 'Scenes as keywords', 'Each clip carries its scene, so the browser has a keyword collection per scene.', !!ex.scenes, 'scenes'),
+        sw('ex-sorted', 'Sorted timeline', ex.sorted !== false ? 'A project with ' + Component.wsCap(this.W('keep')).toLowerCase() + ' clips first, then maybes, then unmarked, cut last, a marker at the start of each part.' : 'Only the event; no project.', ex.sorted !== false, 'sorted')]
         .concat(slogN ? [sw('ex-lut', 'Camera LUT', this.plural(slogN, 'S-Log3 clip') + (ex.lut !== false ? ' arrive with Sony S-Log3/S-Gamut3.Cine applied, as here.' : ' arrive as log; set the Camera LUT in Final Cut.'), ex.lut !== false, 'lut')] : [])
         .concat(host ? [sw('ex-openfc', 'Open in Final Cut', fcOk ? 'After saving, Final Cut Pro opens the file and asks which library.' : 'Final Cut Pro is not on this Mac.', !!ex.openFc && fcOk, 'openFc', !fcOk)] : []);
       v.kwOn = !!(ex.all || ex.maybes); v.exKw = ex.kw == null ? 'maybe' : ex.kw;

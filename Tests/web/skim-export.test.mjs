@@ -166,3 +166,26 @@ test('in the app the clips point at the folder Lumina read them from, unless a f
   c.state.ex.root = '/Volumes/Other/dump';
   assert.match(loadBuildX().fn.call(c).text, /src="file:\/\/\/Volumes\/Other\/dump\/CLIP\/C0002\.MP4"/);
 });
+
+// round 2, F1: the sorted timeline, a project in the same event (LOCAL-CHANGES 290)
+test('the sorted timeline: selected, maybe, unmarked, cut, a marker at the start of each part, back to back', () => {
+  const x = buildFixture({ all: true }), mk = Object.fromEntries(fx.clips.map(c => [c.id, c.mark || 'und']));
+  const ev = x.text.slice(x.text.indexOf('<event'), x.text.indexOf('<project')), sp = x.text.slice(x.text.indexOf('<spine>'), x.text.indexOf('</spine>'));
+  assert.equal((x.text.match(/<project /g) || []).length, 1);
+  const eventRefs = [...ev.matchAll(/<asset-clip ref="(a\d+)"/g)].map(m => m[1]), spine = [...sp.matchAll(/<asset-clip ref="(a\d+)" offset="(\d+)(?:\/(\d+))?s"[^>]*duration="(\d+)\/(\d+)s"/g)];
+  assert.equal(spine.length, eventRefs.length, 'every clip in the event is on the timeline once');
+  const byRef = {}; fx.clips.forEach((c, i) => { byRef['a' + (i + 1)] = mk[c.id]; });
+  const rank = { keep: 0, maybe: 1, und: 2, cut: 3 }, ranks = spine.map(m => rank[byRef[m[1]]]);
+  assert.deepEqual(ranks, [...ranks].sort((a, b) => a - b), 'parts in order: ' + spine.map(m => byRef[m[1]]).join(' '));
+  let at = 0; spine.forEach(m => { assert.equal(+m[2], at, 'each clip starts where the last ended'); at += +m[4]; });
+  const markers = [...sp.matchAll(/<marker [^>]*value="([^"]*)"/g)].map(m => m[1]);
+  assert.equal(markers.length, new Set(ranks).size, 'one marker per part: ' + markers.join(' | '));
+  assert.match(markers[0], /^Selected · \d+ clips?$/);
+  assert.ok(Component_checkX(x.text, x.n, x.kws).ok, 'the page check takes the file with its timeline');
+  assert.ok(!/<project /.test(buildFixture({ all: true, sorted: false }).text), 'Sorted timeline off: only the event');
+  const r = validateAgainstDTD(x.text); if (!r.skipped) assert.ok(r.ok, r.errors);
+});
+function Component_checkX(text, n, kws) {
+  const src = fs.readFileSync(PAGE, 'utf8'), body = extractMethod(src, 'checkX', 'static checkX(text, n, P, kws) {').replace(/^static /, '');
+  return new Function('return function ' + body)()(text, n, MiniDOMParser, kws);
+}
