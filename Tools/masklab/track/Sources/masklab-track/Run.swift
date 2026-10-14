@@ -47,6 +47,9 @@ func run(_ o: Options) async throws {
         var mask: Mask
         do {
             mask = index == o.start ? try tracker.first(frame, prompt: o.prompt) : try tracker.next(frame)
+        } catch where index == o.start {
+            // No start, nothing to follow: stop here instead of decoding the clip into empty masks.
+            throw UsageError("\(clip.lastPathComponent): the tracker could not start at frame \(index): \(error)")
         } catch {
             // One frame failing (Vision can throw on a lost track) is recorded as lost, not fatal.
             FileHandle.standardError.write(Data("masklab-track: frame \(index): \(error)\n".utf8))

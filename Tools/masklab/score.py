@@ -241,10 +241,11 @@ def score_clip(run_dir, label_dir, tolerance=3.0, still_iou=0.95, still_gap=30):
 
 def clip_dirs(run):
     """clip name → folder. A folder holding masks or timing.json is one clip; otherwise each
-    subfolder is."""
-    if load_timing(run) is not None or frame_files(run):
+    subfolder that holds them is (a tracker that could not start leaves an empty one)."""
+    has = lambda f: load_timing(f) is not None or bool(frame_files(f))
+    if has(run):
         return {os.path.basename(os.path.normpath(run)): run}
-    return {d: os.path.join(run, d) for d in sorted(os.listdir(run)) if os.path.isdir(os.path.join(run, d))}
+    return {d: os.path.join(run, d) for d in sorted(os.listdir(run)) if os.path.isdir(os.path.join(run, d)) and has(os.path.join(run, d))}
 
 
 def score_runs(runs, labels=None, tolerance=3.0, still_iou=0.95, still_gap=30):

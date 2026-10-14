@@ -18,6 +18,8 @@
 #   MASKLAB_SAVE_FRAMES   also write every Nth proxy frame under the first tracker's output, to label on
 #   MASKLAB_LIMIT         wall-clock limit for the whole run in seconds (3600)
 #   MASKLAB_BIN           use this masklab-track instead of building Tools/masklab/track
+#   MASKLAB_PYTHON        a Python with numpy and Pillow for score.py (default: python3 if it has them, else
+#                         ~/LuminaEvidence/venv-parity/bin/python3)
 #
 # The run goes through Scripts/test_guard.py: bounded, one at a time, and refused while
 # ~/LuminaEvidence/.tests-off exists.
@@ -102,7 +104,15 @@ done
 runs=()
 for tracker in $TRACKERS; do [ -d "$RUN/$tracker" ] && runs+=("$RUN/$tracker"); done
 if [ ${#runs[@]} -eq 0 ]; then echo "masklab: nothing ran" >&2; exit 1; fi
-python3 "$HERE/score.py" "${runs[@]}" --labels "$EVID/labels" --out "$RUN/report.json" | tee "$RUN/report.txt"
+# score.py needs numpy and Pillow: MASKLAB_PYTHON, else python3 if it has them, else the parity venv.
+PY="${MASKLAB_PYTHON:-}"
+if [ -z "$PY" ]; then
+  for c in python3 "$HOME/LuminaEvidence/venv-parity/bin/python3"; do
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import numpy, PIL' 2>/dev/null; then PY="$c"; break; fi
+  done
+fi
+[ -n "$PY" ] || { echo "masklab: no Python with numpy and Pillow; set MASKLAB_PYTHON or pip install -r Tools/parity/requirements.txt" >&2; exit 1; }
+"$PY" "$HERE/score.py" "${runs[@]}" --labels "$EVID/labels" --out "$RUN/report.json" | tee "$RUN/report.txt"
 ln -sfn "$RUN" "$EVID/runs/latest"
 echo "masklab: report in $RUN/report.txt ($failed failed)"
 [ "$failed" -eq 0 ]

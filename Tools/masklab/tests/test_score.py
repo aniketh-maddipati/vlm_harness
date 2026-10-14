@@ -127,6 +127,11 @@ class ScoreTests(unittest.TestCase):
         self.assertIsNotNone(c["flicker_all"])
         self.assertAlmostEqual(c["fps"], 50.0)
 
+    def test_a_clip_that_never_started_is_left_out(self):
+        run = self.run_dir("partial", lambda n: disc(*centre(n)))
+        os.makedirs(os.path.join(run, "background-clip", "frames"))   # the tracker stopped at its start frame
+        self.assertEqual(list(score.score_runs([run], self.labels)["runs"][0]["clips"]), ["clip"])
+
     def test_cli_writes_report_and_table(self):
         run = self.run_dir("cli", lambda n: disc(*centre(n)))
         out = os.path.join(self.root, "report.json")
