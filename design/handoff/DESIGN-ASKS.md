@@ -1458,3 +1458,42 @@ three settings lines. Counts, sizes and states are text and do not respond to cl
 Reply with the complete Handoff block (`data-screen-label="2 Handoff"`) and every function you
 changed or added, as full functions, not a description and not a partial diff. List any new
 `window.lumina` call the page makes, with its arguments and the answer it expects.
+
+## Prompt 28 — Skim's web preview shows itself in a minute and ends at the Mac app (paste into Claude Design)
+
+The Skim web preview (`window.luminaPreview`, lumina-skim.pages.dev) exists to show what Skim does
+and to send people to the Mac app. Today a visitor has to bring their own clips before they see anything, and
+nothing on the page points to the app. Change only what `webPrev` shows; the app is unchanged.
+
+**1. Try it without clips.** On the Open screen in the web preview, above the drop zone, a button
+**Try the sample shoot** opens the built-in sample cards (the ones `cardsOn` hides in the preview), as
+if they were a folder: a day of 12 clips across three scenes, ready to mark. The drop zone stays for
+people with their own clips.
+
+**2. Three steps, then out of the way.** On the first open of a shoot in the preview, a small card
+in the corner (never over the grid) says one step at a time, each with its key drawn as the keybar draws
+it: "K, M or C marks the clip" → "Enter or double-click opens the Viewer" → "⌘E sends your marks to Final
+Cut". Each step clears itself when the visitor does it, with a Skip on the card. It never shows again
+after Skip or the third step (`localStorage`, like the page's other preview settings).
+
+**3. The way to the app.** In the preview only:
+- the top bar's right side gets **Get Lumina for Mac**, next to Phone;
+- Export, after the download, adds one line under the result: "In the Lumina app this goes straight
+  into Final Cut, and your cut clips can go to the Trash." with the same button.
+The button opens `window.luminaGetApp` when the build sets it, and reads "Coming to the Mac App Store"
+with no link when it does not.
+
+**4. Labels a reader can use.** Every control the visitor uses (Open, the level tabs, K / M / C, the
+Viewer's Canvas, Export's download, the sample button, Get Lumina for Mac) is a real `<button>` with a
+name a screen reader, or the visitor's own browser assistant, can read: `aria-label` where the visible
+text is only a key or an icon.
+
+### How Prompt 28 is checked once its handoff lands
+
+- `node Tests/web/skim-live.mjs` and `Tests/web/skim-engine.py` still pass; a visitor reaches marked
+  clips from the Open screen with one click on the sample.
+- The tour card shows once, clears step by step, and never covers a tile.
+- With `window.luminaGetApp` unset, the button says "Coming to the Mac App Store" and links nowhere.
+
+Reply with every block and function you changed or added, as full functions, not a description and
+not a partial diff.
