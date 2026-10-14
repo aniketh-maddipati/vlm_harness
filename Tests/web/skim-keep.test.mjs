@@ -12,14 +12,15 @@ const method = (name, head) => new Function('return function ' + extractMethod(s
 const keepTake = method('keepTake', 'keepTake(any) {'), keepApply = method('keepApply', 'keepApply() {'), keepReopen = method('keepReopen', 'keepReopen(kept) {');
 const tabKeepSave = method('tabKeepSave', 'tabKeepSave() {'), tabKeepLoad = method('tabKeepLoad', 'tabKeepLoad() {'), tabKeepDrop = method('tabKeepDrop', 'tabKeepDrop() {'), resumeDrop = method('resumeDrop', 'resumeDrop() {');
 // the stand-ins the tab keep reaches: the page's class constant and the tab's storage
-globalThis.Component = {TAB_KEEP:'lumina-skim-tab:keep'};
+globalThis.window = globalThis.window || {};
+globalThis.Component = {TAB_KEEP:'lumina-skim-tab:keep', resumeGap:new Function('return function ' + extractMethod(src, 'resumeGap', 'static resumeGap(keys, found) {').replace(/^static /, ''))()};
 const tab = new Map(); globalThis.sessionStorage = {getItem:k => tab.has(k) ? tab.get(k) : null, setItem:(k, v) => tab.set(k, String(v)), removeItem:k => tab.delete(k)};
 const clipKey = c => (c.name || '').toUpperCase() + '@' + (c.t || '').slice(0, 19);
 
 const page = (ids, state = {}) => {
   const clips = ids.map((id, i) => ({id, name:'C000' + i + '.MP4', t:'2026-10-0' + (i + 1) + 'T10:00:00'}));
   const byId = {}; clips.forEach(c => { byId[c.id] = c; });
-  return {d:{shoot:{real:true, name:'Day 1'}, clips}, byId, clipKey, keepTake, keepApply, keepReopen, tabKeepSave, tabKeepLoad, tabKeepDrop, resumeDrop, hostStore:() => null,
+  return {d:{shoot:{real:true, name:'Day 1'}, clips}, byId, clipKey, keepTake, keepApply, keepReopen, tabKeepSave, tabKeepLoad, tabKeepDrop, resumeDrop, hostStore:() => null, flash(t) { this.flashed = t; }, plural:(n, w) => n + ' ' + w + (n === 1 ? '' : 's'),
     state:{marks:{}, dis:{}, cuts:null, nCut:3, cur:ids[0], step:'skim', lv:0, gi:0, zl:3, ex:{event:'', kw:'maybe'}, ...state},
     setState(o, cb) { Object.assign(this.state, o); if (cb) cb(); }};
 };
@@ -33,6 +34,7 @@ test('marks and view come back on the same clips under new ids', () => {
   b.d.clips.forEach(c => { b.byId[c.id] = c; });
   const fileEl = {clicks:0, click() { this.clicks++; }}; b.fileEl = fileEl;
   assert.equal(b.keepReopen(kept), true); assert.equal(fileEl.clicks, 1); assert.equal(b.keepAt, 'opening');
+  b.hostStore = () => ({});   // the app's ⌘R: the step it was on stays
   b.keepApply();
   const id = name => b.d.clips.find(c => c.name === name).id;
   assert.deepEqual(b.state.marks, {[id('C0001.MP4')]:'keep', [id('C0002.MP4')]:'cut'});
@@ -88,6 +90,7 @@ test('Safari: a reload keeps the marks for the tab and the same folder brings th
   b.d.clips = a.d.clips.map((c, i) => ({...c, id:'G' + i})); b.keepApply();
   assert.deepEqual(b.state.marks, {G1:'keep'}); assert.equal(b.state.cur, 'G1'); assert.equal(b.state.lv, 2);
   assert.equal(b.state.resume, null); assert.equal(sessionStorage.getItem('lumina-skim-tab:keep'), null);
+  assert.equal(b.flashed, 'Picked up where you were · 2 clips');
 });
 
 test('Safari: another folder opens as it is, and Start fresh forgets', () => {
@@ -117,4 +120,58 @@ test('the web preview notices a newer build, and only the web preview asks', () 
   assert.equal(staleOf('', 'e8c2499'), null); assert.equal(staleOf('a1b2c3d', ''), null);
   assert.match(src, /if \(!window\.luminaPreview \|\| !build \|\| !\/\^https\?:\$\/\.test\(location\.protocol\)/);
   assert.match(src, /staleGo\(\) \{ if \(this\.hasShoot\(\)\) this\.tabKeepSave\(\);/);
+});
+
+// Resume in Safari (LOCAL-CHANGES 276): only the kept shoot's clips from the folder chosen, and what did not come back.
+test('Resume takes only the kept clips from a larger folder, and names the missing ones', () => {
+  const pick = new Function('return function ' + extractMethod(src, 'resumePick', 'static resumePick(vids, keys) {').replace(/^static /, ''))();
+  const gap = new Function('return function ' + extractMethod(src, 'resumeGap', 'static resumeGap(keys, found) {').replace(/^static /, ''))();
+  const keys = ['C0001.MP4@2026-10-01T10:00:00', 'C0002.MP4@2026-10-01T10:05:00', 'C0003.MP4@2026-10-01T10:09:00'];
+  const vids = [{name:'C0001.MP4'}, {name:'c0002.mp4'}, {name:'OTHER.MOV'}, {name:'C0009.MP4'}];
+  assert.deepEqual(pick(vids, keys).map(f => f.name), ['C0001.MP4', 'c0002.mp4']);
+  assert.deepEqual(pick(vids, []), []); assert.deepEqual(pick(vids, undefined), []);
+  const g = gap(keys, {[keys[0]]:'F0001', [keys[1]]:'F0002'});
+  assert.deepEqual(g, {n:3, found:2, missing:[{name:'C0003.MP4', t:'2026-10-01T10:09:00'}]});
+  assert.match(src, /if \(this\.kept && this\.state\.resume && !adding\) \{ const hit = Component\.resumePick\(vids, this\.kept\.ks \|\| this\.kept\.files\); if \(hit\.length\) vids = hit; \}/);
+});
+
+// LOCAL-CHANGES 288: the app's last shoot is offered on Open; Resume answers the file input with its places (no Finder),
+// Add clips does the same and then opens Add clips' panel.
+test('the app offers its last shoot; Resume and Add clips reopen it with no Finder, and Add clips then asks for more', () => {
+  const keepOffer = method('keepOffer', 'keepOffer(kept) {');
+  const arrow = name => new Function('return function () ' + src.match(new RegExp('\\n  ' + name + ' = \\(\\) => (\\{[^\\n]*\\});\\n'))[1])();
+  const resumeGo = arrow('resumeGo'), resumeAdd = arrow('resumeAdd');
+  const a = page(['F0001', 'F0002'], {marks:{F0002:'keep'}, step:'export'}), kept = a.keepTake();
+  const b = page([]); b.d = null; b.hasShoot = () => false; b.keepOffer = keepOffer; b.resumeGo = resumeGo; b.resumeAdd = resumeAdd;
+  const fileEl = {clicks:0, click() { this.clicks++; }}; b.fileEl = fileEl; let picked = 0; b.pickFolder = () => { picked++; };
+  assert.equal(b.keepOffer(kept), true); assert.deepEqual(b.state.resume, {name:'Day 1', n:2, marks:1, host:true}); assert.equal(b.kept.offered, true);
+  window.luminaSkimResuming = false; b.resumeGo();
+  assert.equal(fileEl.clicks, 1); assert.equal(picked, 0, 'no Finder'); assert.equal(window.luminaSkimResuming, true); assert.equal(b.keepAt, 'opening');
+  // the app answers with the same clips: they are read again, then put back, and Add clips' panel is asked for
+  window.luminaSkimResuming = false; b.resumeAdd(); assert.equal(fileEl.clicks, 2); assert.equal(picked, 0); assert.equal(b.addAfter, true);
+  b.d = {shoot:{real:true, name:'x'}, clips:a.d.clips.map(c => ({...c}))}; let steps = [], adds = 0; b.setStep = s => steps.push(s); b.addClips = () => adds++;
+  b.hostStore = () => ({}); b.keepApply();
+  assert.deepEqual(b.state.marks, {F0002:'keep'}); assert.match(b.flashed, /Picked up where you were · 2 clips/); assert.deepEqual(steps, ['skim']);
+  return new Promise(r => setTimeout(() => { assert.equal(adds, 1); r(); }, 5));
+});
+
+test('in Safari the card says both open Finder once, and Add clips does not narrow what was chosen', () => {
+  assert.match(src, /const adding = this\.addPick && vids\.length; this\.addPick = false; this\.addKeep = !!adding;/);
+  assert.match(src, /const kept = this\.addKeep \? null : this\.keptOnly\(vids, metas\); this\.addKeep = false;/);
+  assert.match(src, /Both open Finder once: Safari can’t open files again by itself\./);
+  assert.ok(!/resumeOther|Other clips<\/button>/.test(src));
+});
+
+// LOCAL-CHANGES 291: a shoot picked up again lands on Skim, not on Export, with a note that offers Export in one click.
+test('a shoot picked up again on Export lands on Skim and offers Export; the app\'s ⌘R keeps Export', () => {
+  const a = page(['F0001', 'F0002', 'F0003'], {marks:{F0001:'keep', F0002:'keep', F0003:'maybe'}, step:'export'}), kept = a.keepTake();
+  const b = page(['F0001', 'F0002', 'F0003']); b.kept = JSON.parse(kept); b.keepApply();   // Safari's Resume (no app store)
+  assert.equal(b.state.step, 'skim'); assert.equal(b.state.exAsk, true);
+  const say = new Function('return function ' + extractMethod(src, 'exAskSay', 'exAskSay() {'))();
+  assert.equal(say.call(b), 'You’d marked 2 clips to keep and 1 maybe · you were on Export');
+  const c = page(['F0001', 'F0002', 'F0003']); c.hostStore = () => ({}); c.kept = {...JSON.parse(kept), offered:true}; c.keepApply();   // the app's last shoot
+  assert.equal(c.state.step, 'skim'); assert.equal(c.state.exAsk, true);
+  const r = page(['F0001', 'F0002', 'F0003']); r.hostStore = () => ({}); r.kept = JSON.parse(kept); r.keepApply();   // ⌘R in the app
+  assert.equal(r.state.step, 'export'); assert.ok(!r.state.exAsk);
+  assert.match(src, /setStep\(s\) \{ if \(s !== 'import' && !this\.hasShoot\(\)\) s = 'import'; if \(this\.state\.exAsk && s !== 'skim'\) this\.setState\(\{exAsk:false\}\);/);
 });

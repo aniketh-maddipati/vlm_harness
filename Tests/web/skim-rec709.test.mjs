@@ -273,3 +273,86 @@ test('the picture: a flat, pale, grey-ish clip reads as log; a full-range or a d
   assert.equal(Sense.looksLog([]), false);
   assert.equal(Sense.looksLog([...log.slice(0, 3), rec[0]]), true, 'one odd frame does not undo it');
 });
+
+// ---- what each tile says about its profile, the switch when nothing needs it, and sensing that yields to the shoot ----
+
+const looksLog = new Function('return function ' + extractMethod(src, 'looksLog', 'static looksLog(list) {').replace(/^static /, ''))();
+const LOG_NEAR = +src.match(/static LOG_NEAR = (\d+);/)[1];
+const More = new Function('Component', 'return class {\n' + [...names, 'plural', 'pvTip', 'profChip', 'chipRow', 'chipV', 'pendV', 'pictureLog', 'near', 'nearVote', 'senseNear'].map(method).join('\n')
+  + '\n  pvToggle(e) {' + src.match(/\n  pvToggle = e => \{([^\n]*)\};\n/)[1] + '}\n}')({ looksLog, LOG_NEAR, letGo(){} });
+const shoot = (pv, clips) => Object.assign(new More(), { state:{pv}, d:{clips}, api(){}, setState(o){ Object.assign(this.state, o); } });
+
+test('the switch says why it does nothing, and a click or ⇧R leaves it as it is', () => {
+  const all = shoot(true, [REC, REC, REC]);
+  assert.equal(all.pvTip(), 'All 3 clips are already Rec.709');
+  assert.equal(shoot(true, [REC]).pvTip(), 'This clip is already Rec.709');
+  assert.equal(shoot(true, [REC, REC, UNKNOWN]).pvTip(), 'No log clips to convert (2 Rec.709, 1 no profile)');
+  all.pvToggle(); assert.equal(all.state.pv, true, 'disabled: the state is kept for a log clip opened later');
+  const mixed = shoot(true, [SL3, SL3, REC]);
+  assert.equal(mixed.pvTip(), 'Rec.709 preview · ⇧R · converts 2 log clips (2 S-Log3, 1 Rec.709)');
+  mixed.pvToggle(); assert.equal(mixed.state.pv, false);
+  assert.match(src, /aria-disabled="\{\{ pvDis \}\}" onClick="\{\{ pvToggle \}\}" title="\{\{ pvTip \}\}"/);
+  assert.match(src, /const pvOnUi = !!st\.pv && !noPv;/, 'a disabled switch shows off');
+});
+
+test('each tile leads with its profile and whether it is on screen as Rec.709', () => {
+  const on = shoot(true, []), off = shoot(false, []);
+  assert.equal(on.profChip(SL3).t, 'S-Log3 → 709');
+  assert.equal(off.profChip(SL3).t, 'S-Log3 · as shot');
+  assert.equal(on.profChip(HLG).t, 'HLG → 709');
+  assert.match(on.profChip(HLG).tip, /approximately/);
+  assert.equal(on.profChip(REC).t, 'Rec.709');
+  assert.match(on.profChip(REC).tip, /^Rec\.709 from the clip's sidecar · shown as recorded, nothing to convert$/);
+  assert.equal(on.profChip(clip('S-Log3', 'picture')).t, 'S-Log3? → 709', 'a profile read from the picture is marked as a guess');
+  assert.equal(on.profChip(UNKNOWN), null, 'no profile: the "profile unknown" chip says it');
+  const ch = { pending:false, list:[{key:'soft', t:'soft'}, {key:'bump', t:'bump'}, {key:'rate', t:'60p'}] };
+  const row = on.chipRow({ id:'a', ...SL3 }, ch, 3, 2);
+  assert.deepEqual(row.chips.map(c => c.t), ['S-Log3 → 709', 'soft', 'bump']); assert.equal(row.more, '+1');
+  assert.deepEqual(on.chipRow({ id:'a', ...SL3 }, { pending:true, list:[] }, 3, 2).chips.map(c => c.t), ['S-Log3 → 709', '—'], 'known before the frames are read');
+});
+
+// Measured with ffmpeg on the T7 (8 frames each, the page's rawSpread): C0095 is Rec.709 by its metadata, C4866 is S-Log3.
+const C0095 = { p2:0.098, p98:0.804, sat:0.075 }, C0094 = { p2:0.141, p98:0.867, sat:0.079 }, C4866 = { p2:0.224, p98:0.571, sat:0.075 };
+const bare = (id, t, frame) => ({ id, t, profile:{gamma:null, primaries:null, source:'none'}, _raw:frame ? Object.fromEntries([0, 1, 2, 3, 4, 5, 6, 7].map(i => [i, frame])) : undefined });
+
+test('a flat Rec.709 clip reads like S-Log3 from its picture alone (why the shoot has a say)', () => {
+  assert.equal(looksLog(Array(8).fill(C0095)), true);
+  assert.equal(looksLog(Array(8).fill(C4866)), true);
+  assert.equal(looksLog(Array(8).fill(C0094)), false);
+});
+
+test('picture sensing yields to the clips shot around it: C0095 next to C0094 stays unconverted', () => {
+  const a = bare('94', '2020-10-09T09:08:43', C0094), b = bare('95', '2020-10-09T09:09:51', C0095), p = shoot(true, [a, b]), re = [];
+  p.remeasure = l => re.push(...l);
+  p.senseNear(b); assert.equal(b.profile.gamma, null);
+  // read before its neighbour: a guess, put back once the neighbour is read
+  const a2 = bare('94', '2020-10-09T09:08:43'), b2 = bare('95', '2020-10-09T09:09:51', C0095), q = shoot(true, [a2, b2]); q.remeasure = () => {};
+  q.senseNear(b2); assert.equal(b2.profile.gamma, 'S-Log3'); assert.equal(b2.profile.source, 'picture');
+  a2._raw = bare('x', '', C0094)._raw; q.senseNear(a2); assert.equal(b2.profile.gamma, null);
+  // metadata beside it counts the same way
+  const m = { id:'m', t:'2020-10-09T09:05:00', profile:{gamma:'none', primaries:'Rec.709', source:'file'} }, c = bare('95', '2020-10-09T09:09:51', C0095), r = shoot(true, [m, c]); r.remeasure = () => {};
+  r.senseNear(c); assert.equal(c.profile.gamma, null);
+});
+
+test('a log shoot is still sensed: alone, among log neighbours, or far from a Rec.709 clip', () => {
+  for (const clips of [[bare('1', '2026-01-01T10:00:00', C4866)],
+    [bare('1', '2026-01-01T10:00:00', C4866), bare('2', '2026-01-01T10:02:00', C4866)],
+    [bare('0', '2026-01-01T09:00:00', C0094), bare('1', '2026-01-01T10:00:00', C4866)]]) {
+    const p = shoot(true, clips); p.remeasure = () => {}; const last = clips[clips.length - 1];
+    clips.forEach(c => p.senseNear(c));
+    assert.equal(last.profile.gamma, 'S-Log3', clips.length + ' clips');
+  }
+  assert.ok(LOG_NEAR >= 300 && LOG_NEAR <= 3600);
+});
+
+test('a profile from metadata, or one set by hand, is never changed by a picture', () => {
+  const m = { id:'m', t:'2020-10-09T09:09:51', profile:{gamma:'none', primaries:'Rec.709', source:'file'}, _raw:bare('', '', C4866)._raw };
+  const y = { id:'y', t:'2020-10-09T09:09:52', profile:{gamma:'HLG', primaries:'Rec.2020', source:'you'}, _raw:bare('', '', C4866)._raw };
+  const p = shoot(true, [m, y]); p.remeasure = () => {}; p.senseNear(m); p.senseNear(y);
+  assert.equal(m.profile.gamma, 'none'); assert.equal(y.profile.gamma, 'HLG');
+});
+
+test('the Viewer does not call a clip steady: shake is not measured, so the motion row says — until it is', () => {
+  assert.doesNotMatch(src, /'steady'/);
+  assert.match(src, /facts\.push\(\{k:'motion', v:\(f\.motion \|\| '—'\)/);
+});
