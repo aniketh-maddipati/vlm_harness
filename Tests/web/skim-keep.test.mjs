@@ -131,5 +131,32 @@ test('Resume takes only the kept clips from a larger folder, and names the missi
   assert.deepEqual(pick(vids, []), []); assert.deepEqual(pick(vids, undefined), []);
   const g = gap(keys, {[keys[0]]:'F0001', [keys[1]]:'F0002'});
   assert.deepEqual(g, {n:3, found:2, missing:[{name:'C0003.MP4', t:'2026-10-01T10:09:00'}]});
-  assert.match(src, /if \(this\.kept && this\.state\.resume\) \{ const hit = Component\.resumePick\(vids, this\.kept\.ks \|\| this\.kept\.files\); if \(hit\.length\) vids = hit; \}/);
+  assert.match(src, /if \(this\.kept && this\.state\.resume && !adding\) \{ const hit = Component\.resumePick\(vids, this\.kept\.ks \|\| this\.kept\.files\); if \(hit\.length\) vids = hit; \}/);
+});
+
+// LOCAL-CHANGES 288: the app's last shoot is offered on Open; Resume answers the file input with its places (no Finder),
+// Add clips does the same and then opens Add clips' panel.
+test('the app offers its last shoot; Resume and Add clips reopen it with no Finder, and Add clips then asks for more', () => {
+  const keepOffer = method('keepOffer', 'keepOffer(kept) {');
+  const arrow = name => new Function('return function () ' + src.match(new RegExp('\\n  ' + name + ' = \\(\\) => (\\{[^\\n]*\\});\\n'))[1])();
+  const resumeGo = arrow('resumeGo'), resumeAdd = arrow('resumeAdd');
+  const a = page(['F0001', 'F0002'], {marks:{F0002:'keep'}, step:'export'}), kept = a.keepTake();
+  const b = page([]); b.d = null; b.hasShoot = () => false; b.keepOffer = keepOffer; b.resumeGo = resumeGo; b.resumeAdd = resumeAdd;
+  const fileEl = {clicks:0, click() { this.clicks++; }}; b.fileEl = fileEl; let picked = 0; b.pickFolder = () => { picked++; };
+  assert.equal(b.keepOffer(kept), true); assert.deepEqual(b.state.resume, {name:'Day 1', n:2, marks:1, host:true}); assert.equal(b.kept.offered, true);
+  window.luminaSkimResuming = false; b.resumeGo();
+  assert.equal(fileEl.clicks, 1); assert.equal(picked, 0, 'no Finder'); assert.equal(window.luminaSkimResuming, true); assert.equal(b.keepAt, 'opening');
+  // the app answers with the same clips: they are read again, then put back, and Add clips' panel is asked for
+  window.luminaSkimResuming = false; b.resumeAdd(); assert.equal(fileEl.clicks, 2); assert.equal(picked, 0); assert.equal(b.addAfter, true);
+  b.d = {shoot:{real:true, name:'x'}, clips:a.d.clips.map(c => ({...c}))}; let steps = [], adds = 0; b.setStep = s => steps.push(s); b.addClips = () => adds++;
+  b.hostStore = () => ({}); b.keepApply();
+  assert.deepEqual(b.state.marks, {F0002:'keep'}); assert.match(b.flashed, /Picked up where you were · 2 clips/); assert.deepEqual(steps, ['skim']);
+  return new Promise(r => setTimeout(() => { assert.equal(adds, 1); r(); }, 5));
+});
+
+test('in Safari the card says both open Finder once, and Add clips does not narrow what was chosen', () => {
+  assert.match(src, /const adding = this\.addPick && vids\.length; this\.addPick = false; this\.addKeep = !!adding;/);
+  assert.match(src, /const kept = this\.addKeep \? null : this\.keptOnly\(vids, metas\); this\.addKeep = false;/);
+  assert.match(src, /Both open Finder once: Safari can’t open files again by itself\./);
+  assert.ok(!/resumeOther|Other clips<\/button>/.test(src));
 });

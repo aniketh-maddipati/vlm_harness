@@ -309,8 +309,8 @@ body:has([data-view=phone]){background:#111}
             <div data-lumina="resume" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.35)">
               <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A">Pick up where you were</span><span style="font-size:14px;color:#EFECE6">{{ resumeName }}</span><span style="color:#B8B3AB">{{ resumeLine }}</span></div>
               <button type="button" data-lumina="resume-go" onClick="{{ resumeGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Resume</button>
-              <button type="button" data-lumina="resume-other" onClick="{{ resumeOther }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Other clips</button>
-              <span data-lumina="resume-hint" style="flex-basis:100%;color:#9A958D;line-height:1.45">Both open Finder. Resume: choose the shoot’s folder (or one above it) and its clips and marks come back. Other clips: a different folder; these marks are let go once you pick. Your clips are never touched.</span>
+              <button type="button" data-lumina="resume-add" onClick="{{ resumeAdd }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Add clips</button>
+              <span data-lumina="resume-hint" style="flex-basis:100%;color:#9A958D;line-height:1.45">{{ resumeHint }}</span>
             </div>
           </sc-if>
           <button type="button" data-lumina="drop" onClick="{{ pickFolder }}" style="color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
@@ -1195,7 +1195,7 @@ class Component extends DCLogic {
     // The Mac app's reload in place (⌘R, a hot build; LOCAL-CHANGES 257): take() hands it the open shoot's marks and view by clip
     // (name and time, as clipKey), the app reloads, reopen(kept) answers the file picker with the same clips and puts them back.
     window.luminaSkimBig = this.bigHost();
-    window.luminaSkimKeep = {take:() => this.keepTake(), reopen:kept => this.keepReopen(kept), state:() => this.keepAt || 'idle'};
+    window.luminaSkimKeep = {take:() => this.keepTake(), reopen:kept => this.keepReopen(kept), offer:kept => this.keepOffer(kept), state:() => this.keepAt || 'idle'};
     // luminaSkimDebug() reports; luminaSkimDebug('panel') also opens the Working memory panel, luminaSkimDebug('off') hides it again, luminaSkimDebug('colour') saves the colour check frames.
     window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); else if (what === 'colour') this.colourCheck(); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
     this._rs = () => { clearTimeout(this.rsT); this.rsT = setTimeout(() => this.setState({vw:this.vwNow(this.state.phone), vh:window.innerHeight}), 80); }; window.addEventListener('resize', this._rs);
@@ -2826,10 +2826,10 @@ class Component extends DCLogic {
     if (!Object.keys(ids).some(key => key === k.cur || (k.marks && key in k.marks) || (k.dis && key in k.dis) || (k.cuts && k.cuts.includes(key)))) { this.keepAt = 'done'; return; }
     const by = o => { const out = {}; Object.keys(o || {}).forEach(key => { if (ids[key]) out[ids[key]] = o[key]; }); return out; };
     if (k.name) d.shoot.name = k.name; this.userCut = !!k.userCut;
-    const ks = k.ks || k.files; if (ks && !this.hostStore()) { const g = Component.resumeGap(ks, ids); this.resumeGap = g; window.luminaSkimResumeGap = g;
-      this.flash(g.missing.length ? 'Picked up ' + g.found + ' of ' + this.plural(g.n, 'clip') + ' · not in that folder: ' + g.missing.slice(0, 3).map(m => m.name).join(', ') + (g.missing.length > 3 ? ' and ' + (g.missing.length - 3) + ' more' : '') : 'Picked up where you were · ' + this.plural(g.n, 'clip'), g.missing.length ? 6000 : 2200); }
+    const ks = k.ks || k.files; if (ks && (!this.hostStore() || k.offered)) { const g = Component.resumeGap(ks, ids), more = d.clips.length - g.found; this.resumeGap = g; window.luminaSkimResumeGap = g;
+      if (more > 0 && !g.missing.length) this.flash('Picked up where you were · ' + this.plural(g.n, 'clip') + ' · ' + more + ' added', 3000); else this.flash(g.missing.length ? 'Picked up ' + g.found + ' of ' + this.plural(g.n, 'clip') + ' · not in that folder: ' + g.missing.slice(0, 3).map(m => m.name).join(', ') + (g.missing.length > 3 ? ' and ' + (g.missing.length - 3) + ' more' : '') : 'Picked up where you were · ' + this.plural(g.n, 'clip'), g.missing.length ? 6000 : 2200); }
     const cuts = k.cuts ? k.cuts.map(key => ids[key]).filter(Boolean) : null, cur = ids[k.cur] || this.state.cur, step = d.clips.length ? (k.step || 'skim') : 'import';
-    this.setState({marks:by(k.marks), dis:by(k.dis), cuts, nCut:k.nCut || this.state.nCut, cur, step, lv:k.lv ?? this.state.lv, gi:k.gi || 0, zl:k.zl ?? this.state.zl, ex:{...this.state.ex, ...(k.ex || {})}}, () => { this.keepAt = 'done'; });
+    this.setState({marks:by(k.marks), dis:by(k.dis), cuts, nCut:k.nCut || this.state.nCut, cur, step, lv:k.lv ?? this.state.lv, gi:k.gi || 0, zl:k.zl ?? this.state.zl, ex:{...this.state.ex, ...(k.ex || {})}}, () => { this.keepAt = 'done'; if (this.addAfter) { this.addAfter = false; if (k.offered) this.setStep('skim'), setTimeout(() => this.addClips(), 0); } });
   }
   // Safari (LOCAL-CHANGES 266): a reload loses the files, and the browser can't open them again by itself. The marks and the
   // view are kept for this tab only (sessionStorage, gone with the tab), and Open offers them back: Resume opens the picker (the one
@@ -2847,8 +2847,18 @@ class Component extends DCLogic {
   tabKeepDrop() { try { sessionStorage.removeItem(Component.TAB_KEEP); } catch (x) {} if (this.state.resume) this.setState({resume:null}); }
   resumeDrop() { this.kept = null; this.tabKeepDrop(); }
   // Resume brings the kept clips and marks back; Other clips lets them go, but only once clips are picked (a cancelled picker keeps them).
-  resumeGo = () => { this.pickFolder(); };
-  resumeOther = () => { this.pickFolder(); this.freshPick = true; };
+  // Resume and Add clips (LOCAL-CHANGES 288). In the app the last shoot is offered with the places of its clips (keepOffer):
+  // Resume answers the file input with them, no Finder (window.luminaSkimResuming), and Add clips does the same, then opens
+  // Add clips' own panel. Safari can't open a file again without a pick, so both open Finder once: Resume takes only the
+  // shoot's clips from what is chosen (resumePick), Add clips takes the shoot's clips back with their marks and the rest join them.
+  resumeGo = () => { const r = this.state.resume; if (r && r.host && this.fileEl) { this.keepAt = 'opening'; window.luminaSkimResuming = true; this.fileEl.click(); return; } this.pickFolder(); };
+  resumeAdd = () => { const r = this.state.resume; this.addAfter = true; if (r && r.host) { this.resumeGo(); return; } this.pickFolder(); this.addPick = true; };
+  // The app's last shoot, offered on Open (not reopened: that is the hot build's and ⌘R's, keepReopen).
+  keepOffer(kept) {
+    let k = null; try { k = typeof kept === 'string' ? JSON.parse(kept) : kept; } catch (x) {}
+    if (!k || !k.n || this.hasShoot()) return false; k.offered = true; this.kept = k;
+    this.setState({resume:{name:k.name || 'Your clips', n:k.n, marks:Object.keys(k.marks || {}).length, host:true}}); return true;
+  }
   // The clips of a kept shoot among the files chosen, by name (the capture time is checked once they are listed, by clipKey).
   static resumePick(vids, keys) { if (!keys || !keys.length) return []; const want = new Set(keys.map(k => k.slice(0, k.lastIndexOf('@')))); return vids.filter(f => want.has(f.name.toUpperCase())); }
   // What Resume found: the kept clips that came back and the ones that did not (name and capture time).
@@ -3889,7 +3899,7 @@ class Component extends DCLogic {
   // A phone or a tablet picks clips (iPhone: Photos or Files; Android: its photo picker), a computer a folder; the other is
   // one button below. Neither shows a folder picker where the browser has none (iOS Safari before 18.4).
   canFolder() { return typeof document !== 'undefined' && 'webkitdirectory' in document.createElement('input') && !/iPhone|iPod/.test(navigator.userAgent); }
-  pickFolder = () => { this.freshPick = false; const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) el.click(); };
+  pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) el.click(); };
   filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.walkTok = null; this.pickNext = true; this.importFiles(fs); };
   dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
   dropLeave = () => this.setState({dropHot:false});
@@ -3948,8 +3958,8 @@ class Component extends DCLogic {
     if (!pre) {
       // Resume in Safari (LOCAL-CHANGES 276): from whatever folder was chosen (the shoot's, or one above it), only the clips the
       // kept shoot had; a folder with none of them opens as it is.
-      if (this.freshPick && vids.length) { this.freshPick = false; this.resumeDrop(); }   // Other clips (277): the kept marks go once clips are picked
-      if (this.kept && this.state.resume) { const hit = Component.resumePick(vids, this.kept.ks || this.kept.files); if (hit.length) vids = hit; }
+      const adding = this.addPick && vids.length; this.addPick = false; this.addKeep = !!adding;   // Add clips (288): nothing is narrowed
+      if (this.kept && this.state.resume && !adding) { const hit = Component.resumePick(vids, this.kept.ks || this.kept.files); if (hit.length) vids = hit; }
       // Too big, or a walk cut short: say so on Open and wait for an answer. A reload in the app keeps what was chosen (kept.cap).
       cap = cap || this.bigCap || (this.kept && this.kept.cap) || 0; this.bigCap = 0; this.bigHeld = null; if (this.state.big) this.setState({big:null});
       if (vids.length && ((vids.length > Component.BIG.clips && !cap) || (walked && !cap))) {
@@ -3975,7 +3985,7 @@ class Component extends DCLogic {
       if (lt !== this.listTok) return;
       const picked = this.picked, relMap = this.rel, again = (vs, ms) => { this.rel = relMap; return this.importFiles(files, cap, null, {vids:vs, metas:ms, picked}); };
       // a kept shoot coming back: its own clips, no notice (LOCAL-CHANGES 282)
-      const kept = this.keptOnly(vids, metas);
+      const kept = this.addKeep ? null : this.keptOnly(vids, metas); this.addKeep = false;
       if (kept && kept.missing.length) { const lives = Component.liveSet(files, rel), items = kept.at.map(i => ({i, name:vids[i].name, path:rel(vids[i]), t:metas[i].t || this.iso(vids[i].lastModified), bytes:vids[i].size, live:false}));
         if (this.mixAsk(items, sel => again(sel.map(x => vids[x.i]), sel.map(x => metas[x.i])), false, {force:true, missing:kept.missing})) return; }
       if (kept && kept.at.length < vids.length) return again(kept.vids, kept.metas);
@@ -5174,7 +5184,9 @@ class Component extends DCLogic {
       impMsg:st.impMsg || '', impMsgOn:!!st.impMsg,
       ...(b => ({bigOn:!!b, bigH:b ? b.h : '', bigName:b ? b.name : '', bigLine:b ? b.line : '', bigGoT:b ? b.go : '', bigPick:this.bigPick, bigGo:this.bigGo}))(st.big ? Component.bigSay(st.big, x => this.fmtB(x)) : null),
       impLineOn:!!(st.imp && st.imp.done < st.imp.n), impLine:st.imp ? 'measuring ' + st.imp.done + ' of ' + this.plural(st.imp.n, 'clip') : '',
-      staleOn:!!st.stale, staleGo:() => this.staleGo(), staleLater:() => this.staleLater(), resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + ' · Safari asks for the folder once' : '', resumeGo:this.resumeGo, resumeOther:this.resumeOther, ...this.cacheVals(has), nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
+      staleOn:!!st.stale, staleGo:() => this.staleGo(), staleLater:() => this.staleLater(), resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + (st.resume.host ? '' : ' · Safari asks for the folder once') : '', resumeGo:this.resumeGo, resumeAdd:this.resumeAdd,
+      resumeHint:st.resume && st.resume.host ? 'Resume opens the same clips again from where they are, no Finder. Add clips brings the shoot back, then Finder opens to add more to it. Your clips are never touched.'
+        : 'Both open Finder once: Safari can’t open files again by itself. Resume: choose the shoot’s folder (or one above it) and its clips and marks come back. Add clips: choose any folder; the shoot’s clips come back with their marks and the rest join them. Your clips are never touched.', ...this.cacheVals(has), nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
       cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})), cardsOn:this.cardList().length > 0,
       recents:st.step === 'import' ? this.recentVals() : [], recOn:false,
       download:this.download, hintLead:''
