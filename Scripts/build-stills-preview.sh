@@ -35,6 +35,40 @@ i = page.index('<script'); page = page[:i] + head + page[i:]
 # Which build this is, small in the corner, so a stale tab can be told from the newest page (same hash as version.txt).
 stamp = ('<div data-lumina="build" style="position:fixed;right:8px;top:2px;z-index:2147483647;font:10px/1.2 ui-monospace,Menlo,monospace;'
          'color:#9A958D;opacity:.6;pointer-events:none;user-select:none">build ' + build + '</div>\n')
+# A newer build on the site shows a notice with Refresh and Later, as Skim's preview does (its LOCAL-CHANGES 270, the
+# same look and words): version.txt is read every 30 s and when the tab comes back to the front. Preview chrome only,
+# added here and never to the design's page; it shows only over http(s), so a file:// copy never asks.
+stamp += """<style>@keyframes lmStaleIn{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes lmStaleDot{0%,100%{opacity:1}50%{opacity:.35}}
+[data-lumina="stale"] button{font:inherit;border:0;margin:0;-webkit-appearance:none;appearance:none;min-height:28px;border-radius:8px;cursor:pointer}
+[data-lumina="stale"] button:focus-visible{outline:2px solid #FFD27A;outline-offset:2px}
+[data-lumina="stale-later"]:hover{background:rgba(239,236,230,0.1)!important}</style>
+<div data-lumina="stale" role="status" hidden style="position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:2147483646;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:12px;background:#33312E;color:#EFECE6;box-shadow:0 8px 28px rgba(0,0,0,0.45),inset 0 0 0 1px rgba(255,210,122,0.4);font:13px/1.2 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;white-space:nowrap;animation:lmStaleIn 220ms ease-out">
+<span style="width:8px;height:8px;border-radius:50%;background:#FFD27A;animation:lmStaleDot 1.6s ease-in-out infinite"></span>
+<span>A newer Lumina is ready</span>
+<button type="button" data-lumina="stale-go" style="padding:5px 12px;background:#FFD27A;color:#1E1D1B;font-weight:800">Refresh</button>
+<button type="button" data-lumina="stale-later" aria-label="Later" style="padding:5px 10px;background:transparent;color:#B8B3AB">Later</button>
+</div>
+<script>(function () {
+  var build = window.luminaBuild, el = document.querySelector('[data-lumina="stale"]'), busy = false, shown = null, skip = null;
+  if (!window.luminaPreview || !build || !el || !/^https?:$/.test(location.protocol)) return;
+  // The same test as Skim's staleOf: the first word of version.txt, a commit hash, other than this page's build.
+  function staleOf(t) { var v = String(t || '').trim().split(/\s+/)[0]; return v && /^[0-9a-f]{4,40}$/.test(v) && v !== build ? v : null; }
+  function check() {
+    if (busy) return; busy = true;
+    fetch('version.txt?t=' + Date.now(), {cache: 'no-store'}).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
+      var v = staleOf(t); if (v && v !== shown && v !== skip) { shown = v; el.style.display = 'flex'; el.hidden = false; }
+    }).catch(function () {}).then(function () { busy = false; });
+  }
+  el.querySelector('[data-lumina="stale-go"]').onclick = function () { location.reload(); };
+  // Later hides it until a newer build still.
+  el.querySelector('[data-lumina="stale-later"]').onclick = function () { skip = shown; shown = null; el.hidden = true; el.style.display = ''; };
+  window.luminaStaleCheck = check;
+  check(); setInterval(check, 30000);
+  function back() { if (!document.hidden) check(); }
+  document.addEventListener('visibilitychange', back); window.addEventListener('focus', back);
+})();</script>
+"""
 j = page.rfind('</body>'); page = (page[:j] + stamp + page[j:]) if j >= 0 else page + stamp
 # Whole or not at all: a browser reloading mid-build never reads half a page.
 open(out + '.part', 'w', encoding='utf-8').write(page); os.replace(out + '.part', out)
