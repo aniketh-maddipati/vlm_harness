@@ -54,6 +54,7 @@ async function run(host) {
         return new Promise(r => setTimeout(() => r({found:out, scanned:Object.keys(D).length, partial:false, seq}), 300)); },
       dirMake: (parent, name) => { window.__calls.push(['mkdir', parent, name]); const D = window.__dirs; const q = parent + '/' + name; (D[parent] = D[parent] || []).push({name, path:q, dirs:false}); D[q] = []; return ask({ok:true, path:q}); },
       placeAdd: () => ask(null), placeRemove: () => ask(null),
+      dirSize: p => { window.__calls.push(['size', p]); const D = window.__dirs || {}, sum = q => (D[q] || []).reduce((a, f) => a + (f.file ? f.bytes : sum(f.path)), 0); return ask({bytes:sum(p), files:1, partial:false}); },
       // Arrange: the stand-in moves the listed entries between folders, as skimArrangeApply / Undo do on disk
       arrangeApply: (shoot, moves) => { window.__calls.push(['arrange', moves.length]); const D = window.__dirs, at = q => q.slice(0, q.lastIndexOf('/'));
         const out = moves.map(m => { const L = D[at(m.from)] || [], i = L.findIndex(f => f.path === m.from); if (i < 0) return {from:m.from, to:'', ok:false, why:'not there any more'};
@@ -97,6 +98,15 @@ async function run(host) {
   // LOCAL-CHANGES 288: three parts in order (anything to export, what Final Cut gets, the files)
   ok(await p.evaluate(() => { const y = s => document.querySelector('[data-lumina="' + s + '"]').getBoundingClientRect().top; return y('ex-part-ready') < y('ex-part-fcp') && y('ex-part-fcp') < y('ex-part-files') && y('ex-part-files') < y('ex-part-more'); })
     && /^3 clips to export/.test(await text('[data-lumina="ex-ready"]')), (host ? 'app' : 'browser') + ': Export reads in three parts: ' + await text('[data-lumina="ex-ready"]') + ' · ' + await text('[data-lumina="ex-ready-sub"]'));
+  if (host) {
+    // round 2, G1: each folder shown is added up in the background; Size sorts by it
+    await p.waitForTimeout(400);
+    const dumpSub = await text('[data-lumina="ws-row"][data-path="/Users/sam/Desktop/dump"]');
+    await p.click('[data-lumina="ws-sort-size"]'); await p.waitForTimeout(150);
+    ok(/shoot · 16(\.0)? MB/.test(dumpSub) && await p.getAttribute('[data-lumina="ws-sort-size"]', 'aria-pressed') === 'true' && (await p.evaluate(() => window.__calls.some(c => c[0] === 'size' && c[1] === '/Users/sam/Desktop/dump'))),
+      'app: a folder shows its total size, and Size sorts by it: ' + dumpSub.replace(/\s+/g, ' '));
+    await p.click('[data-lumina="ws-sort-size"]'); await p.waitForTimeout(100);
+  }
   if (!host) {
     // Files is never blank in a browser: the folder the shoot came from, each clip with its mark, and a way to open another
     const clipRows = await p.$$eval('[data-lumina="ws-row"][data-kind="clip"]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()));
@@ -242,7 +252,7 @@ async function run(host) {
     ok(savedF && /<keyword [^>]*value="[^"]*Scene 1/.test(savedF[2]) && /file:\/\/\/Users\/sam\/Desktop\/dump\//.test(savedF[2]), 'app: the file has scene keywords and points at the folder the app read');
     ok(savedF && savedF[3] === made && savedT && savedT[3] === '/Volumes/T7', 'app: each file is saved in the folder it was dropped on');
     ok(savedF && savedF[2].includes('file:///Users/sam/Desktop/dump/Selected/' + sel1), 'app: the Final Cut file points at the clips where Arrange moved them');
-    ok(calls.map(c => c[0]).filter(c => !/check|list|mkdir|arrange/.test(c)).join(' ') === 'save save fcp trash', 'app: (cut list), save, then Final Cut, then the Trash: ' + calls.map(c => c[0]).join(' '));
+    ok(calls.map(c => c[0]).filter(c => !/check|list|mkdir|arrange|size/.test(c)).join(' ') === 'save save fcp trash', 'app: (cut list), save, then Final Cut, then the Trash: ' + calls.map(c => c[0]).join(' '));
     ok(/clip file missing on disk: C0002\.MP4/.test(r) && /missing on disk/.test(await text('[data-lumina="sum-verify"]')), 'app: a missing clip file is flagged in the result and the summary');
     ok(/Saved .+ in \/Volumes\/T7\/Projects\/Tuesday export/.test(r) && /Opened in Final Cut Pro/.test(r) && /Moved 2 cut clips/.test(r) && /working memory/.test(r), 'app: the result: ' + r.replace(/\n/g, ' | '));
     if (shots) { await p.evaluate(() => { const e = document.querySelector('[data-screen-label="Export"]'); if (e) e.scrollTop = 0; }); await p.screenshot({path:path.join(shots, 'app-done.png')}); }
