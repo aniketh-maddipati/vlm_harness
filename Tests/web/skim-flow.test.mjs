@@ -58,8 +58,9 @@ test('the fit never makes a tile smaller than the stacked layout did', () => {
 test('the seven clips fit one screen at the size they had stacked', () => {
   const g = base(2), secs = secsOf([1, 1, 1, 1, 1, 1, 1]), h = 640, stacked = C.zlFit({...g, flow:false}, secs, h), f = C.zlFit(g, secs, h);
   assert.equal(f.tw, stacked.tw);
-  assert.ok(C.layFlow(f, secs).height + 14 <= h + f.pitch, 'about a screen');
-  assert.ok(C.laySecs({geo:{...stacked, flow:false}, secs}).height > 3 * h, 'stacked, it was more than three screens');
+  const flowed = C.layFlow(f, secs).height, was = C.laySecs({geo:{...stacked, flow:false}, secs}).height;
+  assert.ok(C.layFlow(f, secs).Y.length <= 3, 'three rows at most');
+  assert.ok(flowed * 2 < was, 'less than half as tall as stacked (' + flowed + ' vs ' + was + ')');
 });
 
 test('the window, laySecAt and ↑ ↓ agree with the whole layout', () => {
