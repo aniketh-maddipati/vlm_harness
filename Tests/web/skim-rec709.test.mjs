@@ -351,3 +351,8 @@ test('a profile from metadata, or one set by hand, is never changed by a picture
   const p = shoot(true, [m, y]); p.remeasure = () => {}; p.senseNear(m); p.senseNear(y);
   assert.equal(m.profile.gamma, 'none'); assert.equal(y.profile.gamma, 'HLG');
 });
+
+test('the Viewer does not call a clip steady: shake is not measured, so the motion row says — until it is', () => {
+  assert.doesNotMatch(src, /'steady'/);
+  assert.match(src, /facts\.push\(\{k:'motion', v:\(f\.motion \|\| '—'\)/);
+});
