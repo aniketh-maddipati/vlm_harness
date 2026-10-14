@@ -4115,7 +4115,7 @@ class Component extends DCLogic {
     { const tok = this.qTok; this.coverLoad(d).then(() => { if (tok === this.qTok) this.runQueue(clips.slice(), tok); }); }
   }
   // One clip as the page holds it, from its file and what the listing read (importFiles, appendClips).
-  clipOf(f, m, id, path) { return {id, name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, path, t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, fd:m.fd || null, nf:m.nf || 0, w:0, h:0, bytes:f.size, codec:Component.extOf(f), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; }
+  clipOf(f, m, id, path) { return {id, name:f.name, xdur:m.xdur, cam:m.cam, ltc:m.ltc, ach:m.ach == null ? null : m.ach, arate:m.arate || 0, path, t:m.t || this.iso(f.lastModified), dur:m.xdur || 0, fps:m.fps, fd:m.fd || null, nf:m.nf || 0, w:0, h:0, bytes:f.size, codec:Component.extOf(f), profile:m.prof, frames:[null, null, null, null, null, null, null, null], facts:{state:'pending'}, dismissed:[], mark:null, look:{hue:40}, _file:f}; }
   // Reopening a kept shoot (a reload in the app, Pick up where you were in Safari): only the clips it held, so a folder
   // pruned on the notice or clips added from elsewhere come back as they were, with no notice. Null: nothing to narrow.
   keptOnly(vids, metas) {
@@ -4271,9 +4271,9 @@ class Component extends DCLogic {
   // What a Sony clip says about itself (NonRealTimeMeta, from the sidecar or the end of the file): no decode.
   // fd is the length of one frame as [n, d] for n/d seconds: 23.98 is 1001/24000, 24 is 100/2400. nf is the camera's frame count.
   sonyMeta(tx, src) {
-    const o = {prof:{gamma:null, primaries:null, source:'none'}, t:null, fps:0, fd:null, nf:0, xdur:0, cam:'', ltc:''}; if (!tx) return o;
+    const o = {prof:{gamma:null, primaries:null, source:'none'}, t:null, fps:0, fd:null, nf:0, xdur:0, cam:'', ltc:'', ach:null, arate:0}; if (!tx) return o;
     try { const sv = n => (tx.match(new RegExp(n + '="([^"]+)"', 'i')) || tx.match(new RegExp('name="' + n + '"\\s+value="([^"]+)"', 'i')) || [])[1], g = sv('captureGammaEquation'), p = sv('captureColorPrimaries'), cd = (tx.match(/<CreationDate[^>]*value="([^"]+)"/i) || [])[1], fr = (tx.match(/captureFps="([\d.]+)/i) || tx.match(/formatFps="([\d.]+)/i) || [])[1], ff = (tx.match(/formatFps="([\d.]+)/i) || [])[1] || fr;
-      o.prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:src}; o.ltc = (tx.match(/<LtcChange[^>]*value="([0-9A-Fa-f]{8})"/) || [])[1] || ''; if (cd) o.t = cd.slice(0, 19); if (fr) o.fps = Math.round(+fr); if (ff) { const r = Math.round(+ff); if (r > 0) o.fd = Math.abs(+ff - r) > 0.005 ? [1001, r * 1000] : [100, r * 100]; } const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) o.xdur = +du / +fr; if (du) o.nf = +du; o.cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {}
+      o.prof = {gamma:g ? this.gammaName(g) : null, primaries:p ? this.primName(p) : '', source:src}; o.ltc = (tx.match(/<LtcChange[^>]*value="([0-9A-Fa-f]{8})"/) || [])[1] || ''; { const na = (tx.match(/<AudioFormat[^>]*numOfChannel="(\d+)"/i) || [])[1]; if (na != null) { o.ach = +na; o.arate = +na ? 48000 : 0; } } if (cd) o.t = cd.slice(0, 19); if (fr) o.fps = Math.round(+fr); if (ff) { const r = Math.round(+ff); if (r > 0) o.fd = Math.abs(+ff - r) > 0.005 ? [1001, r * 1000] : [100, r * 100]; } const du = (tx.match(/<Duration[^>]*value="(\d+)"/i) || [])[1]; if (du && fr) o.xdur = +du / +fr; if (du) o.nf = +du; o.cam = (tx.match(/<Device[^>]*modelName="([^"]+)"/i) || [])[1] || ''; } catch (x) {}
     return o;
   }
   // Sony writes the same NonRealTimeMeta XML into the end of every XAVC file (the last ~2 KB), so a clip
@@ -4287,7 +4287,7 @@ class Component extends DCLogic {
     const o = this.sonyMeta(tx, src);
     // No Sony metadata: the rate and the capture time from the file's own header. A clip picked from Photos on an iPhone or
     // from Android's picker carries the time it was picked as its date, not the time it was shot.
-    if (!o.fd || !o.t || !o.prof.gamma) { try { const mv = await this.fileMoov(f); if (mv) { if (!o.prof.gamma && Component.moovTransfer(mv) === 18) o.prof = {gamma:'HLG', primaries:'Rec.2020', source:'file'}; const r = !o.fd && Component.moovRate(mv); if (r) { o.fd = r; if (!o.fps) o.fps = Math.round(r[1] / r[0]); } if (!o.t) { const w = Component.moovTime(mv); if (w) o.t = w.local || this.iso(w.utc); } } } catch (x) {} }
+    if (!o.fd || !o.t || !o.prof.gamma) { try { const mv = await this.fileMoov(f); if (mv) { if (!o.prof.gamma && Component.moovTransfer(mv) === 18) o.prof = {gamma:'HLG', primaries:'Rec.2020', source:'file'}; if (o.ach == null) { const a = Component.moovAudio(mv); if (a) { o.ach = a.ch; o.arate = a.rate; } } const r = !o.fd && Component.moovRate(mv); if (r) { o.fd = r; if (!o.fps) o.fps = Math.round(r[1] / r[0]); } if (!o.t) { const w = Component.moovTime(mv); if (w) o.t = w.local || this.iso(w.utc); } } } catch (x) {} }
     return o;
   }
   // A clip with no camera metadata says its rate in its own header. 24 is not 23.98: a 24.000 clip described as 23.98
@@ -4315,6 +4315,27 @@ class Component extends DCLogic {
       }
       if (ud) { const day = kids(ud.a, ud.b).filter(k => k.t === '\u00a9day')[0]; if (day) { const w = wall(txt(day.a + 4, day.b)) || wall(txt(day.a, day.b)); if (w) return {local:w}; } }
       const mh = one(mk, 'mvhd'); if (mh) { const v = u8[mh.a], s = v === 1 ? dv.getUint32(mh.a + 4) * 4294967296 + dv.getUint32(mh.a + 8) : dv.getUint32(mh.a + 4), ms = (s - 2082844800) * 1000; if (ms > Date.UTC(2000, 0, 1) && ms < Date.now() + 864e5 * 2) return {utc:ms}; }
+    } catch (x) {}
+    return null;
+  }
+  // The sound a QuickTime or MP4 file holds (round 2, fcpxml item 3): the first sound track's channel count and sample rate,
+  // from its sample description (QuickTime's version 2 form keeps them further in). {ch:0} when the file has no sound track;
+  // null when it cannot be read. Sony clips say their channels in their own metadata (XAVC records at 48 kHz).
+  static moovAudio(u8) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), ty = o => String.fromCharCode(u8[o + 4], u8[o + 5], u8[o + 6], u8[o + 7]);
+    const kids = (a, b) => { const out = []; for (let o = a; o + 8 <= b;) { let n = dv.getUint32(o), h = 8; if (n === 1) { if (o + 16 > b) break; n = dv.getUint32(o + 8) * 4294967296 + dv.getUint32(o + 12); h = 16; } else if (n === 0) n = b - o; if (n < h || o + n > b) break; out.push({t:ty(o), a:o + h, b:o + n}); o += n; } return out; };
+    const one = (list, t) => list.filter(k => k.t === t)[0];
+    try {
+      const top = kids(0, u8.length), moov = one(top, 'moov') || {a:0, b:u8.length}; let seen = false;
+      for (const tr of kids(moov.a, moov.b).filter(k => k.t === 'trak')) {
+        const mdia = one(kids(tr.a, tr.b), 'mdia'); if (!mdia) continue; const mk = kids(mdia.a, mdia.b), hd = one(mk, 'hdlr'), minf = one(mk, 'minf');
+        if (!hd || !minf) continue; seen = true; if (ty(hd.a + 4) !== 'soun') continue;
+        const stbl = one(kids(minf.a, minf.b), 'stbl'), stsd = stbl && one(kids(stbl.a, stbl.b), 'stsd'); if (!stsd || stsd.a + 8 + 36 > stsd.b) continue;
+        const e = stsd.a + 8, v = dv.getUint16(e + 16);
+        const ch = v === 2 && e + 52 <= stsd.b ? dv.getUint32(e + 48) : dv.getUint16(e + 24), rate = v === 2 && e + 48 <= stsd.b ? Math.round(dv.getFloat64(e + 40)) : dv.getUint32(e + 32) >>> 16;
+        if (ch > 0 && ch <= 64 && rate >= 8000 && rate <= 384000) return {ch, rate};
+      }
+      return seen ? {ch:0, rate:0} : null;
     } catch (x) {}
     return null;
   }
@@ -4941,7 +4962,7 @@ class Component extends DCLogic {
   // The .fcpxml is built once per change (marks, choices, the clips' facts, the folder), not on every render of the page.
   buildX() {
     const st = this.state, d = this.d, ex = st.ex; if (!d) return {n:0, text:''};
-    let fp = 0; d.clips.forEach(c => { const t = [c.dur, c.nf, c.fd, c.fps, c.w, c.h, c.ltc, c.path, c.profile && c.profile.gamma, c.profile && c.profile.primaries].join('|'); for (let i = 0; i < t.length; i++) fp = (fp * 31 + t.charCodeAt(i)) | 0; });
+    let fp = 0; d.clips.forEach(c => { const t = [c.dur, c.nf, c.fd, c.fps, c.w, c.h, c.ltc, c.path, c.profile && c.profile.gamma, c.profile && c.profile.primaries, c.ach, c.arate, c.facts && c.facts.state, c.facts && String(c.facts.idx), c.facts && String(c.facts.sharpF), c.facts && c.facts.bump].join('|'); for (let i = 0; i < t.length; i++) fp = (fp * 31 + t.charCodeAt(i)) | 0; });
     const bk = [d, d.clips.length, fp, st.marks, JSON.stringify(ex), this.SC, this.G, JSON.stringify(this.exHost || null)], bm = this.bxM;
     if (bm && bm.k.every((v, i) => v === bk[i])) return bm.x;
     const bx = (() => {
@@ -4971,11 +4992,22 @@ class Component extends DCLogic {
     // (the LtcChange value is eight digits, frames, seconds, minutes, hours as decimal pairs: "16324420" is 20:44:32:16)
     const ltcF = (v, rate) => { const s = String(v || ''); if (!/^\d{8}$/.test(s) || !(rate > 0)) return 0; const ff = +s.slice(0, 2), ss = +s.slice(2, 4), mm = +s.slice(4, 6), hh = +s.slice(6, 8); return hh > 23 || mm > 59 || ss > 59 || ff >= rate ? 0 : ((hh * 60 + mm) * 60 + ss) * rate + ff; };
     const t0 = (c, f) => { const fr = ltcF(c.ltc, Math.round(f.dd / f.n)); return fr ? fr * f.n + '/' + f.dd + 's' : '0s'; };
+    // the sound as the camera or the file states it (round 2, fcpxml item 3); a clip whose sound was never read keeps hasAudio="1"
+    const AR = {32000:'32k', 44100:'44.1k', 48000:'48k', 88200:'88.2k', 96000:'96k', 176400:'176.4k', 192000:'192k'};
+    const aud = c => c.ach > 0 ? ' hasAudio="1" audioSources="1" audioChannels="' + c.ach + '"' + (AR[c.arate] ? ' audioRate="' + AR[c.arate] + '"' : '') : c.ach === 0 ? ' hasAudio="0"' : ' hasAudio="1"';
+    // Skim's flags as plain markers at the moment they were seen (round 2, fcpxml item 4), only those with a time: a soft frame
+    // (its sharpness under 0.35) and a sudden change of brightness, each at the frame Skim measured. Never ratings.
+    const flagMk = (c, f, s0) => { const F = c.facts; if (!F || F.state !== 'ready' || !Array.isArray(F.idx)) return [];
+      const nf = c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01)), base = s0 === '0s' ? 0 : +s0.split('/')[0] / f.n, out = [];
+      const at = slot => Math.max(0, Math.min(nf - 1, Math.floor(Math.min((c.dur || 0) - 0.05, (slot + 0.5) / 8 * (c.dur || 0)) * f.dd / f.n)));
+      (F.sharpF || []).forEach((v, j) => { if (v < 0.35 && F.idx[j] != null) out.push({k:at(F.idx[j]), t:'soft · sharpness ' + v.toFixed(2)}); });
+      if (F.bump != null && F.idx[F.bump] != null) out.push({k:at(F.idx[F.bump]), t:'bump · brightness jumps'});
+      const seen = new Set(); return out.sort((a, b) => a.k - b.k).filter(m => !seen.has(m.k + m.t) && seen.add(m.k + m.t)).map(m => '        <marker start="' + (base + m.k) * f.n + '/' + f.dd + 's" duration="' + f.n + '/' + f.dd + 's" value="' + xe(m.t) + '"/>'); };
     const al = [], cl = [], sq = [];
     clips.forEach((c, i) => {
       const f = fmt(c), du = rt(c, f), s0 = t0(c, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
       sq.push({c, i, f, nm, s0, m, nf:c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01))});
-      al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="' + s0 + '" duration="' + du + '" hasVideo="1" hasAudio="1" format="' + f.id + '"' + lut(c) + '>', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
+      al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="' + s0 + '" duration="' + du + '" hasVideo="1"' + aud(c) + ' format="' + f.id + '"' + lut(c) + '>', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
       const kw = []; if (m === 'maybe' && kwM) kw.push(kwM); if (scOf[c.id] && kw.indexOf(scOf[c.id]) < 0) kw.push(scOf[c.id]); kw.forEach(k => kws.add(k));
       // Final Cut's own ratings: selected clips are favorites, cut ones rejected (hidden by Final Cut's Hide Rejected), the rest unrated
       const rate = ex.rate === false ? null : m === 'keep' ? 'favorite' : m === 'cut' ? 'reject' : null;
@@ -4984,14 +5016,26 @@ class Component extends DCLogic {
       cl.push('      <asset-clip ref="a' + (i + 1) + '" name="' + nm + '"' + (s0 !== '0s' ? ' start="' + s0 + '"' : '') + ' duration="' + du + '" format="' + f.id + '" tcFormat="NDF">');
       if (kw.length) cl.push('        <keyword start="' + s0 + '" duration="' + du + '" value="' + xe(kw.join(', ')) + '"/>');
       if (rate) cl.push('        <rating start="' + s0 + '" duration="' + du + '" value="' + rate + '"/>');
+      cl.push(...flagMk(c, f, s0));
       cl.push('      </asset-clip>');
     });
+    // A "Skim" folder in the event's browser (round 2, fcpxml item 3): a keyword collection per scene (with Scenes on), and smart
+    // collections for Selected (favorites), Maybe (the maybe keyword) and Cut (rejected), each only when the file can fill it.
+    const Wd = m => { const w = this.W ? this.W(m) : m === 'keep' ? 'selected' : m; return w[0].toUpperCase() + w.slice(1); };
+    const co = [], scK = [...new Set(sq.map(x => scOf[x.c.id]).filter(Boolean))];
+    if (sq.length) {
+      if (ex.rate !== false && sq.some(x => x.m === 'keep')) co.push('        <smart-collection name="' + xe(Wd('keep')) + '" match="all">', '          <match-ratings value="favorites"/>', '        </smart-collection>');
+      if (kwM && sq.some(x => x.m === 'maybe')) co.push('        <smart-collection name="Maybe" match="all">', '          <match-keywords rule="includesAny">', '            <keyword-name value="' + xe(kwM) + '"/>', '          </match-keywords>', '        </smart-collection>');
+      if (ex.rate !== false && sq.some(x => x.m === 'cut')) co.push('        <smart-collection name="' + xe(Wd('cut')) + '" match="all">', '          <match-ratings value="rejected"/>', '        </smart-collection>');
+      scK.forEach(k => co.push('        <keyword-collection name="' + xe(k) + '"/>'));
+      if (co.length) { co.unshift('      <collection-folder name="Skim">'); co.push('      </collection-folder>'); }
+    }
+    const pj = [];
     // The sorted timeline (round 2, F1): a project in the same event, Selected first, then Maybe, then unmarked, cut last, each
     // part in capture order, with one marker on the first clip of each part naming it. The event's clips, ratings and keywords
     // are as before. The timeline runs at the first clip's format; a clip at another rate is cut to whole frames of it.
-    const pj = [];
     if (ex.sorted !== false && sq.length) {
-      const P = {keep:0, maybe:1, und:2, cut:3}, Wd = m => { const w = this.W ? this.W(m) : m === 'keep' ? 'selected' : m; return w[0].toUpperCase() + w.slice(1); }, NM = {keep:Wd('keep'), maybe:'Maybe', und:'Unmarked', cut:Wd('cut')}, S = sq[0].f;
+      const P = {keep:0, maybe:1, und:2, cut:3}, NM = {keep:Wd('keep'), maybe:'Maybe', und:'Unmarked', cut:Wd('cut')}, S = sq[0].f;
       const order = sq.map((x, j) => ({...x, p:P[x.m || 'und'], j})).sort((a, b) => a.p - b.p || a.j - b.j), n = {};
       order.forEach(x => { n[x.p] = (n[x.p] || 0) + 1; });
       let at = 0, last = -1;
@@ -5004,7 +5048,7 @@ class Component extends DCLogic {
       pj.unshift('      <project name="' + xe((ex.event || d.shoot.name) + ' · sorted') + '">', '        <sequence format="' + S.id + '" duration="' + (at * S.n) + '/' + S.dd + 's" tcStart="0s" tcFormat="NDF">', '          <spine>');
       pj.push('          </spine>', '        </sequence>', '      </project>');
     }
-    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
+    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...co, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
     return {n:clips.length, text, kws:[...kws]};
   })();
     this.bxM = {k:bk, x:bx}; return bx;
@@ -5111,8 +5155,12 @@ class Component extends DCLogic {
       if (a.getAttribute('id')) assets[a.getAttribute('id')] = {du, f:a.getAttribute('format'), s:a.getAttribute('start') || '0s'};
     });
     rk.forEach(r => { if (tag(r) !== 'format' && tag(r) !== 'asset') say('The resources hold something this page does not write.'); });
-    const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip'), pj = ek.filter(c => tag(c) === 'project');
-    if (cl.length + pj.length !== ek.length || pj.length > 1) say('The event holds something this page does not write.');
+    const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip'), pj = ek.filter(c => tag(c) === 'project'), cf = ek.filter(c => tag(c) === 'collection-folder');
+    if (cl.length + pj.length + cf.length !== ek.length || pj.length > 1 || cf.length > 1) say('The event holds something this page does not write.');
+    // the Skim folder: keyword collections and smart collections that match a rating or a keyword, nothing else
+    cf.forEach(f => kids(f).forEach(k => { const t = tag(k), m = kids(k);
+      if (t === 'keyword-collection' ? !k.getAttribute('name') || m.length : t !== 'smart-collection' || !k.getAttribute('name') || m.length !== 1 || !((tag(m[0]) === 'match-ratings' && /^(favorites|rejected)$/.test(m[0].getAttribute('value') || '')) || (tag(m[0]) === 'match-keywords' && kids(m[0]).length && kids(m[0]).every(x => tag(x) === 'keyword-name' && x.getAttribute('value')))))
+        say('The Skim folder holds something this page does not write.'); }));
     // the sorted timeline: one sequence in a known format, its spine the event's media, each clip placed and marked at most once
     pj.forEach(p => { const sq = kids(p, 'sequence'), sp = sq.length === 1 ? kids(sq[0], 'spine') : [];
       if (sq.length !== 1 || kids(p).length !== 1 || sp.length !== 1 || kids(sq[0]).length !== 1) { say('The timeline is not one sequence with one spine.'); return; }
@@ -5137,6 +5185,7 @@ class Component extends DCLogic {
         const t = tag(k), val = k.getAttribute('value'), whole = k.getAttribute('start') === cs && k.getAttribute('duration') === c.getAttribute('duration') && !kids(k).length;
         if (t === 'rating') { nr++; if (!whole || (val !== 'favorite' && val !== 'reject')) say(who + ' carries a rating this page does not write.'); }
         else if (t === 'keyword') { nk++; if (!whole || !val || val.split(', ').some(w => (kws || ['maybe']).indexOf(w) < 0)) say(who + ' carries a keyword this page does not write.'); }
+        else if (t === 'marker') { const ms = time(k.getAttribute('start')), c0 = time(cs), md = time(k.getAttribute('duration')); if (!val || !ms || !md || kids(k).length || (c0 && du && (ms[0] * c0[1] < c0[0] * ms[1] || ms[0] * c0[1] * du[1] >= (c0[0] * du[1] + du[0] * c0[1]) * ms[1]))) say(who + ' has a marker outside it or one this page does not write.'); }
         else say(who + ' carries something this page does not write.');
       });
       if (nr > 1 || nk > 1) say(who + ' is rated or tagged more than once.');
