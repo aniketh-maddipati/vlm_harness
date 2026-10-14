@@ -4678,9 +4678,10 @@ class Component extends DCLogic {
   extraVals(markN, markB, und) {
     const st = this.state, d = this.d, MK = Component.MK, has = this.hasShoot(), steps = [['import', 'Open'], ['skim', 'Skim'], ['export', 'Export']];
     const si = steps.findIndex(s => s[0] === st.step), ms = this.memStats();
-    const v = {dockExOn:has, dockEx:() => this.setStep('export'), dockExN:has ? this.plural(markN.keep + markN.maybe, 'clip') : '', isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
-      // Export is gold (LOCAL-CHANGES 276): the step the work goes to stands out once there is a shoot
-      stepTabs:steps.map((s, i) => { const ex = s[0] === 'export' && has; return {t:s[1], on:i === si, fg:ex ? (i === si ? '#1E1D1B' : '#FFD27A') : i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), bg:ex ? (i === si ? '#FFD27A' : 'rgba(255,210,122,0.14)') : 'transparent', fw:ex ? '700' : '400', go:() => this.setStep(s[0])}; }),
+    const picked = has && (markN.keep || 0) + (markN.maybe || 0) > 0;
+    const v = {dockExOn:picked, dockEx:() => this.setStep('export'), dockExN:picked ? this.plural(markN.keep + markN.maybe, 'clip') : '', isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
+      // Export is gold (LOCAL-CHANGES 276): the step the work goes to stands out once a clip is selected or a maybe (marks kept from before count)
+      stepTabs:steps.map((s, i) => { const ex = s[0] === 'export' && picked; return {t:s[1], on:i === si, fg:ex ? (i === si ? '#1E1D1B' : '#FFD27A') : i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), bg:ex ? (i === si ? '#FFD27A' : 'rgba(255,210,122,0.14)') : 'transparent', fw:ex ? '700' : '400', go:() => this.setStep(s[0])}; }),
       dbgOn:!!st.dbg, cvA:!!st.cv, cvT:'one grid · ' + (st.cv ? 'on' : 'off'), cvFg:st.cv ? '#1E1D1B' : '#B8B3AB', cvBg:st.cv ? '#B8B3AB' : 'rgba(239,236,230,0.06)', cvToggle:this.cvToggle, dropNote:(window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves ' + this.devName() + '.') + ' Marks stay in this tab and are gone when it closes.',
       closeGo:this.closeShoot, closeT:st.closeConfirm ? 'Close? Click again' : 'Close', closeFg:st.closeConfirm ? '#FFD27A' : '#9A958D', closeBg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.06)',
       closeTip:'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open. Marks are not saved: ' + (Object.keys(st.marks).length ? 'its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' go with it. Download for Final Cut first.' : 'nothing to lose.') + ' ⌘W',
