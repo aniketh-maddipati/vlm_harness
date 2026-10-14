@@ -72,6 +72,62 @@ final class SetsMasksTests: XCTestCase {
         XCTAssertTrue(JSONSerialization.isValidJSONObject(found.map(\.dictionary)))
     }
 
+    /// A blue sky, darker at the top, over green hills with a jagged ridge and some texture:
+    /// something the scene classifier may call sky.
+    private func skyPicture(w: Int = 1024, h: Int = 683) -> CGImage {
+        let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+        let W = CGFloat(w), H = CGFloat(h)
+        let sky = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
+                             colors: [CGColor(red: 0.20, green: 0.42, blue: 0.85, alpha: 1), CGColor(red: 0.62, green: 0.78, blue: 0.95, alpha: 1)] as CFArray,
+                             locations: [0, 1])!
+        ctx.drawLinearGradient(sky, start: CGPoint(x: 0, y: H), end: CGPoint(x: 0, y: 0.4 * H), options: [.drawsAfterEndLocation])
+        let ridge = CGMutablePath()
+        ridge.move(to: .zero)
+        for i in 0...16 {
+            let peak: CGFloat = i % 2 == 0 ? 0.08 : 0, step: CGFloat = 0.04 * CGFloat(i % 3)
+            ridge.addLine(to: CGPoint(x: W * CGFloat(i) / 16, y: H * (0.42 + peak + step)))
+        }
+        ridge.addLine(to: CGPoint(x: W, y: 0)); ridge.closeSubpath()
+        ctx.setFillColor(CGColor(red: 0.22, green: 0.38, blue: 0.16, alpha: 1)); ctx.addPath(ridge); ctx.fillPath()
+        var seed: UInt64 = 1
+        for _ in 0..<4000 {                                              // texture: small dark and light leaves
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            let x = CGFloat(seed >> 40 & 0xFFFF) / 65535 * W, y = CGFloat(seed >> 20 & 0xFFFF) / 65535 * 0.42 * H, k = CGFloat(seed & 0xFF) / 255
+            ctx.setFillColor(CGColor(red: 0.12 + 0.3 * k, green: 0.25 + 0.3 * k, blue: 0.08 + 0.1 * k, alpha: 1))
+            ctx.fill(CGRect(x: x, y: y, width: 4, height: 4))
+        }
+        return ctx.makeImage()!
+    }
+
+    func testColourPlanesAreThePicturesOwn() throws {
+        let img = skyPicture(w: 64, h: 48)
+        let c = try XCTUnwrap(SetsMasks.rgb(img))
+        XCTAssertEqual(c.red.width, 64); XCTAssertEqual(c.blue.height, 48)
+        XCTAssertGreaterThan(c.blue[32, 0], c.red[32, 0] + 0.3, "the top row is the sky (row 0 is the picture's top)")
+        XCTAssertGreaterThan(c.green[32, 47], c.blue[32, 47], "the bottom row is the hills")
+    }
+
+    /// The classifier is the gate: a picture it calls sky gets a "sky" mask, between the objects
+    /// and the background. Skips where Vision can't classify, or doesn't call this drawing sky.
+    func testASkyPictureGetsASkyMaskWhenTheClassifierSaysSky() throws {
+        let img = skyPicture()
+        guard let labels = SetsMasks.scene(img) else { throw XCTSkip("Vision's scene classifier doesn't run on this Mac") }
+        XCTAssertFalse(labels.isEmpty, "the classifier answered with labels")
+        XCTAssertNil(SetsMasks.sky(img, labels: [:]), "no sky label, no sky looked for")
+        guard let score = LookMasks.skyScore(labels) else {
+            throw XCTSkip("Vision doesn't call this drawing sky: \(labels.filter { $0.value > 0.1 }.sorted { $0.value > $1.value }.prefix(8))")
+        }
+        let region = try XCTUnwrap(SetsMasks.sky(img, labels: labels), "the finder finds the drawn sky")
+        XCTAssertEqual(region.score, score, accuracy: 1e-9)
+        XCTAssertGreaterThan(LookMasks.area(region.mask), 0.3)
+        let found = try XCTUnwrap(SetsMasks.masks(img))
+        let sky = try XCTUnwrap(found.first { $0.kind == .sky })
+        XCTAssertEqual(sky.id, "sky")
+        if let bg = found.firstIndex(where: { $0.kind == .background }) { XCTAssertLessThan(found.firstIndex(where: { $0.kind == .sky })!, bg) }
+        XCTAssertTrue(JSONSerialization.isValidJSONObject(found.map(\.dictionary)))
+    }
+
     func testAJPEGThatIsNotOneIsNil() {
         XCTAssertNil(SetsMasks.masks(jpeg: Data("not a jpeg".utf8)))
     }

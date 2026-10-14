@@ -249,7 +249,7 @@
     nearLimit: typeof cfg.nearLimit === 'number' ? cfg.nearLimit : null,
     // The selections the Mac finds in a photo by itself, for Edit's automatic masks (DESIGN-ASKS
     // Prompt 28), on its embedded preview (never a RAW decode). Takes a photo path; resolves to a
-    // list, subject first: [{id, kind ('subject' | 'person' | 'object' | 'background'), score,
+    // list, subject first: [{id, kind ('subject' | 'person' | 'object' | 'sky' | 'background'), score,
     // box: [x, y, w, h], area, outline: [[[x, y], …], …]}], every number a fraction of the photo
     // from its top left, each outline loop closed and filled even-odd (a hole is a loop of its own).
     // An empty list is a photo with nothing to select; null when the photo wasn't read here or the

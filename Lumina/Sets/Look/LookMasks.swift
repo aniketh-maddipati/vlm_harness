@@ -38,7 +38,7 @@ nonisolated enum LookMasks {
 
     /// What a found mask is, in the order the page lists them.
     enum Kind: String, Sendable, CaseIterable {
-        case subject, person, object, background
+        case subject, person, object, sky, background
     }
 
     /// A box in fractions of the photo (0 … 1, from the top left).
@@ -307,13 +307,17 @@ nonisolated enum LookMasks {
     /// that stands out most (saliency × √area, or area alone without saliency), listed first on
     /// its own as Lightroom lists Select Subject; it stays in its own list too. The background is
     /// everything outside every object and person, listed when it is between 2 % and 98 % of the
-    /// photo. Regions under `minArea` of the photo are dropped.
-    static func name(people: [Region], objects: [Region], sameAs: Double = 0.5, minArea: Double = 0.002,
+    /// photo. Regions under `minArea` of the photo are dropped. `sky` (from `sky(red:green:blue:)`)
+    /// is listed after the objects and before the background, id "sky". The background is not
+    /// cut by the sky: Lightroom's Select Sky and Select Background are separate selections that
+    /// overlap, and someone who wants the land alone subtracts one from the other.
+    static func name(people: [Region], objects: [Region], sky: Region? = nil, sameAs: Double = 0.5, minArea: Double = 0.002,
                      tolerance: Double = 1.0) -> [Found] {
         let people = people.filter { area($0.mask) >= minArea }
         let objects = objects.filter { o in area(o.mask) >= minArea && !people.contains { iou($0.mask, o.mask) >= sameAs } }
         let all = people.map { (Kind.person, $0) } + objects.map { (Kind.object, $0) }
-        guard let size = all.first?.1.mask else { return [] }
+        let sky = sky.flatMap { area($0.mask) >= minArea ? $0 : nil }
+        guard let size = all.first?.1.mask ?? sky?.mask else { return [] }
         func standout(_ r: Region) -> Double { let a = area(r.mask); return r.saliency.map { $0 * a.squareRoot() } ?? a }
         func found(_ id: String, _ kind: Kind, _ r: Region) -> Found? {
             guard let b = box(r.mask) else { return nil }
@@ -323,11 +327,187 @@ nonisolated enum LookMasks {
         if let top = all.max(by: { standout($0.1) < standout($1.1) }), let s = found("subject", .subject, top.1) { list.append(s) }
         for (i, r) in people.enumerated() { if let f = found("person-\(i + 1)", .person, r) { list.append(f) } }
         for (i, r) in objects.enumerated() { if let f = found("object-\(i + 1)", .object, r) { list.append(f) } }
+        if let sky, let f = found("sky", .sky, sky) { list.append(f) }
         var fg = Plane(width: size.width, height: size.height)
         for (_, r) in all { fg = union(fg, r.mask) }
         let bg = Region(mask: invert(fg), score: all.map { $0.1.score }.max() ?? 0, saliency: nil)
         let bgArea = area(bg.mask)
         if bgArea >= 0.02 && bgArea <= 0.98, let f = found("background", .background, bg) { list.append(f) }
         return list
+    }
+
+    // MARK: Sky
+
+    /// The scene labels of Vision's classifier (`VNClassifyImageRequest`, on the Mac) that say a
+    /// photo shows sky; `SetsMasks` looks for sky only when one of them reaches `skyThreshold`.
+    /// Vision has no sky segmentation for an arbitrary photo, so the label is the gate and
+    /// `sky(red:green:blue:)` is the finding. Names from the classifier's taxonomy as documented;
+    /// a name this Mac's taxonomy lacks never matches, so the list can only be too short, never
+    /// wrong (check against `supportedIdentifiers()` on a Mac). Add a label here to widen the gate.
+    static let skyLabels: Set<String> = ["sky", "blue_sky", "cloudy", "sunset_sunrise", "rainbow", "storm"]
+
+    /// How sure the classifier must be of a sky label. Its confidences are per label, not shared
+    /// out between labels (a landscape is "outdoor", "sky" and "mountain" at once), so this is a
+    /// floor on the label alone. Lower runs the finder on more photos; on one without sky it
+    /// mostly returns nil anyway (it needs smooth, sky-coloured pixels along the top).
+    static let skyThreshold: Float = 0.3
+
+    /// The gate: the highest confidence among `labels` (the classifier's, name → confidence) that
+    /// is one of `names` at or over `threshold`; nil when none is, and there is no sky to look for.
+    static func skyScore(_ labels: [String: Float], among names: Set<String> = skyLabels, threshold: Float = skyThreshold) -> Double? {
+        labels.filter { names.contains($0.key) && $0.value >= threshold }.values.max().map { Double(min(1, max(0, $0))) }
+    }
+
+    /// How sky-like each pixel is, 0 … 1, from its colour and how smooth its neighbourhood is
+    /// (planes 0 … 1, sRGB encoded, one size). Colour is the best of three skies: blue (blue over
+    /// red and not under green, not darker than twilight), overcast (bright and nearly neutral)
+    /// and sunset (bright, red or blue over green: orange, pink, purple). Green over both red and blue counts against
+    /// it (foliage, grass). Smoothness is the local standard deviation of luminance over a
+    /// `(2r + 1)²` window, `r` = long edge / 256 (at least 2): smooth under 0.012, texture over
+    /// 0.04. Sky is a gentle gradient (a JPEG's noise in it is well under 0.012); ground is texture.
+    static func skyLikelihood(red: Plane, green: Plane, blue: Plane) -> Plane {
+        let y = skyLuma(red: red, green: green, blue: blue)
+        let c = skyColour(red: red, green: green, blue: blue, luma: y), s = skySmooth(y)
+        var out = c
+        for i in out.values.indices { out.values[i] = c.values[i] * s.values[i] }
+        return out
+    }
+
+    /// The sky in a photo, as a mask of its size (soft at the edge), or nil when it is under
+    /// `minArea` of the photo. Planes 0 … 1, sRGB encoded, one size (the preview at mask size).
+    /// Lightroom's Select Sky without a model:
+    ///
+    /// 1. Each pixel's likelihood (`skyLikelihood`); 0.5 and over is a candidate.
+    /// 2. The sky is the candidates connected (4-way) to the top 2 % of rows: sky is what the photo
+    ///    looks up into. A candidate patch apart from it (sky between branches, under an arch) joins
+    ///    when its mean colour is within 0.12 of the sky's and it starts above the sky's lowest row;
+    ///    a blue car below the horizon does not.
+    /// 3. Gaps under ~6 px (at 1024) are closed (a dilation, then an erosion); pixels beside the
+    ///    sky that are sky-coloured but were refused as texture (next to a twig, a cloud's edge)
+    ///    join it; holes are filled: any the sky encloses (a cloud, a bird), and small ones (under
+    ///    2 % of the photo) it encloses against the top edge. A hole touching the photo's left,
+    ///    right or bottom edge is ground and stays out.
+    /// 4. `refine`: the edge is snapped to the photo's luminance (`guided`, radius long edge / 128),
+    ///    so a skyline and the gaps in a tree are followed, as the other masks' edges are.
+    ///
+    /// Deterministic: box filters and flood fills, a dozen passes over the pixels.
+    static func sky(red: Plane, green: Plane, blue: Plane, refine: Bool = true, minArea: Double = 0.03) -> Plane? {
+        precondition(red.width == green.width && red.width == blue.width && red.height == green.height && red.height == blue.height,
+                     "colour planes must be the same size")
+        let w = red.width, h = red.height, n = w * h, long = max(w, h)
+        guard w > 1, h > 1 else { return nil }
+        let y = skyLuma(red: red, green: green, blue: blue)
+        let colour = skyColour(red: red, green: green, blue: blue, luma: y), smooth = skySmooth(y)
+        var cand = [Bool](repeating: false, count: n)
+        for i in 0..<n { cand[i] = colour.values[i] * smooth.values[i] >= 0.5 }
+
+        // 2. Connected to the top, and the patches that match it.
+        let parts = skyComponents(cand, width: w, height: h)
+        var isSky = [Bool](repeating: false, count: parts.count)
+        for i in 0..<(max(1, h / 50) * w) where parts.of[i] >= 0 { isSky[Int(parts.of[i])] = true }
+        guard isSky.contains(true) else { return nil }
+        var sum = [(r: Double, g: Double, b: Double, n: Double)](repeating: (0, 0, 0, 0), count: parts.count)
+        var top = [Int](repeating: h, count: parts.count)
+        var bottom = 0
+        for i in 0..<n where parts.of[i] >= 0 {
+            let l = Int(parts.of[i])
+            sum[l].r += Double(red.values[i]); sum[l].g += Double(green.values[i]); sum[l].b += Double(blue.values[i]); sum[l].n += 1
+            top[l] = min(top[l], i / w)
+            if isSky[l] { bottom = max(bottom, i / w) }
+        }
+        var all = (r: 0.0, g: 0.0, b: 0.0, n: 0.0)
+        for l in 0..<parts.count where isSky[l] { all.r += sum[l].r; all.g += sum[l].g; all.b += sum[l].b; all.n += sum[l].n }
+        for l in 0..<parts.count where !isSky[l] && top[l] < bottom {
+            let dr = sum[l].r / sum[l].n - all.r / all.n, dg = sum[l].g / sum[l].n - all.g / all.n, db = sum[l].b / sum[l].n - all.b / all.n
+            if (dr * dr + dg * dg + db * db).squareRoot() <= 0.12 { isSky[l] = true }
+        }
+        var m = Plane(width: w, height: h)
+        for i in 0..<n where parts.of[i] >= 0 && isSky[Int(parts.of[i])] { m.values[i] = 1 }
+
+        // 3. Close small gaps, take in sky-coloured neighbours, fill holes.
+        let gap = max(1, long / 341)
+        m = skyBinary(boxMean(skyBinary(boxMean(m, radius: gap), over: 0.001), radius: gap), over: 0.999)
+        let beside = skyBinary(boxMean(m, radius: 2 * max(1, long / 256)), over: 0.001)
+        for i in 0..<n where beside.values[i] == 1 && colour.values[i] >= 0.5 { m.values[i] = 1 }
+        let holes = skyComponents(m.values.map { $0 < 0.5 }, width: w, height: h)
+        var edge = [UInt8](repeating: 0, count: holes.count)            // bit 0: the top; bit 1: left, right or bottom
+        var size = [Int](repeating: 0, count: holes.count)
+        for i in 0..<n where holes.of[i] >= 0 {
+            let l = Int(holes.of[i]), x = i % w, row = i / w
+            size[l] += 1
+            if row == 0 { edge[l] |= 1 }
+            if x == 0 || x == w - 1 || row == h - 1 { edge[l] |= 2 }
+        }
+        for i in 0..<n where holes.of[i] >= 0 {
+            let l = Int(holes.of[i])
+            if edge[l] == 0 || (edge[l] == 1 && Double(size[l]) < 0.02 * Double(n)) { m.values[i] = 1 }
+        }
+
+        // 4. Snap the edge to the photo.
+        if refine { m = guided(m, guide: y, radius: max(2, long / 128)) }
+        return area(m) >= minArea ? m : nil
+    }
+
+    /// Rec. 709 weights on the encoded values: a guide, not a measurement.
+    private static func skyLuma(red: Plane, green: Plane, blue: Plane) -> Plane {
+        var y = red
+        for i in y.values.indices { y.values[i] = 0.2126 * red.values[i] + 0.7152 * green.values[i] + 0.0722 * blue.values[i] }
+        return y
+    }
+
+    /// 0 at or under `lo`, 1 at or over `hi`, linear between.
+    private static func skyRamp(_ v: Float, _ lo: Float, _ hi: Float) -> Float { min(1, max(0, (v - lo) / (hi - lo))) }
+
+    private static func skyColour(red: Plane, green: Plane, blue: Plane, luma: Plane) -> Plane {
+        var out = luma
+        for i in out.values.indices {
+            let r = red.values[i], g = green.values[i], b = blue.values[i], y = luma.values[i]
+            let chroma = max(r, g, b) - min(r, g, b)
+            let blueSky = skyRamp(b - r, 0.03, 0.12) * skyRamp(b - g, -0.06, 0) * skyRamp(y, 0.08, 0.2)
+            let overcast = skyRamp(y, 0.45, 0.6) * (1 - skyRamp(chroma, 0.10, 0.18))
+            let sunset = skyRamp(y, 0.35, 0.5) * skyRamp(max(r, b) - g, 0.03, 0.1)
+            let foliage = skyRamp(g - max(r, b), 0.02, 0.08)
+            out.values[i] = max(blueSky, overcast, sunset) * (1 - foliage)
+        }
+        return out
+    }
+
+    private static func skySmooth(_ y: Plane) -> Plane {
+        let r = max(2, max(y.width, y.height) / 256)
+        var yy = y
+        for i in yy.values.indices { yy.values[i] = y.values[i] * y.values[i] }
+        let m = boxMean(y, radius: r), m2 = boxMean(yy, radius: r)
+        var out = y
+        for i in out.values.indices {
+            let sd = max(0, m2.values[i] - m.values[i] * m.values[i]).squareRoot()
+            out.values[i] = 1 - skyRamp(sd, 0.012, 0.04)
+        }
+        return out
+    }
+
+    /// 1 where `p` is over `over`, else 0.
+    private static func skyBinary(_ p: Plane, over: Float) -> Plane {
+        var out = p
+        for i in out.values.indices { out.values[i] = p.values[i] > over ? 1 : 0 }
+        return out
+    }
+
+    /// The 4-connected components of `on`: each pixel's component (-1 where off), and how many.
+    private static func skyComponents(_ on: [Bool], width w: Int, height h: Int) -> (of: [Int32], count: Int) {
+        var of = [Int32](repeating: -1, count: on.count)
+        var count: Int32 = 0
+        var stack: [Int] = []
+        for s in on.indices where on[s] && of[s] < 0 {
+            of[s] = count; stack.append(s)
+            while let i = stack.popLast() {
+                let x = i % w
+                if x > 0, on[i - 1], of[i - 1] < 0 { of[i - 1] = count; stack.append(i - 1) }
+                if x < w - 1, on[i + 1], of[i + 1] < 0 { of[i + 1] = count; stack.append(i + 1) }
+                if i >= w, on[i - w], of[i - w] < 0 { of[i - w] = count; stack.append(i - w) }
+                if i + w < h * w, on[i + w], of[i + w] < 0 { of[i + w] = count; stack.append(i + w) }
+            }
+            count += 1
+        }
+        return (of, Int(count))
     }
 }

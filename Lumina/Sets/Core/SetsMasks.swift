@@ -12,9 +12,12 @@ import Vision
 /// photo, outlines, naming) is `LookMasks`.
 ///
 /// Finders (macOS 14+, all on the Mac): `VNGeneratePersonInstanceMaskRequest` (up to four people),
-/// `VNGenerateForegroundInstanceMaskRequest` (the salient objects, people included) and
-/// `VNGenerateAttentionBasedSaliencyImageRequest` (which of them stands out). Sky and the
-/// landscape classes need a model of their own and come later.
+/// `VNGenerateForegroundInstanceMaskRequest` (the salient objects, people included),
+/// `VNGenerateAttentionBasedSaliencyImageRequest` (which of them stands out) and
+/// `VNClassifyImageRequest` (the scene's labels: when one is a sky label, `LookMasks.sky` finds
+/// the sky from the picture's own colour and texture, Lightroom's Select Sky without a model;
+/// Vision segments no sky in an arbitrary photo and nothing is downloaded). Only the masks are
+/// kept, never the labels. The other landscape classes (water, mountains, vegetation) come later.
 ///
 /// Thread-safe. One photo at a time at `.utility`, one finding per photo however many ask.
 nonisolated final class SetsMasks: @unchecked Sendable {
@@ -101,10 +104,12 @@ nonisolated final class SetsMasks: @unchecked Sendable {
         let people = VNGeneratePersonInstanceMaskRequest()
         let objects = VNGenerateForegroundInstanceMaskRequest()
         let saliency = VNGenerateAttentionBasedSaliencyImageRequest()
+        let scene = VNClassifyImageRequest()
         // Each on its own: one finder failing (or unsupported on this Mac) leaves the others.
         let peopleRan = (try? handler.perform([people])) != nil
         let objectsRan = (try? handler.perform([objects])) != nil
-        guard peopleRan || objectsRan else { return nil }
+        let sceneRan = (try? handler.perform([scene])) != nil
+        guard peopleRan || objectsRan || sceneRan else { return nil }
         _ = try? handler.perform([saliency])
 
         let w = image.width, h = image.height
@@ -123,7 +128,31 @@ nonisolated final class SetsMasks: @unchecked Sendable {
             }
         }
         return LookMasks.name(people: regions(peopleRan ? people.results?.first : nil),
-                              objects: regions(objectsRan ? objects.results?.first : nil))
+                              objects: regions(objectsRan ? objects.results?.first : nil),
+                              sky: sceneRan ? sky(image, labels: labels(scene), refine: refine) : nil)
+    }
+
+    /// The classifier's labels, identifier → confidence (each label's own, 0 … 1).
+    private static func labels(_ request: VNClassifyImageRequest) -> [String: Float] {
+        var out: [String: Float] = [:]
+        for o in request.results ?? [] { out[o.identifier] = max(out[o.identifier] ?? 0, o.confidence) }
+        return out
+    }
+
+    /// The scene labels Vision gives a picture (`VNClassifyImageRequest`, on device), nil when
+    /// the classifier can't run here. The gate `masks(_:)` passes them through.
+    static func scene(_ image: CGImage) -> [String: Float]? {
+        let request = VNClassifyImageRequest()
+        guard (try? VNImageRequestHandler(cgImage: image, options: [:]).perform([request])) != nil else { return nil }
+        return labels(request)
+    }
+
+    /// The sky in a picture whose labels pass the gate (`LookMasks.skyScore`), scored by that
+    /// label's confidence; nil when no sky label passes or `LookMasks.sky` finds too little.
+    static func sky(_ image: CGImage, labels: [String: Float], refine: Bool = true) -> LookMasks.Region? {
+        guard let score = LookMasks.skyScore(labels), let c = rgb(image),
+              let mask = LookMasks.sky(red: c.red, green: c.green, blue: c.blue, refine: refine) else { return nil }
+        return LookMasks.Region(mask: mask, score: score, saliency: nil)
     }
 
     /// A one-channel pixel buffer (Vision's masks are 32-bit float, 0 … 1; 8-bit read as /255).
@@ -163,5 +192,25 @@ nonisolated final class SetsMasks: @unchecked Sendable {
         var p = LookMasks.Plane(width: w, height: h)
         for y in 0..<h { for x in 0..<w { p.values[y * w + x] = Float(bytes[y * row + x]) / 255 } }
         return p
+    }
+
+    /// The picture's colour as three planes, 0 … 1, sRGB encoded, at its own size: what
+    /// `LookMasks.sky` reads.
+    static func rgb(_ image: CGImage) -> (red: LookMasks.Plane, green: LookMasks.Plane, blue: LookMasks.Plane)? {
+        let w = image.width, h = image.height
+        guard w > 0, h > 0, let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: space, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        guard let data = ctx.data else { return nil }
+        let bytes = data.assumingMemoryBound(to: UInt8.self), row = ctx.bytesPerRow
+        var r = LookMasks.Plane(width: w, height: h), g = r, b = r
+        for y in 0..<h {
+            for x in 0..<w {
+                let o = y * row + 4 * x, i = y * w + x                  // R, G, B, then the skipped byte
+                r.values[i] = Float(bytes[o]) / 255; g.values[i] = Float(bytes[o + 1]) / 255; b.values[i] = Float(bytes[o + 2]) / 255
+            }
+        }
+        return (r, g, b)
     }
 }

@@ -165,6 +165,132 @@ final class LookMasksTests: XCTestCase {
         XCTAssertEqual(outline.count, 1); XCTAssertTrue(outline[0].allSatisfy { $0.count == 2 })
         XCTAssertTrue(JSONSerialization.isValidJSONObject(found.map(\.dictionary)))
     }
+    // MARK: Sky
+
+    /// A synthetic photo: three colour planes and where the sky truly is.
+    private struct Scene { var r, g, b, truth: M.Plane }
+
+    /// A deterministic 0 … 1 stream (an LCG), so the scenes are the same on every run.
+    private struct LCG {
+        var s: UInt64
+        mutating func next() -> Float { s = s &* 6364136223846793005 &+ 1442695040888963407; return Float(s >> 40) / Float(1 << 24) }
+    }
+
+    /// Texture as ground has it: per-pixel noise on 4 px blocks of noise, 0 … 1.
+    private func ground(_ w: Int, _ h: Int, _ rnd: inout LCG) -> [Float] {
+        let bw = w / 4 + 1
+        var blocks = [Float](repeating: 0, count: bw * (h / 4 + 1))
+        for i in blocks.indices { blocks[i] = rnd.next() }
+        var out = [Float](repeating: 0, count: w * h)
+        for i in out.indices {
+            let block: Float = blocks[(i / w / 4) * bw + (i % w) / 4]
+            out[i] = 0.6 * block + 0.4 * rnd.next()
+        }
+        return out
+    }
+
+    /// `sky(t)` (t = 0 at the top, 1 at the bottom) above a jagged skyline (a random walk with
+    /// steps, between 35 % and 65 % of the height, or at `line` when given), textured
+    /// green-brown ground below, a little noise on everything.
+    private func landscape(_ w: Int = 192, _ h: Int = 128, seed: UInt64 = 1, line: Int? = nil,
+                           sky: (Float) -> (Float, Float, Float),
+                           earth: (Float) -> (Float, Float, Float) = { k in (0.18 + 0.45 * k, 0.30 + 0.40 * k, 0.10 + 0.25 * k) }) -> Scene {
+        var rnd = LCG(s: seed)
+        var edge = [Int](repeating: 0, count: w), v = Float(h) / 2
+        for x in 0..<w {
+            v += (rnd.next() - 0.5) * Float(h) / 30
+            if x % 16 == 0 { v += (rnd.next() - 0.5) * Float(h) / 5 }
+            v = min(0.65 * Float(h), max(0.35 * Float(h), v)); edge[x] = line ?? Int(v)
+        }
+        let tex = ground(w, h, &rnd)
+        var s = Scene(r: M.Plane(width: w, height: h), g: M.Plane(width: w, height: h), b: M.Plane(width: w, height: h), truth: M.Plane(width: w, height: h))
+        for y in 0..<h { for x in 0..<w {
+            let i = y * w + x, n = (rnd.next() - 0.5) * 0.02
+            let c = y < edge[x] ? sky(Float(y) / Float(h)) : earth(tex[i])
+            s.r.values[i] = min(1, max(0, c.0 + n)); s.g.values[i] = min(1, max(0, c.1 + n)); s.b.values[i] = min(1, max(0, c.2 + n))
+            s.truth.values[i] = y < edge[x] ? 1 : 0
+        } }
+        return s
+    }
+
+    private let blueSky: (Float) -> (Float, Float, Float) = { t in (0.25 + 0.35 * t, 0.45 + 0.30 * t, 0.85 + 0.08 * t) }
+
+    private func sky(_ s: Scene) -> M.Plane? { M.sky(red: s.r, green: s.g, blue: s.b) }
+
+    func testTheGateIsASkyLabelOverTheThreshold() {
+        XCTAssertEqual(M.skyScore(["outdoor": 0.9, "sky": 0.6, "blue_sky": 0.7]) ?? 0, 0.7, accuracy: 1e-6, "the most confident sky label")
+        XCTAssertNil(M.skyScore(["outdoor": 0.9, "sky": M.skyThreshold - 0.01]), "under the threshold")
+        XCTAssertNil(M.skyScore(["kitchen": 0.95, "food": 0.8]), "no sky label")
+        XCTAssertNil(M.skyScore([:]))
+        XCTAssertEqual(M.skyScore(["horizon": 0.5], among: ["horizon"], threshold: 0.4) ?? 0, 0.5, accuracy: 1e-6, "labels and threshold are parameters")
+        XCTAssertTrue(M.skyLabels.contains("sky"))
+    }
+
+    func testABlueSkyOverAJaggedSkylineIsFound() throws {
+        let s = landscape(sky: blueSky)
+        let m = try XCTUnwrap(sky(s))
+        XCTAssertGreaterThan(M.iou(m, s.truth), 0.95, "IoU \(M.iou(m, s.truth))")
+        XCTAssertTrue(m.values.allSatisfy { $0 >= 0 && $0 <= 1 })
+        XCTAssertEqual(M.sky(red: s.r, green: s.g, blue: s.b), m, "deterministic")
+    }
+
+    func testAnOvercastWhiteSkyIsFound() throws {
+        let s = landscape(seed: 2, sky: { t in (0.78 + 0.08 * t, 0.80 + 0.08 * t, 0.83 + 0.07 * t) },
+                          earth: { k in (0.25 + 0.35 * k, 0.30 + 0.35 * k, 0.25 + 0.25 * k) })
+        let m = try XCTUnwrap(sky(s))
+        XCTAssertGreaterThan(M.iou(m, s.truth), 0.95, "IoU \(M.iou(m, s.truth))")
+    }
+
+    func testASunsetFromPurpleToOrangeIsFound() throws {
+        let s = landscape(seed: 3, sky: { t in let k = min(1, t / 0.6); return (0.45 + 0.55 * k, 0.35 + 0.30 * k, 0.65 - 0.35 * k) },
+                          earth: { k in (0.06 + 0.25 * k, 0.05 + 0.18 * k, 0.05 + 0.12 * k) })
+        let m = try XCTUnwrap(sky(s))
+        XCTAssertGreaterThan(M.iou(m, s.truth), 0.95, "IoU \(M.iou(m, s.truth))")
+    }
+
+    func testATexturedRoomHasNoSky() {
+        var rnd = LCG(s: 4)
+        let w = 192, h = 128, tex = ground(w, h, &rnd)
+        let r = M.Plane(width: w, height: h, values: tex.map { 0.35 + 0.4 * $0 })!
+        let g = M.Plane(width: w, height: h, values: tex.map { 0.25 + 0.3 * $0 })!
+        let b = M.Plane(width: w, height: h, values: tex.map { 0.18 + 0.2 * $0 })!
+        XCTAssertNil(M.sky(red: r, green: g, blue: b))
+        let grey = M.Plane(width: w, height: h, fill: 0.5)
+        XCTAssertNil(M.sky(red: grey, green: grey, blue: grey), "a flat mid grey is too dark for overcast")
+    }
+
+    func testABlueObjectBelowTheHorizonIsNotSky() throws {
+        var s = landscape(seed: 5, sky: blueSky)
+        var object = M.Plane(width: s.r.width, height: s.r.height)
+        for y in 0..<s.r.height { for x in 0..<s.r.width {
+            let dx = Double(x) - 60, dy = Double(y) - 108
+            if dx * dx + dy * dy < 14 * 14 { s.r[x, y] = 0.30; s.g[x, y] = 0.55; s.b[x, y] = 0.90; object[x, y] = 1; s.truth[x, y] = 0 }
+        } }
+        let m = try XCTUnwrap(sky(s))
+        XCTAssertLessThan(M.mean(m, inside: object), 0.02, "the blue disc is not sky")
+        XCTAssertGreaterThan(M.iou(m, s.truth), 0.95, "IoU \(M.iou(m, s.truth))")
+    }
+
+    func testASkyUnderThreePercentIsNil() {
+        let s = landscape(seed: 6, line: 3, sky: blueSky)
+        XCTAssertLessThan(M.area(s.truth), 0.03)
+        XCTAssertNil(sky(s))
+    }
+
+    func testSkyIsListedAfterObjectsAndTheBackgroundStaysWhole() throws {
+        let s = landscape(seed: 7, sky: blueSky)
+        let skyMask = try XCTUnwrap(sky(s))
+        let rock = disc(192, 128, cx: 50, cy: 105, r: 22)
+        let found = M.name(people: [], objects: [region(rock)], sky: region(skyMask, score: 0.8))
+        XCTAssertEqual(found.map(\.id), ["subject", "object-1", "sky", "background"])
+        XCTAssertEqual(found.map(\.kind), [.subject, .object, .sky, .background])
+        XCTAssertEqual(found[2].score, 0.8, accuracy: 1e-9)
+        XCTAssertEqual(found[3].area, 1 - M.area(rock), accuracy: 1e-9, "the background is everything not an object or person, sky included")
+        XCTAssertEqual(found[2].dictionary["kind"] as? String, "sky")
+        XCTAssertFalse(found[2].outline.isEmpty)
+        XCTAssertEqual(M.name(people: [], objects: [], sky: region(skyMask)).map(\.id), ["sky"],
+                       "a landscape with nothing in it: the sky alone (the background would be the whole photo)")
+    }
 }
 
 private extension LookMasks.Plane {

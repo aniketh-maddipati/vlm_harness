@@ -1462,7 +1462,7 @@ changed or added, as full functions, not a description and not a partial diff. L
 ## Prompt 28 — Edit offers the masks Lumina found (paste into Claude Design)
 
 Lumina now finds the selections in a photo by itself, the way Lightroom's Select Subject, Select
-People, Select Objects and Select Background do, so in Edit nobody has to draw before they adjust a
+People, Select Objects, Select Sky and Select Background do, so in Edit nobody has to draw before they adjust a
 part of the photo. This prompt is the page's half: listing what was found and choosing one. The
 adjustments for a chosen mask come in a later prompt, once the app renders them.
 
@@ -1473,7 +1473,7 @@ Masks section, and no error):
 [{ id: 'subject', kind: 'subject', score: 0.93, box: [x, y, w, h], area: 0.18,
    outline: [[[x, y], [x, y], …], …] },
  { id: 'person-1', kind: 'person', … }, { id: 'object-1', kind: 'object', … },
- { id: 'background', kind: 'background', … }]
+ { id: 'sky', kind: 'sky', … }, { id: 'background', kind: 'background', … }]
 ```
 Every number is a fraction of the photo from its top left, before crop and rotation. `outline` is
 closed loops, filled with the even-odd rule (a hole, such as the gap under an arm, is a loop of its
@@ -1482,7 +1482,7 @@ time; ask once per photo and keep the answer.
 
 **2. The Masks section.** Above the sliders in Edit's right column, a section titled **Masks** lists
 what was found, one row each, in the list's order: **Subject**, **Person 1**, **Person 2**, …,
-**Object 1**, …, **Background**. While the answer is on its way the section shows one line,
+**Object 1**, …, **Sky**, **Background**. While the answer is on its way the section shows one line,
 "Finding subjects…". With an empty list it shows "Nothing to select in this photo".
 
 **3. Showing a mask.** Hovering a row shows that mask on the photo; leaving the row hides it. Clicking a
