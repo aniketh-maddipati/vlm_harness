@@ -500,8 +500,9 @@ body:has([data-view=phone]){background:#111}
       <div data-screen-label="Grid" data-lumina="fused" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" onDoubleClick="{{ gridDbl }}" onScroll="{{ scScroll }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:14px clamp(16px,2.2vw,40px) 0">
         <div data-lumina="fused-in" ref="{{ fInRef }}" style="position:relative;margin-left:{{ fGut }}px;height:{{ fH }}px;will-change:transform">
           <div data-lumina="time-rod" style="position:absolute;left:{{ fRodX }}px;top:{{ fRodT }}px;width:3px;height:{{ fRodH }}px;border-radius:2px;background:#5B5854;pointer-events:none"></div>
+          <sc-for list="{{ fr }}" as="r" hint-placeholder-count="1"><div data-lumina="time-rod-run" style="position:absolute;left:{{ r.rodX }}px;top:{{ r.rodY }}px;width:3px;height:{{ r.rodH }}px;border-radius:2px;background:#5B5854;pointer-events:none"></div></sc-for>
           <sc-for list="{{ fh }}" as="h" hint-placeholder-count="2">
-            <button type="button" data-scene="{{ h.s }}" data-nobox="1" onClick="{{ hClick }}" data-lumina="time-mark" title="{{ h.tip }}" aria-label="{{ h.tip }}" style="position:absolute;left:{{ fMarkX }}px;top:{{ h.y }}px;width:{{ fMarkW }}px;min-height:48px;margin:0;padding:0 0 0 6px;border:0;font:inherit;color:inherit;text-align:right;-webkit-appearance:none;appearance:none;display:flex;align-items:flex-start;white-space:nowrap;cursor:pointer;border-radius:8px;background:{{ h.bg }}" style-hover="background:rgba(239,236,230,0.07)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
+            <button type="button" data-scene="{{ h.s }}" data-nobox="1" onClick="{{ hClick }}" data-lumina="time-mark" title="{{ h.tip }}" aria-label="{{ h.tip }}" style="position:absolute;left:{{ h.x }}px;top:{{ h.y }}px;width:{{ fMarkW }}px;min-height:48px;margin:0;padding:0 0 0 6px;border:0;font:inherit;color:inherit;text-align:right;-webkit-appearance:none;appearance:none;display:flex;align-items:flex-start;white-space:nowrap;cursor:pointer;border-radius:8px;background:{{ h.bg }}" style-hover="background:rgba(239,236,230,0.07)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
               <span style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end;padding:3px 0 5px;overflow:hidden">
                 <sc-if value="{{ h.dateOn }}" hint-placeholder-val="{{ false }}"><span style="color:#FFD27A;font-weight:600;line-height:15px">{{ h.date }}</span></sc-if>
                 <span style="font-size:13px;line-height:18px;color:#EFECE6">{{ h.time }}</span>
@@ -1403,34 +1404,77 @@ class Component extends DCLogic {
   //  - All of it fits on the screen at the usual size: the fewest columns whose layout still fits in h.
   //  - It doesn't, but no run fills a row (the columns right of the longest run are always empty): the tiles widen
   //    into those columns, never past the longest run and never so tall that a screen holds less than two rows.
-  // Otherwise geo as it was, so a full shoot scrolls exactly as before.
+  // Otherwise geo as it was, so a full shoot scrolls exactly as before. When runs share rows (geo.flow), the tiles are
+  // the size the stacked layout above would give them, or larger when the flowed layout then fits on the screen.
   static FIT_MAX = 720;
   static zlFit(geo, secs, h) {
-    const S = secs || [], hh = geo.hh || 0, Z = Component.ZL, top = 14;
+    const S = secs || [], hh = geo.hh || 0, top = 14;
     if (!geo.zl || !(h > 0) || !S.length) return geo;
+    if (geo.flow) {
+      // runs share rows: tiles never smaller than the stacked layout would make them; larger still while it all fits
+      const base = {...Component.zlFit({...geo, flow:false}, S, h), flow:true}; let best = base;
+      for (let cols = base.cols - 1; cols >= 1; cols--) { const t = Component.zlCols(geo, cols); if (t.tw > Component.FIT_MAX) break; if (Component.layFlow(t, S).height + top <= h) best = t; }
+      return best;
+    }
     const tall = (cols, th, gy) => S.reduce((y, s) => y + (s.head ? hh : 0) + Math.ceil(s.n / cols) * (th + gy), 0) - gy + 40 + top;
     const fits = tall(geo.cols, geo.th, geo.gy) <= h, run = S.reduce((m, s) => Math.max(m, s.n), 1);
     if (!fits && run >= geo.cols) return geo;
     let best = geo;
     for (let cols = geo.cols - 1; cols >= (fits ? 1 : run); cols--) {
-      let zl = geo.zl, gx = 22, gy = 26, tw = 0;
-      for (let k = 0; k < 2; k++) {
-        gx = zl === 1 ? 12 : zl === 2 ? 16 : 22; gy = zl === 1 ? 14 : zl === 2 ? 18 : 26; tw = (geo.W - (cols - 1) * gx) / cols;
-        let up = zl; while (up < 5 && Z[up + 1] <= tw) up++; if (up === zl) break; zl = up;
-      }
-      if (tw > Component.FIT_MAX) break;
-      const ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
-      if (fits ? tall(cols, th, gy) > h : (th + gy) * 2 > h) break;
-      best = {...geo, zl, cols, tw, th, gx, gy, pitch:th + gy, ph, lines, fit:true};
+      const t = Component.zlCols(geo, cols);
+      if (t.tw > Component.FIT_MAX) break;
+      if (fits ? tall(cols, t.th, t.gy) > h : (t.th + t.gy) * 2 > h) break;
+      best = t;
     }
     return best;
   }
+  // geo at cols columns across the same width: the size whose tiles that is, its lines and gaps.
+  static zlCols(geo, cols) {
+    const Z = Component.ZL; let zl = geo.zl, gx = 22, gy = 26, tw = 0;
+    for (let k = 0; k < 2; k++) {
+      gx = zl === 1 ? 12 : zl === 2 ? 16 : 22; gy = zl === 1 ? 14 : zl === 2 ? 18 : 26; tw = (geo.W - (cols - 1) * gx) / cols;
+      let up = zl; while (up < 5 && Z[up + 1] <= tw) up++; if (up === zl) break; zl = up;
+    }
+    const ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
+    return {...geo, zl, cols, tw, th, gx, gy, pitch:th + gy, ph, lines, fit:true};
+  }
+  // Runs share a row (geo.flow, the time canvas): a run that fits in what is left of the row after the run before it
+  // sits there, behind its own mark and a short rod in a gutter FLOW_IN wide (from the last tile before it to its own
+  // first tile), so runs read left to right and then down, like words on a line, and a sparse shoot fills the width
+  // instead of stacking one clip per row. A run is never split to share a row: one longer than what is left starts the
+  // next row, and one longer than a row takes whole rows from the left, as before. Tiles keep the interval's size.
+  static FLOW_IN = 104;
+  // layFlow: per section {g (its first tile), n, r (its first row), x (its first tile's left: 0 starts a row), y (that
+  // row's top), hy (its mark's band, hh above y when the section starts a row), rows}; Y every row's top; height as laySecs.
+  static layFlow(geo, secs) {
+    const S = secs || [], F = Component.FLOW_IN, P = [], Y = []; let e = -1, ny = 0, g = 0;
+    for (let s = 0; s < S.length; s++) {
+      const n = S[s].n, w = n * geo.tw + (n - 1) * geo.gx, hh = S[s].head ? geo.hh : 0;
+      if (n > 0 && e >= 0 && e + F + w <= geo.W + 0.5) { const r = Y.length - 1; P.push({g, n, r, x:e + F, y:Y[r], hy:Y[r] - hh, rows:1}); e += F + w; g += n; continue; }
+      const rows = Math.ceil(n / geo.cols), hy = ny; ny += hh;
+      for (let k = 0; k < rows; k++) { Y.push(ny); ny += geo.pitch; }
+      P.push({g, n, r:Y.length - rows, x:0, y:hy + hh, hy, rows});
+      const last = n - (rows - 1) * geo.cols; e = rows ? last * geo.tw + (last - 1) * geo.gx : -1; g += n;
+    }
+    return {P, Y, height:Math.max(0, ny - geo.gy) + 40, n:g};
+  }
+  // Tile k of a flowed section p: its row and left.
+  static flowAt(geo, p, k) { const st = geo.tw + geo.gx; return p.x ? {row:p.r, x:p.x + k * st} : {row:p.r + Math.floor(k / geo.cols), x:(k % geo.cols) * st}; }
   // laySecs: tiles in sections (secs: [{n, head}], n tiles each, in order). A section starts a new row, under a header
   // hh px tall when head is set. Laid out: the rows that reach into [top − over·h, top + h + over·h] and the row holding
   // tile cur (all rows when h is 0). Items are headers (kind h, with s and y) and tiles (kind t, with g, s, k, x, y, w, h): g
   // counts tiles over all sections, k inside the section, x and y from the content’s top left.
   static laySecs(o) {
     const geo = o.geo, S = o.secs || [], top = o.top || 0, h = o.h || 0, over = o.over == null ? 1 : o.over, all = !h, lo = top - over * h, hi = top + h + over * h, items = [];
+    if (geo.flow) {
+      const F = Component.layFlow(geo, S);
+      F.P.forEach((p, s) => {
+        const yEnd = F.Y[p.r + p.rows - 1] + geo.th, curIn = o.cur != null && o.cur >= p.g && o.cur < p.g + p.n;
+        if (S[s].head && (all || (yEnd > lo && p.hy < hi))) items.push({kind:'h', s, y:p.hy, h:geo.hh, x:p.x, flow:p.x > 0, rows:p.rows});
+        for (let k = 0; k < p.n; k++) { const a = Component.flowAt(geo, p, k), ry = F.Y[a.row]; if (all || (ry + geo.th > lo && ry < hi) || (curIn && Math.abs(a.row - Component.flowAt(geo, p, o.cur - p.g).row) <= 1)) items.push({kind:'t', g:p.g + k, s, k, x:a.x, y:ry, w:geo.tw, h:geo.th}); }
+      });
+      return {items, height:F.height, n:F.n};
+    }
     let y = 0, g = 0;
     for (let s = 0; s < S.length; s++) {
       const n = S[s].n, rows = Math.ceil(n / geo.cols);
@@ -1445,6 +1489,10 @@ class Component extends DCLogic {
   }
   // Where tile g sits (its section s, place k, row and column, x and y), without laying anything else out.
   static laySecAt(geo, secs, g) {
+    if (geo.flow) {
+      const F = Component.layFlow(geo, secs), s = F.P.findIndex(p => g >= p.g && g < p.g + p.n); if (s < 0) return null;
+      const p = F.P[s], k = g - p.g, a = Component.flowAt(geo, p, k); return {s, k, row:a.row, col:Math.round(a.x / (geo.tw + geo.gx)), x:a.x, y:F.Y[a.row], w:geo.tw, h:geo.th};
+    }
     let y = 0, a = 0;
     for (let s = 0; s < secs.length; s++) {
       const n = secs[s].n; if (secs[s].head) y += geo.hh;
@@ -1456,6 +1504,14 @@ class Component extends DCLogic {
   // ↑ ↓ in sections: the tile one row up or down in the same column, into the section before or after at its edges
   // (the last tile of a shorter row when the column is past it). Returns g itself at the top and bottom.
   static laySecNav(geo, secs, g, d) {
+    if (geo.flow) {
+      // runs share rows: the tile on the row above or below whose middle is nearest this one's
+      const F = Component.layFlow(geo, secs), q = Component.laySecAt(geo, secs, g); if (!q) return g;
+      const row = q.row + (d < 0 ? -1 : 1); if (row < 0 || row >= F.Y.length) return g;
+      let best = g, bd = Infinity;
+      for (const p of F.P) { if (row < p.r || row >= p.r + p.rows) continue; for (let k = 0; k < p.n; k++) { const a = Component.flowAt(geo, p, k); if (a.row !== row) continue; const dd = Math.abs(a.x - q.x); if (dd < bd) { bd = dd; best = p.g + k; } } }
+      return best;
+    }
     const p = Component.laySecAt(geo, secs, g); if (!p) return g;
     const first = []; let a = 0; secs.forEach(x => { first.push(a); a += x.n; });
     const rowsOf = s => Math.ceil(secs[s].n / geo.cols), at = (s, row) => first[s] + Math.min(secs[s].n - 1, row * geo.cols + p.col);
@@ -1517,10 +1573,11 @@ class Component extends DCLogic {
   // Clip tiles: the grid on Skim at a clip level. Then G holds one tile per clip and SC the scenes for the headers;
   // everywhere else (the Viewer’s strips, Export) G is the scenes as before.
   cvClips() { const st = this.state; return !!st.cv && (st.step === 'skim' || st.step === 'export') && st.lv === 0 && st.zl > 0; }
-  // The grid sits right of the rod’s gutter, and runs of one interval are TI_GAP apart instead of under a header.
+  // The grid sits right of the rod’s gutter, and runs of one interval are TI_GAP apart instead of under a header; a
+  // run that fits beside the one before it shares its row (flow, layFlow).
   // Few clips: the tiles grow to fill the screen (zlFit); an explicit zl is a size asked for and stays as it is.
   cvGeo(zl) { const st = this.state, sc = this.sc, g = Component.zlGeo({vw:st.vw, cw:(sc && sc.clientWidth ? sc.clientWidth : st.vw) - Component.TI_GUT, zl:zl != null ? zl : st.zl > 0 ? Component.TI[this.cvTi()][1] : 0}); if (!g.zl) return g;
-    const t = {...g, hh:Component.TI_GAP}; return zl != null ? t : Component.zlFit(t, this.cvSecs(), st.scH || (sc && sc.clientHeight) || 0); }
+    const t = {...g, hh:Component.TI_GAP, flow:true}; return zl != null ? t : Component.zlFit(t, this.cvSecs(), st.scH || (sc && sc.clientHeight) || 0); }
   cvTi() { const t = this.state.ti; return t == null ? Component.TI_DEF : t; }
   cvRub(pz) { const top = Component.TI.length - 1; return Component.rubber(pz, top - this.cvTi(), top); }
   cvG(gi) { const G = this.G || []; return G[gi != null ? gi : (this.gOfAll ? this.gOfAll[this.state.cur] : 0) ?? 0] || null; }
@@ -1698,9 +1755,10 @@ class Component extends DCLogic {
       const s = SC[it.s]; if (!s) return null; const ids = s.clips.map(c => c.id), S = Component.foldSum(s.clips.map(c => ({id:c.id, dur:c.dur, bytes:c.bytes, notes:[], pending:false})), st.marks);
       const lab = Component.tiLabel(s.clips[0].t, iv, it.s > 0 && SC[it.s - 1] ? SC[it.s - 1].clips[0].t : null), allM = ['keep', 'maybe', 'cut'].find(m => S[m] === S.n) || null;
       const all = ids.length > 0 && ids.every(id => selSet.has(id)), when = lab.time ? (lab.date ? lab.date + ' ' : '') + lab.time : lab.date;
-      return {s:it.s, y:it.y + geo.hh, date:lab.date, dateOn:!!(lab.date && lab.time), time:lab.time || lab.date, line:this.plural(S.n, 'clip'), dot:allM ? MK[allM] : all ? '#FFD27A' : '#B8B3AB', bg:all ? 'rgba(255,210,122,0.07)' : 'transparent',
+      return {s:it.s, y:it.y + geo.hh, x:(it.x || 0) - gut, flow:!!it.flow, rodX:(it.x || 0) - 21.5, rodY:it.y + geo.hh + 11, rodH:Math.max(0, geo.th - 30), date:lab.date, dateOn:!!(lab.date && lab.time), time:lab.time || lab.date, line:this.plural(S.n, 'clip'), dot:allM ? MK[allM] : all ? '#FFD27A' : '#B8B3AB', bg:all ? 'rgba(255,210,122,0.07)' : 'transparent',
         tip:when + ' · ' + this.plural(ids.length, 'clip') + ' · ' + this.fmtDur(S.dur) + ' · ' + this.fmtB(s.bytes) + ': click to select them, then K M C'};
     }).filter(Boolean);
+    vals.fr = vals.fh.filter(h => h.flow);
   }
   cvHints() {
     const st = this.state, g = this.cvG(), out = [], add = (k, t) => { if (t) out.push({k, t}); }; if (!g) return {lead:'', list:out};
