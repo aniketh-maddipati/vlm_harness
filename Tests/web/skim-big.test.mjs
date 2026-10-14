@@ -74,3 +74,38 @@ test('the drop walk counts as it goes, stops past BIG.files, and hands over what
   assert.match(d, /'Looking through ' \+ n\.toLocaleString\('en-US'\) \+ ' files · '/);
   assert.match(d, /this\.importFiles\(out, 0, cut \? \{files:n\} : null\)/);
 });
+
+// The app's side (SetsRootView.skimPick + SkimPickScan): the app counts the folder before WebKit lists it and drives the card.
+const host = () => {
+  const p = stand(); p.fileEl = {clicks:0, click() { this.clicks++; }};
+  p.bigHost = new Function('return function ' + extractMethod(src, 'bigHost', 'bigHost() {'))();
+  p.bigGo = new Function('Component', 'return function () ' + extractMethod(src, 'bigGo', 'bigGo = () => {').replace(/^bigGo = \(\) => /, ''))(Component);
+  return {p, h:p.bigHost()};
+};
+
+test('in the app: the count while it looks, then the card, and Open the first asks the app for its clips', () => {
+  const {p, h} = host();
+  h.looking('T7', 0, 0); assert.equal(p.state.impMsg, 'Looking through “T7”…');
+  h.looking('T7', 24000, 812); assert.equal(p.state.impMsg, 'Looking through 24,000 files in “T7” · 812 clips so far…');
+  h.show({name:'T7', n:2210, bytes:1.2e12, cut:0});
+  assert.equal(p.state.impMsg, null); assert.deepEqual(p.state.big, {n:2210, bytes:1.2e12, cut:0, name:'T7'}); assert.deepEqual(p.steps, ['import']);
+  assert.equal(h.want(), false, 'Pick a smaller folder (or no answer) is the panel again');
+  p.bigGo.call(p);
+  assert.equal(p.fileEl.clicks, 1); assert.equal(h.want(), true); assert.equal(h.want(), false, 'asked once');
+  assert.equal(p.bigCap, 1500); assert.equal(p.bigRoot, 'T7'); assert.equal(p.state.big, null);
+  h.looking(null); assert.equal(p.state.impMsg, null);
+});
+
+test('in the app: a firehose with no clips says so instead of offering nothing', () => {
+  const {p, h} = host(); h.show({name:'Macintosh HD', n:0, bytes:0, cut:50000});
+  assert.equal(p.state.big, null); assert.equal(p.state.impMsg, 'No clips in the first 50,000 files of “Macintosh HD”. Pick the folder the clips are in.');
+});
+
+test('the clips the app hands back open under the folder\'s name, capped, as a reload keeps them', async () => {
+  const p = stand(); p.bigCap = 1500; p.bigRoot = 'T7';
+  const loose = files(3).map(f => ({...f, webkitRelativePath:''}));
+  await importFiles.call(p, loose).catch(() => {});
+  assert.equal(p.listed.length, 3); assert.equal(p.bigCap, 0);
+  assert.match(src, /const root = \(\/\\\.\\w\+\$\/\.test\(rel\(vids\[0\]\)\.split\('\/'\)\[0\]\) && this\.bigRoot\)/);
+  assert.match(src, /window\.luminaSkimBig = this\.bigHost\(\);/);
+});
