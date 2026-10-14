@@ -144,6 +144,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     private var skimURLs: [URL]?
     /// Set while a reload reopens the shoot: the page's file input is answered with these, with no panel.
     private var skimReopenURLs: [URL]?
+    /// A pick too big for one go (`SkimPickScan`): the first clips by path, handed over when the page's card asks for them.
+    private var skimBigFirst: [URL]?
+    private var skimPickStop: SkimPickScan.Stop?
     /// The page's marks and view by clip (`luminaSkimKeep.take()`), waiting for the reloaded page.
     private var skimKept: String?
     /// The picture of the page as it was, over the reloading page until the shoot is back, then faded out.
@@ -488,6 +491,45 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         }
     }
 
+    /// Skim's pick (LOCAL-CHANGES 272). After the too-big card's "Open the first 1,500" (`luminaSkimBig.want()`), the
+    /// clips kept from the last count, with no panel. Otherwise the panel, then a count of what was picked before WebKit
+    /// lists it: a whole drive or a firehose shows the page's card and answers the input with nothing.
+    private func skimPick() async -> [URL]? {
+        if let first = skimBigFirst {
+            skimBigFirst = nil
+            if await skimEval("window.luminaSkimBig ? luminaSkimBig.want() : false") as? Bool == true { skimURLs = first; bridge.skimOpened(first); return first }
+        }
+        guard let urls = await chooseClips() else { return nil }
+        skimPickStop?.set(); let stop = SkimPickScan.Stop(); skimPickStop = stop
+        let name = Self.jsString(SkimPickScan.name(of: urls))
+        await skimEval("window.luminaSkimBig && luminaSkimBig.looking(\(name), 0, 0)")
+        let wv = webView
+        let r = await Task.detached(priority: .userInitiated) {
+            SkimPickScan.scan(urls, progress: { n, c in
+                Task { @MainActor in if !stop.isSet { wv?.evaluateJavaScript("window.luminaSkimBig && luminaSkimBig.looking(\(name), \(n), \(c))", completionHandler: nil) } }
+            }, stop: { stop.isSet })
+        }.value
+        guard !stop.isSet else { return nil }
+        if r.tooBig {
+            skimBigFirst = r.first
+            let o = (try? JSONSerialization.data(withJSONObject: r.json)).flatMap { String(data: $0, encoding: .utf8) } ?? "null"
+            await skimEval("window.luminaSkimBig && luminaSkimBig.show(\(o))")
+            return nil
+        }
+        await skimEval("window.luminaSkimBig && luminaSkimBig.looking(null)")
+        skimURLs = urls; bridge.skimOpened(urls)
+        return urls
+    }
+
+    @discardableResult private func skimEval(_ js: String) async -> Any? {
+        guard let webView else { return nil }
+        return await withCheckedContinuation { c in webView.evaluateJavaScript(js) { v, _ in c.resume(returning: v) } }
+    }
+
+    nonisolated private static func jsString(_ s: String) -> String {
+        (try? JSONSerialization.data(withJSONObject: [s])).flatMap { String(data: $0, encoding: .utf8) }.map { String($0.dropFirst().dropLast()) } ?? "''"
+    }
+
     // MARK: WKUIDelegate
 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
@@ -497,7 +539,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             // The folder the clips are in is the open shoot's folder for the storage line (drive, Trash).
             // A reload in place answers with the clips that were open, with no panel (reloadSkimKeeping).
             if let urls = skimReopenURLs { skimReopenURLs = nil; bridge.skimOpened(urls); completionHandler(urls); return }
-            Task { @MainActor in let urls = await chooseClips(); if let urls { skimURLs = urls; bridge.skimOpened(urls) }; completionHandler(urls) }
+            Task { @MainActor in completionHandler(await skimPick()) }
             return
         }
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }

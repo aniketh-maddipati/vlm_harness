@@ -1061,6 +1061,7 @@ class Component extends DCLogic {
     document.addEventListener('visibilitychange', this._stV); window.addEventListener('focus', this._stV);
     // The Mac app's reload in place (⌘R, a hot build; LOCAL-CHANGES 257): take() hands it the open shoot's marks and view by clip
     // (name and time, as clipKey), the app reloads, reopen(kept) answers the file picker with the same clips and puts them back.
+    window.luminaSkimBig = this.bigHost();
     window.luminaSkimKeep = {take:() => this.keepTake(), reopen:kept => this.keepReopen(kept), state:() => this.keepAt || 'idle'};
     // luminaSkimDebug() reports; luminaSkimDebug('panel') also opens the Working memory panel, luminaSkimDebug('off') hides it again, luminaSkimDebug('colour') saves the colour check frames.
     window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); else if (what === 'colour') this.colourCheck(); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
@@ -3658,13 +3659,26 @@ class Component extends DCLogic {
         : N(b.n) + ' clips · ' + sz + '. Skim takes up to ' + N(lim) + ' at a time; more would slow every key.') + ' Pick the card or the day you want, or open ' + (over ? 'the first ' + N(lim) + ' by name.' : 'what was found.'),
       go:over ? 'Open the first ' + N(lim) : 'Open the ' + N(b.n) + ' found'};
   }
-  bigPick = () => { this.bigHeld = null; this.setState({big:null}); this.pickFolder(); };
-  bigGo = () => { const h = this.bigHeld; this.bigHeld = null; this.setState({big:null}); if (h) this.importFiles(h.files, Component.BIG.clips); };
+  bigPick = () => { this.bigHeld = null; this.bigWant = false; this.bigRoot = null; this.setState({big:null}); this.pickFolder(); };
+  // In the app the folder was counted before WebKit listed it (SkimPickScan) and the app holds the first clips: the input
+  // is clicked again and answered with them, no panel (luminaSkimBig.want).
+  bigGo = () => { const h = this.bigHeld; this.bigHeld = null; this.setState({big:null}); if (!h) return;
+    if (h.host) { this.bigWant = true; this.bigCap = Component.BIG.clips; if (this.fileEl) this.fileEl.click(); } else this.importFiles(h.files, Component.BIG.clips); };
+  // The app's side of the card (SetsRootView.skimPick): its count while it looks, what it found, and whether the first clips were asked for.
+  bigHost() {
+    const N = x => Number(x).toLocaleString('en-US');
+    return {
+      looking:(name, n, clips) => this.setState({impMsg:name == null ? null : n ? 'Looking through ' + N(n) + ' files in “' + name + '” · ' + this.plural(clips, 'clip') + ' so far…' : 'Looking through “' + name + '”…'}),
+      show:o => { if (!o) return; this.keepAt = 'done';
+        if (!o.n) { this.bigHeld = null; this.setState({big:null, impMsg:'No clips in the first ' + N(o.cut) + ' files of “' + o.name + '”. Pick the folder the clips are in.'}); return; }
+        this.bigHeld = {host:true}; this.bigRoot = o.name; this.setState({impMsg:null, big:{n:o.n, bytes:o.bytes, cut:o.cut || 0, name:o.name}}); if (this.state.step !== 'import') this.setStep('import'); },
+      want:() => { const w = !!this.bigWant; this.bigWant = false; return w; }};
+  }
   async importFiles(files, cap, walked) {
     const rel = f => (this.rel && this.rel.get(f)) || f.webkitRelativePath || f.name;
     let vids = files.filter(f => Component.isClip(f));
     // Too big, or a walk cut short: say so on Open and wait for an answer. A reload in the app keeps what was chosen (kept.cap).
-    cap = cap || (this.kept && this.kept.cap) || 0; this.bigHeld = null; if (this.state.big) this.setState({big:null});
+    cap = cap || this.bigCap || (this.kept && this.kept.cap) || 0; this.bigCap = 0; this.bigHeld = null; if (this.state.big) this.setState({big:null});
     if (vids.length && ((vids.length > Component.BIG.clips && !cap) || (walked && !cap))) {
       const root = rel(vids[0]).split('/')[0] || 'This folder';
       this.bigHeld = {files}; this.keepAt = 'done';
@@ -3689,7 +3703,7 @@ class Component extends DCLogic {
     clips.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
     const rates = {}; clips.forEach(c => { if (c.fps) rates[c.fps] = (rates[c.fps] || 0) + 1; });
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
-    const root = rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
+    const root = (/\.\w+$/.test(rel(vids[0]).split('/')[0]) && this.bigRoot) || rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; this.bigRoot = null; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
     const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true, cap:cap || 0}, clips, gaps:[]};
     if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0; this.skipped = 0;
     this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.want = null; this.setState({}, () => this.save());
