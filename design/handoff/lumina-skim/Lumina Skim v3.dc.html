@@ -177,7 +177,7 @@ body:has([data-view=phone]){background:#111}
     </div>
   <div data-lumina="look-controls" style="flex:0 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;white-space:nowrap">
     <button type="button" data-lumina="phone-view" aria-pressed="{{ phoneA }}" onClick="{{ phoneToggle }}" title="Phone view: the page at an iPhone’s width (?phone=1)" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:32px;min-width:44px;padding:0 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;background:{{ phoneBg }};color:#EFECE6;font-weight:600" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Phone</button>
-    <button type="button" data-lumina="preview" role="switch" aria-checked="{{ pvA }}" onClick="{{ pvToggle }}" title="Rec.709 preview · ⇧R" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:32px;min-width:44px;padding:0 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;cursor:pointer;background:{{ pvBg }};color:#EFECE6;font-weight:600" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Rec.709<span style="position:relative;width:28px;height:16px;border-radius:8px;background:{{ pvTrack }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ pvKnob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span></button>
+    <button type="button" data-lumina="preview" role="switch" aria-checked="{{ pvA }}" aria-disabled="{{ pvDis }}" onClick="{{ pvToggle }}" title="{{ pvTip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:32px;min-width:44px;padding:0 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;cursor:{{ pvCur }};opacity:{{ pvOp }};background:{{ pvBg }};color:#EFECE6;font-weight:600" style-hover="filter:brightness({{ pvHov }})" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Rec.709<span style="position:relative;width:28px;height:16px;border-radius:8px;background:{{ pvTrack }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ pvKnob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span></button>
   </div>
     <sc-if value="{{ dbgOn }}" hint-placeholder-val="{{ false }}">
     <button type="button" data-lumina="canvas-toggle" role="switch" aria-checked="{{ cvA }}" aria-label="One grid" onClick="{{ cvToggle }}" title="One grid: Scenes and Clips as one, folded and unfolded (?canvas=1). Off: Scenes, Clips, Viewer." style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:32px;padding:0 9px;border-radius:6px;display:flex;align-items:center;gap:7px;color:{{ cvFg }};cursor:pointer;background:{{ cvBg }};white-space:nowrap" style-hover="background:rgba(239,236,230,0.12)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ cvT }}</button>
@@ -309,8 +309,8 @@ body:has([data-view=phone]){background:#111}
             <div data-lumina="resume" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.35)">
               <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A">Pick up where you were</span><span style="font-size:14px;color:#EFECE6">{{ resumeName }}</span><span style="color:#B8B3AB">{{ resumeLine }}</span></div>
               <button type="button" data-lumina="resume-go" onClick="{{ resumeGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Resume</button>
-              <button type="button" data-lumina="resume-other" onClick="{{ resumeOther }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Other clips</button>
-              <span data-lumina="resume-hint" style="flex-basis:100%;color:#9A958D;line-height:1.45">Both open Finder. Resume: choose the shoot’s folder (or one above it) and its clips and marks come back. Other clips: a different folder; these marks are let go once you pick. Your clips are never touched.</span>
+              <button type="button" data-lumina="resume-add" onClick="{{ resumeAdd }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Add clips</button>
+              <span data-lumina="resume-hint" style="flex-basis:100%;color:#9A958D;line-height:1.45">{{ resumeHint }}</span>
             </div>
           </sc-if>
           <button type="button" data-lumina="drop" onClick="{{ pickFolder }}" style="color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
@@ -584,15 +584,17 @@ body:has([data-view=phone]){background:#111}
       <sc-if value="{{ tiSayOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="time-step" role="status" aria-live="polite" style="position:absolute;left:50%;top:14px;z-index:6;transform:translateX(-50%);padding:5px 12px;border-radius:8px;background:rgba(22,21,20,0.9);box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 6px 18px rgba(0,0,0,0.4);color:#EFECE6;font-weight:600;white-space:nowrap;pointer-events:none;animation:fade 100ms ease-out">{{ tiSay }}</div></sc-if>
       <div data-screen-label="Grid" data-lumina="fused" ref="{{ scRef }}" onMouseDown="{{ gridDown }}" onDoubleClick="{{ gridDbl }}" onScroll="{{ scScroll }}" style="flex:1;min-height:0;overflow:auto;position:relative;padding:14px clamp(16px,2.2vw,40px) 0">
         <div data-lumina="fused-in" ref="{{ fInRef }}" style="position:relative;margin-left:{{ fGut }}px;height:{{ fH }}px;will-change:transform">
-          <div data-lumina="time-rod" style="position:absolute;left:{{ fRodX }}px;top:{{ fRodT }}px;width:3px;height:{{ fRodH }}px;border-radius:2px;background:#5B5854;pointer-events:none"></div>
+          <div data-lumina="time-rod" style="position:absolute;left:{{ fRodX }}px;top:{{ fRodT }}px;width:4px;height:{{ fRodH }}px;border-radius:2px;background:#7C7872;pointer-events:none"></div>
+          <sc-for list="{{ fr }}" as="r" hint-placeholder-count="1"><div data-lumina="time-rod-run" style="position:absolute;left:{{ r.rodX }}px;top:{{ r.rodY }}px;width:4px;height:{{ r.rodH }}px;border-radius:2px;background:#7C7872;pointer-events:none"></div></sc-for>
           <sc-for list="{{ fh }}" as="h" hint-placeholder-count="2">
-            <button type="button" data-scene="{{ h.s }}" data-nobox="1" onClick="{{ hClick }}" data-lumina="time-mark" title="{{ h.tip }}" aria-label="{{ h.tip }}" style="position:absolute;left:{{ fMarkX }}px;top:{{ h.y }}px;width:{{ fMarkW }}px;min-height:48px;margin:0;padding:0 0 0 6px;border:0;font:inherit;color:inherit;text-align:right;-webkit-appearance:none;appearance:none;display:flex;align-items:flex-start;white-space:nowrap;cursor:pointer;border-radius:8px;background:{{ h.bg }}" style-hover="background:rgba(239,236,230,0.07)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
+            <button type="button" data-scene="{{ h.s }}" data-nobox="1" onClick="{{ hClick }}" data-lumina="time-mark" title="{{ h.tip }}" aria-label="{{ h.tip }}" style="position:absolute;left:{{ h.x }}px;top:{{ h.y }}px;width:{{ fMarkW }}px;min-height:48px;margin:0;padding:0 0 0 6px;border:0;font:inherit;color:inherit;text-align:right;-webkit-appearance:none;appearance:none;display:flex;align-items:flex-start;white-space:nowrap;cursor:pointer;border-radius:8px;background:{{ h.bg }}" style-hover="background:rgba(239,236,230,0.07)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
               <span style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end;padding:3px 0 5px;overflow:hidden">
-                <sc-if value="{{ h.dateOn }}" hint-placeholder-val="{{ false }}"><span style="color:#FFD27A;font-weight:600;line-height:15px">{{ h.date }}</span></sc-if>
-                <span style="font-size:13px;line-height:18px;color:#EFECE6">{{ h.time }}</span>
-                <span data-lumina="scene-marks" style="color:#9A958D;line-height:15px">{{ h.line }}</span>
+                <sc-if value="{{ h.dateOn }}" hint-placeholder-val="{{ false }}"><span style="color:#FFD27A;font-size:13px;font-weight:700;line-height:17px">{{ h.date }}</span></sc-if>
+                <span data-lumina="time-at" style="font-size:{{ h.tSize }};font-weight:600;line-height:21px;color:#EFECE6;font-variant-numeric:tabular-nums">{{ h.time }}</span>
+                <span data-lumina="scene-marks" style="color:#B8B3AB;line-height:16px">{{ h.line }}</span>
+                <span data-lumina="time-len" style="color:#9A958D;line-height:15px;font-variant-numeric:tabular-nums">{{ h.len }}</span>
               </span>
-              <span style="flex:none;width:24px;height:28px;display:grid;place-items:center"><span style="width:11px;height:11px;border-radius:50%;background:{{ h.dot }};box-shadow:0 0 0 3px #1E1D1B"></span></span>
+              <span style="flex:none;width:24px;height:30px;display:grid;place-items:center"><span style="width:13px;height:13px;border-radius:50%;background:{{ h.dot }};box-shadow:0 0 0 3px #1E1D1B"></span></span>
             </button>
           </sc-for>
           <sc-for list="{{ ft }}" as="g" hint-placeholder-count="8">
@@ -1193,7 +1195,7 @@ class Component extends DCLogic {
     // The Mac app's reload in place (⌘R, a hot build; LOCAL-CHANGES 257): take() hands it the open shoot's marks and view by clip
     // (name and time, as clipKey), the app reloads, reopen(kept) answers the file picker with the same clips and puts them back.
     window.luminaSkimBig = this.bigHost();
-    window.luminaSkimKeep = {take:() => this.keepTake(), reopen:kept => this.keepReopen(kept), state:() => this.keepAt || 'idle'};
+    window.luminaSkimKeep = {take:() => this.keepTake(), reopen:kept => this.keepReopen(kept), offer:kept => this.keepOffer(kept), state:() => this.keepAt || 'idle'};
     // luminaSkimDebug() reports; luminaSkimDebug('panel') also opens the Working memory panel, luminaSkimDebug('off') hides it again, luminaSkimDebug('colour') saves the colour check frames.
     window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); else if (what === 'colour') this.colourCheck(); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
     this._rs = () => { clearTimeout(this.rsT); this.rsT = setTimeout(() => this.setState({vw:this.vwNow(this.state.phone), vh:window.innerHeight}), 80); }; window.addEventListener('resize', this._rs);
@@ -1545,34 +1547,77 @@ class Component extends DCLogic {
   //  - All of it fits on the screen at the usual size: the fewest columns whose layout still fits in h.
   //  - It doesn't, but no run fills a row (the columns right of the longest run are always empty): the tiles widen
   //    into those columns, never past the longest run and never so tall that a screen holds less than two rows.
-  // Otherwise geo as it was, so a full shoot scrolls exactly as before.
+  // Otherwise geo as it was, so a full shoot scrolls exactly as before. When runs share rows (geo.flow), the tiles are
+  // the size the stacked layout above would give them, or larger when the flowed layout then fits on the screen.
   static FIT_MAX = 720;
   static zlFit(geo, secs, h) {
-    const S = secs || [], hh = geo.hh || 0, Z = Component.ZL, top = 14;
+    const S = secs || [], hh = geo.hh || 0, top = 14;
     if (!geo.zl || !(h > 0) || !S.length) return geo;
+    if (geo.flow) {
+      // runs share rows: tiles never smaller than the stacked layout would make them; larger still while it all fits
+      const base = {...Component.zlFit({...geo, flow:false}, S, h), flow:true}; let best = base;
+      for (let cols = base.cols - 1; cols >= 1; cols--) { const t = Component.zlCols(geo, cols); if (t.tw > Component.FIT_MAX) break; if (Component.layFlow(t, S).height + top <= h) best = t; }
+      return best;
+    }
     const tall = (cols, th, gy) => S.reduce((y, s) => y + (s.head ? hh : 0) + Math.ceil(s.n / cols) * (th + gy), 0) - gy + 40 + top;
     const fits = tall(geo.cols, geo.th, geo.gy) <= h, run = S.reduce((m, s) => Math.max(m, s.n), 1);
     if (!fits && run >= geo.cols) return geo;
     let best = geo;
     for (let cols = geo.cols - 1; cols >= (fits ? 1 : run); cols--) {
-      let zl = geo.zl, gx = 22, gy = 26, tw = 0;
-      for (let k = 0; k < 2; k++) {
-        gx = zl === 1 ? 12 : zl === 2 ? 16 : 22; gy = zl === 1 ? 14 : zl === 2 ? 18 : 26; tw = (geo.W - (cols - 1) * gx) / cols;
-        let up = zl; while (up < 5 && Z[up + 1] <= tw) up++; if (up === zl) break; zl = up;
-      }
-      if (tw > Component.FIT_MAX) break;
-      const ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
-      if (fits ? tall(cols, th, gy) > h : (th + gy) * 2 > h) break;
-      best = {...geo, zl, cols, tw, th, gx, gy, pitch:th + gy, ph, lines, fit:true};
+      const t = Component.zlCols(geo, cols);
+      if (t.tw > Component.FIT_MAX) break;
+      if (fits ? tall(cols, t.th, t.gy) > h : (t.th + t.gy) * 2 > h) break;
+      best = t;
     }
     return best;
   }
+  // geo at cols columns across the same width: the size whose tiles that is, its lines and gaps.
+  static zlCols(geo, cols) {
+    const Z = Component.ZL; let zl = geo.zl, gx = 22, gy = 26, tw = 0;
+    for (let k = 0; k < 2; k++) {
+      gx = zl === 1 ? 12 : zl === 2 ? 16 : 22; gy = zl === 1 ? 14 : zl === 2 ? 18 : 26; tw = (geo.W - (cols - 1) * gx) / cols;
+      let up = zl; while (up < 5 && Z[up + 1] <= tw) up++; if (up === zl) break; zl = up;
+    }
+    const ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
+    return {...geo, zl, cols, tw, th, gx, gy, pitch:th + gy, ph, lines, fit:true};
+  }
+  // Runs share a row (geo.flow, the time canvas): a run that fits in what is left of the row after the run before it
+  // sits there, behind its own mark and a short rod in a gutter FLOW_IN wide (the rod's gutter and 12 px, from the last tile before it to its own
+  // first tile), so runs read left to right and then down, like words on a line, and a sparse shoot fills the width
+  // instead of stacking one clip per row. A run is never split to share a row: one longer than what is left starts the
+  // next row, and one longer than a row takes whole rows from the left, as before. Tiles keep the interval's size.
+  static FLOW_IN = 112;
+  // layFlow: per section {g (its first tile), n, r (its first row), x (its first tile's left: 0 starts a row), y (that
+  // row's top), hy (its mark's band, hh above y when the section starts a row), rows}; Y every row's top; height as laySecs.
+  static layFlow(geo, secs) {
+    const S = secs || [], F = Component.FLOW_IN, P = [], Y = []; let e = -1, ny = 0, g = 0;
+    for (let s = 0; s < S.length; s++) {
+      const n = S[s].n, w = n * geo.tw + (n - 1) * geo.gx, hh = S[s].head ? geo.hh : 0;
+      if (n > 0 && e >= 0 && e + F + w <= geo.W + 0.5) { const r = Y.length - 1; P.push({g, n, r, x:e + F, y:Y[r], hy:Y[r] - hh, rows:1}); e += F + w; g += n; continue; }
+      const rows = Math.ceil(n / geo.cols), hy = ny; ny += hh;
+      for (let k = 0; k < rows; k++) { Y.push(ny); ny += geo.pitch; }
+      P.push({g, n, r:Y.length - rows, x:0, y:hy + hh, hy, rows});
+      const last = n - (rows - 1) * geo.cols; e = rows ? last * geo.tw + (last - 1) * geo.gx : -1; g += n;
+    }
+    return {P, Y, height:Math.max(0, ny - geo.gy) + 40, n:g};
+  }
+  // Tile k of a flowed section p: its row and left.
+  static flowAt(geo, p, k) { const st = geo.tw + geo.gx; return p.x ? {row:p.r, x:p.x + k * st} : {row:p.r + Math.floor(k / geo.cols), x:(k % geo.cols) * st}; }
   // laySecs: tiles in sections (secs: [{n, head}], n tiles each, in order). A section starts a new row, under a header
   // hh px tall when head is set. Laid out: the rows that reach into [top − over·h, top + h + over·h] and the row holding
   // tile cur (all rows when h is 0). Items are headers (kind h, with s and y) and tiles (kind t, with g, s, k, x, y, w, h): g
   // counts tiles over all sections, k inside the section, x and y from the content’s top left.
   static laySecs(o) {
     const geo = o.geo, S = o.secs || [], top = o.top || 0, h = o.h || 0, over = o.over == null ? 1 : o.over, all = !h, lo = top - over * h, hi = top + h + over * h, items = [];
+    if (geo.flow) {
+      const F = Component.layFlow(geo, S);
+      F.P.forEach((p, s) => {
+        const yEnd = F.Y[p.r + p.rows - 1] + geo.th, curIn = o.cur != null && o.cur >= p.g && o.cur < p.g + p.n;
+        if (S[s].head && (all || (yEnd > lo && p.hy < hi))) items.push({kind:'h', s, y:p.hy, h:geo.hh, x:p.x, flow:p.x > 0, rows:p.rows});
+        for (let k = 0; k < p.n; k++) { const a = Component.flowAt(geo, p, k), ry = F.Y[a.row]; if (all || (ry + geo.th > lo && ry < hi) || (curIn && Math.abs(a.row - Component.flowAt(geo, p, o.cur - p.g).row) <= 1)) items.push({kind:'t', g:p.g + k, s, k, x:a.x, y:ry, w:geo.tw, h:geo.th}); }
+      });
+      return {items, height:F.height, n:F.n};
+    }
     let y = 0, g = 0;
     for (let s = 0; s < S.length; s++) {
       const n = S[s].n, rows = Math.ceil(n / geo.cols);
@@ -1587,6 +1632,10 @@ class Component extends DCLogic {
   }
   // Where tile g sits (its section s, place k, row and column, x and y), without laying anything else out.
   static laySecAt(geo, secs, g) {
+    if (geo.flow) {
+      const F = Component.layFlow(geo, secs), s = F.P.findIndex(p => g >= p.g && g < p.g + p.n); if (s < 0) return null;
+      const p = F.P[s], k = g - p.g, a = Component.flowAt(geo, p, k); return {s, k, row:a.row, col:Math.round(a.x / (geo.tw + geo.gx)), x:a.x, y:F.Y[a.row], w:geo.tw, h:geo.th};
+    }
     let y = 0, a = 0;
     for (let s = 0; s < secs.length; s++) {
       const n = secs[s].n; if (secs[s].head) y += geo.hh;
@@ -1598,6 +1647,14 @@ class Component extends DCLogic {
   // ↑ ↓ in sections: the tile one row up or down in the same column, into the section before or after at its edges
   // (the last tile of a shorter row when the column is past it). Returns g itself at the top and bottom.
   static laySecNav(geo, secs, g, d) {
+    if (geo.flow) {
+      // runs share rows: the tile on the row above or below whose middle is nearest this one's
+      const F = Component.layFlow(geo, secs), q = Component.laySecAt(geo, secs, g); if (!q) return g;
+      const row = q.row + (d < 0 ? -1 : 1); if (row < 0 || row >= F.Y.length) return g;
+      let best = g, bd = Infinity;
+      for (const p of F.P) { if (row < p.r || row >= p.r + p.rows) continue; for (let k = 0; k < p.n; k++) { const a = Component.flowAt(geo, p, k); if (a.row !== row) continue; const dd = Math.abs(a.x - q.x); if (dd < bd) { bd = dd; best = p.g + k; } } }
+      return best;
+    }
     const p = Component.laySecAt(geo, secs, g); if (!p) return g;
     const first = []; let a = 0; secs.forEach(x => { first.push(a); a += x.n; });
     const rowsOf = s => Math.ceil(secs[s].n / geo.cols), at = (s, row) => first[s] + Math.min(secs[s].n - 1, row * geo.cols + p.col);
@@ -1619,7 +1676,7 @@ class Component extends DCLogic {
   static TI = [[5, 4], [10, 3], [30, 3], [60, 2], [120, 2], [300, 2], [600, 1], [1800, 1], [3600, 1], [10800, 1], [86400, 1]];
   static TI_DEF = 3;
   static TI_GAP = 12;
-  static TI_GUT = 92;
+  static TI_GUT = 100;
   static TI_PINCH = 0.3;
   // No transitions (LOCAL-CHANGES 161): a regroup lands at once and a pinch let go snaps back. The pinch itself still
   // follows the fingers; true brings back the glide, the fade and the spring.
@@ -1659,10 +1716,11 @@ class Component extends DCLogic {
   // Clip tiles: the grid on Skim at a clip level. Then G holds one tile per clip and SC the scenes for the headers;
   // everywhere else (the Viewer’s strips, Export) G is the scenes as before.
   cvClips() { const st = this.state; return !!st.cv && (st.step === 'skim' || st.step === 'export') && st.lv === 0 && st.zl > 0; }
-  // The grid sits right of the rod’s gutter, and runs of one interval are TI_GAP apart instead of under a header.
+  // The grid sits right of the rod’s gutter, and runs of one interval are TI_GAP apart instead of under a header; a
+  // run that fits beside the one before it shares its row (flow, layFlow).
   // Few clips: the tiles grow to fill the screen (zlFit); an explicit zl is a size asked for and stays as it is.
   cvGeo(zl) { const st = this.state, sc = this.sc, g = Component.zlGeo({vw:st.vw, cw:(sc && sc.clientWidth ? sc.clientWidth : st.vw) - Component.TI_GUT, zl:zl != null ? zl : st.zl > 0 ? Component.TI[this.cvTi()][1] : 0}); if (!g.zl) return g;
-    const t = {...g, hh:Component.TI_GAP}; return zl != null ? t : Component.zlFit(t, this.cvSecs(), st.scH || (sc && sc.clientHeight) || 0); }
+    const t = {...g, hh:Component.TI_GAP, flow:true}; return zl != null ? t : Component.zlFit(t, this.cvSecs(), st.scH || (sc && sc.clientHeight) || 0); }
   cvTi() { const t = this.state.ti; return t == null ? Component.TI_DEF : t; }
   cvRub(pz) { const top = Component.TI.length - 1; return Component.rubber(pz, top - this.cvTi(), top); }
   cvG(gi) { const G = this.G || []; return G[gi != null ? gi : (this.gOfAll ? this.gOfAll[this.state.cur] : 0) ?? 0] || null; }
@@ -1802,7 +1860,7 @@ class Component extends DCLogic {
     vals.gapMax = gs.length; vals.nCut = ncut; vals.gapChange = this.gapChange; vals.fTh = geo.th; vals.fPh = geo.ph; vals.fH = L.height; vals.fHh = geo.hh; vals.fInRef = this.fInRef;
     // the rod: a gutter left of the grid, the rod 20 px from the tiles, a mark (time, count, dot on the rod) per run
     const gut = Component.TI_GUT, iv = Component.TI[this.cvTi()][0];
-    vals.fGut = gut; vals.fMarkX = -gut; vals.fMarkW = gut - 8; vals.fRodX = -21.5; vals.fRodT = geo.hh + 11; vals.fRodH = Math.max(0, L.height - 40 - geo.hh - 11);
+    vals.fGut = gut; vals.fMarkX = -gut; vals.fMarkW = gut - 8; vals.fRodX = -22; vals.fRodT = geo.hh + 11; vals.fRodH = Math.max(0, L.height - 40 - geo.hh - 11);
     vals.tiSayOn = !!st.tiSay; vals.tiSay = 'every ' + Component.tiWord(iv) + ' · ' + this.plural(SC.length, 'group');
     const sk = st.skim, fi = this.firstIdx(), dotMax = Math.floor((geo.tw + 3) / 9);
     this.gSlot = this.gSlot || [];
@@ -1814,13 +1872,13 @@ class Component extends DCLogic {
       const base = {i:g.i, n, first:c0.id, x:it.x, y:it.y, w:it.w, fold:!one, one, why:one ? '' : g.why || '', bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.65)' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
         cell:'', durOn:false, dots:[], dotsOn:false, barOn:false, segs:[], cnt:[], cntT:'', note:'', noteT:'', noteC:'#9A958D', chips:[], chipNone:'', state:'', stateC:'#9A958D', badgeOn:false, badge:'', markOn:false, mark:'', markC:'', thumb:Component.PH, flt:'none', phName:nm(c0), skOn:false, sk:[], l2:true, l3:false, tH:'24px', rightC:'#9A958D'};
       if (one) {
-        const m = st.marks[c0.id] || null, ch = this.chips(c0), t = this.tone(c0, skI != null ? skI : fi);
+        const m = st.marks[c0.id] || null, ch = this.chips(c0), t = this.tone(c0, skI != null ? skI : fi), pc0 = compact && this.profChip(c0);   // compact tiles have no chip row: the profile goes on the line
         return {...base, thumb:t.bg, flt:t.flt, cell:c0.dur ? this.fmtDur(c0.dur) : '—', durOn:!compact || zl === 2, phOn:this.waiting(c0), phSub:this.phSub(c0), title:nm(c0), tFont:'inherit', tSize:compact ? '12px' : '13px', tH:compact ? '18px' : '24px',
           right:zl === 1 ? (m ? this.W(m) : '') : this.hm(c0.t), rightC:zl === 1 && m ? MK[m] : '#9A958D', l2:zl !== 1, l3:!compact,
-          line:compact ? (m ? this.W(m) + ' · ' : '') + this.fmtB(c0.bytes) : (c0.dur ? this.fmtDur(c0.dur) : '—') + ' · ' + this.fmtB(c0.bytes),
+          line:compact ? (m ? this.W(m) + ' · ' : '') + this.fmtB(c0.bytes) + (pc0 ? ' · ' + pc0.t : '') : (c0.dur ? this.fmtDur(c0.dur) : '—') + ' · ' + this.fmtB(c0.bytes),
           edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm && !compact, mark:this.W(m), markC:m ? MK[m] : '',
           skOn:skI != null, sk:skI != null ? [0, 1, 2, 3, 4, 5, 6, 7].map(k => ({c:k === skI ? '#FFD27A' : 'rgba(22,21,20,0.55)'})) : [],
-          chips:compact ? [] : ch.pending ? [this.pendV(), this.pendV()] : ch.list.slice(0, 3).map(x => this.chipV(c0, x)), chipNone:compact ? '' : ch.list.length > 3 ? '+' + (ch.list.length - 3) : '',
+          chips:compact ? [] : this.chipRow(c0, ch, 3, 2).chips, chipNone:compact ? '' : this.chipRow(c0, ch, 3, 2).more,
           state:m ? this.W(m) : '', stateC:m ? MK[m] : '#9A958D'};
       }
       // a scene tile: skimming shows its clips one by one; else the first clip that has a frame
@@ -1840,9 +1898,10 @@ class Component extends DCLogic {
       const s = SC[it.s]; if (!s) return null; const ids = s.clips.map(c => c.id), S = Component.foldSum(s.clips.map(c => ({id:c.id, dur:c.dur, bytes:c.bytes, notes:[], pending:false})), st.marks);
       const lab = Component.tiLabel(s.clips[0].t, iv, it.s > 0 && SC[it.s - 1] ? SC[it.s - 1].clips[0].t : null), allM = ['keep', 'maybe', 'cut'].find(m => S[m] === S.n) || null;
       const all = ids.length > 0 && ids.every(id => selSet.has(id)), when = lab.time ? (lab.date ? lab.date + ' ' : '') + lab.time : lab.date;
-      return {s:it.s, y:it.y + geo.hh, date:lab.date, dateOn:!!(lab.date && lab.time), time:lab.time || lab.date, line:this.plural(S.n, 'clip'), dot:allM ? MK[allM] : all ? '#FFD27A' : '#B8B3AB', bg:all ? 'rgba(255,210,122,0.07)' : 'transparent',
+      return {s:it.s, y:it.y + geo.hh, x:(it.x || 0) - gut, flow:!!it.flow, rodX:(it.x || 0) - 22, rodY:it.y + geo.hh + 11, rodH:Math.max(0, geo.th - 30), date:lab.date, dateOn:!!(lab.date && lab.time), time:lab.time || lab.date, line:this.plural(S.n, 'clip'), len:this.fmtDur(S.dur), tSize:iv < 60 ? '14px' : '16px', dot:allM ? MK[allM] : all ? '#FFD27A' : '#B8B3AB', bg:all ? 'rgba(255,210,122,0.07)' : 'transparent',
         tip:when + ' · ' + this.plural(ids.length, 'clip') + ' · ' + this.fmtDur(S.dur) + ' · ' + this.fmtB(s.bytes) + ': click to select them, then K M C'};
     }).filter(Boolean);
+    vals.fr = vals.fh.filter(h => h.flow);
   }
   cvHints() {
     const st = this.state, g = this.cvG(), out = [], add = (k, t) => { if (t) out.push({k, t}); }; if (!g) return {lead:'', list:out};
@@ -2449,10 +2508,34 @@ class Component extends DCLogic {
   phoneSaved() { try { if (/[?&]phone=1\b/.test(location.search)) return true; return localStorage.getItem('lumina-skimview') === 'phone'; } catch (x) { return false; } }
   setPhone(on, save = true) { if (save) { try { if (on) localStorage.setItem('lumina-skimview', 'phone'); else localStorage.removeItem('lumina-skimview'); } catch (x) {} } this.setState({phone:on, vw:this.vwNow(on)}); }
   phoneToggle = e => { Component.letGo(e); this.setPhone(!this.state.phone); };
-  pvToggle = e => { Component.letGo(e); const st = this.state; this.setState({pv:!st.pv}); this.api('preview', !st.pv); };
+  // Nothing in the shoot to convert: the switch stays as it is (its title says why), so a log clip opened later still gets the preview.
+  pvToggle = e => { Component.letGo(e); if (this.pvDisabled()) return; const st = this.state; this.setState({pv:!st.pv}); this.api('preview', !st.pv); };
   needsPv(c) { const g = c.profile && c.profile.gamma; return g === 'S-Log3' || g === 'S-Log2' || g === 'HLG'; }
   // Nothing to convert: every clip is already Rec.709 or has no profile we know.
   pvDisabled() { return this.d && this.d.clips.length > 0 && !this.d.clips.some(c => this.needsPv(c)); }
+  // The switch's title: what the shoot was shot in, and what the switch does with it (or why it does nothing).
+  pvTip() {
+    const C = this.d ? this.d.clips : [], n = {}; if (!C.length) return 'Rec.709 preview · ⇧R';
+    C.forEach(c => { const g = c.profile && c.profile.gamma ? (c.profile.gamma === 'none' ? 'Rec.709' : c.profile.gamma) : 'no profile'; n[g] = (n[g] || 0) + 1; });
+    const list = Object.keys(n).sort((a, b) => n[b] - n[a]).map(g => n[g] + ' ' + g).join(', '), conv = C.filter(c => this.needsPv(c)).length;
+    if (conv) return 'Rec.709 preview · ⇧R · converts ' + this.plural(conv, 'log clip') + ' (' + list + ')';
+    if (n['Rec.709'] === C.length) return C.length === 1 ? 'This clip is already Rec.709' : 'All ' + C.length + ' clips are already Rec.709';
+    return 'No log clips to convert (' + list + ')';
+  }
+  // The chip each tile leads with: the clip's profile, and whether it is on screen converted to Rec.709 or as shot.
+  profChip(c) {
+    const p = this.prof(c); if (!p) return null;
+    const name = p.g === 'none' ? 'Rec.709' : p.g, log = this.needsPv(c), on = this.pvOn(c), exact = p.g === 'S-Log3', guess = c.profile.source === 'picture';
+    return {key:'look', cid:c.id, t:log ? name + (guess ? '?' : '') + (on ? ' → 709' : ' · as shot') : name, bg:'rgba(239,236,230,0.1)', sh:guess ? 'inset 0 0 0 1px rgba(255,210,122,0.45)' : 'none',
+      fg:on ? (exact ? '#A9D18E' : '#FFD27A') : '#B8B3AB', cur:'default',
+      tip:name + ' ' + p.src + ' · ' + (on ? 'shown converted to Rec.709' + (exact ? '' : ', approximately') : log ? 'shown as shot · ⇧R converts it' : 'shown as recorded, nothing to convert')};
+  }
+  // A tile's chip row: the profile chip first, then the n − 1 chips that matter most (n with no profile chip).
+  chipRow(c, ch, n, pend) {
+    const pc = this.profChip(c), k = pc ? n - 1 : n;
+    const rest = ch.pending ? Array.from({length:Math.max(0, pend - (pc ? 1 : 0))}, () => this.pendV()) : (n == null ? ch.list : ch.list.slice(0, k)).map(x => this.chipV(c, x));
+    return {chips:(pc ? [pc] : []).concat(rest), more:!ch.pending && n != null && ch.list.length > k ? '+' + (ch.list.length - k) : ''};
+  }
   // One row per profile and camera: what the preview does for those clips.
   profRows() {
     const C = this.d ? this.d.clips : [], by = {}, CAM = {'ILCE-7M3':'a7 III', 'ILCE-7SM3':'a7S III', 'ILCE-7M4':'a7 IV', 'ILCE-7RM5':'a7R V', 'ILME-FX3':'FX3', 'ILME-FX30':'FX30', 'ILME-FX6V':'FX6'};
@@ -2479,7 +2562,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {lv2Cols:'minmax(0,1fr) minmax(240px,300px)', storeOn:false, storeFlex:'0 4 auto', storeLine:'', storeRows:[], storeFg:'#9A958D', storeBg:'rgba(239,236,230,0.06)', storeArrow:'▴', notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, stopOn:false, cancelOn:false, cancelAsk:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, dockExOn:false, dockExN:'', memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {lv2Cols:'minmax(0,1fr) minmax(240px,300px)', storeOn:false, storeFlex:'0 4 auto', storeLine:'', storeRows:[], storeFg:'#9A958D', storeBg:'rgba(239,236,230,0.06)', storeArrow:'▴', notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', pvDis:'false', pvTip:'Rec.709 preview · ⇧R', pvOp:'1', pvCur:'pointer', pvHov:'1.2', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, stopOn:false, cancelOn:false, cancelAsk:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, dockExOn:false, dockExN:'', memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
     // Export is a page of its own: the shortcuts across the top, the files and folders below
@@ -2505,7 +2588,7 @@ class Component extends DCLogic {
     else if (pr0.src === 'as you set it') pvLine = 'shot in';
     else if (pr0.g === 'none') pvLine = 'this clip is already Rec.709';
     else pvLine = 'sensed ' + pr0.src + (pr0.g === 'S-Log3' ? '' : ' · approximate');
-    const pvOnUi = !!st.pv;
+    const pvOnUi = !!st.pv && !noPv;
     const ans = this.d && this.d.profAns, askOn = !empty && (allUnknown || !!curC);
     const sensed = curC && curC._sensed ? curC._sensed.gamma : pr0 && pr0.src !== 'as you set it' ? pr0.g : null, picked = sensed ? (pr0 ? pr0.g : null) : ans;
     const askOpts = askOn ? ['S-Log3', 'S-Log2', 'HLG', 'none'].map(g => ({t:g === 'none' ? 'Rec.709' : g, on:picked === g, bg:picked === g ? '#B8B3AB' : 'rgba(239,236,230,0.1)', fg:picked === g ? '#1E1D1B' : '#EFECE6', fw:picked === g ? 700 : 400,
@@ -2518,7 +2601,7 @@ class Component extends DCLogic {
       ...base,
       shootName:d.shoot.name, shootLine:empty ? 'no clips' : this.plural(C.length, 'clip') + (d.shoot.photos ? ' · ' + d.shoot.photos + ' photos' : '') + ' · ' + this.plural(d.shoot.days, 'day') + ' · ' + this.fmtB(d.shoot.bytes),
       lvX:(st.cv ? (st.lv >= 2 ? 1 : 0) : st.lv) * 68, lvN:st.cv ? 2 : 3, lvTabs, lvTabsOn:!st.cv, lvF:sk && !empty && !!st.cv && st.lv === 0, fEnter:this.fEnter, fClick:this.fClick, fDbl:this.fDbl, fMove:this.fMove, fLeave:this.fLeave, hClick:this.hClick,
-      pvA:pvOnUi, pvBg:pvOnUi ? 'rgba(239,236,230,0.16)' : 'rgba(239,236,230,0.08)', pvTrack:pvOnUi ? '#B8B3AB' : 'rgba(239,236,230,0.18)', pvKnob:pvOnUi ? '14px' : '2px', pvLine, askOpts, pvToggle:this.pvToggle,
+      pvA:pvOnUi, pvBg:pvOnUi ? 'rgba(239,236,230,0.16)' : 'rgba(239,236,230,0.08)', pvTrack:pvOnUi ? '#B8B3AB' : 'rgba(239,236,230,0.18)', pvKnob:pvOnUi ? '14px' : '2px', pvDis:noPv ? 'true' : 'false', pvTip:this.pvTip(), pvOp:noPv ? '0.45' : '1', pvCur:noPv ? 'default' : 'pointer', pvHov:noPv ? '1' : '1.2', pvLine, askOpts, pvToggle:this.pvToggle,
       isEmpty:sk && empty,
       stripOn:sk && !empty && st.lv === 1, takeStripOn:sk && !empty && st.lv >= 2,
       lv0:sk && !empty && !st.cv && st.lv === 0, lv1:sk && !empty && !st.cv && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
@@ -2640,7 +2723,7 @@ class Component extends DCLogic {
             const gc = gm ? (MK[gm] || '#B8B3AB') : null, ch = this.chips(c);
             return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:c.dur ? this.fmtDur(c.dur) : '—', size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c), phOn:this.waiting(c), phSub:this.phSub(c),
               edge:gm ? 'inset 0 0 0 2px ' + gc + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gc || '',
-              chips:ch.pending ? [this.pendV(), this.pendV()] : ch.list.slice(0, 3).map(x => this.chipV(c, x)),
+              chips:this.chipRow(c, ch, 3, 2).chips,
               bg:isSel ? 'rgba(255,210,122,0.08)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.7)' : 'none'};
           })};
       });
@@ -2681,7 +2764,7 @@ class Component extends DCLogic {
         picks:[['keep', 'K'], ['maybe', 'M'], ['cut', 'C']].map(([pm, pk]) => ({m:pm, k:pk, l:this.W(pm), on:m === pm, fg:m === pm ? '#1E1D1B' : MK[pm], fw:m === pm ? 800 : 400, bg:m === pm ? MK[pm] : 'transparent', ring:'1px ' + MK[pm] + (m === pm ? '' : '80'), capBg:m === pm ? 'rgba(30,29,27,0.14)' : 'rgba(239,236,230,0.12)', capFg:m === pm ? '#1E1D1B' : '#EFECE6'})),
         markNow:m ? this.W(m) : 'undecided', markNowC:m ? MK[m] : '#9A958D', groups, hdBg:m ? 'linear-gradient(90deg,' + MK[m] + '33,' + MK[m] + '0A 70%),rgba(239,236,230,0.04)' : 'rgba(239,236,230,0.06)',
         ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
-        chips:ch.pending ? [this.pendV(), this.pendV(), this.pendV()] : ch.list.map(x => this.chipV(c, x))};
+        chips:this.chipRow(c, ch, null, 3).chips};
       { const i = this.flat.indexOf(c.id), P = this.flat[i - 1], N = this.flat[i + 1], nb = (id, col, arrow) => { const cc = this.byId[id], mm = st.marks[id], t0 = this.tone(cc, this.firstIdx()), nm = cc.name.replace(/\.\w+$/, '');
           return {id, col, op:mm === 'cut' ? 0.55 : 1, bg:t0.bg, flt:t0.flt, edge:mm ? 'inset 0 0 0 3px ' + MK[mm] : 'inset 0 0 0 1px rgba(239,236,230,0.12)', say:arrow + ' ' + nm + (mm ? ' · ' + this.W(mm) : ''), tip:nm + ' · ' + arrow}; };
         vals.nbrs = [P && nb(P, '1', '←'), N && nb(N, '2', '→')].filter(Boolean); vals.nbOn = st.vw > 640 && vals.nbrs.length > 0; }
@@ -2743,10 +2826,10 @@ class Component extends DCLogic {
     if (!Object.keys(ids).some(key => key === k.cur || (k.marks && key in k.marks) || (k.dis && key in k.dis) || (k.cuts && k.cuts.includes(key)))) { this.keepAt = 'done'; return; }
     const by = o => { const out = {}; Object.keys(o || {}).forEach(key => { if (ids[key]) out[ids[key]] = o[key]; }); return out; };
     if (k.name) d.shoot.name = k.name; this.userCut = !!k.userCut;
-    const ks = k.ks || k.files; if (ks && !this.hostStore()) { const g = Component.resumeGap(ks, ids); this.resumeGap = g; window.luminaSkimResumeGap = g;
-      this.flash(g.missing.length ? 'Picked up ' + g.found + ' of ' + this.plural(g.n, 'clip') + ' · not in that folder: ' + g.missing.slice(0, 3).map(m => m.name).join(', ') + (g.missing.length > 3 ? ' and ' + (g.missing.length - 3) + ' more' : '') : 'Picked up where you were · ' + this.plural(g.n, 'clip'), g.missing.length ? 6000 : 2200); }
+    const ks = k.ks || k.files; if (ks && (!this.hostStore() || k.offered)) { const g = Component.resumeGap(ks, ids), more = d.clips.length - g.found; this.resumeGap = g; window.luminaSkimResumeGap = g;
+      if (more > 0 && !g.missing.length) this.flash('Picked up where you were · ' + this.plural(g.n, 'clip') + ' · ' + more + ' added', 3000); else this.flash(g.missing.length ? 'Picked up ' + g.found + ' of ' + this.plural(g.n, 'clip') + ' · not in that folder: ' + g.missing.slice(0, 3).map(m => m.name).join(', ') + (g.missing.length > 3 ? ' and ' + (g.missing.length - 3) + ' more' : '') : 'Picked up where you were · ' + this.plural(g.n, 'clip'), g.missing.length ? 6000 : 2200); }
     const cuts = k.cuts ? k.cuts.map(key => ids[key]).filter(Boolean) : null, cur = ids[k.cur] || this.state.cur, step = d.clips.length ? (k.step || 'skim') : 'import';
-    this.setState({marks:by(k.marks), dis:by(k.dis), cuts, nCut:k.nCut || this.state.nCut, cur, step, lv:k.lv ?? this.state.lv, gi:k.gi || 0, zl:k.zl ?? this.state.zl, ex:{...this.state.ex, ...(k.ex || {})}}, () => { this.keepAt = 'done'; });
+    this.setState({marks:by(k.marks), dis:by(k.dis), cuts, nCut:k.nCut || this.state.nCut, cur, step, lv:k.lv ?? this.state.lv, gi:k.gi || 0, zl:k.zl ?? this.state.zl, ex:{...this.state.ex, ...(k.ex || {})}}, () => { this.keepAt = 'done'; if (this.addAfter) { this.addAfter = false; if (k.offered) this.setStep('skim'), setTimeout(() => this.addClips(), 0); } });
   }
   // Safari (LOCAL-CHANGES 266): a reload loses the files, and the browser can't open them again by itself. The marks and the
   // view are kept for this tab only (sessionStorage, gone with the tab), and Open offers them back: Resume opens the picker (the one
@@ -2764,8 +2847,18 @@ class Component extends DCLogic {
   tabKeepDrop() { try { sessionStorage.removeItem(Component.TAB_KEEP); } catch (x) {} if (this.state.resume) this.setState({resume:null}); }
   resumeDrop() { this.kept = null; this.tabKeepDrop(); }
   // Resume brings the kept clips and marks back; Other clips lets them go, but only once clips are picked (a cancelled picker keeps them).
-  resumeGo = () => { this.pickFolder(); };
-  resumeOther = () => { this.pickFolder(); this.freshPick = true; };
+  // Resume and Add clips (LOCAL-CHANGES 288). In the app the last shoot is offered with the places of its clips (keepOffer):
+  // Resume answers the file input with them, no Finder (window.luminaSkimResuming), and Add clips does the same, then opens
+  // Add clips' own panel. Safari can't open a file again without a pick, so both open Finder once: Resume takes only the
+  // shoot's clips from what is chosen (resumePick), Add clips takes the shoot's clips back with their marks and the rest join them.
+  resumeGo = () => { const r = this.state.resume; if (r && r.host && this.fileEl) { this.keepAt = 'opening'; window.luminaSkimResuming = true; this.fileEl.click(); return; } this.pickFolder(); };
+  resumeAdd = () => { const r = this.state.resume; this.addAfter = true; if (r && r.host) { this.resumeGo(); return; } this.pickFolder(); this.addPick = true; };
+  // The app's last shoot, offered on Open (not reopened: that is the hot build's and ⌘R's, keepReopen).
+  keepOffer(kept) {
+    let k = null; try { k = typeof kept === 'string' ? JSON.parse(kept) : kept; } catch (x) {}
+    if (!k || !k.n || this.hasShoot()) return false; k.offered = true; this.kept = k;
+    this.setState({resume:{name:k.name || 'Your clips', n:k.n, marks:Object.keys(k.marks || {}).length, host:true}}); return true;
+  }
   // The clips of a kept shoot among the files chosen, by name (the capture time is checked once they are listed, by clipKey).
   static resumePick(vids, keys) { if (!keys || !keys.length) return []; const want = new Set(keys.map(k => k.slice(0, k.lastIndexOf('@')))); return vids.filter(f => want.has(f.name.toUpperCase())); }
   // What Resume found: the kept clips that came back and the ones that did not (name and capture time).
@@ -3806,7 +3899,7 @@ class Component extends DCLogic {
   // A phone or a tablet picks clips (iPhone: Photos or Files; Android: its photo picker), a computer a folder; the other is
   // one button below. Neither shows a folder picker where the browser has none (iOS Safari before 18.4).
   canFolder() { return typeof document !== 'undefined' && 'webkitdirectory' in document.createElement('input') && !/iPhone|iPod/.test(navigator.userAgent); }
-  pickFolder = () => { this.freshPick = false; const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) el.click(); };
+  pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) el.click(); };
   filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.walkTok = null; this.pickNext = true; this.importFiles(fs); };
   dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
   dropLeave = () => this.setState({dropHot:false});
@@ -3865,8 +3958,8 @@ class Component extends DCLogic {
     if (!pre) {
       // Resume in Safari (LOCAL-CHANGES 276): from whatever folder was chosen (the shoot's, or one above it), only the clips the
       // kept shoot had; a folder with none of them opens as it is.
-      if (this.freshPick && vids.length) { this.freshPick = false; this.resumeDrop(); }   // Other clips (277): the kept marks go once clips are picked
-      if (this.kept && this.state.resume) { const hit = Component.resumePick(vids, this.kept.ks || this.kept.files); if (hit.length) vids = hit; }
+      const adding = this.addPick && vids.length; this.addPick = false; this.addKeep = !!adding;   // Add clips (288): nothing is narrowed
+      if (this.kept && this.state.resume && !adding) { const hit = Component.resumePick(vids, this.kept.ks || this.kept.files); if (hit.length) vids = hit; }
       // Too big, or a walk cut short: say so on Open and wait for an answer. A reload in the app keeps what was chosen (kept.cap).
       cap = cap || this.bigCap || (this.kept && this.kept.cap) || 0; this.bigCap = 0; this.bigHeld = null; if (this.state.big) this.setState({big:null});
       if (vids.length && ((vids.length > Component.BIG.clips && !cap) || (walked && !cap))) {
@@ -3892,7 +3985,7 @@ class Component extends DCLogic {
       if (lt !== this.listTok) return;
       const picked = this.picked, relMap = this.rel, again = (vs, ms) => { this.rel = relMap; return this.importFiles(files, cap, null, {vids:vs, metas:ms, picked}); };
       // a kept shoot coming back: its own clips, no notice (LOCAL-CHANGES 282)
-      const kept = this.keptOnly(vids, metas);
+      const kept = this.addKeep ? null : this.keptOnly(vids, metas); this.addKeep = false;
       if (kept && kept.missing.length) { const lives = Component.liveSet(files, rel), items = kept.at.map(i => ({i, name:vids[i].name, path:rel(vids[i]), t:metas[i].t || this.iso(vids[i].lastModified), bytes:vids[i].size, live:false}));
         if (this.mixAsk(items, sel => again(sel.map(x => vids[x.i]), sel.map(x => metas[x.i])), false, {force:true, missing:kept.missing})) return; }
       if (kept && kept.at.length < vids.length) return again(kept.vids, kept.metas);
@@ -4145,6 +4238,32 @@ class Component extends DCLogic {
     const L = (list || []).filter(Boolean); if (!L.length) return false;
     const ok = L.filter(f => f.p2 >= 0.03 && f.p98 <= 0.85 && f.p98 - f.p2 >= 0.08 && f.sat <= 0.15).length;
     return L.length < 4 ? ok === L.length : ok >= Math.ceil(L.length * 0.75);
+  }
+  // A picture alone does not tell a flat Rec.709 scene from S-Log3: an a7S III Rec.709 clip of a hazy river
+  // (C0095 on the T7: blacks at 0.10, whites at 0.80, colour 0.075) reads like the friend's S-Log3 clips (C4866:
+  // 0.22, 0.57, 0.075). A camera is seldom switched between log and Rec.709 within minutes, so a clip with no
+  // profile in its metadata is S-Log3 by its picture only when the clips shot within LOG_NEAR of it do not say
+  // otherwise: by their metadata, or by their own pictures once read. Ties and no neighbours go to the picture.
+  static LOG_NEAR = 900;
+  pictureLog(c) { const r = c._raw ? Object.values(c._raw) : []; return r.length ? Component.looksLog(r) : null; }
+  near(c, fn) {
+    const C = this.d.clips, i = C.indexOf(c), t0 = Date.parse(c.t); if (i < 0) return;
+    for (const dir of [-1, 1]) for (let j = i + dir; j >= 0 && j < C.length; j += dir) { if (Math.abs(Date.parse(C[j].t) - t0) > Component.LOG_NEAR * 1000) break; fn(C[j]); }
+  }
+  nearVote(c) {
+    const v = {log:0, rec:0};
+    this.near(c, o => { const s = o.profile && o.profile.source, said = (s === 'sidecar' || s === 'file') && o.profile.gamma, l = said ? this.needsPv(o) : s === 'you' ? null : this.pictureLog(o);
+      if (l === true) v.log++; else if (l === false) v.rec++; });
+    return v;
+  }
+  // After a clip's frames are read: decides it, and the clips around it whose vote it may have changed.
+  senseNear(c) {
+    if (!this.d) return; const all = [c], ch = []; this.near(c, o => all.push(o));
+    all.forEach(o => { if (o._sensed || (o.profile && o.profile.gamma && o.profile.source !== 'picture')) return;
+      const pl = this.pictureLog(o); if (pl == null) return;
+      const v = this.nearVote(o), want = pl && v.log >= v.rec, is = !!(o.profile && o.profile.source === 'picture');
+      if (want === is) return; o.profile = want ? {gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'picture'} : {gamma:null, primaries:null, source:'none'}; ch.push(o); });
+    if (ch.length) this.remeasure(ch);
   }
   // Finds the moov box by its headers (16 bytes read per box, the picture data is skipped) and reads it, 8 MB at most.
   async fileRate(f) { const mv = await this.fileMoov(f); return mv ? Component.moovRate(mv) : null; }
@@ -4464,12 +4583,12 @@ class Component extends DCLogic {
           // still dark then is what the clip holds (a black clip is a clip: it gets its cover and reads as dark).
           let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!Component.lookAgain(this.blank(im), c._dark ? 2 : k)) break; await new Promise(r => setTimeout(r, 120 + k * 160)); }
           if (this.blank(im)) c._dark = true;   // a clip known to hold dark frames is not looked at three times for each
-          if (!this.prof(c)) (c._raw || (c._raw = {}))[i] = Component.rawSpread(im);
+          if (!this.prof(c) || c.profile.source === 'picture') (c._raw || (c._raw = {}))[i] = Component.rawSpread(im);
           const fb = await this.frameBlob(cv); this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
           this.bump();
         }
         if (px.length) this.noteSpeed((performance.now() - t0) / px.length); c.facts = this.factsAll(c); c.why = null; c.tries = 0;
-        if (!this.prof(c) && c._raw && Component.looksLog(Object.values(c._raw))) { c.profile = {gamma:'S-Log3', primaries:'S-Gamut3.Cine', source:'picture'}; this.remeasure([c]); }
+        this.senseNear(c);
       } catch (x) { if (x !== 'stopped') { c.why = document.hidden || this.wasHidden ? 'hidden' : typeof x === 'string' ? x : 'error'; this.wasHidden = false; if (c.facts.state === 'pending') c.facts = {state:'unreliable'}; } }
       URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {} this.vOpen--; this.reading.delete(c.id); this.readMs = performance.now() - t0;
       this.bump(); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);
@@ -5065,7 +5184,9 @@ class Component extends DCLogic {
       impMsg:st.impMsg || '', impMsgOn:!!st.impMsg,
       ...(b => ({bigOn:!!b, bigH:b ? b.h : '', bigName:b ? b.name : '', bigLine:b ? b.line : '', bigGoT:b ? b.go : '', bigPick:this.bigPick, bigGo:this.bigGo}))(st.big ? Component.bigSay(st.big, x => this.fmtB(x)) : null),
       impLineOn:!!(st.imp && st.imp.done < st.imp.n), impLine:st.imp ? 'measuring ' + st.imp.done + ' of ' + this.plural(st.imp.n, 'clip') : '',
-      staleOn:!!st.stale, staleGo:() => this.staleGo(), staleLater:() => this.staleLater(), resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + ' · Safari asks for the folder once' : '', resumeGo:this.resumeGo, resumeOther:this.resumeOther, ...this.cacheVals(has), nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
+      staleOn:!!st.stale, staleGo:() => this.staleGo(), staleLater:() => this.staleLater(), resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + (st.resume.host ? '' : ' · Safari asks for the folder once') : '', resumeGo:this.resumeGo, resumeAdd:this.resumeAdd,
+      resumeHint:st.resume && st.resume.host ? 'Resume opens the same clips again from where they are, no Finder. Add clips brings the shoot back, then Finder opens to add more to it. Your clips are never touched.'
+        : 'Both open Finder once: Safari can’t open files again by itself. Resume: choose the shoot’s folder (or one above it) and its clips and marks come back. Add clips: choose any folder; the shoot’s clips come back with their marks and the rest join them. Your clips are never touched.', ...this.cacheVals(has), nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
       cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})), cardsOn:this.cardList().length > 0,
       recents:st.step === 'import' ? this.recentVals() : [], recOn:false,
       download:this.download, hintLead:''

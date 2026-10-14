@@ -106,6 +106,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                         keepSkimAcrossRelaunch()
                     }
                 }
+                if page == .skim { keepSkimLast() }
                 #endif
             } catch {
                 LuminaLog.app.fault("web view setup failed: \(String(describing: error), privacy: .private)")
@@ -261,6 +262,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         #if DEBUG
         if skimRestoring { skimRestoring = false; raiseSkimCurtain(nil) }
+        if SetsPage.current == .skim, skimCurtain == nil, skimLastKept != nil { offerSkimLast(tries: 0) }
         #endif
         guard SetsPage.current == .skim, skimCurtain != nil else { return }
         guard skimKept != nil, skimURLs != nil else { lowerSkimCurtain(); return }
@@ -311,24 +313,83 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         try? FileManager.default.removeItem(at: file)
         guard let saved = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let kept = saved["kept"] as? String,
               let at = saved["at"] as? Double, Date().timeIntervalSince1970 - at < 600, let marks = saved["bookmarks"] as? [String] else { return }
-        let urls: [URL] = marks.compactMap { b in
-            var stale = false
-            guard let d = Data(base64Encoded: b), let u = try? URL(resolvingBookmarkData: d, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
-            _ = u.startAccessingSecurityScopedResource()
-            return u
-        }
+        let urls = Self.resolveBookmarks(marks)
         guard !urls.isEmpty else { return }
         LuminaLog.app.notice("skim: reopening the shoot the last run left")
         skimURLs = urls
-        skimAddedURLs = ((saved["added"] as? [String]) ?? []).compactMap { b in
+        skimAddedURLs = Self.resolveBookmarks((saved["added"] as? [String]) ?? [])
+        skimKept = kept
+        skimNote = "Picked up where you were"
+        skimRestoring = true
+    }
+
+    nonisolated private static func resolveBookmarks(_ marks: [String]) -> [URL] {
+        marks.compactMap { b in
             var stale = false
             guard let d = Data(base64Encoded: b), let u = try? URL(resolvingBookmarkData: d, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
             _ = u.startAccessingSecurityScopedResource()
             return u
         }
-        skimKept = kept
-        skimNote = "Picked up where you were"
-        skimRestoring = true
+    }
+
+    // MARK: The last shoot, offered on Open (LOCAL-CHANGES 288)
+
+    /// The last shoot's marks and view and bookmarks to its clips, kept across a Quit. Open offers it ("Pick up where you
+    /// were"); Resume answers the page's file input with these, no panel (`window.luminaSkimResuming`).
+    private var skimLastKept: String?
+    private var skimLastURLs: [URL]?
+    private var skimLastAdded: [URL] = []
+    private var skimLastTimer: Timer?
+    private var skimLastSaved: String?
+    private var skimResignObserver: NSObjectProtocol?
+    private static var skimLastFile: URL? {
+        guard let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("skim-last.json")
+    }
+
+    /// At launch: reads the last shoot (unless the hot build is reopening one), then writes it down every 15 s and when the
+    /// app leaves the front, whenever it changed.
+    private func keepSkimLast() {
+        if !skimRestoring, let file = Self.skimLastFile, let data = try? Data(contentsOf: file),
+           let saved = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let kept = saved["kept"] as? String,
+           let marks = saved["bookmarks"] as? [String] {
+            let urls = Self.resolveBookmarks(marks)
+            if !urls.isEmpty {
+                skimLastKept = kept; skimLastURLs = urls; skimLastAdded = Self.resolveBookmarks((saved["added"] as? [String]) ?? [])
+                skimLastSaved = kept
+            }
+        }
+        skimLastTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.saveSkimLast() } }
+        skimResignObserver = NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.saveSkimLast() }
+        }
+    }
+
+    private func saveSkimLast() {
+        guard let webView, let urls = skimURLs, skimCurtain == nil, let file = Self.skimLastFile else { return }
+        webView.evaluateJavaScript("window.luminaSkimKeep ? luminaSkimKeep.take() : null") { [weak self] kept, _ in
+            MainActor.assumeIsolated {
+                guard let self, let kept = kept as? String, !kept.contains("\"dropped\":true"), kept != self.skimLastSaved else { return }
+                let mark = { (u: URL) in try? u.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil).base64EncodedString() }
+                let marks = urls.compactMap(mark), added = self.skimAddedURLs.compactMap(mark)
+                guard !marks.isEmpty, let data = try? JSONSerialization.data(withJSONObject: ["kept": kept, "at": Date().timeIntervalSince1970, "bookmarks": marks, "added": added] as [String: Any]) else { return }
+                try? data.write(to: file, options: .atomic)
+                self.skimLastSaved = kept; self.skimLastKept = kept; self.skimLastURLs = urls; self.skimLastAdded = self.skimAddedURLs
+            }
+        }
+    }
+
+    /// After a load with nothing reopening: hands the page the last shoot for its Open card (looks every 100 ms for the hook).
+    private func offerSkimLast(tries: Int) {
+        guard let webView, let kept = skimLastKept, skimLastURLs != nil,
+              let arg = try? JSONSerialization.data(withJSONObject: [kept]), let list = String(data: arg, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.luminaSkimKeep && luminaSkimKeep.offer ? luminaSkimKeep.offer(\(list)[0]) : 'wait'") { [weak self] r, _ in
+            MainActor.assumeIsolated {
+                guard let self, (r as? String) == "wait", tries < 60 else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { MainActor.assumeIsolated { self.offerSkimLast(tries: tries + 1) } }
+            }
+        }
     }
 
     /// SIGTERM: the open shoot to disk, then exit. At most 1.5 s; dev.sh waits 5 s before a kill -9.
@@ -550,6 +611,13 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             // A reload in place answers with the clips that were open, with no panel (reloadSkimKeeping).
             if let urls = skimReopenURLs { skimReopenURLs = nil; bridge.skimOpened(skimURLs ?? urls); completionHandler(urls); return }
             Task { @MainActor in
+                #if DEBUG
+                // Resume on Open's card (LOCAL-CHANGES 288): the last shoot's clips from their bookmarks, no panel.
+                if await skimPageFlag("window.luminaSkimResuming === true ? (window.luminaSkimResuming = false, true) : false"), let last = skimLastURLs {
+                    skimURLs = last; skimAddedURLs = skimLastAdded; bridge.skimOpened(last)
+                    completionHandler(last + skimLastAdded); return
+                }
+                #endif
                 // Add clips (the page sets window.luminaSkimAdding just before its click): more clips for the open shoot. The
                 // page is told where they are (window.luminaSkimPicked, set before it gets the files) so the Final Cut file
                 // points at them; the shoot's folder stays as it was.

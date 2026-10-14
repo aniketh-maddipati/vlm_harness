@@ -85,3 +85,8 @@ LOCAL-CHANGES 220 to 222: `zlFit` grows tiles when few clips leave the screen em
 double-click out (Viewer and dock back to the clips; Takes back to Chapters; double tap on a phone). Not solved: runs of
 one clip each still start a row each, so a sparse shoot on the one-minute interval leaves the right of the screen
 empty; filling that needs runs to share a row beside the rod (a time-axis layout change), or a longer interval.
+
+## Status (2026-10-14, runs share a row)
+LOCAL-CHANGES 283 solves the sparse shoot above: runs that fit beside the run before them share its row, each with its own
+mark and short rod, tiles at the size the stacked layout gave them or larger. The rod in the left gutter still marks
+the first run of every row; time reads left to right, then down.
