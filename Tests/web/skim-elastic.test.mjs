@@ -13,14 +13,14 @@ for (const f of ['ZL', 'ZL_LINES', 'FIT_MAX', 'TI_GAP']) {
   const m = src.match(new RegExp('\\n  static ' + f + ' = ([^;]*);'));
   assert.ok(m, 'in the page: ' + f); C[f] = new Function('return ' + m[1])();
 }
-for (const name of ['zlGeo', 'zlFit', 'laySecs', 'dblSkip', 'tileNear']) {
+for (const name of ['zlGeo', 'zlCols', 'zlFit', 'laySecs', 'dblSkip', 'tileNear']) {
   const m = src.match(new RegExp('\\n  static ' + name + '\\(([^)]*)\\) \\{'));
   assert.ok(m, 'in the page: ' + name);
   C[name] = new Function('Component', 'return ' + extractMethod(src, name, 'static ' + name + '(' + m[1] + ') {').replace(/^static /, 'function '))(C);
 }
 
-// As cvGeo builds it: the grid right of the rod's 92 px gutter, runs TI_GAP apart.
-const base = (zl, vw = 1440) => ({...C.zlGeo({vw, cw:vw - 92, zl}), hh:C.TI_GAP});
+// As cvGeo builds it: the grid right of the rod's gutter, runs TI_GAP apart.
+const base = (zl, vw = 1440) => ({...C.zlGeo({vw, cw:vw - 100, zl}), hh:C.TI_GAP});
 const secsOf = ns => ns.map(n => ({n, head:true}));
 const height = (geo, secs) => C.laySecs({geo, secs}).height + 14;
 
