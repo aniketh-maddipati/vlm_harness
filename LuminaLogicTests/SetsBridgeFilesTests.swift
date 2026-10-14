@@ -84,7 +84,9 @@ final class SetsBridgeFilesTests: XCTestCase {
         let lAnswer = await call(b, ["op": "filesDirList", "path": shoot.path]) as? [[String: Any]]
         let l = try XCTUnwrap(lAnswer)
         XCTAssertEqual(l.compactMap { $0["name"] as? String }, ["DSC00001.ARW", "DSC00001.xmp", "DSC00002.ARW"])
-        for p in [outside.path, root.path, shoot.path + "/../outside", "shoot", "", "/etc"] {
+        let above = await call(b, ["op": "filesDirList", "path": root.path]) as? [[String: Any]]
+        XCTAssertEqual(above?.compactMap { $0["path"] as? String }, [shoot.path], "above the shoot's folder: only the folder let in, never its neighbours")
+        for p in [outside.path, shoot.path + "/../outside", "shoot", "", "/etc"] {
             let r = await call(b, ["op": "filesDirList", "path": p])
             XCTAssertTrue(r is NSNull, p)
         }
