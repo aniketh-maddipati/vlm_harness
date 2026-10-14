@@ -307,6 +307,7 @@ nonisolated enum SetsPage: String, Sendable {
         placeRemove: (path) => post('skimPlaceRemove', { path: String(path) }),
         dirList: (path, files) => post('skimDirList', { path: String(path), files: !!files }),
         find: (q, seq) => post('skimFind', { q: String(q), seq: Number(seq) || 0 }),
+        dirSize: (path) => post('skimDirSize', { path: String(path) }),
         dirMake: (parent, name) => post('skimDirMake', { parent: String(parent), name: String(name) }),
         arrangeApply: (shoot, moves) => post('skimArrangeApply', { shoot: String(shoot), moves: (moves || []).map(m => ({ from: String(m.from), dir: String(m.dir) })) }),
         arrangeUndo: (id) => post('skimArrangeUndo', { id: String(id) }),

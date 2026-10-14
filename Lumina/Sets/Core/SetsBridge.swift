@@ -103,6 +103,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// ⌘R: Finder, with the file selected. The probe swaps this out so a fuzz run never brings
     /// Finder forward on the desktop of whoever is using the Mac.
     var reveal: (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) }
+    /// Handoff's Show in Finder and Delete in Finder…: Finder, with these selected (swapped out by the probe and the tests too).
+    var revealAll: ([URL]) -> Void = { NSWorkspace.shared.activateFileViewerSelecting($0) }
+    /// Handoff's Open in Lightroom: hands folders or files to Lightroom Classic (swapped out by the tests).
+    var openInApp: ([URL], URL) async -> Bool = { urls, app in (try? await NSWorkspace.shared.open(urls, withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())) != nil }
 
     init(chooser: SetsChooser, supportDir: URL, access: SetsAccess? = nil) {
         self.chooser = chooser
@@ -627,11 +631,11 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             onShootsChanged?()
             return (true, nil)
         case "writeInto":
-            return (await writeInto(label: body["label"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
+            return (await writeInto(label: body["label"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? [], dir: body["dir"] as? String), nil)
         case "readSidecars":
             return (await readSidecars(root: body["root"] as? String ?? "", files: body["files"] as? [String] ?? []), nil)
         case "writeSidecars":
-            return (await writeSidecars(root: body["root"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? []), nil)
+            return (await writeSidecars(root: body["root"] as? String ?? "", files: body["files"] as? [[String: Any]] ?? [], dir: body["dir"] as? String, ask: body["ask"] as? Bool == true), nil)
         case "reveal":
             guard let url = revealURL(body["path"] as? String ?? "") else { return (false, nil) }
             reveal(url)
@@ -741,6 +745,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             let dir = URL(fileURLWithPath: path, isDirectory: true)
             if body["files"] as? Bool == true { return (await Task.detached(priority: .userInitiated) { SkimPlaces.entries(in: dir) }.value?.map(\.json) ?? NSNull(), nil) }
             return (await Task.detached(priority: .userInitiated) { SkimPlaces.folders(in: dir) }.value?.map(\.json) ?? NSNull(), nil)
+        case "skimDirSize":
+            // A folder's total size for the tree (every file under it added up, sizes only), only inside a folder Lumina has
+            // access to, off the main thread. Read only.
+            guard let path = body["path"] as? String, SkimArrange.plain(path), skimGranted(path) else { return (NSNull(), nil) }
+            let dir = URL(fileURLWithPath: path, isDirectory: true)
+            return (await Task.detached(priority: .utility) { SkimPlaces.size(of: dir) }.value?.json ?? NSNull(), nil)
         case "skimFind":
             // Export's search: folders whose name holds every word typed, under the folders Lumina has access to (names only,
             // nothing opened), off the main thread. A newer search cancels the one still running.
@@ -901,6 +911,24 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             guard let app = Self.finalCut() else { return (["ok": false, "why": "Final Cut Pro is not on this Mac."], nil) }
             let ok = (try? await NSWorkspace.shared.open([URL(fileURLWithPath: path)], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())) != nil
             return (ok ? ["ok": true, "app": app.deletingPathExtension().lastPathComponent] : ["ok": false, "why": "Final Cut Pro did not open it."], nil)
+        case "filesPlaces": fallthrough        // Handoff's file view (`window.lumina.files`, Prompt 27): `filesOp`, below
+        case "filesDirList": fallthrough
+        case "filesPlaceAdd": fallthrough
+        case "filesPlaceRemove": fallthrough
+        case "filesDirMake": fallthrough
+        case "filesSaveToChoose": fallthrough
+        case "filesSaveToAsk": fallthrough
+        case "filesSaveToSet": fallthrough
+        case "filesReveal": fallthrough
+        case "filesSavedCheck": fallthrough
+        case "filesSavedText": fallthrough
+        case "filesDirSearch": fallthrough
+        case "filesCopyInto": fallthrough
+        case "filesDirRename": fallthrough
+        case "filesTrash": fallthrough
+        case "filesPutBack": fallthrough
+        case "filesOpenInLightroom":
+            return (await filesOp(op, body), nil)
         case "openSettings":
             // Privacy & Security → Files and Folders. Opening System Settings is the user's own click.
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") { NSWorkspace.shared.open(url) }
@@ -979,6 +1007,15 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// Export's search: the newest search's number, read by the one running so an older search stops.
     private var skimFindGen = 0
     private let skimFindCancel = SkimFindGeneration()
+    /// Handoff's search (`filesDirSearch`): the one the page is paging through, by its cursor; a query without a
+    /// cursor starts a new one and stops the older (`pickFindCancel`).
+    private var pickSearch: (key: String, search: PickFiles.Search)?
+    private var pickFindGen = 0
+    private let pickFindCancel = SkimFindGeneration()
+    /// Handoff's Save to folder, resolved once per bookmark.
+    private var pickSaveToResolved: (bookmark: Data, url: URL)?
+    /// The files Handoff moved to the Trash in this run, by where they went: the only ones Put Back takes.
+    private var pickTrashed: [String: String] = [:]
 
     /// What Export shows under Save to, and where the open shoot was read from.
     private func skimExportPlace() -> [String: Any] {
@@ -1137,23 +1174,48 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// silently. Refused wholesale when the folder is on a card. A file's `base` (from
     /// `readSidecars`) is what its bytes were merged from: when the sidecar on disk is no longer
     /// that, it is left alone and reported "changed on disk".
-    private func writeSidecars(root name: String, files: [[String: Any]]) async -> [String: Any]? {
+    ///
+    /// Handoff's Save to (Prompt 27): with `dir`, a folder Lumina may look in, the sidecars go there instead (`rel` inside it,
+    /// `.lumina-bak` first, read back; `PickFiles.writeSidecar`); with `ask`, into the folder the panel names (not the
+    /// shoot's, not a card; Cancel writes nothing). The bytes are the page's own merge; nothing there is merged again.
+    private func writeSidecars(root name: String, files: [[String: Any]], dir: String? = nil, ask: Bool = false) async -> [String: Any]? {
         guard let root = ingest.root(named: name) ?? lastOpened.flatMap({ $0.lastPathComponent == name ? $0 : nil }) else {
             onEvent?("writeSidecars: \(name) is not an opened folder")
             return nil
         }
-        onEvent?("writeSidecars \(files.count) → \(root.path)")
+        var away: URL?
+        if let d = dir, !d.isEmpty {
+            guard pickGranted(d), SkimArrange.isDir(d) else {
+                return ["n": 0, "bak": 0, "folder": "", "path": d, "errors": files.map { ["name": (((($0["name"] as? String) ?? "") as NSString).lastPathComponent as NSString).deletingPathExtension, "reason": "missing"] }]
+            }
+            away = URL(fileURLWithPath: d, isDirectory: true)
+        } else if ask {
+            var refusal: String?
+            while away == nil {
+                guard let p = await chooser.chooseDestination(label: "xmp", suggested: root.deletingLastPathComponent(), refusal: refusal) else { return ["aborted": true] }
+                if SetsFileOps.isCard(p) { refusal = Self.skimCardRefusal; continue }
+                if let why = SetsFileOps.refusal(destination: p, sources: ingest.rootURLs + [root]) { refusal = why; continue }
+                away = p
+            }
+        }
+        onEvent?("writeSidecars \(files.count) → \((away ?? root).path)")
         let items: [(String, Data?, String?)] = files.map { ($0["name"] as? String ?? "", ($0["b64"] as? String).flatMap { Data(base64Encoded: $0) }, $0["base"] as? String) }
         let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "Lumina save")
-        let (n, bak, errors) = await Task.detached(priority: .userInitiated) { () -> (Int, Int, [[String: String]]) in
-            var n = 0, bak = 0, errors: [[String: String]] = []
-            let onCard = SetsFileOps.isCard(root)
+        let (n, bak, errors, wrote) = await Task.detached(priority: .userInitiated) { [away] () -> (Int, Int, [[String: String]], [String]) in
+            var n = 0, bak = 0, errors: [[String: String]] = [], wrote: [String] = []
+            let onCard = SetsFileOps.isCard(away ?? root)
             for (rel, data, base) in items {
                 let stem = ((rel as NSString).lastPathComponent as NSString).deletingPathExtension
                 guard let data else { errors.append(["name": stem, "reason": "failed"]); continue }
                 if onCard { errors.append(["name": stem, "reason": "on the card"]); continue }
                 do {
-                    if try SetsFileOps.writeSidecar(data, rel: rel, root: root, base: base).backedUp { bak += 1 }
+                    if let away {
+                        if try PickFiles.writeSidecar(data, rel: rel, into: away).backedUp { bak += 1 }
+                        wrote.append(away.appendingPathComponent(rel).standardizedFileURL.path)
+                    } else {
+                        if try SetsFileOps.writeSidecar(data, rel: rel, root: root, base: base).backedUp { bak += 1 }
+                        wrote.append(root.appendingPathComponent(rel).standardizedFileURL.path)
+                    }
                     n += 1
                 } catch let e as SetsFileOps.SidecarError {
                     errors.append(["name": e.name, "reason": e.reason])
@@ -1161,11 +1223,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                     errors.append(["name": stem, "reason": SetsFileOps.reason(error)])
                 }
             }
-            return (n, bak, errors)
+            return (n, bak, errors, wrote)
         }.value
         ProcessInfo.processInfo.endActivity(activity)
-        onEvent?("sidecars → \(root.path): \(n) written, \(bak) bak, \(errors.count) failed\(errors.first.map { " — \($0["name"] ?? "") · \($0["reason"] ?? "")" } ?? "")")
-        return ["n": n, "bak": bak, "folder": root.lastPathComponent, "path": root.path, "errors": errors]
+        pickNoteWritten(wrote)
+        let to = away ?? root
+        onEvent?("sidecars → \(to.path): \(n) written, \(bak) bak, \(errors.count) failed\(errors.first.map { " — \($0["name"] ?? "") · \($0["reason"] ?? "")" } ?? "")")
+        return ["n": n, "bak": bak, "folder": to.lastPathComponent, "path": to.path, "errors": errors]
     }
 
     /// What an export may write, by the name's extension (threat model T8, S4): bytes the page
@@ -1178,7 +1242,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// `{name, look: {src, look, px?, model?}}`, the name ending in .jpg / .jpeg / .tif / .tiff /
     /// .png, and `{name, b64}`, the name ending in .xmp. Anything else stops the export before a
     /// folder is asked for: v3's `src` (a RAW copied out) and `jpg` (the CSS look) are gone.
-    private func writeInto(label: String, files: [[String: Any]]) async -> [String: Any] {
+    private func writeInto(label: String, files: [[String: Any]], dir: String? = nil) async -> [String: Any] {
         onEvent?("writeInto \(label): \(files.count) files")
         var items: [SetsExportJob.Item] = []
         let sources: [URL] = ingest.rootURLs
@@ -1211,9 +1275,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 return ["aborted": true]
             }
         }
-        // Pick the destination; refuse the card and the source folder, and ask again.
+        // Pick the destination; refuse the card and the source folder, and ask again. Handoff's Save to names a folder
+        // Lumina may look in: that one, without the panel, when it is neither.
         var refusal: String?
         var dest: URL?
+        if let d = dir, !d.isEmpty, pickGranted(d), SkimArrange.isDir(d) {
+            let u = URL(fileURLWithPath: d, isDirectory: true)
+            if SetsFileOps.refusal(destination: u, sources: sources) == nil, !SetsFileOps.isCard(u) { dest = u }
+        }
         while dest == nil {
             guard let picked = await chooser.chooseDestination(label: label, suggested: ingest.rootURLs.first?.deletingLastPathComponent(), refusal: refusal) else {
                 return ["aborted": true]
@@ -1234,7 +1303,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         if let first = result.failed.first {
             return ["aborted": true, "say": result.n > 0 ? "export stopped after \(result.n) · \(first)" : first]
         }
-        var out: [String: Any] = ["n": result.n, "bak": result.bak, "folder": result.folder]
+        pickNoteWritten(items.map { dest!.appendingPathComponent($0.name).standardizedFileURL.path }.filter { SkimArrange.isFile($0) })
+        var out: [String: Any] = ["n": result.n, "bak": result.bak, "folder": result.folder, "path": dest!.path]
         if !result.decoders.isEmpty {
             // The result block names the decoder used (§2) and, when slowed, says so (§4).
             out["decoder"] = result.decoderSummary + (LookDecoderProbe.slowed ? " · slowed by thermal state" : "")
@@ -1244,6 +1314,249 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         }
         return out
     }
+}
+
+// MARK: Handoff's file view (`window.lumina.files`, Prompt 27)
+
+/// Pick's Handoff page lists the drives and the folders Lumina may look inside, searches folder names, copies photos into
+/// a folder (never moves them), renames folders, keeps Save to, and checks or trashes only the files it saved. The drives
+/// and kept folders are Skim's (`skim/places.json`, one list for the app); Save to and the note of what Handoff wrote are
+/// Pick's (`pick/`). Every path the page names is checked here: plain, absolute, and inside a folder Lumina may look in.
+extension SetsBridge {
+    private var pickSaveTo: PickFiles.SaveToStore { .init(file: supportDir.appendingPathComponent("pick", isDirectory: true).appendingPathComponent("saveto.json")) }
+    private var pickWritten: PickFiles.Written { .init(file: supportDir.appendingPathComponent("pick", isDirectory: true).appendingPathComponent("written.json")) }
+    static let lightroomIDs = ["com.adobe.LightroomClassicCC7", "com.adobe.LightroomClassic"]
+    static let maxFilesItems = 5000
+
+    /// Save to's folder, resolved once per bookmark and opened for this run; nil for next to each RAW or ask each time.
+    func pickSaveToFolder() -> URL? {
+        let s = pickSaveTo.get()
+        guard !s.ask, let bm = s.bookmark else { return nil }
+        if let c = pickSaveToResolved, c.bookmark == bm { return c.url }
+        var stale = false
+        guard let u = try? URL(resolvingBookmarkData: bm, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+        if skimOpenPlaces[u.path] == nil, u.startAccessingSecurityScopedResource() { skimOpenPlaces[u.path] = u }
+        pickSaveToResolved = (bm, u)
+        return u
+    }
+
+    /// Every folder Handoff may look inside: the kept ones, Save to, the open shoot's folder.
+    private func pickRoots() -> [URL] { skimPlaceRoots() + [pickSaveToFolder(), lastOpened].compactMap { $0 } }
+
+    private func pickGranted(_ path: String, roots: [URL]? = nil) -> Bool {
+        SkimArrange.plain(path) && (roots ?? pickRoots()).contains { SkimPlaces.inside(path, root: $0) }
+    }
+
+    private func pickPlacesJSON() async -> [String: Any] {
+        let roots = pickRoots(), save = pickSaveToFolder(), shoot = lastOpened, kept = skimPlaceRoots(), ask = pickSaveTo.get().ask
+        let (r, access) = await Task.detached(priority: .userInitiated) { () -> (SkimPlacesRead, [PickFiles.Access]) in
+            let r = SkimPlacesRead.read(roots: roots, shoot: shoot, save: save, kept: kept)
+            return (r, r.drives.map { PickFiles.access(drive: $0.path, roots: roots) })
+        }.value
+        let drives = zip(r.drives, access).map { d, a -> [String: Any] in var o = d.json; o["granted"] = a.json; return o }
+        return ["drives": drives, "places": r.places.map(\.json), "saveTo": save?.path ?? NSNull(), "ask": ask, "home": SkimDrive.realHome().path]
+    }
+
+    private func pickStrings(_ v: Any?) -> [String]? {
+        guard let a = v as? [Any], a.count <= Self.maxFilesItems else { return nil }
+        let s = a.compactMap { $0 as? String }
+        return s.count == a.count ? s : nil
+    }
+
+    func filesOp(_ op: String, _ body: [String: Any]) async -> Any {
+        switch op {
+        case "filesPlaces":
+            // The drives mounted (whether Lumina may look inside all of one, some folders on it, or none) and the folders let in.
+            return await pickPlacesJSON()
+        case "filesDirList":
+            // What is directly inside one folder Lumina may look in; for a drive let in only in part, the folders let in on it.
+            guard let path = body["path"] as? String, SkimArrange.plain(path) else { return NSNull() }
+            let roots = pickRoots(), dir = URL(fileURLWithPath: path, isDirectory: true)
+            if pickGranted(path, roots: roots) {
+                guard let l = await Task.detached(priority: .userInitiated, operation: { PickFiles.list(dir) }).value else { return NSNull() }
+                return l.map(\.json)
+            }
+            let some = PickFiles.rootsOn(drive: path, roots: roots)
+            if some.isEmpty { return NSNull() }
+            return PickFiles.listSome(some)
+        case "filesPlaceAdd":
+            // Give access…: the folder panel, opened at the drive or folder named, after the user's click; kept as a bookmark.
+            let at = (body["at"] as? String).flatMap { SkimArrange.plain($0) ? URL(fileURLWithPath: $0, isDirectory: true) : nil }
+            if let picked = await chooser.chooseDestination(label: "pick-place", suggested: at, refusal: nil),
+               let bm = try? picked.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
+                skimPlaces.add(.init(bookmark: bm, path: picked.path))
+            }
+            return await pickPlacesJSON()
+        case "filesPlaceRemove":
+            // Remove access: a kept folder off the list (nothing on disk changes); Save to there goes back to next to each RAW.
+            if let path = body["path"] as? String {
+                skimPlaces.remove(path: path)
+                if let u = skimOpenPlaces.removeValue(forKey: path) { u.stopAccessingSecurityScopedResource() }
+                if pickSaveTo.get().path == path { pickSaveTo.set(.init()); pickSaveToResolved = nil }
+            }
+            return await pickPlacesJSON()
+        case "filesDirMake":
+            // New folder: one plain name inside a folder Lumina may look in; never on a card, never over a folder.
+            guard let parent = body["parent"] as? String, let name = body["name"] as? String, name.utf8.count <= 1024, pickGranted(parent) else { return ["ok": false, "why": "Lumina may not make a folder there."] }
+            let dir = URL(fileURLWithPath: parent, isDirectory: true)
+            if SetsFileOps.isCard(dir) { return ["ok": false, "why": "Lumina never writes to a card."] }
+            let r = SkimPlaces.make(name, in: dir)
+            return r.ok ? ["ok": true, "path": r.path] : ["ok": false, "why": r.why]
+        case "filesSaveToChoose":
+            // Save to ▸ Choose…: the folder panel; a card is refused in the panel's own words and the panel asks again.
+            var refusal: String?
+            while true {
+                guard let p = await chooser.chooseDestination(label: "pick-saveto", suggested: pickSaveToFolder() ?? lastOpened?.deletingLastPathComponent(), refusal: refusal) else { break }
+                if SetsFileOps.isCard(p) { refusal = Self.skimCardRefusal; continue }
+                if let shoot = lastOpened, SkimPlaces.inside(p.path, root: shoot), SkimPlaces.inside(shoot.path, root: p) { pickSaveTo.set(.init()); break }
+                if let bm = try? p.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) { pickSaveTo.set(.init(ask: false, bookmark: bm, path: p.path)) }
+                break
+            }
+            return await pickPlacesJSON()
+        case "filesSaveToAsk":
+            // Save to ▸ Ask each time: each save opens the folder panel.
+            pickSaveTo.set(.init(ask: true)); pickSaveToResolved = nil
+            return await pickPlacesJSON()
+        case "filesSaveToSet":
+            // Save to a folder of the tree; the shoot's own folder means next to each RAW.
+            guard let path = body["path"] as? String, SkimArrange.plain(path) else { return await pickPlacesJSON() }
+            if let shoot = lastOpened, SkimPlaces.inside(path, root: shoot), SkimPlaces.inside(shoot.path, root: URL(fileURLWithPath: path)) {
+                pickSaveTo.set(.init()); pickSaveToResolved = nil
+            } else if pickGranted(path), !SetsFileOps.isCard(URL(fileURLWithPath: path)),
+                      let bm = try? URL(fileURLWithPath: path, isDirectory: true).bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
+                pickSaveTo.set(.init(ask: false, bookmark: bm, path: path))
+            }
+            return await pickPlacesJSON()
+        case "filesReveal":
+            // Show in Finder (⌥⌘R) or Delete in Finder…: Finder, with these selected, only inside folders Lumina may look in.
+            // Lumina deletes nothing.
+            guard let paths = pickStrings(body["paths"]), !paths.isEmpty else { return ["ok": false, "why": "Nothing to show."] }
+            let roots = pickRoots()
+            let urls = paths.filter { pickGranted($0, roots: roots) && SkimArrange.exists($0) }.map { URL(fileURLWithPath: $0) }
+            guard !urls.isEmpty else { return ["ok": false, "why": "Lumina has no access to that place."] }
+            revealAll(urls)
+            return ["ok": true, "n": urls.count]
+        case "filesSavedCheck":
+            // Saved files: each entry as it is on disk now (there, changed since it was saved, or gone). Read only.
+            guard let list = body["list"] as? [[String: Any]], list.count <= 2000 else { return [String: String]() }
+            let roots = pickRoots(), written = pickWritten.all()
+            let items: [(String, Double, [String])] = list.compactMap { e -> (String, Double, [String])? in
+                guard let id = e["id"] as? String, id.utf8.count <= 200, let paths = pickStrings(e["paths"]) else { return nil }
+                let at = SetsNumber.pageClock(e["at"]) ?? 0
+                return (id, at, paths.filter { p in SkimArrange.plain(p) && (written.contains(p) || roots.contains(where: { r in SkimPlaces.inside(p, root: r) })) })
+            }
+            return await Task.detached(priority: .utility) { () -> [String: String] in
+                var out: [String: String] = [:]
+                for (id, at, paths) in items { out[id] = PickFiles.check(paths, at: at) }
+                return out
+            }.value
+        case "filesSavedText":
+            // The text of a sidecar Handoff saved (at most 1 MB), for the preview. Read only.
+            guard let path = body["path"] as? String, SkimArrange.plain(path), path.lowercased().hasSuffix(".xmp"), pickWritten.all().contains(path) else { return NSNull() }
+            let text = await Task.detached(priority: .userInitiated) { () -> String? in
+                guard SkimArrange.isFile(path), SkimArrange.size(path) <= Int64(SetsFileOps.sidecarMaxBytes), let d = FileManager.default.contents(atPath: path) else { return nil }
+                return String(data: d, encoding: .utf8)
+            }.value
+            guard let text else { return NSNull() }
+            return text
+        case "filesDirSearch":
+            // Folders whose name holds the query, under the folders Lumina may look in, a page at a time (`next` is the
+            // cursor, nil when done). Names only; a query without a cursor stops the older one.
+            guard let q = body["q"] as? String, q.utf8.count <= 200 else { return ["hits": [Any](), "next": NSNull(), "where": ""] }
+            let o = body["opts"] as? [String: Any] ?? [:]
+            let limit = SetsNumber.int(o["limit"], in: 1...200, clamp: true) ?? 50
+            let after = o["after"] as? String
+            let search: PickFiles.Search
+            if let after, let cur = pickSearch, cur.key == after { search = cur.search }
+            else {
+                let roots = pickRoots(), asked = pickStrings(o["roots"]) ?? []
+                var from: [URL] = []
+                for p in asked where SkimArrange.plain(p) {
+                    if pickGranted(p, roots: roots) { from.append(URL(fileURLWithPath: p, isDirectory: true)) }
+                    else { from += PickFiles.rootsOn(drive: p, roots: roots) }
+                }
+                if asked.isEmpty { from = roots }
+                pickFindGen += 1
+                search = PickFiles.Search(q, roots: from)
+                pickSearch = ("s\(pickFindGen)", search)
+                pickFindCancel.set(pickFindGen)
+            }
+            let key = pickSearch?.key ?? "", gen = pickFindGen, box = pickFindCancel
+            let r = await Task.detached(priority: .userInitiated) { search.next(limit: limit, budget: 6, cancelled: { box.current != gen }) }.value
+            let next: Any = r.done ? NSNull() : key
+            return ["hits": r.hits, "next": next, "where": r.at]
+        case "filesCopyInto":
+            // Copies (never moves): each photo's RAW with its sidecar into a folder Lumina may look in, each read back and
+            // compared; never over a file, never onto a card. What was made is noted, so Undo can send only that to the Trash.
+            guard let list = body["items"] as? [[String: Any]], list.count <= Self.maxFilesItems else { return ["done": [Any](), "errs": [Any]()] }
+            let roots = pickRoots()
+            var jobs: [(String, String)] = [], errs: [[String: String]] = []
+            for it in list {
+                guard let from = it["from"] as? String, let to = it["to"] as? String else { continue }
+                guard pickGranted(from, roots: roots), pickGranted(to, roots: roots) else { errs.append(["from": from, "why": "Lumina has no access to that folder."]); continue }
+                jobs.append((from, to))
+            }
+            let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "Lumina copies")
+            let r = await Task.detached(priority: .userInitiated) { [jobs] () -> ([[String: String]], [[String: String]], [String]) in
+                var done: [[String: String]] = [], errs: [[String: String]] = [], made: [String] = []
+                for (from, to) in jobs {
+                    let c = PickFiles.copy(raw: URL(fileURLWithPath: from), into: URL(fileURLWithPath: to, isDirectory: true))
+                    if let at = c.to { done.append(["from": from, "to": at]); made += c.made } else { errs.append(["from": from, "why": c.why]) }
+                }
+                return (done, errs, made)
+            }.value
+            ProcessInfo.processInfo.endActivity(activity)
+            pickWritten.add(r.2)
+            onEvent?("files copyInto \(r.0.count) copied, \(r.1.count + errs.count) not")
+            return ["done": r.0, "errs": errs + r.1]
+        case "filesDirRename":
+            // A folder renamed in place (never a photo, a drive, a folder Lumina was let into, one on a card or one holding the shoot).
+            guard let path = body["path"] as? String, let name = body["name"] as? String, name.utf8.count <= 1024, SkimArrange.plain(path) else { return ["ok": false, "why": "That folder can't be renamed."] }
+            let r = PickFiles.rename(path, to: name, roots: pickRoots(), shoot: lastOpened)
+            return r.ok ? ["ok": true, "path": r.path] : ["ok": false, "why": r.why]
+        case "filesTrash":
+            // Move to Trash: only files Handoff wrote (its note), each with the sidecar copy made with it. Put Back returns them.
+            guard let paths = pickStrings(body["paths"]), !paths.isEmpty else { return ["ok": false, "why": "Nothing to move to the Trash."] }
+            let written = pickWritten.all(), roots = pickRoots()
+            var all: [String] = []
+            for p in paths where written.contains(p) && pickGranted(p, roots: roots) {
+                all.append(p)
+                let u = URL(fileURLWithPath: p), stem = u.deletingPathExtension().path
+                if u.pathExtension.lowercased() != "xmp" { for x in [stem + ".xmp", stem + ".XMP"] where written.contains(x) && !all.contains(x) { all.append(x) } }
+            }
+            guard !all.isEmpty else { return ["ok": false, "why": "Lumina moves to the Trash only files it saved."] }
+            var items: [[String: String]] = []
+            for p in all where SkimArrange.exists(p) {
+                if let t = try? SkimTrash.systemTrash(URL(fileURLWithPath: p)) { items.append(["path": p, "trashed": t.path]); pickTrashed[t.path] = p }
+            }
+            return items.isEmpty ? ["ok": false, "why": "Nothing was moved to the Trash."] : ["ok": true, "items": items]
+        case "filesPutBack":
+            // Put Back: files this run moved to the Trash, to where they were, while their old place is free.
+            guard let list = body["items"] as? [[String: Any]], list.count <= Self.maxFilesItems else { return ["ok": false, "why": "Nothing to put back."] }
+            var n = 0, why = ""
+            for it in list {
+                guard let t = it["trashed"] as? String, let p = pickTrashed[t] else { continue }
+                if SkimArrange.exists(p) { why = "A file is already where it was."; continue }
+                do { try FileManager.default.moveItem(atPath: t, toPath: p); pickTrashed[t] = nil; n += 1 } catch { why = "It is not in the Trash any more." }
+            }
+            return n > 0 ? ["ok": true, "n": n] : ["ok": false, "why": why.isEmpty ? "Nothing to put back." : why]
+        case "filesOpenInLightroom":
+            // Open in Lightroom: a folder or the files Handoff saved, handed to Lightroom Classic after the user's click or the
+            // Then option he turned on. Lightroom asks how to import them.
+            guard let paths = pickStrings(body["paths"]), !paths.isEmpty else { return ["ok": false, "why": "Nothing to open."] }
+            let roots = pickRoots(), written = pickWritten.all()
+            let urls = paths.filter { SkimArrange.plain($0) && (written.contains($0) || pickGranted($0, roots: roots)) && SkimArrange.exists($0) }.map { URL(fileURLWithPath: $0) }
+            guard !urls.isEmpty else { return ["ok": false, "why": "Lumina has no access to that place."] }
+            guard let app = Self.lightroomIDs.lazy.compactMap({ NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }).first else { return ["ok": false, "why": "Lightroom Classic is not on this Mac."] }
+            let ok = await openInApp(urls, app)
+            return ok ? ["ok": true, "app": app.deletingPathExtension().lastPathComponent] : ["ok": false, "why": "Lightroom did not open them."]
+        default:
+            return NSNull()
+        }
+    }
+
+    /// Notes files Handoff wrote, so only those can go to the Trash from the page.
+    func pickNoteWritten(_ paths: [String]) { pickWritten.add(paths) }
 }
 
 /// The page's web view: bundled files only, network blocked, plumbing injected.

@@ -114,9 +114,9 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `reopen` | a recent shoot through its bookmark | — |
 | `workingFiles` | sizes in the container | — |
 | `removeShoot` | — | deletes `shoots/<id>/` in the container (id checked) |
-| `writeInto` | RAWs in the opened folders (and, for a look with `mask:` tokens, the photo's preview, as `masks` does) | an export: `.xmp` bytes or rendered `.jpg` `.tif` `.png`, in a folder the user picks (not the card, not the source) |
+| `writeInto` | RAWs in the opened folders (and, for a look with `mask:` tokens, the photo's preview, as `masks` does) | an export: `.xmp` bytes or rendered `.jpg` `.tif` `.png`, in a folder the user picks (not the card, not the source), or Handoff's Save to folder when it is one Lumina has access to and neither; the files written are noted in `pick/written.json` |
 | `readSidecars` | `.xmp` files in the opened folder | — |
-| `writeSidecars` | — | `.xmp` beside its RAW in the opened folder, `.lumina-bak` first |
+| `writeSidecars` | — | `.xmp` beside its RAW in the opened folder, `.lumina-bak` first; with Handoff's Save to, into that folder instead (one Lumina has access to, or one the folder panel names that is not the opened folder or a card), `.lumina-bak` first, read back; the files written are noted in `pick/written.json` in the container |
 | `reveal` | — | — (shows a file in Finder, only inside the opened folders or the last export) |
 | `setPrefs` | — | the page's preferences in the app's defaults |
 | `skimStore` | Skim's saved shoots, `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) | — |
@@ -142,6 +142,7 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `skimPlaceAdd` | — | the folder panel after the user's click, opened at the drive or folder named; the folder picked is kept as a security-scoped bookmark in `skim/places.json` (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimPlaceRemove` | — | takes a folder off `skim/places.json`; the folder is not touched (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimDirList` | the folder names, and with `files` the file names and sizes (nothing hidden, nothing opened), directly inside one folder, only inside a folder Lumina has access to (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimDirSize` | the sizes of the files under one folder, added up (names and sizes only, nothing opened), only inside a folder Lumina has access to, after Export's tree lists the folder or the user's Re-read sizes (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimFind` | Export's search: the names of the folders (no files, nothing hidden, no packages, nothing opened) under the folders Lumina has access to whose name holds every word typed; breadth first, at most 200 results, 20,000 folders, 8 levels and 2 s, off the main thread; a newer search stops the older (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimDirMake` | — | one new, empty folder with a plain name inside a folder Lumina has access to, after the user's click; never on a camera card, never over a folder (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimArrangeApply` | the clips the user dragged onto folders in Export's workshop, and their Sony sidecars | moves them into those folders after the user's Apply, only on the same drive (a rename, never a copy and delete), only inside folders Lumina has access to, never on a camera card, a read-only drive or under `PRIVATE/M4ROOT`, never over a file; makes the folders named if they are not there; notes the run in `skim/arrange.json` in the container before anything moves (Debug builds with `LUMINA_PAGE=skim` only) |
@@ -157,8 +158,25 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `skimExportsReveal` | — | — (Finder, with a file on Export's list selected, after the user's click; Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportsOpen` | — | — (hands a `.fcpxml` on Export's list to Final Cut Pro, which asks where to import it, after the user's click; Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportsRead` | the text of one file on Export's list (at most 16 MB), found through its bookmark, for its preview (Debug builds with `LUMINA_PAGE=skim` only) | — |
-| `skimShowClips` | — | — (Finder, with the clips named selected, inside the opened folder only, after the user's Delete in Finder… click; the user deletes them there, Lumina deletes nothing; Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimShowClips` | — | — (Finder, with the clips named selected, inside the opened folder only, after the user's click on Delete in Finder… or on a mark's Show in Finder (Selected, Maybe, Cut, unmarked); the user moves or deletes them there, Lumina moves and deletes nothing; Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimShowInFinder` | — | — (Finder, with a folder or file of Export's tree selected, only inside a drive or folder Lumina has access to, after the user's click; Debug builds with `LUMINA_PAGE=skim` only) |
+| `filesPlaces` | the drives mounted (name, size, free space, card or read only, whether Lumina may look inside all of one, some folders on it, or none), `skim/places.json` (the drives and folders the user gave Lumina access to) and `pick/saveto.json`; nothing inside a drive | — |
+| `filesDirList` | the folder and file names and sizes directly inside one folder (nothing hidden, nothing opened, no sub-folder read), only inside a folder Lumina has access to; for a drive let in only in part, the folders let in on it | — |
+| `filesPlaceAdd` | — | the folder panel after the user's click, opened at the drive or folder named; the folder picked is kept as a security-scoped bookmark in `skim/places.json` |
+| `filesPlaceRemove` | — | takes a folder off `skim/places.json` (and Save to, when it was that folder); the folder is not touched |
+| `filesDirMake` | — | one new, empty folder with a plain name inside a folder Lumina has access to, after the user's click; never on a camera card, never over a folder |
+| `filesSaveToChoose` | — | the folder panel after the user's click (a camera card refused); the folder picked is kept as a security-scoped bookmark in `pick/saveto.json` |
+| `filesSaveToAsk` | — | `pick/saveto.json`: each save asks with the folder panel |
+| `filesSaveToSet` | — | `pick/saveto.json`: a folder of the file view (one Lumina has access to, not a card) becomes Save to; the shoot's own folder means next to each RAW |
+| `filesReveal` | — | — (Finder, with the files or folders named selected, only inside folders Lumina has access to, after the user's click or ⌥⌘R; Delete in Finder… selects the rejected RAWs so the user deletes them there; Lumina deletes nothing) |
+| `filesSavedCheck` | whether each file of Handoff's Saved files is there and its date, only for files Lumina noted writing or inside folders it has access to | — |
+| `filesSavedText` | the text of one `.xmp` Handoff saved (noted in `pick/written.json`, at most 1 MB), for its preview | — |
+| `filesDirSearch` | Handoff's search: the names of the folders (no files, nothing hidden, no packages or links, nothing opened) under the folders Lumina has access to whose name holds the query; breadth first, a page at a time (at most 200 results and 6 s a page, 10 levels, 50,000 folders), off the main thread; a new query stops the older | — |
+| `filesCopyInto` | the photos named (their RAW and `.xmp`), inside folders Lumina has access to | copies of them (never moves) into a folder Lumina has access to after the user's Apply: streamed with a running SHA-256 and read back before each counts; never over a file (a name already there gets " 2"), never onto a camera card, never into the photo's own folder; the copies are noted in `pick/written.json` in the container |
+| `filesDirRename` | — | renames one folder in place after the user's typing, inside a folder Lumina has access to; never a photo, a drive, a folder Lumina was let into, a folder on a camera card or one holding the open shoot; never over a folder |
+| `filesTrash` | — | moves files Handoff wrote (noted in `pick/written.json`: its sidecars, JPEGs and copies, a copy's sidecar with it) to the system Trash after the user's click; nothing else; never empties the Trash |
+| `filesPutBack` | — | moves files this run of Handoff moved to the Trash back to where they were, while their old place is free |
+| `filesOpenInLightroom` | — | — (hands a folder or files Lumina has access to or saved to Lightroom Classic, which asks how to import them, after the user's click or the Then option he turned on) |
 | `openSettings` | — | — (opens System Settings ▸ Privacy & Security ▸ Files and Folders) |
 | `checkAccess` | whether a refused folder is readable now | — |
 | `reopenDenied` | the refused folder, again | — |
@@ -181,7 +199,7 @@ Every `NSWorkspace.shared.open` call site. Each hands a URL to another app, afte
 |---|---|
 | `Lumina/LuminaApp.swift` | Help ▸ Report a Bug…, through `SetsExternalLinks` |
 | `Lumina/Sets/SetsRootView.swift` | a link clicked in the page, through `SetsExternalLinks` (LinkedIn, X, the bug-report mail) |
-| `Lumina/Sets/Core/SetsBridge.swift` | System Settings' Files and Folders pane (`openSettings`); the Trash of the drive Skim's shoot is on, in Finder (`skimShowTrash`); a .fcpxml Skim's Export saved, to Final Cut Pro (`skimOpenInFinalCut`) |
+| `Lumina/Sets/Core/SetsBridge.swift` | System Settings' Files and Folders pane (`openSettings`); the Trash of the drive Skim's shoot is on, in Finder (`skimShowTrash`); a .fcpxml Skim's Export saved, to Final Cut Pro (`skimOpenInFinalCut`); a folder or files Handoff saved, to Lightroom Classic (`filesOpenInLightroom`) |
 
 ### URLs in the app's code
 

@@ -169,7 +169,7 @@ export class Bridge {
     const p = path.resolve(r, rest.join('/')); return p.startsWith(r + path.sep) ? p : null;
   }
   async handle(msg) {
-    const { op } = msg; this.calls.push(op);
+    const { op } = msg; this.calls.push(op); (this.last = this.last || {})[op] = msg;
     switch (op) {
       case 'ready': this.readyMsg = msg; return !(msg.missing && msg.missing.length);
       case 'recents': return this.index.map(s => ({ id: s.id, d: s.d, n: s.n, dec: s.dec || 0, kp: s.kp || 0, last: s.last || '', where: s.path }));
@@ -243,14 +243,18 @@ export class Bridge {
       }
       case 'writeSidecars': {
         // Mirrors SetsFileOps.writeSidecar: into the shoot folder, .xmp only, .lumina-bak first, verify.
-        const root = this.roots[msg.root]; if (!root) return null;
+        // Handoff's Save to: `dir` writes into that folder instead (PickFiles.writeSidecar, no RAW beside it needed);
+        // `ask` is the folder panel, which this stand-in answers with Cancel.
+        if (msg.ask) return { aborted: true };
+        const root = msg.dir ? msg.dir : this.roots[msg.root]; if (!root) return null;
         let n = 0, bak = 0; const errors = [];
         for (const f of msg.files) {
           const dest = path.resolve(root, f.name);
           if (!dest.startsWith(root + path.sep) || !/\.xmp$/i.test(dest)) { errors.push({ name: path.basename(f.name), reason: 'refused' }); continue; }
           // No sidecar for a RAW that is no longer beside it (renamed, moved or deleted since the read).
           const stem = path.basename(dest).replace(/\.[^.]+$/, '');
-          if (!fs.readdirSync(path.dirname(dest)).some(n => /\.arw$/i.test(n) && n.replace(/\.[^.]+$/, '') === stem)) { errors.push({ name: stem, reason: 'missing' }); continue; }
+          if (msg.dir) fs.mkdirSync(path.dirname(dest), { recursive: true });
+          else if (!fs.readdirSync(path.dirname(dest)).some(n => /\.arw$/i.test(n) && n.replace(/\.[^.]+$/, '') === stem)) { errors.push({ name: stem, reason: 'missing' }); continue; }
           const data = Buffer.from(f.b64, 'base64');
           if (this.beforeSidecar) this.beforeSidecar(dest);            // a test's chance to be the other app, writing at this instant
           // A sidecar that is not UTF-8 text is never replaced, whatever its base (SetsFileOps.sidecarUnreadable).
