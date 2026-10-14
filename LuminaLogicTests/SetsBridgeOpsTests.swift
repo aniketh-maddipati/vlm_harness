@@ -96,6 +96,8 @@ final class SetsBridgeOpsTests: XCTestCase {
         chooser.dest = dest
         let b = SetsBridge(chooser: chooser, supportDir: support, access: access())
         b.reveal = { [unowned self] in revealed.append($0) }
+        b.revealAll = { _ in }
+        b.openInApp = { _, _ in false }
         // The image path (no host view): the controller and its schedule, without a window.
         if canvas { b.attachCanvas(host: nil) }
         if opened {
@@ -161,6 +163,11 @@ final class SetsBridgeOpsTests: XCTestCase {
         "saveSession": ["id", "json", "summary"], "recents": [], "reopen": ["id"], "workingFiles": ["id"], "removeShoot": ["id"],
         "writeInto": ["label", "files"], "readSidecars": ["root", "files"], "writeSidecars": ["root", "files"], "reveal": ["path"],
         "setPrefs": ["prefs"], "checkAccess": [], "reopenDenied": [], "reopenCurrent": [],
+        // Handoff's file view (Prompt 27, `SetsBridgeFilesTests` for what each does when it may).
+        "filesPlaces": [], "filesDirList": ["path"], "filesPlaceAdd": ["at"], "filesPlaceRemove": ["path"], "filesDirMake": ["parent", "name"],
+        "filesSaveToChoose": [], "filesSaveToAsk": [], "filesSaveToSet": ["path"], "filesReveal": ["paths"], "filesSavedCheck": ["list"],
+        "filesSavedText": ["path"], "filesDirSearch": ["q", "opts"], "filesCopyInto": ["items"], "filesDirRename": ["path", "name"],
+        "filesTrash": ["paths"], "filesPutBack": ["items"], "filesOpenInLightroom": ["paths"],
     ]
 
     // MARK: The table

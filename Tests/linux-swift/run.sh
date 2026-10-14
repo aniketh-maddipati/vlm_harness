@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Linux sandbox for the app's Foundation-only Swift: compiles Lumina/Sets/Core/{SetsFileOps,
-# SetsShootStore,SetsExport,SetsIngest,SetsExportMetadata,SetsOffline,SetsExternalLinks}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath,
+# SetsShootStore,SetsExport,SetsIngest,SetsExportMetadata,SetsOffline,SetsExternalLinks,PickFiles}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath,
 # LookCanvasSchedule,LookWarmPlan,LookByteCache,LookRawPolicy,LookLensShading}.swift unchanged with Swift 6.1 (Docker image
 # swift:6.1-noble) and runs the logic tests that don't need Core Image / ImageIO / AppKit:
 #   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests,
@@ -8,6 +8,7 @@
 #   LookCanvasTests (the canvas schedule, the warm-up plan, the byte cache, the RAW tiers and the pin rule),
 #   VideoPolicyTests (the video module's budgets, tiers, pacing, pressure order and profile → transform; Lumina/Sets/Video/VideoPolicy.swift),
 #   SkimStoreTests, SkimCoversTests, SkimDriveTests, SkimTrashTests, SkimExportTests, SkimPlacesTests, SkimArrangeTests and SkimLedgerTests (Skim's saved shoots and covers, its drive, Move cut to Trash, Export's Save to, workshop and Arrange),
+#   PickFilesTests (Handoff's file view: drives let in, listings, search pages, copies, renames, Saved files),
 #   SetsShootStoreTests (a shoot id from the page stays inside the store),
 #   SetsShootImportTests (sessions from before the sandbox are brought over, R1e),
 #   SetsExportMetadataTests, SetsOfflineTests, SetsExternalLinksTests (docs/release/TRUST.md I5, I7).
@@ -19,7 +20,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
 B="$HERE/Build"; rm -rf "$B"; mkdir -p "$B/Lumina" "$B/Tests"
-for f in SetsFileOps SetsShootStore SetsExport SetsIngest SetsExportMetadata SetsOffline SetsExternalLinks; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
+for f in SetsFileOps SetsShootStore SetsExport SetsIngest SetsExportMetadata SetsOffline SetsExternalLinks PickFiles; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
 for f in LookString LookRules LookMath LookCanvasSchedule LookWarmPlan LookByteCache LookRawPolicy LookLensShading; do cp "$ROOT/Lumina/Sets/Look/$f.swift" "$B/Lumina/"; done
 cp "$ROOT/Lumina/Sets/Video/VideoPolicy.swift" "$ROOT/Lumina/Sets/Video/SkimStore.swift" "$ROOT/Lumina/Sets/Video/SkimCovers.swift" "$ROOT/Lumina/Sets/Video/SkimDrive.swift" "$ROOT/Lumina/Sets/Video/SkimTrash.swift" "$ROOT/Lumina/Sets/Video/SkimExport.swift" "$ROOT/Lumina/Sets/Video/SkimPlaces.swift" "$ROOT/Lumina/Sets/Video/SkimArrange.swift" "$ROOT/Lumina/Sets/Video/SkimLedger.swift" "$B/Lumina/"
 cp "$ROOT/Lumina/Sets/Look/rules-v1.json" "$B/rules-v1.json"     # LookMathTests read it via LUMINA_RULES (only this folder is mounted)
@@ -48,7 +49,7 @@ extension URLResourceKey { static let volumeAvailableCapacityForImportantUsageKe
 extension URLResourceValues { var volumeAvailableCapacityForImportantUsage: Int64? { nil } }
 SWIFT
 cp "$ROOT/LuminaLogicTests/SetsTrustTests.swift" "$ROOT/LuminaLogicTests/LookStringTests.swift" "$ROOT/LuminaLogicTests/LookMathTests.swift" \
-   "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" "$ROOT/LuminaLogicTests/VideoPolicyTests.swift" "$ROOT/LuminaLogicTests/SkimStoreTests.swift" "$ROOT/LuminaLogicTests/SkimCoversTests.swift" "$ROOT/LuminaLogicTests/SkimDriveTests.swift" "$ROOT/LuminaLogicTests/SkimTrashTests.swift" "$ROOT/LuminaLogicTests/SkimExportTests.swift" "$ROOT/LuminaLogicTests/SkimPlacesTests.swift" "$ROOT/LuminaLogicTests/SkimArrangeTests.swift" "$ROOT/LuminaLogicTests/SkimLedgerTests.swift" \
+   "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" "$ROOT/LuminaLogicTests/VideoPolicyTests.swift" "$ROOT/LuminaLogicTests/SkimStoreTests.swift" "$ROOT/LuminaLogicTests/SkimCoversTests.swift" "$ROOT/LuminaLogicTests/SkimDriveTests.swift" "$ROOT/LuminaLogicTests/SkimTrashTests.swift" "$ROOT/LuminaLogicTests/SkimExportTests.swift" "$ROOT/LuminaLogicTests/SkimPlacesTests.swift" "$ROOT/LuminaLogicTests/SkimArrangeTests.swift" "$ROOT/LuminaLogicTests/SkimLedgerTests.swift" "$ROOT/LuminaLogicTests/PickFilesTests.swift" \
    "$ROOT/LuminaLogicTests/SetsShootStoreTests.swift" "$ROOT/LuminaLogicTests/SetsShootImportTests.swift" \
    "$ROOT/LuminaLogicTests/SetsExportMetadataTests.swift" "$ROOT/LuminaLogicTests/SetsOfflineTests.swift" "$ROOT/LuminaLogicTests/SetsExternalLinksTests.swift" "$B/Tests/"
 # SetsFileOpsTests and SetsSidecarTests without any test that needs Core Image, or the locked-file
