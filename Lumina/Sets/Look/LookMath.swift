@@ -53,12 +53,24 @@ nonisolated enum LookMath {
         var rg = 0.0, rb = 0.0, gr = 0.0, gb = 0.0, br = 0.0, bg = 0.0
         var hiDesat = 0.0, hiFrom = 0.9, loDesat = 0.0, loBelow = 0.2
         init() {}
-        init(_ rules: LookRules) {
-            let k = { (n: String) in rules.k("rawDevelop", n, 0) }
-            lift = k("baseLift"); s = k("baseS")
-            rg = k("baseRG"); rb = k("baseRB"); gr = k("baseGR"); gb = k("baseGB"); br = k("baseBR"); bg = k("baseBG")
-            hiDesat = k("baseHiDesat"); hiFrom = rules.k("rawDevelop", "baseHiFrom", 0.9)
-            loDesat = k("baseLoDesat"); loBelow = rules.k("rawDevelop", "baseLoBelow", 0.2)
+        init(_ rules: LookRules) { self.init(rules, stage: "rawDevelop", prefix: "base") }
+
+        /// The camera profile for a Creative Style ("landscape"): the `camera` stage's numbers named
+        /// `<style>Lift`, `<style>S`, `<style>RG` …, fitted from the base to the camera's own JPEG
+        /// (Tools/parity/camera_fit.py). A style the rules have no numbers for uses Standard's; nil
+        /// when there is neither.
+        init?(camera style: String?, _ rules: LookRules) {
+            let have = rules.stages["camera"]?.coefficients ?? [:]
+            guard let name = [style?.lowercased(), "standard"].compactMap({ $0 }).first(where: { have[$0 + "Lift"] != nil }) else { return nil }
+            self.init(rules, stage: "camera", prefix: name)
+        }
+
+        private init(_ rules: LookRules, stage: String, prefix: String) {
+            let k = { (n: String) in rules.k(stage, prefix + n, 0) }
+            lift = k("Lift"); s = k("S")
+            rg = k("RG"); rb = k("RB"); gr = k("GR"); gb = k("GB"); br = k("BR"); bg = k("BG")
+            hiDesat = k("HiDesat"); hiFrom = rules.k(stage, prefix + "HiFrom", 0.9)
+            loDesat = k("LoDesat"); loBelow = rules.k(stage, prefix + "LoBelow", 0.2)
         }
 
         /// How much of a pixel's colour is kept at perceptual luma `p` (1 = all of it).
@@ -673,11 +685,15 @@ nonisolated enum LookMath {
     /// centre (no vignette there unless `r` says otherwise: the pixel's distance from the centre, 1 at
     /// the corners, by `VignetteForm.distance`; `aspect` is the frame's, for that form). This is what the pipeline tests and the Python
     /// mirror compare against.
-    static func flat(_ input: RGB, look: Look, asShot: Look.WhiteBalance, rules: LookRules, vignetteR r: Double = 0, anchor: ToneAnchor = .reference, aspect: Double = 1.5) -> RGB {
+    static func flat(_ input: RGB, look: Look, asShot: Look.WhiteBalance, rules: LookRules, vignetteR r: Double = 0, anchor: ToneAnchor = .reference, aspect: Double = 1.5,
+                     style: String? = nil) -> RGB {
         var c = input
         var anchor = anchor
         for stage in rules.lookStages {
             switch stage {
+            case "camera":
+                guard look.camera, style != nil, let m = BaseMatch(camera: style, rules) else { continue }
+                c = baseMatch(c, m, rules)
             case "exposure":
                 guard look.ev != 0 else { continue }
                 let g = exposureGain(look.ev, rules), w = exposureWhite(rules)

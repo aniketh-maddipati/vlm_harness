@@ -1458,3 +1458,19 @@ three settings lines. Counts, sizes and states are text and do not respond to cl
 Reply with the complete Handoff block (`data-screen-label="2 Handoff"`) and every function you
 changed or added, as full functions, not a description and not a partial diff. List any new
 `window.lumina` call the page makes, with its arguments and the answer it expects.
+
+## Prompt 28 — Edit can start from the camera's look (paste into Claude Design)
+
+> In Edit, add a **Profile** choice next to Auto and Crop: **Adobe Color** (today's start, the default) or
+> **Camera** (the look the camera gave its own JPEG, for the Creative Style the photo was shot with). Pick shows
+> the camera's JPEG and Edit starts from the RAW, so today a photo looks flatter the moment it opens in Edit;
+> Camera removes that jump.
+>
+> - The core's look string carries it as `prof:camera` (absent = Adobe Color). Sliders work on top of either.
+> - Per photo and for the whole shoot, like the other looks: copy / paste and Variations carry it.
+>
+> Until this lands the Mac has a setting (`lumina-camera-profile`) that turns it on for every photo.
+
+How it is checked: `LookStringTests.testCameraProfile` (the key), `node Tests/web/plumbing-harness.mjs` (the
+look reaches the canvas unchanged), and `python3 Tools/parity/camera_fit.py fit` (ΔE2000 to the camera's JPEG on
+held-out shoots, `Tools/parity/report/camera-profile.txt`).

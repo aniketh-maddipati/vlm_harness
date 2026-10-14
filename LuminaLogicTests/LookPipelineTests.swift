@@ -89,7 +89,8 @@ final class LookPipelineTests: XCTestCase {
     /// The graph holds a stage exactly when `Look.runs` says so: the warm-up plan (`LookWarmPlan`)
     /// names the programs Core Image will compile by it.
     func testTheGraphHoldsAStageExactlyWhenTheLookRunsIt() throws {
-        let dev = pipe.ramp(steps: 16, columnWidth: 4, height: 8)
+        var dev = pipe.ramp(steps: 16, columnWidth: 4, height: 8)
+        dev.style = "standard"                  // a Sony RAW's Creative Style, so the camera profile has numbers
         XCTAssertTrue(pipe.apply(Look(), to: dev) === dev.image, "no stage: the developed image itself")
         for stage in rules.lookStages {
             let on = Look().toggling(stage)
@@ -102,7 +103,8 @@ final class LookPipelineTests: XCTestCase {
         // A switched-on stage changes the picture (the warm-up's value is not a no-op).
         // (A tinted shadow tone: vibrance leaves a grey alone, shadows leave the highlights alone;
         // clarity and sharpen need an edge and the vignette a corner.)
-        let tinted = pipe.ramp(steps: 16, columnWidth: 4, height: 8, tint: LookMath.RGB(r: 1, g: 0.8, b: 0.6))
+        var tinted = pipe.ramp(steps: 16, columnWidth: 4, height: 8, tint: LookMath.RGB(r: 1, g: 0.8, b: 0.6))
+        tinted.style = "standard"
         let before = pipe.pixel(tinted.image, x: 10, y: 4)
         for stage in rules.lookStages where stage != "clarity" && stage != "sharpen" && stage != "vignette" {
             let out = pipe.pixel(pipe.apply(Look().toggling(stage), to: tinted), x: 10, y: 4)

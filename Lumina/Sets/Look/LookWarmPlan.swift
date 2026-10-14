@@ -121,6 +121,7 @@ nonisolated extension Look {
     /// reset is left out.
     func runs(_ stage: String) -> Bool {
         switch stage {
+        case "camera": return camera
         case "exposure": return ev != 0
         case "whiteBalance": return wb != nil
         case "whitesBlacks": return whites != 0 || blacks != 0
@@ -142,6 +143,7 @@ nonisolated extension Look {
         var l = self
         let on = !runs(stage)
         switch stage {
+        case "camera": l.camera = on
         case "exposure": l.ev = on ? 0.5 : 0
         case "whiteBalance": l.wb = on ? WhiteBalance(kelvin: 5500, tint: 5) : nil
         case "whitesBlacks": l.whites = on ? 10 : 0; l.blacks = 0
