@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { LuminaCore, CORE_FILE, PAGE_FILE, sha, coreHash } from './core.mjs';
 
-export const READONE = '90ef314774b89942';
+export const READONE = 'b9a06f8b75ec6f0d';
 export function readOneHash() {
   const html = fs.readFileSync(PAGE_FILE, 'utf8'), a = html.indexOf('async readOne('), b = html.indexOf('async onDir(', a);
   return a < 0 || b < 0 ? null : sha(html.slice(a, b));
@@ -56,7 +56,7 @@ const IN_PAGE = async ({ url, ori }) => {
     let blob = await (await fetch(url)).blob();
     if (ori === 3 || ori === 6 || ori === 8) { const b0 = await createImageBitmap(blob, { imageOrientation: 'none' }), sw = ori !== 3, c = document.createElement('canvas'); c.width = sw ? b0.height : b0.width; c.height = sw ? b0.width : b0.height; const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(ori === 6 ? Math.PI / 2 : ori === 8 ? -Math.PI / 2 : Math.PI); x.drawImage(b0, -b0.width / 2, -b0.height / 2); b0.close(); blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.92)); }
     const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }), portrait = sm.height > sm.width, me = LuminaCore.measure(sm); sm.close();
-    return { portrait, dhash: me.dhash, lum: me.lum, focus: me.focus, clip: me.clip };
+    return { portrait, dhash: me.dhash, lum: me.lum, focus: me.focus, spot: me.spot, clip: me.clip };
   } catch (_) { return null; }
 };
 

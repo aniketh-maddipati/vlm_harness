@@ -94,7 +94,7 @@
     HOOKS.filter(k => typeof window[k] !== 'function').map(k => 'window.' + k));
   // The native read (below) repeats the page's onDir and readOne step for step. When a design sync
   // changes either, the contract check reports it so the repeat gets reviewed; the app keeps working.
-  const ONDIR = 623750811;
+  const ONDIR = 3232859415;
   const fnv = t => { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
   const readHash = logic => {
     const proto = logic && Object.getPrototypeOf(logic);
@@ -413,7 +413,7 @@
       logic._gold.push({ file: name, size: f.size, parsed: Object.assign(Object.fromEntries(Object.entries(m).filter(([k]) => !/^_/.test(k))), { dhash: me ? me.dhash : null }) });
       if (!me) return Object.assign(baseP, { nopv: true, portrait: false, lum: null, focus: 0, clip: 0, dhash: null, src: '', lg: '' });
       // The large view gets the Mac's upright preview by URL: never held by the page.
-      return Object.assign(baseP, { portrait, dhash: me.dhash, lum: me.lum, focus: me.focus, clip: me.clip, src: URL.createObjectURL(tb), lg: pq ? media('preview', pq) : URL.createObjectURL(blob) });
+      return Object.assign(baseP, { portrait, dhash: me.dhash, lum: me.lum, focus: me.focus, spot: me.spot, clip: me.clip, src: URL.createObjectURL(tb), lg: pq ? media('preview', pq) : URL.createObjectURL(blob) });
     };
 
     // Grid thumbnails (data, not UI). The page makes them 360 px wide at JPEG 0.82 for its own measure
