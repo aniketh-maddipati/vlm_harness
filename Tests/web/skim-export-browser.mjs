@@ -297,6 +297,12 @@ async function run(host) {
     ok(/memory/i.test(await text('[data-lumina="sto-mem"]')) && /cut clip/.test(await text('[data-lumina="sto-cut"]')) && /T7 · 150\.0 GB free of 1000\.0 GB/.test(await text('[data-lumina="sto-drive"]')), 'app: Storage says what memory holds, the cut clips, and the drive: ' + [await text('[data-lumina="sto-mem"]'), await text('[data-lumina="sto-cut"]'), await text('[data-lumina="sto-drive"]')].join(' | ').replace(/\n/g, ' '));
     await p.click('[data-lumina="cut-finder"]'); await p.waitForTimeout(250);
     ok((await p.evaluate(() => window.__calls.some(c => c[0] === 'showClips' && c[1].length > 0))) && /Finder has .+ selected: press ⌘⌫ there/.test(await text('[data-lumina="cut-say"]')), 'app: Delete in Finder… selects the cut clips in Finder: ' + await text('[data-lumina="cut-say"]'));
+    // round 2, F-1: each mark's clips in Finder, never marked included
+    { const t = await p.$$eval('[data-lumina="ws-finder-marks"] button', es => es.map(e => e.getAttribute('data-lumina') + ' ' + e.innerText.trim()));
+      const before = await p.evaluate(() => window.__calls.length); await p.click('[data-lumina="ws-finder-und"]'); await p.waitForTimeout(250);
+      const got = await p.evaluate(n => window.__calls.slice(n).find(c => c[0] === 'showClips'), before);
+      ok(t.some(x => /^ws-finder-und \d+ unmarked · /.test(x)) && t.some(x => /^ws-finder-keep \d+ selected · /.test(x)) && got && got[1].length >= 1 && /Finder has \d+ unmarked clips? selected/.test(await text('[data-lumina="ws-say"]')),
+        'app: Show in Finder for each mark, unmarked too: ' + t.join(' | ') + ' → ' + await text('[data-lumina="ws-say"]')); }
     await p.click('[data-lumina="ex-preview"]'); await p.waitForTimeout(200);
     ok(/<fcpxml version=/.test(await text('[data-lumina="ex-preview-text"]')), 'app: Preview the file shows what ⌘⏎ saves');
     // Find a folder (LOCAL-CHANGES 268): a folder three levels down that nothing has read yet; ⌘F, type, the dots while the app

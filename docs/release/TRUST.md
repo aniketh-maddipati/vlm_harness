@@ -154,7 +154,7 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `skimExportsReveal` | — | — (Finder, with a file on Export's list selected, after the user's click; Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportsOpen` | — | — (hands a `.fcpxml` on Export's list to Final Cut Pro, which asks where to import it, after the user's click; Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportsRead` | the text of one file on Export's list (at most 16 MB), found through its bookmark, for its preview (Debug builds with `LUMINA_PAGE=skim` only) | — |
-| `skimShowClips` | — | — (Finder, with the clips named selected, inside the opened folder only, after the user's Delete in Finder… click; the user deletes them there, Lumina deletes nothing; Debug builds with `LUMINA_PAGE=skim` only) |
+| `skimShowClips` | — | — (Finder, with the clips named selected, inside the opened folder only, after the user's click on Delete in Finder… or on a mark's Show in Finder (Selected, Maybe, Cut, unmarked); the user moves or deletes them there, Lumina moves and deletes nothing; Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimShowInFinder` | — | — (Finder, with a folder or file of Export's tree selected, only inside a drive or folder Lumina has access to, after the user's click; Debug builds with `LUMINA_PAGE=skim` only) |
 | `openSettings` | — | — (opens System Settings ▸ Privacy & Security ▸ Files and Folders) |
 | `checkAccess` | whether a refused folder is readable now | — |
