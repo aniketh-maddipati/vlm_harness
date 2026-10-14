@@ -207,7 +207,7 @@ body:has([data-view=phone]){background:#111}
     </sc-if>
   </div>
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
-  <div data-lumina="skim-bar" style="flex:none;height:44px;padding:0 20px;display:{{ skimBarD }};align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
+  <div data-lumina="skim-bar" style="flex:none;min-height:52px;padding:6px 24px;box-sizing:border-box;display:{{ skimBarD }};align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
     <div style="flex:1;min-width:0;display:flex">
       <sc-if value="{{ lvTabsOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="levels" role="tablist" aria-label="levels" style="position:relative;display:grid;grid-template-columns:repeat({{ lvN }},68px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)">
@@ -218,13 +218,14 @@ body:has([data-view=phone]){background:#111}
       </div>
       </sc-if>
       <sc-if value="{{ unsupOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="unsupported" role="status" style="margin-left:16px;flex:none;color:#FFD27A;white-space:nowrap">{{ unsupLine }}</div></sc-if>
+      <sc-if value="{{ busyBarOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="busy" role="status" aria-live="polite" aria-busy="true" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite;will-change:opacity"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ impMsg }}</span></div></sc-if>
       <sc-if value="{{ recNoteOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="marks-back" role="status" style="margin-left:16px;flex:none;color:#A9D18E;white-space:nowrap;animation:fade 160ms ease-out">{{ recNote }}</div></sc-if>
       <sc-if value="{{ loadOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="load-status" role="status" aria-live="polite" onClick="{{ progToggle }}" title="P" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;cursor:pointer;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:{{ loadDot }};animation:{{ loadAnim }}"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ loadLine }}</span><span data-lumina="fill-note" style="flex:none;color:#9A958D">{{ fillNote }}</span></div></sc-if>
-      <sc-if value="{{ pauseOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-pause" aria-pressed="{{ pauseA }}" onClick="{{ pauseGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:{{ pauseBg }};color:{{ pauseFg }};font-weight:{{ pauseFw }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pauseT }}</button></sc-if>
-      <sc-if value="{{ stopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-stop" onClick="{{ readStop }}" title="{{ stopTip }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop here</button></sc-if>
-      <sc-if value="{{ cancelOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-cancel" onClick="{{ readCancel }}" title="Throw this load away and go back to Open" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#FF8A7A;cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Cancel</button></sc-if>
-      <sc-if value="{{ cancelAsk }}" hint-placeholder-val="{{ false }}"><div data-lumina="cancel-ask" role="alertdialog" aria-label="Throw away this load" style="margin-left:10px;flex:none;display:flex;align-items:center;gap:8px;height:34px;padding:0 3px 0 12px;border-radius:8px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,138,122,0.45);white-space:nowrap;animation:fade 140ms ease-out"><span style="color:#EFECE6">{{ cancelQ }}</span><button type="button" data-lumina="cancel-yes" onClick="{{ cancelYes }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:#FF8A7A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Throw away</button><button type="button" data-lumina="cancel-no" onClick="{{ cancelNo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Keep loading</button></div></sc-if>
-      <sc-if value="{{ haltOn }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ resumeRead }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Go on</button></sc-if>
+      <sc-if value="{{ pauseOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-pause" aria-pressed="{{ pauseA }}" onClick="{{ pauseGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:12px;flex:none;height:32px;padding:0 14px;border-radius:6px;display:flex;align-items:center;background:{{ pauseBg }};color:{{ pauseFg }};font-weight:{{ pauseFw }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pauseT }}</button></sc-if>
+      <sc-if value="{{ stopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-stop" onClick="{{ readStop }}" title="{{ stopTip }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:12px;flex:none;height:32px;padding:0 14px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop here</button></sc-if>
+      <sc-if value="{{ cancelOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-cancel" onClick="{{ readCancel }}" title="Throw this upload away and go back to Open" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:12px;flex:none;height:32px;padding:0 14px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#FF8A7A;cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Cancel</button></sc-if>
+      <sc-if value="{{ cancelAsk }}" hint-placeholder-val="{{ false }}"><div data-lumina="cancel-ask" role="alertdialog" aria-label="Throw away this upload" style="margin-left:12px;flex:none;display:flex;align-items:center;gap:10px;height:42px;padding:0 5px 0 16px;border-radius:9px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,138,122,0.45);white-space:nowrap;animation:fade 140ms ease-out"><span style="color:#EFECE6">{{ cancelQ }}</span><button type="button" data-lumina="cancel-yes" onClick="{{ cancelYes }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:32px;padding:0 14px;border-radius:7px;display:flex;align-items:center;background:#FF8A7A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Throw away</button><button type="button" data-lumina="cancel-no" onClick="{{ cancelNo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:32px;padding:0 14px;border-radius:7px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Keep loading</button></div></sc-if>
+      <sc-if value="{{ haltOn }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ resumeRead }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:12px;flex:none;height:32px;padding:0 14px;border-radius:6px;display:flex;align-items:center;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Proceed</button></sc-if>
     </div>
   </div>
   </sc-if>
@@ -252,6 +253,16 @@ body:has([data-view=phone]){background:#111}
     </sc-if>
     <sc-if value="{{ addHot }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="add-drop" style="position:absolute;inset:8px;z-index:44;border-radius:16px;box-shadow:inset 0 0 0 2px #FFD27A;background:rgba(255,210,122,0.08);display:grid;place-items:center;pointer-events:none;animation:fade 120ms ease-out"><span style="padding:10px 18px;border-radius:12px;background:#33312E;color:#EFECE6;font-size:15px;box-shadow:0 8px 28px rgba(0,0,0,0.45)">{{ addHotT }}</span></div>
+    </sc-if>
+    <sc-if value="{{ bigAddOn }}" hint-placeholder-val="{{ false }}">
+      <div data-lumina="too-big-add" role="dialog" aria-modal="true" aria-label="{{ bigAddH }}" style="position:absolute;inset:0;z-index:46;box-sizing:border-box;padding:clamp(12px,4vh,48px) clamp(12px,3vw,40px);background:rgba(20,19,18,0.72);display:flex;align-items:flex-start;justify-content:center;animation:fade 140ms ease-out">
+        <div role="alert" style="width:min(680px,100%);box-sizing:border-box;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.35),0 18px 48px rgba(0,0,0,0.55);animation:rise 160ms ease-out">
+          <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A">{{ bigAddH }}</span><span style="font-size:14px;color:#EFECE6">{{ bigAddName }}</span><span data-lumina="too-big-add-line" style="color:#B8B3AB;line-height:1.45">{{ bigAddLine }}</span></div>
+          <button type="button" data-lumina="too-big-add-pick" onClick="{{ bigAddPick }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ bigAddPickT }}</button>
+          <sc-if value="{{ bigAddGoOn }}" hint-placeholder-val="{{ true }}"><button type="button" data-lumina="too-big-add-go" onClick="{{ bigAddGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ bigAddGoT }}</button></sc-if>
+          <button type="button" data-lumina="too-big-add-close" onClick="{{ bigAddClose }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#B8B3AB;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Not now</button>
+        </div>
+      </div>
     </sc-if>
     <sc-if value="{{ mixOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="mix" role="dialog" aria-modal="true" aria-label="Clips from several places" style="position:absolute;inset:0;z-index:46;box-sizing:border-box;padding:clamp(12px,4vh,48px) clamp(12px,3vw,40px);background:rgba(20,19,18,0.72);display:flex;align-items:flex-start;justify-content:center;animation:fade 140ms ease-out">
@@ -319,7 +330,7 @@ body:has([data-view=phone]){background:#111}
           </button>
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <input ref="{{ clipRef }}" type="file" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
-          <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#FFD27A">{{ impMsg }}</div></sc-if>
+          <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" data-lumina="imp-msg" aria-busy="{{ impBusy }}" style="color:#FFD27A;display:flex;align-items:center;gap:9px"><sc-if value="{{ impBusy }}" hint-placeholder-val="{{ false }}"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite;will-change:opacity"></span></sc-if><span>{{ impMsg }}</span></div></sc-if>
           <sc-if value="{{ bigOn }}" hint-placeholder-val="{{ false }}">
             <div data-lumina="too-big" role="alert" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.35);animation:rise 160ms ease-out">
               <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A">{{ bigH }}</span><span style="font-size:14px;color:#EFECE6">{{ bigName }}</span><span data-lumina="too-big-line" style="color:#B8B3AB;line-height:1.45">{{ bigLine }}</span></div>
@@ -1126,11 +1137,11 @@ class Component extends DCLogic {
       this.storeSaid = {k:'cut', t:(ok.length ? 'Put back ' + this.plural(ok.length, 'clip') + '. ' : 'Nothing put back. ') + (why ? why.rel.split('/').pop() + ': ' + why.why + '.' : '')}; this.trashRead(); this.driveRead(); }, () => {}); };
   // Make frames again, from the storage line: the same as the debug panel's, and says so while reading runs.
   storeRemake = () => { if (this.realReading() || !this.d) return; this.storeSaid = {k:'frames', t:'Making frames again. Keys and marking work meanwhile.'}; this.clearFrames(); };
-  // Pause / Go on beside the reading line: pause sets the pace to paused, Go on returns it to auto.
+  // Pause / Proceed beside the reading line: pause sets the pace to paused, Proceed returns it to auto.
   static nextPace(pace) { return pace === 'paused' ? 'auto' : 'paused'; }
-  // Go on is saved with the other controls; a pause is for this tab only, so a later visit never starts paused.
+  // Proceed is saved with the other controls; a pause is for this tab only, so a later visit never starts paused.
   pauseToggle = () => { const to = Component.nextPace(this.mp.pace); if (to === 'auto') return this.setMp('pace', to); this.mp = {...this.mp, pace:to}; this.setState(s => ({tick:(s.tick || 0) + 1})); };
-  // Stop here and Cancel, beside Go on while reading is paused (or stopped on a bad card). Stop here keeps the clips read
+  // Stop here and Cancel, beside Proceed while reading is paused (or stopped on a bad card). Stop here keeps the clips read
   // so far and lets the rest go; the shoot goes on with them, their other frames filling in behind. Cancel asks first
   // (cancelAsk), then throws the load away and goes back to Open. Neither touches a file on the drive.
   static readKept(clips) { return clips.filter(c => (c.facts && c.facts.state !== 'pending') || (c.frames || []).some(Boolean)); }
@@ -2183,7 +2194,7 @@ class Component extends DCLogic {
   }
   isCtl(t) { if (!t || t === document.body || !t.getAttribute) return false; return ['button', 'switch', 'tab', 'menuitem', 'checkbox'].includes(t.getAttribute('role')) || t.tagName === 'BUTTON' || t.tagName === 'A'; }
   kd(e) {
-    const st = this.state; if (st.mix && this.mixKey(e)) return; if (!st.ready) return;
+    const st = this.state; if (st.bigAdd && e.key === 'Escape') { e.preventDefault(); return this.bigAddClose(); } if (st.mix && this.mixKey(e)) return; if (!st.ready) return;
     const k = e.key, kl = k.length === 1 ? k.toLowerCase() : k, meta = e.metaKey || e.ctrlKey, t = e.target;
     if (k === 'Shift' || k === 'Meta' || k === 'Alt' || k === 'Control') return;
     this.kbNote(e);
@@ -4007,8 +4018,32 @@ class Component extends DCLogic {
   // A phone or a tablet picks clips (iPhone: Photos or Files; Android: its photo picker), a computer a folder; the other is
   // one button below. Neither shows a folder picker where the browser has none (iOS Safari before 18.4).
   canFolder() { return typeof document !== 'undefined' && 'webkitdirectory' in document.createElement('input') && !/iPhone|iPod/.test(navigator.userAgent); }
-  pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) el.click(); };
-  filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.walkTok = null; this.pickNext = true; this.importFiles(fs); };
+  pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) { this.pickWait(el); el.click(); } };
+  // A status that is still going on (Looking through…, Listing…, Adding…): Open's line and Skim's bar show it with a
+  // breathing dot. Any other status, or none, ends it.
+  busy(t) { this.setState({impMsg:t, impBusyT:t}); }
+  // In a browser, the picker hands over a folder only once the browser has listed every file in it: for a card that is
+  // a moment, for a whole drive it can be minutes, and the page hears nothing until then. When the window comes back
+  // from the picker and nothing has arrived, Open says what is happening, until the files come or the pick is cancelled.
+  // Not in the app, which counts the folder itself (luminaSkimBig.looking).
+  pickWait(el) {
+    if (this.exHostApi() || typeof window === 'undefined' || !('oncancel' in el)) return;
+    const tok = this.pickTok = {}, off = () => { window.removeEventListener('focus', back); el.removeEventListener('cancel', gone); el.removeEventListener('change', got); };
+    const say = 'Opening what you picked… the browser lists every file in a folder before Skim sees it, and a whole drive takes a while.';
+    const back = () => { setTimeout(() => { if (this.pickTok === tok && !this.state.impMsg) this.busy(say); }, 400); };
+    const gone = () => { off(); if (this.pickTok === tok) { this.pickTok = null; if (this.state.impMsg === say) this.setState({impMsg:null}); } };
+    const got = () => { off(); if (this.pickTok === tok) this.pickTok = null; };
+    window.addEventListener('focus', back, {once:true}); el.addEventListener('cancel', gone, {once:true}); el.addEventListener('change', got, {once:true});
+  }
+  filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = Component.hostRel(fs); this.walkTok = null; this.pickNext = true; this.importFiles(fs); };
+  // In the app a picked folder comes as its clips and sidecars, not the folder (SetsRootView.skimHand, LOCAL-CHANGES 298),
+  // with each one's place inside it ([name, size, place], window.luminaSkimRel): the places the folder input would have
+  // given. Matched by name and size, in order. Null when there is none (a browser, a drop).
+  static hostRel(files) {
+    let list = null; try { list = window.luminaSkimRel; window.luminaSkimRel = null; } catch (x) {} if (!Array.isArray(list) || !list.length) return null;
+    const q = {}; list.forEach(([n, b, r]) => { (q[n + '|' + b] = q[n + '|' + b] || []).push(r); });
+    const m = new Map(); files.forEach(f => { const a = q[f.name + '|' + f.size]; if (a && a.length) m.set(f, a.shift()); }); return m.size ? m : null;
+  }
   dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
   dropLeave = () => this.setState({dropHot:false});
   dropIn = async e => {
@@ -4021,7 +4056,7 @@ class Component extends DCLogic {
     // A whole drive or a home folder is a firehose: the walk counts files and clips as it goes, says so on Open, and
     // stops past B.files (cut), so what was found so far is offered instead of a page that never answers.
     let n = 0, clips = 0, bytes = 0, cut = false, said = 0;
-    const tell = () => { const t = performance.now(); if (t - said < 200) return; said = t; this.setState({impMsg:'Looking through ' + n.toLocaleString('en-US') + ' files · ' + this.plural(clips, 'clip') + ' so far…'}); };
+    const tell = () => { const t = performance.now(); if (t - said < 200) return; said = t; this.busy('Looking through ' + n.toLocaleString('en-US') + ' files · ' + this.plural(clips, 'clip') + ' so far…'); };
     const walk = (en, p) => new Promise(res => {
       if (cut || tok !== this.walkTok) return res();
       if (en.isFile) en.file(f => { if (cut) return res(); rel.set(f, p + f.name); out.push(f); n++; if (Component.isClip(f)) { clips++; bytes += f.size; } if (n >= B.files) cut = true; tell(); res(); }, () => res());
@@ -4040,6 +4075,12 @@ class Component extends DCLogic {
   static BIG = {clips:1500, files:50000};
   static bigSay(b, fmtB) {
     const N = x => x.toLocaleString('en-US'), sz = b.bytes >= 1e12 ? (b.bytes / 1e12).toFixed(1) + ' TB' : fmtB(b.bytes), lim = Component.BIG.clips, over = b.n > lim;
+    if (b.room != null) { const fit = Math.min(b.n, b.room);
+      return {h:b.cut ? 'Too many files to look through' : b.room ? 'Too many clips to add at once' : 'This shoot is full', name:b.name,
+        line:(b.cut ? 'Skim stopped looking after ' + N(b.cut) + ' files and found ' + N(b.n) + ' clip' + (b.n === 1 ? '' : 's') + ' (' + sz + ') so far. ' : N(b.n) + ' clip' + (b.n === 1 ? '' : 's') + ' · ' + sz + '. ') +
+          'This shoot has ' + N(b.have) + ' and Skim takes up to ' + N(lim) + ' at a time, so ' + (b.room ? N(b.room) + ' more fit.' : 'no more fit. Cut this shoot down, or open the rest as a shoot of its own.'),
+        go:fit > 0 ? (fit === b.n ? 'Add the ' + N(fit) + ' found' : 'Add the first ' + N(fit)) : '', goOn:fit > 0, pick:b.room ? 'Pick fewer clips' : 'Open them as a new shoot'};
+    }
     return {h:b.cut ? 'Too many files to look through' : 'Too many clips to skim at once', name:b.name,
       line:(b.cut ? 'Skim stopped looking after ' + N(b.cut) + ' files and found ' + N(b.n) + ' clip' + (b.n === 1 ? '' : 's') + ' (' + sz + ') so far.'
         : N(b.n) + ' clips · ' + sz + '. Skim takes up to ' + N(lim) + ' at a time; more would slow every key.') + ' Pick the card or the day you want, or open ' + (over ? 'the first ' + N(lim) + ' by name.' : 'what was found.'),
@@ -4054,11 +4095,17 @@ class Component extends DCLogic {
   bigHost() {
     const N = x => Number(x).toLocaleString('en-US');
     return {
-      looking:(name, n, clips) => this.setState({impMsg:name == null ? null : n ? 'Looking through ' + N(n) + ' files in “' + name + '” · ' + this.plural(clips, 'clip') + ' so far…' : 'Looking through “' + name + '”…'}),
+      looking:(name, n, clips) => name == null ? this.setState({impMsg:null}) : this.busy(n ? 'Looking through ' + N(n) + ' files in “' + name + '” · ' + this.plural(clips, 'clip') + ' so far…' : 'Looking through “' + name + '”…'),
       show:o => { if (!o) return; this.keepAt = 'done';
         if (!o.n) { this.bigHeld = null; this.setState({big:null, impMsg:'No clips in the first ' + N(o.cut) + ' files of “' + o.name + '”. Pick the folder the clips are in.'}); return; }
         this.bigHeld = {host:true}; this.bigRoot = o.name; this.setState({impMsg:null, big:{n:o.n, bytes:o.bytes, cut:o.cut || 0, name:o.name}}); if (this.state.step !== 'import') this.setStep('import'); },
-      want:() => { const w = !!this.bigWant; this.bigWant = false; return w; }};
+      want:() => { const w = !!this.bigWant; this.bigWant = false; return w; },
+      // Add clips in the app: how many more the open shoot takes, and the card over Skim when a pick is more than that
+      room:() => { const d = this.d; return d && d.shoot && d.shoot.real ? Math.max(0, Component.BIG.clips - d.clips.length) : Component.BIG.clips; },
+      showAdd:o => { const d = this.d; if (!o || !d || !d.shoot || !d.shoot.real) return; this.setState({impMsg:null});
+        if (!o.n) { this.recNote = {t:'Nothing added · no clips in the first ' + N(o.cut) + ' files', at:Date.now()}; return this.bump(); }
+        const room = Math.max(0, Component.BIG.clips - d.clips.length); this.bigAddHeld = {host:true, room};
+        this.setState({bigAdd:{n:o.n, bytes:o.bytes, cut:o.cut || 0, name:o.name, room, have:d.clips.length}}); }};
   }
   async importFiles(files, cap, walked, pre) {
     const rel = f => (this.rel && this.rel.get(f)) || f.webkitRelativePath || f.name;
@@ -4088,7 +4135,7 @@ class Component extends DCLogic {
     const tL = performance.now(), lt = this.listTok = {};
     let metas = pre && pre.metas;
     if (!pre) {
-      this.setState({impMsg:'Listing ' + this.plural(vids.length, 'clip') + '…'});
+      this.busy('Listing ' + this.plural(vids.length, 'clip') + '…');
       metas = await this.inBatches(vids, 16, f => this.tailMeta(f, xml[f.name.replace(/\.\w+$/, '').toUpperCase()]));
       if (lt !== this.listTok) return;
       const picked = this.picked, relMap = this.rel, again = (vs, ms) => { this.rel = relMap; return this.importFiles(files, cap, null, {vids:vs, metas:ms, picked}); };
@@ -4250,9 +4297,9 @@ class Component extends DCLogic {
   canAdd() { const d = this.d, st = this.state; return !!(d && d.shoot && d.shoot.real && d.clips.length && st.step === 'skim' && !st.mix); }
   addClips = () => {
     if (!this.canAdd()) return; const app = !!this.exHostApi(), el = app && !this.isTouch() ? this.addDirEl || this.addEl : this.addEl;
-    if (!el) return; if (app) window.luminaSkimAdding = true; el.click();
+    if (!el) return; if (app) window.luminaSkimAdding = true; this.pickWait(el); el.click();
   };
-  addIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.addFiles(fs, {rel:null, dropped:false}); };
+  addIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.addFiles(fs, {rel:Component.hostRel(fs), dropped:false}); };
   static hasFiles(e) { const t = e && e.dataTransfer && e.dataTransfer.types; return !!t && [...t].indexOf('Files') >= 0; }
   addEnter = e => { if (!this.canAdd() || !Component.hasFiles(e)) return; this.addN = (this.addN || 0) + 1; if (!this.state.addHot) this.setState({addHot:true}); };
   addLeave = e => { if (!this.state.addHot) return; this.addN = Math.max(0, (this.addN || 0) - 1); if (!this.addN) this.setState({addHot:false}); };
@@ -4260,7 +4307,7 @@ class Component extends DCLogic {
   addDrop = async e => {
     this.addN = 0; if (this.state.addHot) this.setState({addHot:false});
     if (!this.canAdd() || !Component.hasFiles(e)) return; e.preventDefault();
-    const got = await this.dropFiles(e); if (!got) return; this.addFiles(got.files, {rel:got.rel, dropped:true});
+    const got = await this.dropFiles(e); if (!got) return; this.addFiles(got.files, {rel:got.rel, dropped:true, cut:got.cut});
   };
   async addFiles(files, how) {
     const d = this.d; if (!d || !d.shoot || !d.shoot.real || !d.clips.length) { this.rel = how.rel; this.pickNext = !how.dropped; return this.importFiles(files); }
@@ -4268,12 +4315,23 @@ class Component extends DCLogic {
     const relOf = f => (how.rel && how.rel.get(f)) || f.webkitRelativePath || f.name;
     // the place the app gave: the picked file itself, or the picked folder the file's relative path starts with
     const pathOf = f => { const r = relOf(f), first = r.split('/')[0]; const p = Array.isArray(picked) ? picked.find(q => String(q).replace(/\/+$/, '').split('/').pop() === first) : null; return p ? String(p).replace(/\/+$/, '').replace(/\/[^\/]*$/, '') + '/' + r : r; };
-    const vids = files.filter(f => Component.isClip(f));
-    if (!vids.length) { this.recNote = {t:'Nothing added · no clips in that', at:Date.now()}; return this.bump(); }
+    let vids = files.filter(f => Component.isClip(f));
+    if (this.state.impMsg && this.state.impMsg === this.state.impBusyT) this.setState({impMsg:null});
+    if (!vids.length) { this.recNote = {t:how.cut ? 'Nothing added · no clips in the first ' + how.cut.toLocaleString('en-US') + ' files' : 'Nothing added · no clips in that', at:Date.now()}; return this.bump(); }
+    // More than the shoot has room for (BIG.clips in all), or a drop cut short: the card over Skim, before anything is listed
+    const room = Math.max(0, Component.BIG.clips - d.clips.length);
+    if (!how.cap && (vids.length > room || how.cut)) {
+      const root = relOf(vids[0]).split('/')[0] || 'These clips';
+      this.bigAddHeld = {files, how, room}; this.recNote = null;
+      this.setState({bigAdd:{n:vids.length, bytes:vids.reduce((a, f) => a + f.size, 0), cut:how.cut || 0, name:/\.\w+$/.test(root) ? 'These clips' : root, room, have:d.clips.length}});
+      return;
+    }
+    if (how.cap && vids.length > how.cap) vids = vids.map(f => [relOf(f), f]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).slice(0, how.cap).map(x => x[1]);
     const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
-    this.recNote = {t:'Adding ' + this.plural(vids.length, 'clip') + '…', at:Date.now()}; this.bump();
+    this.recNote = null; this.busy('Adding ' + this.plural(vids.length, 'clip') + '…');
     const tok = this.addTok = {}, metas = await this.inBatches(vids, 16, f => this.tailMeta(f, xml[f.name.replace(/\.\w+$/, '').toUpperCase()]));
     if (tok !== this.addTok || this.d !== d) return;
+    this.setState({impMsg:null});
     const have = new Set(d.clips.map(c => this.clipKey(c))), lives = Component.liveSet(files, relOf);
     const items = vids.map((f, i) => ({i, name:f.name, path:pathOf(f), t:metas[i].t || this.iso(f.lastModified), bytes:f.size, live:/\.mov$/i.test(f.name) && lives.has(relOf(f).replace(/\.\w+$/, '').toUpperCase())}));
     const fresh = items.filter(x => !have.has(this.clipKey(x))), dup = items.length - fresh.length;
@@ -4281,6 +4339,12 @@ class Component extends DCLogic {
     const go = sel => this.appendClips(sel.map(x => this.clipOf(vids[x.i], metas[x.i], null, x.path)), dup, how.dropped);
     this.recNote = null; if (this.mixAsk(fresh, go, true)) return; go(fresh);
   }
+  // Add clips' card: a smaller pick, the first clips that fit, or not now. In the app the folder was counted before WebKit
+  // listed it and the app holds the first clips that fit: the add input is clicked again and answered with them.
+  bigAddPick = () => { const h = this.bigAddHeld; this.bigAddHeld = null; this.bigWant = false; this.setState({bigAdd:null}); if (h && !h.room) { this.save(); this.clearMemory(); if (h.host) return this.pickFolder(); this.rel = h.how.rel; this.pickNext = !h.how.dropped; return this.importFiles(h.files, 0, h.how.cut ? {files:h.how.cut} : null); } this.addClips(); };
+  bigAddGo = () => { const h = this.bigAddHeld; this.bigAddHeld = null; this.setState({bigAdd:null}); if (!h || !h.room) return;
+    if (h.host) { this.bigWant = true; const el = this.addDirEl || this.addEl; if (el) { window.luminaSkimAdding = true; el.click(); } } else this.addFiles(h.files, {...h.how, cap:h.room}); };
+  bigAddClose = () => { this.bigAddHeld = null; this.bigWant = false; this.setState({bigAdd:null}); };
   appendClips(cs, dup, dropped) {
     const d = this.d; if (!d || !cs.length) return;
     let n = d.clips.reduce((a, c) => Math.max(a, +((/^F(\d+)$/.exec(c.id) || [0, 0])[1])), 0); cs.forEach(c => { c.id = 'F' + String(++n).padStart(4, '0'); });
@@ -4551,8 +4615,8 @@ class Component extends DCLogic {
       progGo:e => { const id = e.currentTarget.getAttribute('data-prog'); if (!this.byId || !this.byId[id]) return; this.wantScroll = ['[data-clip="' + id + '"]']; if (st.cv) { if (st.lv < 2) this.wantScroll = ['@cur']; return this.setState({step:'skim', lv:st.lv >= 2 ? 2 : 0, cur:id, sel:[], box:null}); } this.setState({step:'skim', lv:Math.max(1, Math.min(st.lv, 2)), cur:id, gi:this.gOfAll ? (this.gOfAll[id] ?? st.gi) : st.gi, sel:[], box:null}); },
       progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:e => { Component.letGo(e); this.setState(s => ({pfOn:!s.pfOn})); }, recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running && st.dbg ? ' · listed ' + (this.lastClock.listed != null ? this.lastClock.listed + ' ms' : '—') + ', covers and flags ' + this.fmtSec(this.lastClock.done) + (this.lastClock.filled != null ? ', detail ' + this.fmtSec(this.lastClock.filled) : this.lastClock.fillStop ? ', detail stopped at the frames limit' : '') : ''), unsupOn:(this.unsup || 0) + (this.skipped || 0) > 0, unsupLine:(this.unsup || 0) + (this.skipped || 0) > 0 ? ((this.skipped || 0) ? this.plural(this.skipped, 'clip') + ' skipped' : this.plural(this.unsup, 'clip') + ' to skip') + ' · a format this browser can\u2019t play' + (this.notSafari() ? ' · open in Safari' : '') : '', haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
       ...((held, kept) => ({stopOn:held && kept > 0 && !st.cancelAsk, stopTip:'Keep the ' + this.plural(kept, 'clip') + ' read so far and skim them', readStop:this.readStop,
-        cancelOn:held && !st.cancelAsk, readCancel:this.readCancel, cancelAsk:running && n > 0 && !!st.cancelAsk, cancelQ:'Throw away this load and go back to Open?', cancelYes:this.cancelYes, cancelNo:this.cancelNo}))(running && n > 0 && (this.mp.pace === 'paused' || !!this.halt), running ? Component.readKept(C).length : 0),
-      pauseOn:running && n > 0 && !this.halt, pauseGo:this.pauseToggle, pauseA:this.mp.pace === 'paused', pauseT:this.mp.pace === 'paused' ? 'Go on' : 'Pause', pauseBg:this.mp.pace === 'paused' ? '#FFD27A' : 'rgba(239,236,230,0.08)', pauseFg:this.mp.pace === 'paused' ? '#1E1D1B' : '#EFECE6', pauseFw:this.mp.pace === 'paused' ? 800 : 400,
+        cancelOn:held && !st.cancelAsk, readCancel:this.readCancel, cancelAsk:running && n > 0 && !!st.cancelAsk, cancelQ:'Throw away this upload and go back to Open?', cancelYes:this.cancelYes, cancelNo:this.cancelNo}))(running && n > 0 && (this.mp.pace === 'paused' || !!this.halt), running ? Component.readKept(C).length : 0),
+      pauseOn:running && n > 0 && !this.halt, pauseGo:this.pauseToggle, pauseA:this.mp.pace === 'paused', pauseT:this.mp.pace === 'paused' ? 'Proceed' : 'Pause', pauseBg:this.mp.pace === 'paused' ? '#FFD27A' : 'rgba(239,236,230,0.08)', pauseFg:this.mp.pace === 'paused' ? '#1E1D1B' : '#EFECE6', pauseFw:this.mp.pace === 'paused' ? 800 : 400,
       paceOn, paceLine:paceOn ? 'Reading ' + this.paceWord(h) : '',
       progPill:running ? (st.imp.pass === 2 ? 'measuring ' : 'reading ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + (bad ? ' · ' + bad + ' can\u2019t read' : ''), loadOn:(running || readyOn) && n > 0, loadLine, fillNote, loadDot:running ? '#FFD27A' : '#A9D18E', loadAnim:running ? 'breathe 1.2s ease-in-out infinite' : 'none',
       progPillC:running ? '#EFECE6' : '#B8B3AB', progPillBg:st.progOn ? 'rgba(239,236,230,0.1)' : 'transparent',
@@ -5427,7 +5491,8 @@ class Component extends DCLogic {
       impOn:!!(st.imp && st.imp.done < st.imp.n), impW:st.imp ? Math.round(st.imp.done / Math.max(1, st.imp.n) * 100) + '%' : '0%',
       fileRef:this.fileRef, clipRef:this.clipRef, navGrid:this.navGrid, navPrev:this.navPrev, navNext:this.navNext, phoneToggle:this.phoneToggle, ...this.touchVals(), pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
       dropRing:st.dropHot ? '#FFD27A' : 'rgba(239,236,230,0.18)', dropBg:st.dropHot ? 'rgba(255,210,122,0.06)' : '#232220',
-      impMsg:st.impMsg || '', impMsgOn:!!st.impMsg,
+      impMsg:st.impMsg || '', impMsgOn:!!st.impMsg, impBusy:!!st.impMsg && st.impMsg === st.impBusyT, busyBarOn:!!st.impMsg && st.impMsg === st.impBusyT && st.step !== 'import',
+      ...(b => ({bigAddOn:!!b, bigAddH:b ? b.h : '', bigAddName:b ? b.name : '', bigAddLine:b ? b.line : '', bigAddGoT:b ? b.go : '', bigAddGoOn:!!(b && b.goOn), bigAddPickT:b ? b.pick : '', bigAddPick:this.bigAddPick, bigAddGo:this.bigAddGo, bigAddClose:this.bigAddClose}))(st.bigAdd ? Component.bigSay(st.bigAdd, x => this.fmtB(x)) : null),
       ...(b => ({bigOn:!!b, bigH:b ? b.h : '', bigName:b ? b.name : '', bigLine:b ? b.line : '', bigGoT:b ? b.go : '', bigPick:this.bigPick, bigGo:this.bigGo}))(st.big ? Component.bigSay(st.big, x => this.fmtB(x)) : null),
       impLineOn:!!(st.imp && st.imp.done < st.imp.n), impLine:st.imp ? 'measuring ' + st.imp.done + ' of ' + this.plural(st.imp.n, 'clip') : '',
       staleOn:!!st.stale, staleGo:() => this.staleGo(), staleLater:() => this.staleLater(),
