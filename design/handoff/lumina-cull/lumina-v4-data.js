@@ -2,7 +2,7 @@
 // value formatters, and the "this shoot" facts. No UI.
 (function(g){
 const GRAMMAR = `LUMINA PICK GRAMMAR
-Rule: a photo is kept or not. ⏎ keeps, R un-keeps, both move on. ⇧ does the same going back. Arrows just pass. The cursor acts on the unit under it. ⇧ works inside a stack.
+Rule: a photo is kept or not. ⏎ keeps, R un-keeps, both move on. ⇧R goes back and un-keeps; ⇧⏎ opens the shoot card to add photos. Arrows just pass. The cursor acts on the unit under it. ⇧ works inside a stack.
 Unit = a photo, or a closed stack (burst/bracket). Two states: kept or not. Nothing is deleted; Save lists what wasn't kept and offers another pass, as many as you like. Every decision is one undo step and reports in the footer.
 
 MOVE
@@ -20,7 +20,8 @@ esc           close the stack
 DECIDE (the unit under the cursor)
 K             same as ⏎
 R             not kept, next · closed stack: un-keeps every frame
-⇧⏎ / ⇧R       back one, and keep it / un-keep it
+⇧R            back one, and un-keep it
+⇧⏎            the shoot card: add photos (again closes it)
 K R           in an open stack or large view: the frame shown
 ⌘A            keep every photo in this row · 600 ms preview · esc cancels · one undo
 ⇧K            stack (open or closed): keep every frame

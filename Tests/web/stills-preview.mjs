@@ -15,10 +15,15 @@ deadline('stills-preview', 120);
 const site = fs.mkdtempSync(path.join(os.tmpdir(), 'lumina-stills-site-'));
 execFileSync('bash', [path.join(ROOT, 'Scripts/build-stills-preview.sh'), site], { stdio: 'pipe' });
 
+// The design's sample stills (uploads/…) are not in the repo. The server leaves them out at first, as the real site does
+// (Open must then offer a folder, not the sample card), then serves one small JPEG for every name (Edit needs a shoot).
+let stills = false;
+const STILL = Buffer.from('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=', 'base64');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.txt': 'text/plain' };
 const server = http.createServer((req, res) => {
   let rel = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (rel.endsWith('/')) rel += 'index.html';
+  if (stills && /^\/uploads\/[^/]+\.jpe?g$/i.test(rel)) { res.writeHead(200, { 'Content-Type': 'image/jpeg' }); res.end(STILL); return; }
   const file = path.join(site, path.normalize(rel));
   if (!file.startsWith(site) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
@@ -50,6 +55,16 @@ await page.waitForFunction(() => /Lumina/.test(document.body.innerText) && /Open
 check(await page.evaluate(() => !!(window.luminaPreview && window.luminaBuild)), 'it knows it is the web preview and which build');
 check((await page.locator('[data-lumina="build"]').innerText()).startsWith('build '), 'the build mark is in the corner');
 check(await page.locator('meta[http-equiv="Content-Security-Policy"]').count() === 1, 'the content policy is in the page');
+
+// No stills on the site: the page finds out in the background and Open offers a folder, not the sample card.
+await page.waitForFunction(() => /Folder or card/.test(document.body.innerText) && !/SONY-A7M4/.test(document.body.innerText), null, { timeout: 5000 })
+  .then(() => check(true, 'without the sample stills Open drops the sample card'), () => check(false, 'without the sample stills Open drops the sample card'));
+stills = true;
+await page.reload({ waitUntil: 'load' });
+await page.waitForFunction(() => /SONY-A7M4/.test(document.body.innerText), null, { timeout: 10000 })
+  .then(() => check(true, 'with them it keeps the sample card'), () => check(false, 'with them it keeps the sample card'));
+await page.waitForTimeout(800);
+check(/SONY-A7M4/.test(await page.evaluate(() => document.body.innerText)), 'and still has it once they have loaded');
 
 // Edit is its own page, fetched when the step is first shown: ⌘3 as in the app's menu, after the first-run card.
 await page.keyboard.press('Escape');
