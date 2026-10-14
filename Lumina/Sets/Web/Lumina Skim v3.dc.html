@@ -262,7 +262,7 @@ body:has([data-view=phone]){background:#111}
           </div>
           <div data-lumina="mix-list" role="tree" style="flex:1 1 auto;min-height:80px;overflow-y:auto;padding:4px 4px 8px">
             <sc-for list="{{ mixRows }}" as="r" hint-placeholder-count="6">
-              <div data-lumina="mix-row" data-kind="{{ r.kind }}" data-id="{{ r.id }}" data-on="{{ r.on }}" role="treeitem" aria-level="{{ r.level }}" aria-expanded="{{ r.open }}" style="display:flex;align-items:stretch;gap:4px;padding:2px 0 2px {{ r.pad }};background:linear-gradient(rgba(239,236,230,0.12),rgba(239,236,230,0.12)) no-repeat {{ r.guide }} 0 / 1px 100%">
+              <div data-lumina="mix-row" data-kind="{{ r.kind }}" data-id="{{ r.id }}" data-on="{{ r.on }}" data-odd="{{ r.odd }}" role="treeitem" aria-level="{{ r.level }}" aria-expanded="{{ r.open }}" style="display:flex;align-items:stretch;gap:4px;padding:2px 0 2px {{ r.pad }};background:linear-gradient(rgba(239,236,230,0.12),rgba(239,236,230,0.12)) no-repeat {{ r.guide }} 0 / 1px 100%">
                 <sc-if value="{{ r.chevOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="mix-open" aria-label="Show what is inside" aria-expanded="{{ r.open }}" onClick="{{ r.chevGo }}" style="box-sizing:border-box;border:0;margin:0;padding:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;width:28px;border-radius:8px;background:transparent;color:#B8B3AB;cursor:pointer;display:grid;place-items:center" style-hover="background:rgba(239,236,230,0.08);color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span data-rot="1" aria-hidden="true" style="display:inline-block;font-size:16px;transform:rotate({{ r.rot }})">›</span></button></sc-if>
                 <sc-if value="{{ r.noChev }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex:none;width:28px"></span></sc-if>
                 <button type="button" data-lumina="mix-toggle" role="switch" data-press="1" aria-checked="{{ r.on }}" onClick="{{ r.go }}" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1 1 auto;min-width:0;min-height:{{ r.h }};padding:5px 14px;border-radius:9px;background:{{ r.bg }};box-shadow:inset 0 0 0 {{ r.ring }};color:{{ r.fg }};opacity:{{ r.op }};cursor:{{ r.cur }};font-size:{{ r.fs }};text-align:left;display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:14px;align-items:center" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
@@ -718,6 +718,7 @@ body:has([data-view=phone]){background:#111}
             <button type="button" data-lumina="nav-back" title="Back to the canvas · ⏎ · esc · 2×click" onClick="{{ backClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:40px;box-sizing:border-box;padding:0 14px;border-radius:9px;display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:14px;font-weight:600;background:{{ backBg }};color:#EFECE6;cursor:pointer;animation:{{ backAnim }}" style-hover="background:rgba(239,236,230,0.16)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">‹ Canvas<span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-size:11px;font-weight:700">esc</span></button>
             <span style="flex:none;width:8px"></span>
             <sc-for list="{{ cv.picks }}" as="pk" hint-placeholder-count="3"><button type="button" data-well="{{ pk.m }}" aria-pressed="{{ pk.on }}" title="{{ pk.l }} · {{ pk.k }} · on / off" onClick="{{ wClick }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1 1 0;min-width:104px;height:40px;box-sizing:border-box;padding:0 16px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;font-size:14px;background:{{ pk.bg }};box-shadow:inset 0 0 0 {{ pk.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:{{ pk.capBg }};display:grid;place-items:center;font-weight:700;color:{{ pk.capFg }}">{{ pk.k }}</span><span style="color:{{ pk.fg }};font-weight:{{ pk.fw }}">{{ pk.l }}</span></button></sc-for>
+            <button type="button" data-lumina="clip-remove" title="Here by mistake? Take it out of this shoot. Not a cut: it leaves Export and the cut list, and the file stays where it is. ⌘Z puts it back." onClick="{{ clipOutGo }}" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:40px;padding:0 14px;border-radius:9px;display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:14px;background:transparent;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.16);color:#B8B3AB;cursor:pointer" style-hover="background:rgba(239,236,230,0.08);color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Not in this shoot<span data-kbd="1" style="min-width:22px;height:22px;box-sizing:border-box;padding:0 5px;border-radius:6px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-size:11px;font-weight:700">⌘⌫</span></button>
           </div>
         <div style="grid-column:1;grid-row:{{ picRow }};display:flex;flex-direction:column;gap:10px;min-width:0">
           <div data-lumina="clip-row" style="display:flex;align-items:flex-end;gap:12px;min-width:0">
@@ -1939,7 +1940,7 @@ class Component extends DCLogic {
     const st = this.state, g = this.cvG(), out = [], add = (k, t) => { if (t) out.push({k, t}); }; if (!g) return {lead:'', list:out};
     const one = g.clips.length === 1, nm = g.clips[0].name.replace(/\.\w+$/, '');
     add('← → ↑ ↓', 'move'); add('pinch − =', 'every ' + Component.tiWord(Component.TI[this.cvTi()][0])); add('⏎ 2×click', one ? 'Viewer' : 'open');
-    add('K M C', one ? 'mark on / off' : 'mark ' + this.plural(g.clips.length, 'clip')); add('esc', 'put back'); add('⌘E', 'export');
+    add('K M C', one ? 'mark on / off' : 'mark ' + this.plural(g.clips.length, 'clip')); add('esc', 'put back'); add('⌘E', 'export'); add('⌘⌫', 'not in this shoot');
     // last, so a narrow footer that wraps it away keeps the hints it had
     add('space', 'preview');
     return {lead:(one ? nm : g.title), list:out};
@@ -1997,6 +1998,7 @@ class Component extends DCLogic {
       else this.api('mark', step.ids, step.next);
       return (back ? 'undid · ' : 'redid · ') + this.verb(step.next) + ' ' + this.plural(step.ids.length, 'clip');
     }
+    if (step.k === 'remove') { this.clipsOut(step, back); return (back ? 'put back · ' : 'took out again · ') + this.plural(step.ids.length, 'clip'); }
   }
   undo() { const st = this.state; if (!st.undo.length) return; const step = st.undo[st.undo.length - 1]; this.setState({undo:st.undo.slice(0, -1), redo:[...st.redo, step]}); this.flash(this.apply(step, true)); }
   redo() { const st = this.state; if (!st.redo.length) return; const step = st.redo[st.redo.length - 1]; this.setState({redo:st.redo.slice(0, -1), undo:[...st.undo, step]}); this.flash(this.apply(step, false)); }
@@ -2202,6 +2204,7 @@ class Component extends DCLogic {
     if (st.noKeep && k === 'Enter' && !meta) { e.preventDefault(); return this.noKeepBack(); }
     if (meta && (k === 'Enter' || kl === 'e')) { e.preventDefault(); return this.setStep('export'); }
     if (meta && kl === 'z') { e.preventDefault(); return e.shiftKey ? this.redo() : this.undo(); }
+    if (meta && (k === 'Backspace' || k === 'Delete') && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); if (!e.repeat) this.removeClips(this.removeIds()); return; }
     if (meta) return;
     if (t && t.tagName === 'INPUT' && k.startsWith('Arrow')) return;
     // Tab is the next clip and ⇧Tab the one before, as → and ← are (scenes on Scenes, frames' clips in the Viewer);
@@ -2594,7 +2597,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {lv2Cols:'minmax(0,1fr) minmax(240px,300px)', storeOn:false, storeFlex:'0 4 auto', storeLine:'', storeRows:[], storeFg:'#9A958D', storeBg:'rgba(239,236,230,0.06)', storeArrow:'▴', notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', pvDis:'false', pvTip:'Rec.709 preview · ⇧R', pvOp:'1', pvCur:'pointer', pvHov:'1.2', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, stopOn:false, cancelOn:false, cancelAsk:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, dockExOn:false, dockExN:'', memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {lv2Cols:'minmax(0,1fr) minmax(240px,300px)', storeOn:false, storeFlex:'0 4 auto', storeLine:'', storeRows:[], storeFg:'#9A958D', storeBg:'rgba(239,236,230,0.06)', storeArrow:'▴', notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', pvDis:'false', pvTip:'Rec.709 preview · ⇧R', pvOp:'1', pvCur:'pointer', pvHov:'1.2', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, stopOn:false, cancelOn:false, cancelAsk:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, dockExOn:false, dockExN:'', memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:'', clipOutGo:() => {}};
     if (!st.ready || !this.d) return base;
     this.index();
     // Export is a page of its own: the shortcuts across the top, the files and folders below
@@ -2800,6 +2803,7 @@ class Component extends DCLogic {
       { const i = this.flat.indexOf(c.id), P = this.flat[i - 1], N = this.flat[i + 1], nb = (id, col, arrow) => { const cc = this.byId[id], mm = st.marks[id], t0 = this.tone(cc, this.firstIdx()), nm = cc.name.replace(/\.\w+$/, '');
           return {id, col, op:mm === 'cut' ? 0.55 : 1, bg:t0.bg, flt:t0.flt, edge:mm ? 'inset 0 0 0 3px ' + MK[mm] : 'inset 0 0 0 1px rgba(239,236,230,0.12)', say:arrow + ' ' + nm + (mm ? ' · ' + this.W(mm) : ''), tip:nm + ' · ' + arrow}; };
         vals.nbrs = [P && nb(P, '1', '←'), N && nb(N, '2', '→')].filter(Boolean); vals.nbOn = st.vw > 640 && vals.nbrs.length > 0; }
+      vals.clipOutGo = () => this.removeClips([c.id]);
       vals.backBg = st.backHit ? 'rgba(255,210,122,0.4)' : 'rgba(239,236,230,0.1)'; vals.backAnim = st.backHit ? 'press 140ms ease-out' : 'none';
       vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
       // the row: this clip and as many of its chapter as fit, joined by a bracket
@@ -4141,12 +4145,30 @@ class Component extends DCLogic {
     let gap = 0; for (let k = 1; k < days.length; k++) gap = Math.max(gap, (Date.parse(days[k]) - Date.parse(days[k - 1])) / 864e5);
     const lives = items.filter(x => x.live).length;
     const miss = (o && o.missing) || [];
-    if (!(o && o.force) && folders.size < 2 && !(gap >= Component.MIX_GAP_DAYS) && !lives) return null;
+    const odd = Component.mixOdd(items), nOdd = Object.keys(odd).length;
+    if (!(o && o.force) && folders.size < 2 && !(gap >= Component.MIX_GAP_DAYS) && !lives && !nOdd) return null;
     const by = {}, groups = [];
     items.forEach(x => { const day = String(x.t).slice(0, 10), dir = D(x.path), key = day + '\u0000' + dir; let g = by[key]; if (!g) { g = by[key] = {key, day, dir, items:[]}; groups.push(g); } g.items.push(x); });
     const tc = (a, b) => a < b ? -1 : a > b ? 1 : 0;
     groups.forEach(g => g.items.sort((a, b) => tc(a.t, b.t) || tc(a.name, b.name))); groups.sort((a, b) => tc(a.day, b.day) || tc(a.dir, b.dir));
-    return {folders:folders.size, days:days.length, gap:Math.round(gap), first:days[0], last:days[days.length - 1], lives, n:items.length, groups, missing:miss, expect:!!(o && o.force)};
+    return {folders:folders.size, days:days.length, gap:Math.round(gap), first:days[0], last:days[days.length - 1], lives, n:items.length, groups, missing:miss, expect:!!(o && o.force), odd, nOdd};
+  }
+  // Clips that look like they are there by mistake, which the notice starts left out: {i: 'far' | 'big'}.
+  // far: shot on days set apart from most of the clips. Days within MIX_FAR_DAYS of each other are one run; the run with
+  // the most clips is the shoot, and a run with a third of its clips or fewer is far (a card with last year's clips on it).
+  // big: a file MIX_BIG times the median size of the others or more (with four clips or more), a recording left running
+  // or a file that is not this camera's.
+  static MIX_FAR_DAYS = 30;
+  static MIX_BIG = 8;
+  static mixOdd(items) {
+    const out = {}, ms = x => Date.parse(String(x.t).slice(0, 10)), by = items.filter(x => !isNaN(ms(x))).slice().sort((a, b) => ms(a) - ms(b)), runs = [];
+    by.forEach(x => { const r = runs[runs.length - 1]; if (r && (ms(x) - r.end) / 864e5 < Component.MIX_FAR_DAYS) { r.xs.push(x); r.end = ms(x); } else runs.push({xs:[x], end:ms(x)}); });
+    if (runs.length > 1) { const main = runs.reduce((a, r) => r.xs.length > a.xs.length ? r : a, runs[0]); runs.forEach(r => { if (r !== main && r.xs.length * 3 <= main.xs.length) r.xs.forEach(x => { out[x.i] = 'far'; }); }); }
+    if (items.length >= 4) items.forEach(x => {
+      const rest = items.filter(y => y !== x).map(y => y.bytes || 0).sort((a, b) => a - b), med = rest[rest.length >> 1];
+      if (med > 0 && (x.bytes || 0) >= med * Component.MIX_BIG && !out[x.i]) out[x.i] = 'big';
+    });
+    return out;
   }
   // What the notice lets in: every clip not unticked, in a folder not removed.
   static mixPicked(mx) { const out = []; mx.m.groups.forEach(g => { if (mx.gone[g.key]) return; g.items.forEach(x => { if (!mx.off[x.i]) out.push(x); }); }); return out; }
@@ -4154,7 +4176,7 @@ class Component extends DCLogic {
   static liveSet(files, relOf) { const s = new Set(); files.forEach(f => { if (/\.(heic|jpe?g)$/i.test(f.name || '')) s.add(relOf(f).replace(/\.\w+$/, '').toUpperCase()); }); return s; }
   mixAsk(items, go, add, o) {
     const m = Component.mixOf(items, o); if (!m) return false;
-    const off = {}; items.forEach(x => { if (x.live) off[x.i] = true; });
+    const off = {}; items.forEach(x => { if (x.live || m.odd[x.i]) off[x.i] = true; });
     this.mixRun = go; this.setState({mix:{m, off, gone:{}, open:{}, add:!!add}, impMsg:null}); return true;
   }
   mixSet(f) { this.setState(s => s.mix ? {mix:{...s.mix, ...(typeof f === 'function' ? f(s.mix) : f)}} : null); }
@@ -4182,17 +4204,20 @@ class Component extends DCLogic {
     const where = dir => dir ? this.tilde(dir) : 'picked one by one';
     // the tree: each level 24 px in, a faint line down the left of what a row holds, the › before the name
     const lv = n => ({level:String(n + 1), pad:(n * 24) + 'px', guide:n ? (n * 24 - 10) + 'px' : '-2px'});
-    const row = o => rows.push(Object.assign({sub:'', subOn:false, tagOn:false, tag:'', chevOn:false, noChev:true, rot:'0deg', open:'false', cur:'pointer', chevGo:() => {}}, o));
-    const clipRows = (items, n) => items.forEach(x => row({id:'mix-clip-' + x.i, kind:'clip', name:x.name, n:this.hm(String(x.t)), ...lv(n), h:'32px', fw:'400', fs:'13px', tagOn:!!x.live, tag:x.live ? 'Live Photo' : '',
+    const row = o => rows.push(Object.assign({odd:'', sub:'', subOn:false, tagOn:false, tag:'', chevOn:false, noChev:true, rot:'0deg', open:'false', cur:'pointer', chevGo:() => {}}, o));
+    // what marks a clip out: shot far from the rest, a file far bigger than the others (with its size), a Live Photo's movie
+    const why = x => m.odd[x.i] === 'far' ? 'far from the rest' : m.odd[x.i] === 'big' ? 'much bigger · ' + fb(x.bytes) : x.live ? 'Live Photo' : '';
+    const clipRows = (items, n) => items.forEach(x => row({id:'mix-clip-' + x.i, kind:'clip', name:x.name, n:this.hm(String(x.t)), ...lv(n), h:'32px', fw:'400', fs:'13px', tagOn:!!why(x), tag:why(x), odd:m.odd[x.i] || '',
       ...look(1, off[x.i] ? 0 : 1), go:() => setOff([x], !off[x.i])}));
     const chev = (isOpen, key) => ({chevOn:true, noChev:false, rot:isOpen ? '90deg' : '0deg', open:String(isOpen), chevGo:() => flip(key)});
     const days = []; m.groups.forEach(g => { let dd = days[days.length - 1]; if (!dd || dd.day !== g.day) days.push(dd = {day:g.day, gs:[]}); dd.gs.push(g); });
     days.forEach(dd => {
       const xs = [].concat(...dd.gs.map(g => g.items)), on = xs.filter(x => !off[x.i]), one = dd.gs.length === 1, key = one ? dd.gs[0].key : 'day:' + dd.day, isOpen = !!open[key];
-      const lives = xs.filter(x => x.live).length;
+      const lives = xs.filter(x => x.live).length, far = xs.every(x => m.odd[x.i] === 'far'), big = xs.filter(x => m.odd[x.i] === 'big').length;
+      const dtag = far ? 'far from the rest' : big ? this.plural(big, 'much bigger clip') : lives ? this.plural(lives, 'Live Photo') : '';
       // a day with one folder is one row (the folder beside its date); with several, a row per folder under it
       row({id:'mix-day-' + dd.day, kind:'day', name:this.mixDay(dd.day), sub:one ? where(dd.gs[0].dir) : '', subOn:one, n:count(on, xs), ...lv(0), h:'42px', fw:'600', fs:'14px',
-        tagOn:lives > 0, tag:lives ? this.plural(lives, 'Live Photo') : '', ...chev(isOpen, key), ...look(xs.length, on.length), go:() => setOff(xs, on.length === xs.length)});
+        tagOn:!!dtag, tag:dtag, odd:far ? 'far' : big ? 'big' : '', ...chev(isOpen, key), ...look(xs.length, on.length), go:() => setOff(xs, on.length === xs.length)});
       if (!isOpen) return;
       if (one) return clipRows(dd.gs[0].items, 1);
       dd.gs.forEach(g => {
@@ -4210,7 +4235,7 @@ class Component extends DCLogic {
     const head = m.expect ? 'Found ' + m.n + ' of the ' + this.plural(m.n + m.missing.length, 'clip') + ' in this shoot'
       : what ? who + ' from ' + what : who + ' with ' + (m.lives === 1 ? 'a Live Photo' : m.lives + ' Live Photos');
     const sub = m.expect ? (m.missing.length ? 'The missing ' + (m.missing.length === 1 ? 'one isn’t' : 'ones aren’t') + ' in the folder you chose.' : '')
-      : 'Gold goes in. Click a row to leave it out.' + (m.lives ? ' Live Photo movies start out.' : '');
+      : 'Gold goes in. Click a row to leave it out.' + (m.nOdd ? ' ' + (m.nOdd === 1 ? 'One clip looks' : m.nOdd + ' clips look') + ' out of place and ' + (m.nOdd === 1 ? 'starts' : 'start') + ' out.' : '') + (m.lives ? ' Live Photo movies start out.' : '');
     return {mixOn:true, mixHead:head, mixSpan:'', mixSub:sub, mixRows:rows,
       mixGoT:(mx.add ? 'Add ' : 'Open ') + this.plural(sel.length, 'clip') + ' · ' + fb(sel.reduce((a, x) => a + x.bytes, 0)), mixGoOff:String(!sel.length), mixGoOp:sel.length ? 1 : 0.45, mixGoCur:sel.length ? 'pointer' : 'default',
       mixBackT:mx.add ? 'Don’t add' : 'Back', mixGoneOn:false, mixGone:'', mixUndo:() => {}, mixGo:this.mixGo, mixBack:this.mixBack};
@@ -4259,14 +4284,40 @@ class Component extends DCLogic {
   appendClips(cs, dup, dropped) {
     const d = this.d; if (!d || !cs.length) return;
     let n = d.clips.reduce((a, c) => Math.max(a, +((/^F(\d+)$/.exec(c.id) || [0, 0])[1])), 0); cs.forEach(c => { c.id = 'F' + String(++n).padStart(4, '0'); });
-    d.clips = d.clips.concat(cs).sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0); this.byId = {}; d.clips.forEach((c, i) => { c._i = i; this.byId[c.id] = c; });
-    const days = {}; d.clips.forEach(c => { days[c.t.slice(0, 10)] = 1; }); d.shoot.days = Object.keys(days).length; d.shoot.bytes = d.clips.reduce((s, c) => s + c.bytes, 0);
-    this.regap(d); if (dropped) this.addDropped = true;
+    this.clipsSet(d, d.clips.concat(cs)); if (dropped) this.addDropped = true;
     this.recNote = {t:this.plural(cs.length, 'clip') + ' added' + (dup ? ' · ' + dup + ' already here' : ''), at:Date.now()};
     // the reading starts over for what has no picture yet (the new clips, and any the last pass had not reached)
     const f = this.firstIdx(), tok = this.qTok = {};
     this.setState(s => ({tick:(s.tick || 0) + 1}));
     this.coverLoad(d).then(() => { if (tok === this.qTok) this.runQueue(d.clips.filter(c => c._file && !c.trashed && !c.frames[f]), tok); });
+  }
+  // The shoot's clips after some came in or went out: in capture order, with the lookups, the day count, the size and the gaps.
+  clipsSet(d, cs) {
+    d.clips = cs.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0); this.byId = {}; d.clips.forEach((c, i) => { c._i = i; this.byId[c.id] = c; });
+    const days = {}; d.clips.forEach(c => { days[c.t.slice(0, 10)] = 1; }); d.shoot.days = Object.keys(days).length; d.shoot.bytes = d.clips.reduce((s, c) => s + c.bytes, 0);
+    this.regap(d);
+  }
+  // Take out of the shoot (⌘⌫, or Not in this shoot in the Viewer): for a clip that is there by mistake, not one that didn't
+  // make the cut (that is C). The clip leaves the grid, the dock, Export, the Final Cut file and the cut list, and its mark
+  // goes with it; the file is never touched. ⌘Z puts it back with its mark. A reload keeps it out (keepTake lists the
+  // shoot's clips). A shoot keeps at least one clip.
+  removeIds() { const st = this.state; return st.sel.length ? st.sel.slice() : st.cur ? [st.cur] : []; }
+  removeClips(ids) {
+    const d = this.d, st = this.state; if (!d || !d.shoot || st.step !== 'skim') return;
+    ids = (ids || []).filter((x, i, a) => this.byId[x] && a.indexOf(x) === i); if (!ids.length) return;
+    if (ids.length >= d.clips.length) return this.flash('A shoot keeps at least one clip. Back on Open, choose other clips.');
+    const set = new Set(ids), prev = {}, dis = {}; ids.forEach(id => { prev[id] = st.marks[id] || null; if (st.dis[id]) dis[id] = st.dis[id]; });
+    const fl = this.flat || [], i = fl.indexOf(st.cur), cur = set.has(st.cur) ? (fl.slice(i + 1).find(x => !set.has(x)) || fl.slice(0, Math.max(0, i)).reverse().find(x => !set.has(x)) || d.clips.find(c => !set.has(c.id)).id) : st.cur;
+    const step = {k:'remove', ids, clips:d.clips.filter(c => set.has(c.id)), prev, dis, cur:st.cur, after:cur};
+    this.lastMark = null; this.pushStep(step, {sel:[], box:null}); this.clipsOut(step, false);
+    this.flash('Took ' + (ids.length === 1 ? step.clips[0].name : this.plural(ids.length, 'clip')) + ' out of the shoot · the file stays · ⌘Z puts it back', 4000);
+  }
+  clipsOut(step, back) {
+    const d = this.d, st = this.state; if (!d) return; const set = new Set(step.ids), marks = {...st.marks}, dis = {...st.dis};
+    if (back) { const have = new Set(d.clips.map(c => c.id)); this.clipsSet(d, d.clips.concat(step.clips.filter(c => !have.has(c.id)))); step.ids.forEach(id => { if (step.prev[id]) marks[id] = step.prev[id]; if (step.dis[id]) dis[id] = step.dis[id]; }); }
+    else { this.clipsSet(d, d.clips.filter(c => !set.has(c.id))); step.clips.forEach(c => { if (this.fill && this.fill.set) this.fill.set.delete(c); }); step.ids.forEach(id => { delete marks[id]; delete dis[id]; }); }
+    const by = {}; step.ids.forEach(id => { const v = step.prev[id]; if (v) (by[v] = by[v] || []).push(id); }); Object.keys(by).forEach(v => this.api('mark', by[v], back ? v : null));
+    this.setState(s => ({marks, dis, cur:back ? step.cur : step.after, sel:s.sel.filter(x => !set.has(x)), tick:(s.tick || 0) + 1}));
   }
   // What a Sony clip says about itself (NonRealTimeMeta, from the sidecar or the end of the file): no decode.
   // fd is the length of one frame as [n, d] for n/d seconds: 23.98 is 1001/24000, 24 is 100/2400. nf is the camera's frame count.
@@ -5319,12 +5370,12 @@ class Component extends DCLogic {
     const ng = cg ? G.slice(cg.i + 1).find(x => x.vis.length) : null;
     if (st.lv === 1) {
       add('↑', 'Scenes · ' + (cg ? cg.title : '')); add('↓', 'open ' + nm(st.cur)); add('←', prev && nm(prev)); add('→', next && nm(next));
-      add('⇧↓', ng && 'next scene · ' + ng.title); add('K M C', 'mark ' + nm(st.cur) + ' on / off'); add('esc', 'put back');
+      add('⇧↓', ng && 'next scene · ' + ng.title); add('K M C', 'mark ' + nm(st.cur) + ' on / off'); add('esc', 'put back'); add('⌘⌫', 'not in this shoot');
       return {lead:'Clips · ' + nm(st.cur), list:out};
     }
     const fi = Math.round(st.fx);
     if (st.lv === 2) {
-      add('← →', (prev || next) && 'clips'); add('K M C', 'mark on / off'); add('⇧← ⇧→', 'scrub'); add('⇧C', 'cuts'); add('⇧R', 'Rec.709 ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('⏎ esc 2×click', 'canvas');
+      add('← →', (prev || next) && 'clips'); add('K M C', 'mark on / off'); add('⇧← ⇧→', 'scrub'); add('⇧C', 'cuts'); add('⇧R', 'Rec.709 ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('⏎ esc 2×click', 'canvas'); add('⌘⌫', 'not in this shoot');
       return {lead:'Viewer · ' + nm(st.cur), list:out};
     }
     add('↑', 'Viewer · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M C', 'mark ' + nm(st.cur));

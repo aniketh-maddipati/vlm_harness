@@ -13,8 +13,9 @@ import { PAGE, extractMethod } from './skim-export.mjs';
 
 const src = fs.readFileSync(PAGE, 'utf8');
 const st = (name, head) => new Function('Component', 'return function ' + extractMethod(src, name, head).replace(/^static /, ''));
-const Component = {MIX_GAP_DAYS:+(/static MIX_GAP_DAYS = (\d+);/.exec(src) || [])[1]};
-for (const [n, h] of [['mixDir', 'static mixDir(p) {'], ['mixOf', 'static mixOf(items, o) {'], ['mixPicked', 'static mixPicked(mx) {'], ['liveSet', 'static liveSet(files, relOf) {'], ['isClip', 'static isClip(f) {'],
+const num = n => +(new RegExp('static ' + n + ' = (\\d+);').exec(src) || [])[1];
+const Component = {MIX_GAP_DAYS:num('MIX_GAP_DAYS'), MIX_FAR_DAYS:num('MIX_FAR_DAYS'), MIX_BIG:num('MIX_BIG')};
+for (const [n, h] of [['mixDir', 'static mixDir(p) {'], ['mixOdd', 'static mixOdd(items) {'], ['mixOf', 'static mixOf(items, o) {'], ['mixPicked', 'static mixPicked(mx) {'], ['liveSet', 'static liveSet(files, relOf) {'], ['isClip', 'static isClip(f) {'],
   ['moovTime', 'static moovTime(u8) {'], ['moovRate', 'static moovRate(u8) {'], ['moovTransfer', 'static moovTransfer(u8) {']]) Component[n] = st(n, h)(Component);
 const it = (i, path, t, extra = {}) => ({i, name:path.split('/').pop(), path, t, bytes:1e6, live:false, ...extra});
 
@@ -82,4 +83,20 @@ test('an iPhone HEVC .MOV is a clip with its own time, rate and HLG', {skip:!hev
   assert.deepEqual(Component.moovTime(mv), {local:'2026-10-11T18:30:12'}, 'the phone’s own local time, not when it was copied');
   assert.deepEqual(Component.moovRate(mv), [1001, 30000], '29.97');
   assert.equal(Component.moovTransfer(mv), 18, 'tagged HLG');
+});
+
+test('clips that look out of place: far from the rest, or far bigger', () => {
+  assert.equal(Component.MIX_FAR_DAYS, 30); assert.equal(Component.MIX_BIG, 8);
+  // seven clips from 2020, two from 2026 that are 29 GB each: the 2026 pair is far and starts out
+  const old = [0, 1, 2, 3, 4, 5, 6].map(i => it(i, 'card/C000' + i + '.MP4', '2020-08-0' + (1 + (i % 3)) + 'T10:00:00', {bytes:2e9}));
+  const m = Component.mixOf(old.concat([it(7, 'card/C0100.MP4', '2026-03-01T10:00:00', {bytes:29e9}), it(8, 'card/C0101.MP4', '2026-03-01T11:00:00', {bytes:29e9})]));
+  assert.deepEqual(m.odd, {7:'far', 8:'far'}); assert.equal(m.nOdd, 2);
+  // one folder, one day, one file eight times the others: the notice shows for it alone
+  const big = Component.mixOf([0, 1, 2, 3].map(i => it(i, 'card/C' + i + '.MP4', '2026-10-01T10:0' + i + ':00', {bytes:i === 3 ? 30e9 : 1e9})));
+  assert.ok(big, 'a much bigger clip brings the notice up'); assert.deepEqual(big.odd, {3:'big'});
+  // two trips of similar size are both the shoot
+  const two = Component.mixOdd([0, 1, 2].map(i => it(i, 'a/' + i, '2026-01-0' + (i + 1) + 'T10:00:00')).concat([3, 4].map(i => it(i, 'b/' + i, '2026-06-0' + i + 'T10:00:00'))));
+  assert.deepEqual(two, {});
+  // a clip two weeks after the rest is not far
+  assert.deepEqual(Component.mixOdd([0, 1, 2, 3].map(i => it(i, 'a/' + i, '2026-01-0' + (i + 1) + 'T10:00:00')).concat([it(4, 'a/x', '2026-01-18T10:00:00')])), {});
 });
