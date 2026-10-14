@@ -34,7 +34,7 @@ const nClips = () => p.evaluate(() => (document.querySelector('[data-lumina="sho
 await p.setInputFiles('input[type=file][webkitdirectory]:not([data-lumina])', dump);
 ok(await until(() => !!document.querySelector('[data-lumina="mix"]')), 'clips from two folders a week apart: the notice shows');
 const head = await p.evaluate(() => document.querySelector('[data-lumina="mix-head"]').innerText);
-ok(/^These 6 clips come from 2 different folders and 2 different days/.test(head), 'it says how: ' + head);
+ok(/^6 clips from 2 folders and 2 days, Oct 2026$/.test(head), 'it says how: ' + head);
 let r = await rows();
 ok(r.filter(x => x.kind === 'day').length === 2 && !r.some(x => x.kind === 'folder'), 'a row per day, no folder row when a day has one folder: ' + r.map(x => x.kind[0]).join(''));
 ok(!/\bapart\b|\b\d{4} apart/.test(head) && r.every(x => !/undefined|NaN/.test(x.text)), 'no stray numbers in the wording');
