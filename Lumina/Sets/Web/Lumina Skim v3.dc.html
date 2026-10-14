@@ -153,6 +153,13 @@ body:has([data-view=phone]){background:#111}
 </style>
 </helmet>
 <div data-screen-label="Skim" data-view="{{ viewName }}" style="position:relative;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-variant-numeric:tabular-nums;font-size:12px;user-select:none;-webkit-user-select:none">
+  <sc-if value="{{ exAskOn }}" hint-placeholder-val="{{ false }}">
+    <div data-lumina="ex-ask" role="status" style="position:fixed;left:50%;top:{{ exAskTop }};transform:translateX(-50%);z-index:2147483645;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:12px;background:#33312E;color:#EFECE6;box-shadow:0 8px 28px rgba(0,0,0,0.45),inset 0 0 0 1px rgba(255,210,122,0.4);font-size:13px;white-space:nowrap;animation:lmFoldIn 220ms ease-out">
+      <span>{{ exAskT }}</span>
+      <button type="button" data-lumina="ex-ask-go" onClick="{{ exAskGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:5px 12px;border-radius:8px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Go to Export <span data-kbd="1" style="padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);font-weight:700;font-size:11px">⌘E</span></button>
+      <button type="button" data-lumina="ex-ask-x" onClick="{{ exAskX }}" aria-label="Stay on Skim" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:5px 10px;border-radius:8px;color:#B8B3AB;cursor:pointer" style-hover="background:rgba(239,236,230,0.1)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Not now</button>
+    </div>
+  </sc-if>
   <sc-if value="{{ staleOn }}" hint-placeholder-val="{{ false }}">
     <div data-lumina="stale" role="status" style="position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:2147483646;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:12px;background:#33312E;color:#EFECE6;box-shadow:0 8px 28px rgba(0,0,0,0.45),inset 0 0 0 1px rgba(255,210,122,0.4);font-size:13px;white-space:nowrap;animation:lmFoldIn 220ms ease-out">
       <span style="width:8px;height:8px;border-radius:50%;background:#FFD27A;animation:breathe 1.6s ease-in-out infinite"></span>
@@ -2854,8 +2861,11 @@ class Component extends DCLogic {
     if (k.name) d.shoot.name = k.name; this.userCut = !!k.userCut;
     const ks = k.ks || k.files; if (ks && (!this.hostStore() || k.offered)) { const g = Component.resumeGap(ks, ids), more = d.clips.length - g.found; this.resumeGap = g; window.luminaSkimResumeGap = g;
       if (more > 0 && !g.missing.length) this.flash('Picked up where you were · ' + this.plural(g.n, 'clip') + ' · ' + more + ' added', 3000); else this.flash(g.missing.length ? 'Picked up ' + g.found + ' of ' + this.plural(g.n, 'clip') + ' · not in that folder: ' + g.missing.slice(0, 3).map(m => m.name).join(', ') + (g.missing.length > 3 ? ' and ' + (g.missing.length - 3) + ' more' : '') : 'Picked up where you were · ' + this.plural(g.n, 'clip'), g.missing.length ? 6000 : 2200); }
-    const cuts = k.cuts ? k.cuts.map(key => ids[key]).filter(Boolean) : null, cur = ids[k.cur] || this.state.cur, step = d.clips.length ? (k.step || 'skim') : 'import';
-    this.setState({marks:by(k.marks), dis:by(k.dis), cuts, nCut:k.nCut || this.state.nCut, cur, step, lv:k.lv ?? this.state.lv, gi:k.gi || 0, zl:k.zl ?? this.state.zl, ex:{...this.state.ex, ...(k.ex || {})}}, () => { this.keepAt = 'done'; if (this.addAfter) { this.addAfter = false; if (k.offered) this.setStep('skim'), setTimeout(() => this.addClips(), 0); } });
+    const cuts = k.cuts ? k.cuts.map(key => ids[key]).filter(Boolean) : null, cur = ids[k.cur] || this.state.cur;
+    // A shoot picked up again (Resume, the app's last shoot) lands on Skim, never on Export: a note at the top offers Export
+    // in one click (LOCAL-CHANGES 291). ⌘R and the hot build keep the step they were on.
+    const back = k.offered || !this.hostStore(), ask = back && k.step === 'export', step = d.clips.length ? (ask ? 'skim' : k.step || 'skim') : 'import';
+    this.setState({marks:by(k.marks), dis:by(k.dis), cuts, nCut:k.nCut || this.state.nCut, cur, step, lv:k.lv ?? this.state.lv, gi:k.gi || 0, zl:k.zl ?? this.state.zl, ex:{...this.state.ex, ...(k.ex || {})}, exAsk:ask && d.clips.length > 0}, () => { this.keepAt = 'done'; if (this.addAfter) { this.addAfter = false; if (k.offered) this.setStep('skim'), setTimeout(() => this.addClips(), 0); } });
   }
   // Safari (LOCAL-CHANGES 266): a reload loses the files, and the browser can't open them again by itself. The marks and the
   // view are kept for this tab only (sessionStorage, gone with the tab), and Open offers them back: Resume opens the picker (the one
@@ -2871,6 +2881,9 @@ class Component extends DCLogic {
     if (!k || !k.n) return; this.kept = k; this.setState({resume:{name:k.name || 'Your clips', n:k.n, marks:Object.keys(k.marks || {}).length}});
   }
   tabKeepDrop() { try { sessionStorage.removeItem(Component.TAB_KEEP); } catch (x) {} if (this.state.resume) this.setState({resume:null}); }
+  // What the note over Skim says after a shoot comes back on Export's step: what is marked to go.
+  exAskSay() { const m = this.state.marks || {}, ids = Object.keys(m), k = ids.filter(i => m[i] === 'keep').length, y = ids.filter(i => m[i] === 'maybe').length;
+    return k || y ? 'You’d marked ' + (k ? this.plural(k, 'clip') + ' to keep' : '') + (k && y ? ' and ' : '') + (y ? y + ' maybe' : '') + ' · you were on Export' : 'You were on Export'; }
   resumeDrop() { this.kept = null; this.tabKeepDrop(); }
   // Resume brings the kept clips and marks back; Other clips lets them go, but only once clips are picked (a cancelled picker keeps them).
   // Resume and Add clips (LOCAL-CHANGES 288). In the app the last shoot is offered with the places of its clips (keepOffer):
@@ -3119,7 +3132,7 @@ class Component extends DCLogic {
         go:() => { if (on) return this.setStep('skim'); this.want = r.key; this.setState({impMsg:'Choose the clips from “' + r.name + '”, all or some. Their marks come back.'}); this.pickFolder(); }};
     });
   }
-  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; const w = this.state.ws; if (s === 'import') this.coverStat(); else this.cacheShut();
+  setStep(s) { if (s !== 'import' && !this.hasShoot()) s = 'import'; if (this.state.exAsk && s !== 'skim') this.setState({exAsk:false}); const w = this.state.ws; if (s === 'import') this.coverStat(); else this.cacheShut();
     // Export opens on what exWarm prepared while you were in Skim (the places, the folders, the file and its checks); each
     // is read again in the background and the screen changes only where something did. The app's verdict on the file
     // stays until the new one lands (it is kept with the text it was for).
@@ -5243,7 +5256,8 @@ class Component extends DCLogic {
       impMsg:st.impMsg || '', impMsgOn:!!st.impMsg,
       ...(b => ({bigOn:!!b, bigH:b ? b.h : '', bigName:b ? b.name : '', bigLine:b ? b.line : '', bigGoT:b ? b.go : '', bigPick:this.bigPick, bigGo:this.bigGo}))(st.big ? Component.bigSay(st.big, x => this.fmtB(x)) : null),
       impLineOn:!!(st.imp && st.imp.done < st.imp.n), impLine:st.imp ? 'measuring ' + st.imp.done + ' of ' + this.plural(st.imp.n, 'clip') : '',
-      staleOn:!!st.stale, staleGo:() => this.staleGo(), staleLater:() => this.staleLater(), resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + (st.resume.host ? '' : ' · Safari asks for the folder once') : '', resumeGo:this.resumeGo, resumeAdd:this.resumeAdd,
+      staleOn:!!st.stale, staleGo:() => this.staleGo(), staleLater:() => this.staleLater(),
+      exAskOn:!!st.exAsk && has && st.step === 'skim', exAskTop:st.stale ? '58px' : '10px', exAskT:st.exAsk ? this.exAskSay() : '', exAskGo:() => this.setStep('export'), exAskX:() => this.setState({exAsk:false}), resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + (st.resume.host ? '' : ' · Safari asks for the folder once') : '', resumeGo:this.resumeGo, resumeAdd:this.resumeAdd,
       resumeHint:st.resume && st.resume.host ? 'Resume opens the same clips again from where they are, no Finder. Add clips brings the shoot back, then Finder opens to add more to it. Your clips are never touched.'
         : 'Both open Finder once: Safari can’t open files again by itself. Resume: choose the shoot’s folder (or one above it) and its clips and marks come back. Add clips: choose any folder; the shoot’s clips come back with their marks and the rest join them. Your clips are never touched.', ...this.cacheVals(has), nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
       cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})), cardsOn:this.cardList().length > 0,

@@ -34,6 +34,7 @@ test('marks and view come back on the same clips under new ids', () => {
   b.d.clips.forEach(c => { b.byId[c.id] = c; });
   const fileEl = {clicks:0, click() { this.clicks++; }}; b.fileEl = fileEl;
   assert.equal(b.keepReopen(kept), true); assert.equal(fileEl.clicks, 1); assert.equal(b.keepAt, 'opening');
+  b.hostStore = () => ({});   // the app's ⌘R: the step it was on stays
   b.keepApply();
   const id = name => b.d.clips.find(c => c.name === name).id;
   assert.deepEqual(b.state.marks, {[id('C0001.MP4')]:'keep', [id('C0002.MP4')]:'cut'});
@@ -159,4 +160,18 @@ test('in Safari the card says both open Finder once, and Add clips does not narr
   assert.match(src, /const kept = this\.addKeep \? null : this\.keptOnly\(vids, metas\); this\.addKeep = false;/);
   assert.match(src, /Both open Finder once: Safari can’t open files again by itself\./);
   assert.ok(!/resumeOther|Other clips<\/button>/.test(src));
+});
+
+// LOCAL-CHANGES 291: a shoot picked up again lands on Skim, not on Export, with a note that offers Export in one click.
+test('a shoot picked up again on Export lands on Skim and offers Export; the app\'s ⌘R keeps Export', () => {
+  const a = page(['F0001', 'F0002', 'F0003'], {marks:{F0001:'keep', F0002:'keep', F0003:'maybe'}, step:'export'}), kept = a.keepTake();
+  const b = page(['F0001', 'F0002', 'F0003']); b.kept = JSON.parse(kept); b.keepApply();   // Safari's Resume (no app store)
+  assert.equal(b.state.step, 'skim'); assert.equal(b.state.exAsk, true);
+  const say = new Function('return function ' + extractMethod(src, 'exAskSay', 'exAskSay() {'))();
+  assert.equal(say.call(b), 'You’d marked 2 clips to keep and 1 maybe · you were on Export');
+  const c = page(['F0001', 'F0002', 'F0003']); c.hostStore = () => ({}); c.kept = {...JSON.parse(kept), offered:true}; c.keepApply();   // the app's last shoot
+  assert.equal(c.state.step, 'skim'); assert.equal(c.state.exAsk, true);
+  const r = page(['F0001', 'F0002', 'F0003']); r.hostStore = () => ({}); r.kept = JSON.parse(kept); r.keepApply();   // ⌘R in the app
+  assert.equal(r.state.step, 'export'); assert.ok(!r.state.exAsk);
+  assert.match(src, /setStep\(s\) \{ if \(s !== 'import' && !this\.hasShoot\(\)\) s = 'import'; if \(this\.state\.exAsk && s !== 'skim'\) this\.setState\(\{exAsk:false\}\);/);
 });
