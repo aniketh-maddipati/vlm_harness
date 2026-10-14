@@ -248,6 +248,13 @@ body:has([data-view=phone]){background:#111}
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <input ref="{{ clipRef }}" type="file" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#FFD27A">{{ impMsg }}</div></sc-if>
+          <sc-if value="{{ bigOn }}" hint-placeholder-val="{{ false }}">
+            <div data-lumina="too-big" role="alert" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.35);animation:rise 160ms ease-out">
+              <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A">{{ bigH }}</span><span style="font-size:14px;color:#EFECE6">{{ bigName }}</span><span data-lumina="too-big-line" style="color:#B8B3AB;line-height:1.45">{{ bigLine }}</span></div>
+              <button type="button" data-lumina="too-big-pick" onClick="{{ bigPick }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Pick a smaller folder</button>
+              <button type="button" data-lumina="too-big-go" onClick="{{ bigGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ bigGoT }}</button>
+            </div>
+          </sc-if>
           <sc-if value="{{ impLineOn }}" hint-placeholder-val="{{ false }}"><div role="status" style="color:#B8B3AB">{{ impLine }}</div></sc-if>
           <sc-if value="{{ recOn }}" hint-placeholder-val="{{ false }}">
             <div style="display:flex;flex-direction:column;gap:12px">
@@ -2550,7 +2557,7 @@ class Component extends DCLogic {
     // dropped clips can't be handed back (the app never learns where they are): the app doesn't reload
     if (this.picked === false && !any) return JSON.stringify({dropped:true});
     const K = id => this.byId[id] ? this.clipKey(this.byId[id]) : null, by = o => { const out = {}; Object.keys(o || {}).forEach(id => { const k = K(id); if (k) out[k] = o[id]; }); return out; };
-    return JSON.stringify({name:d.shoot.name, marks:by(st.marks), dis:by(st.dis), cuts:st.cuts ? st.cuts.map(K).filter(Boolean) : null, nCut:st.nCut, userCut:!!this.userCut, cur:K(st.cur), step:st.step, lv:st.lv, gi:st.gi, zl:st.zl, ex:st.ex, n:d.clips.length});
+    return JSON.stringify({name:d.shoot.name, marks:by(st.marks), dis:by(st.dis), cuts:st.cuts ? st.cuts.map(K).filter(Boolean) : null, nCut:st.nCut, userCut:!!this.userCut, cur:K(st.cur), step:st.step, lv:st.lv, gi:st.gi, zl:st.zl, ex:st.ex, n:d.clips.length, cap:d.shoot.cap || 0});
   }
   keepReopen(kept) {
     let k = null; try { k = typeof kept === 'string' ? JSON.parse(kept) : kept; } catch (x) {}
@@ -3618,28 +3625,56 @@ class Component extends DCLogic {
   // one button below. Neither shows a folder picker where the browser has none (iOS Safari before 18.4).
   canFolder() { return typeof document !== 'undefined' && 'webkitdirectory' in document.createElement('input') && !/iPhone|iPod/.test(navigator.userAgent); }
   pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) el.click(); };
-  filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.pickNext = true; this.importFiles(fs); };
+  filesIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.rel = null; this.walkTok = null; this.pickNext = true; this.importFiles(fs); };
   dropOver = e => { e.preventDefault(); if (!this.state.dropHot) this.setState({dropHot:true}); };
   dropLeave = () => this.setState({dropHot:false});
   dropIn = async e => {
     e.preventDefault(); this.setState({dropHot:false}); this.pickNext = false;
-    const rel = this.rel = new Map(), out = [];
+    const rel = this.rel = new Map(), out = [], B = Component.BIG, tok = this.walkTok = {};
+    // A whole drive or a home folder is a firehose: the walk counts files and clips as it goes, says so on Open, and
+    // stops past B.files (cut), so what was found so far is offered instead of a page that never answers.
+    let n = 0, clips = 0, bytes = 0, cut = false, said = 0;
+    const tell = () => { const t = performance.now(); if (t - said < 200) return; said = t; this.setState({impMsg:'Looking through ' + n.toLocaleString('en-US') + ' files · ' + this.plural(clips, 'clip') + ' so far…'}); };
     const walk = (en, p) => new Promise(res => {
-      if (en.isFile) en.file(f => { rel.set(f, p + f.name); out.push(f); res(); }, () => res());
-      else if (en.isDirectory) { const rd = en.createReader(), all = []; const step = () => rd.readEntries(es => { if (!es.length) { Promise.all(all.map(x => walk(x, p + en.name + '/'))).then(res); return; } all.push(...es); step(); }, () => res()); step(); }
+      if (cut || tok !== this.walkTok) return res();
+      if (en.isFile) en.file(f => { if (cut) return res(); rel.set(f, p + f.name); out.push(f); n++; if (Component.isClip(f)) { clips++; bytes += f.size; } if (n >= B.files) cut = true; tell(); res(); }, () => res());
+      else if (en.isDirectory) { const rd = en.createReader(), all = []; const step = () => rd.readEntries(es => { if (!es.length || cut) { Promise.all(all.map(x => walk(x, p + en.name + '/'))).then(res); return; } all.push(...es); step(); }, () => res()); step(); }
       else res();
     });
     const ens = [...(e.dataTransfer.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean), flat = [...(e.dataTransfer.files || [])];
     if (ens.length) await Promise.all(ens.map(en => walk(en, ''))); else out.push(...flat);
-    this.importFiles(out);
+    if (tok !== this.walkTok) return;
+    this.importFiles(out, 0, cut ? {files:n} : null);
   };
   gammaName(g) { return /s-?log3/i.test(g) ? 'S-Log3' : /s-?log2/i.test(g) ? 'S-Log2' : /hlg/i.test(g) ? 'HLG' : /709|rec/i.test(g) ? 'none' : g; }
   primName(p) { return /gamut3.?cine/i.test(p) ? 'S-Gamut3.Cine' : /gamut3/i.test(p) ? 'S-Gamut3' : /gamut/i.test(p) ? 'S-Gamut' : /2020/.test(p) ? 'Rec.2020' : /709/.test(p) ? 'Rec.709' : p; }
-  async importFiles(files) {
+  // How much Skim takes in one go. Past BIG.clips every key and every pass slows (PERFGATE's budgets are at 1,500); a
+  // drop stops looking past BIG.files. Either way Open says so and offers a smaller folder or the first BIG.clips.
+  static BIG = {clips:1500, files:50000};
+  static bigSay(b, fmtB) {
+    const N = x => x.toLocaleString('en-US'), sz = b.bytes >= 1e12 ? (b.bytes / 1e12).toFixed(1) + ' TB' : fmtB(b.bytes), lim = Component.BIG.clips, over = b.n > lim;
+    return {h:b.cut ? 'Too many files to look through' : 'Too many clips to skim at once', name:b.name,
+      line:(b.cut ? 'Skim stopped looking after ' + N(b.cut) + ' files and found ' + N(b.n) + ' clip' + (b.n === 1 ? '' : 's') + ' (' + sz + ') so far.'
+        : N(b.n) + ' clips · ' + sz + '. Skim takes up to ' + N(lim) + ' at a time; more would slow every key.') + ' Pick the card or the day you want, or open ' + (over ? 'the first ' + N(lim) + ' by name.' : 'what was found.'),
+      go:over ? 'Open the first ' + N(lim) : 'Open the ' + N(b.n) + ' found'};
+  }
+  bigPick = () => { this.bigHeld = null; this.setState({big:null}); this.pickFolder(); };
+  bigGo = () => { const h = this.bigHeld; this.bigHeld = null; this.setState({big:null}); if (h) this.importFiles(h.files, Component.BIG.clips); };
+  async importFiles(files, cap, walked) {
     const rel = f => (this.rel && this.rel.get(f)) || f.webkitRelativePath || f.name;
-    const vids = files.filter(f => Component.isClip(f));
+    let vids = files.filter(f => Component.isClip(f));
+    // Too big, or a walk cut short: say so on Open and wait for an answer. A reload in the app keeps what was chosen (kept.cap).
+    cap = cap || (this.kept && this.kept.cap) || 0; this.bigHeld = null; if (this.state.big) this.setState({big:null});
+    if (vids.length && ((vids.length > Component.BIG.clips && !cap) || (walked && !cap))) {
+      const root = rel(vids[0]).split('/')[0] || 'This folder';
+      this.bigHeld = {files}; this.keepAt = 'done';
+      this.setState({impMsg:null, big:{n:vids.length, bytes:vids.reduce((s, f) => s + f.size, 0), cut:walked ? walked.files : 0, name:/\.\w+$/.test(root) ? 'These clips' : root}});
+      if (this.state.step !== 'import') this.setStep('import');
+      return;
+    }
+    if (cap && vids.length > cap) { vids = vids.map(f => [rel(f), f]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).slice(0, cap).map(x => x[1]); }
     const photos = files.filter(f => /\.(arw|dng|cr3|cr2|nef|raf|orf|rw2|jpe?g|heic)$/i.test(f.name)).length;
-    if (!vids.length) { if (!this.state.resume) this.kept = null; this.keepAt = 'done'; this.setState({impMsg:photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
+    if (!vids.length) { if (!this.state.resume) this.kept = null; this.keepAt = 'done'; this.setState({impMsg:walked ? 'No clips in the first ' + walked.files.toLocaleString('en-US') + ' files. Pick the folder the clips are in.' : photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
     this.picked = !!this.pickNext; this.pickNext = false;
     const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
     // Listing: every clip's name, size, date and (Sony) length, capture time, camera, profile and timecode, from small
@@ -3655,7 +3690,7 @@ class Component extends DCLogic {
     const rates = {}; clips.forEach(c => { if (c.fps) rates[c.fps] = (rates[c.fps] || 0) + 1; });
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
     const root = rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
-    const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true}, clips, gaps:[]};
+    const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true, cap:cap || 0}, clips, gaps:[]};
     if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0; this.skipped = 0;
     this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.want = null; this.setState({}, () => this.save());
     if (this.kept) this.keepApply();
@@ -4665,6 +4700,7 @@ class Component extends DCLogic {
       fileRef:this.fileRef, clipRef:this.clipRef, navGrid:this.navGrid, navPrev:this.navPrev, navNext:this.navNext, phoneToggle:this.phoneToggle, ...this.touchVals(), pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
       dropRing:st.dropHot ? '#FFD27A' : 'rgba(239,236,230,0.18)', dropBg:st.dropHot ? 'rgba(255,210,122,0.06)' : '#232220',
       impMsg:st.impMsg || '', impMsgOn:!!st.impMsg,
+      ...(b => ({bigOn:!!b, bigH:b ? b.h : '', bigName:b ? b.name : '', bigLine:b ? b.line : '', bigGoT:b ? b.go : '', bigPick:this.bigPick, bigGo:this.bigGo}))(st.big ? Component.bigSay(st.big, x => this.fmtB(x)) : null),
       impLineOn:!!(st.imp && st.imp.done < st.imp.n), impLine:st.imp ? 'measuring ' + st.imp.done + ' of ' + this.plural(st.imp.n, 'clip') : '',
       staleOn:!!st.stale, staleGo:() => this.staleGo(), staleLater:() => this.staleLater(), resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + ' · choose the same folder and they come back' : '', resumeDrop:() => this.resumeDrop(), nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
       cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})), cardsOn:this.cardList().length > 0,
