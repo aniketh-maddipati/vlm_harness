@@ -131,5 +131,5 @@ test('Resume takes only the kept clips from a larger folder, and names the missi
   assert.deepEqual(pick(vids, []), []); assert.deepEqual(pick(vids, undefined), []);
   const g = gap(keys, {[keys[0]]:'F0001', [keys[1]]:'F0002'});
   assert.deepEqual(g, {n:3, found:2, missing:[{name:'C0003.MP4', t:'2026-10-01T10:09:00'}]});
-  assert.match(src, /if \(this\.kept && this\.state\.resume && !this\.freshPick\) \{ const hit = Component\.resumePick\(vids, this\.kept\.files\); if \(hit\.length\) vids = hit; \}/);
+  assert.match(src, /if \(this\.kept && this\.state\.resume\) \{ const hit = Component\.resumePick\(vids, this\.kept\.files\); if \(hit\.length\) vids = hit; \}/);
 });

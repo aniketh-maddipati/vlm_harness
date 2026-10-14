@@ -78,6 +78,8 @@ async function run(host) {
   for (let k = 0; k < 60; k++) { await p.waitForTimeout(500); if (await p.evaluate(() => { try { const a = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]')[0]; return !!(a && a.done != null); } catch (x) { return false; } })) break; }
   // mark through the page's own keys: two selected, one maybe, two cut
   const clipsTab = p.locator('[data-lumina="levels"] [role=tab]').nth(1); if (await clipsTab.count()) { await clipsTab.click(); await p.waitForTimeout(200); } else { await p.click('[data-gi="0"]'); await p.waitForTimeout(200); }
+  { const pre = await p.evaluate(() => { const t = [...document.querySelectorAll('[data-lumina="steps"] [role=tab]')].find(e => e.innerText.trim() === 'Export'); return [t && getComputedStyle(t).color, !!document.querySelector('[data-lumina="dock-export"]')]; });
+    ok(pre[0] !== 'rgb(255, 210, 122)' && !pre[1], (host ? 'app' : 'browser') + ': before anything is selected, Export is not gold and the dock has no Export button: ' + JSON.stringify(pre)); }
   for (const k of ['k', 'ArrowRight', 'k', 'ArrowRight', 'm', 'ArrowRight', 'ArrowRight', 'c', 'ArrowRight', 'c']) { await p.keyboard.press(k); await p.waitForTimeout(80); }
   if (host) {
     // while you are still in Skim, Export gets ready (LOCAL-CHANGES 267): a moment after the last mark the app is asked for its folders and the file is checked
