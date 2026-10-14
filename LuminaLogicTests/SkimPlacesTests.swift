@@ -25,6 +25,22 @@ final class SkimPlacesTests: XCTestCase {
         XCTAssertFalse(s.all().contains { $0.path == "/p29" })
     }
 
+    func testSizeAddsUpEveryFileUnderAFolder() throws {
+        let fm = FileManager.default
+        try fm.createDirectory(at: tmp.appendingPathComponent("a/b"), withIntermediateDirectories: true)
+        try Data(count: 1000).write(to: tmp.appendingPathComponent("a/one.bin"))
+        try Data(count: 3000).write(to: tmp.appendingPathComponent("a/b/two.bin"))
+        try Data(count: 10).write(to: tmp.appendingPathComponent("a/b/.hidden"))
+        let s = try XCTUnwrap(SkimPlaces.size(of: tmp.appendingPathComponent("a")))
+        XCTAssertEqual(s.files, 3, "hidden files take space too")
+        XCTAssertGreaterThanOrEqual(s.bytes, 4010)
+        XCTAssertFalse(s.partial)
+        let cut = try XCTUnwrap(SkimPlaces.size(of: tmp.appendingPathComponent("a"), maxFiles: 1))
+        XCTAssertTrue(cut.partial, "a folder too big to finish says so")
+        XCTAssertNil(SkimPlaces.size(of: tmp.appendingPathComponent("a/one.bin")), "a file is not a folder")
+        XCTAssertNil(SkimPlaces.size(of: tmp.appendingPathComponent("missing")))
+    }
+
     func testInsideNeverMatchesASiblingWithTheSamePrefix() {
         let root = URL(fileURLWithPath: "/Volumes/T7/Exports")
         XCTAssertTrue(SkimPlaces.inside("/Volumes/T7/Exports", root: root))
@@ -98,5 +114,22 @@ final class SkimPlacesTests: XCTestCase {
         XCTAssertEqual(SkimPlacesRead.sorted([d("T7", "/Volumes/T7"), d("Macintosh HD", "/"), d("card 2", "/Volumes/c2"), d("Card 10", "/Volumes/c10")]).map(\.name),
                        ["Macintosh HD", "card 2", "Card 10", "T7"])
         XCTAssertNil(d("x", "/x").json["free"], "no figure, no key")
+    }
+
+    func testFindLooksThroughEveryLevelForEveryWordAndRanksPrefixesAndShallowFirst() throws {
+        let fm = FileManager.default
+        for d in ["Shoots/2026 Café wedding/CLIP", "Shoots/Wedding B-roll", "Archive/old/deep/wedding day", ".hidden/wedding", "Clips.fcpbundle/wedding"] {
+            try fm.createDirectory(at: tmp.appendingPathComponent(d), withIntermediateDirectories: true)
+        }
+        try Data().write(to: tmp.appendingPathComponent("Shoots/wedding.mp4"))
+        let r = SkimPlaces.find("wedding", in: [tmp])
+        XCTAssertEqual(r.found.map(\.name), ["Wedding B-roll", "wedding day", "2026 Café wedding"], "prefix first, then shallower; no file, nothing hidden, no package")
+        XCTAssertFalse(r.partial)
+        XCTAssertEqual(r.found.first?.root, tmp.standardizedFileURL.path)
+        XCTAssertEqual(SkimPlaces.find("cafe WEDDING", in: [tmp]).found.map(\.name), ["2026 Café wedding"], "every word, any case, accents off")
+        XCTAssertEqual(SkimPlaces.find("  ", in: [tmp]).found, [])
+        XCTAssertTrue(SkimPlaces.find("wedding", in: [tmp], limit: 1).partial, "stopped at the limit")
+        XCTAssertTrue(SkimPlaces.find("wedding", in: [tmp], cancelled: { true }).partial)
+        XCTAssertEqual(SkimPlaces.find("wedding", in: [tmp, tmp.appendingPathComponent("Shoots")]).found.count, 3, "a folder under two roots is found once")
     }
 }

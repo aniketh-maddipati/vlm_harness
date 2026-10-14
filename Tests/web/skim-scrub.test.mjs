@@ -97,8 +97,8 @@ test('retry is bounded: after two more goes the video is left off', () => {
 test('the line under the picture says when there is little to scrub', () => {
   assert.equal(C.skimSay(8, true, false), '');
   assert.equal(C.skimSay(0, true, false), '');
-  assert.equal(C.skimSay(8, true, true), 'the clip isn’t answering · showing its 8 sampled frames');
-  assert.equal(C.skimSay(1, true, true), 'the clip isn’t answering · nothing to scrub');
+  assert.equal(C.skimSay(8, true, true), 'this clip won’t play right now · showing its 8 saved frames');
+  assert.equal(C.skimSay(1, true, true), 'this clip won’t play right now · no frames to scrub');
   assert.equal(C.skimSay(1, false, false), 'one frame read · click to scrub');
   assert.equal(C.skimSay(8, false, false), '');
   assert.equal(C.skimSay(0, false, false), '');

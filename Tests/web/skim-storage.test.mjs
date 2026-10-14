@@ -42,12 +42,12 @@ test('nothing is shown that was not measured', () => {
 });
 
 test('a button says what it gives back before the click', () => {
-  assert.equal(dumpSay('frames', 180e6, 37, fmtB), 'Drop frames · 180 MB');
-  assert.equal(dumpSay('frames', 1.4e9, 300, fmtB), 'Drop frames · 1.4 GB');
-  assert.equal(dumpSay('frames', 0, 0, fmtB), 'Drop frames · nothing to give back');
-  assert.equal(dumpSay('frames', 5e6, 0, fmtB), 'Drop frames · nothing to give back');
-  assert.equal(dumpSay('saved', 120e6, 3, fmtB), 'Clear for shoots not open · 120 MB');
-  assert.equal(dumpSay('saved', 0, 0, fmtB), 'Clear for shoots not open · nothing to give back');
+  assert.equal(dumpSay('frames', 180e6, 37, fmtB), 'Free frames · 180 MB');
+  assert.equal(dumpSay('frames', 1.4e9, 300, fmtB), 'Free frames · 1.4 GB');
+  assert.equal(dumpSay('frames', 0, 0, fmtB), 'Free frames · nothing to free');
+  assert.equal(dumpSay('frames', 5e6, 0, fmtB), 'Free frames · nothing to free');
+  assert.equal(dumpSay('saved', 120e6, 3, fmtB), 'Clear other shoots · 120 MB');
+  assert.equal(dumpSay('saved', 0, 0, fmtB), 'Clear other shoots · nothing to free');
 });
 
 test('Drop frames keeps one cover per clip and the 24 around the current clip', () => {
@@ -76,7 +76,7 @@ test('only frames made in this tab are dropped, and marks are not part of it', (
   assert.equal(JSON.stringify(marks), before);
   assert.ok(!/marks|setMarks/.test(extractMethod(src, 'farFrames', 'static farFrames(clips, at, cover) {')));
   const drop = src.slice(src.indexOf('  dropFar = '), src.indexOf('  // Saved covers, the page\'s side.'));
-  assert.ok(drop.length > 0 && !/marks/.test(drop.replace('Covers and marks stay', '')));
+  assert.ok(drop.length > 0 && !/marks/.test(drop.replace('Previews and marks stay', '')));
 });
 
 test('working out the drop over a large shoot is quick', () => {
@@ -161,7 +161,7 @@ test('Move cut to Trash: cut only, never maybe, never the clip on screen or its 
   assert.ok(!again.list.includes(C[0]) && !again.list.includes(C[3]));
   assert.equal(trashPick(C, {}, 30, () => true).list.length, 0);
   assert.equal(dumpSay('cut', 3.5e9, 3, fmtB), 'Move cut to Trash · 3.5 GB');
-  assert.equal(dumpSay('cut', 0, 0, fmtB), 'Move cut to Trash · nothing to give back');
+  assert.equal(dumpSay('cut', 0, 0, fmtB), 'Move cut to Trash · nothing to free');
 });
 
 test('cut clips move only after the Final Cut file is saved, and only with two clicks', () => {

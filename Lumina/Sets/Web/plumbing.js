@@ -261,6 +261,27 @@
       if (type === 'openCancel') native('openCancel', {}).catch(() => {});
     },
   });
+  // Handoff's file view (Prompt 27, `window.lumina.files`): the drives and folders Lumina may look inside, the search,
+  // copies (never moves), renames, Save to, and the files Handoff saved. The Mac checks every path (SetsBridge filesOp).
+  window.lumina.files = {
+    places: () => native('filesPlaces', {}),
+    dirList: (path) => native('filesDirList', { path: String(path || '') }),
+    placeAdd: (at) => native('filesPlaceAdd', { at: at ? String(at) : null }),
+    placeRemove: (path) => native('filesPlaceRemove', { path: String(path || '') }),
+    dirMake: (parent, name) => native('filesDirMake', { parent: String(parent || ''), name: String(name || '') }),
+    saveToChoose: () => native('filesSaveToChoose', {}),
+    saveToAsk: () => native('filesSaveToAsk', {}),
+    saveToSet: (path) => native('filesSaveToSet', { path: String(path || '') }),
+    reveal: (paths) => native('filesReveal', { paths: (paths || []).map(String) }),
+    savedCheck: (list) => native('filesSavedCheck', { list: (list || []).map(e => ({ id: String(e && e.id), at: Number(e && e.at) || 0, paths: ((e && e.paths) || []).map(String) })) }),
+    savedText: (path) => native('filesSavedText', { path: String(path || '') }),
+    dirSearch: (q, o) => native('filesDirSearch', { q: String(q || ''), opts: { roots: ((o && o.roots) || []).map(String), after: o && o.after != null ? String(o.after) : null, limit: Number(o && o.limit) || 50 } }),
+    copyInto: (items) => native('filesCopyInto', { items: (items || []).map(m => ({ from: String(m && m.from), to: String(m && m.to) })) }),
+    dirRename: (path, name) => native('filesDirRename', { path: String(path || ''), name: String(name || '') }),
+    trash: (paths) => native('filesTrash', { paths: (paths || []).map(String) }),
+    putBack: (items) => native('filesPutBack', { items: (items || []).map(x => ({ path: String(x && x.path), trashed: String(x && x.trashed) })) }),
+    openInLightroom: (paths) => native('filesOpenInLightroom', { paths: (paths || []).map(String) }),
+  };
   const events = [];
   // Parity mode (test only): the storage meter is measured the prototype's way (see patch), so the page
   // must not ask the Mac for its working files either; it asks on mount, before patch runs.
@@ -282,7 +303,9 @@
 
     // Parity mode (test only): the storage meter (header, Save) counts the Mac's working files in the app
     // and the browser's own storage in the prototype. Measure it the prototype's way so the twins compare.
-    if (cfg.parity) for (const k of ['cacheParts', 'cacheView']) {
+    // Handoff's file view does the same: the sample shoot's drives come from the page's own stand-in
+    // (hoHost), and the view is built as the prototype builds it.
+    if (cfg.parity) for (const k of ['cacheParts', 'cacheView', 'hoHost', 'handoffView']) {
       if (typeof logic[k] !== 'function') continue;
       const f = logic[k].bind(logic), C = logic.constructor;
       logic[k] = () => { const app = C.app; C.app = () => false; try { return f(); } finally { C.app = app; } };
@@ -595,14 +618,16 @@
     // Sidecars (SAFETY.md 1): written by the Mac INTO the shoot folder, next to each RAW. Atomic,
     // .lumina-bak first, read back and compared; refused on a card. Per-file errors come back as
     // { name, reason } for the page's result list.
-    logic.writeInto = async (files, label) => {
+    // Handoff's Save to (Prompt 27) comes as `dir`: '' next to each RAW (above), a folder (written there, as the page
+    // merged them), or null to ask each time (the folder panel; Cancel answers {aborted: true}).
+    logic.writeInto = async (files, label, dir) => {
       const info = logic.state.realInfo || {};
       if (label === 'jpeg') {
         // The Edit step's JPEGs (Prompt 1 §7): {name, look: {src, look, px}} rendered natively through
         // LookPipeline with the decoder the shoot pins for that body; the result names the decoder.
         const byPath = {}; for (const p of Object.values((logic.data && logic.data.byId) || {})) if (p.path) byPath[p.path] = p;
         const list = files.filter(f => f && f.look && f.look.src).map(f => ({ name: f.name, look: { src: f.look.src, look: macLook(f.look.look || '', byPath[f.look.src]), px: f.look.px == null ? null : f.look.px, model: (byPath[f.look.src] || {}).model || null } }));
-        return native('writeInto', { label: 'jpeg', files: list }).then(reasons);
+        return native('writeInto', { label: 'jpeg', files: list, dir: typeof dir === 'string' ? dir : '' }).then(reasons);
       }
       if (label !== 'xmp') return null;
       // The page merged each rating into the sidecar text it holds from the open (xmpFor on p.xmp),
@@ -613,9 +638,10 @@
       // is left as it is and comes back "changed on disk"; nothing is retried silently (SAFETY.md 6),
       // the next Save reads again. The text from the open is never written over a newer file.
       const root = info.name || '', enc = new TextEncoder(), byId = (logic.data && logic.data.byId) || {}, owner = {}, now = {};
+      const away = dir === null || (typeof dir === 'string' && dir !== '');
       // A file's photo, by the name the page's runExport gave the file (xpath without the folder's name).
       for (const [id, p] of Object.entries(byId)) { const q = (p.xpath || (p.file || '').replace(/\.[^.]+$/, '') + '.xmp').split('/'); owner[q.length > 1 ? q.slice(1).join('/') : q[0]] = id; }
-      for (const s of (await native('readSidecars', { root, files: files.map(f => f.name) })) || []) now[s.name] = s;
+      if (!away) for (const s of (await native('readSidecars', { root, files: files.map(f => f.name) })) || []) now[s.name] = s;
       const list = [];
       for (const f of files) {
         const s = now[f.name], id = owner[f.name], p = id != null ? byId[id] : null, it = { name: f.name };
@@ -624,12 +650,13 @@
           const tx = s.text == null ? null : s.text;
           if ((p.xmp || null) !== (tx || null)) { p.xmp = tx; p.lrEd = LuminaCore.hasDevelop(tx); d = logic.xmpFor(id); }
           it.base = s.base;
-        } else if (p) it.base = 'unread';                    // couldn't be read now: no file matches this, the write says why
+        } else if (p && !away) it.base = 'unread';           // couldn't be read now: no file matches this, the write says why
         // (No photo for the name: nothing the page merged from. Sent as it is, unchecked.)
         const u = d instanceof Uint8Array ? d : d instanceof Blob ? new Uint8Array(await d.arrayBuffer()) : typeof d === 'string' ? enc.encode(d) : null;
         if (u) { it.b64 = b64(u); list.push(it); }
       }
-      const r = reasons(await native('writeSidecars', { root, files: list }));
+      const r = reasons(await native('writeSidecars', { root, files: list, dir: typeof dir === 'string' ? dir : '', ask: dir === null }));
+      if (r && r.aborted) return r;
       if (r && !(r.errors || []).length && (r.n || 0) > 0) savedKeepers = keepersOf(logic);
       if (r) setTimeout(saveNow, 0);
       return r;
@@ -1252,6 +1279,11 @@
       const l = current, E = window.luminaEdit;
       if (l && typeof l.flushKeys === 'function') l.flushKeys();
       if (l && l.state.view === 'edit' && E && ['undo', 'redo', 'copy', 'paste'].includes(name) && typeof E[name] === 'function') { E[name](); return true; }
+      // File ▸ Show Selection in Finder (⌥⌘R): Handoff's own key for the row selected in its file view; elsewhere ⌘R.
+      if (name === 'finderSel') {
+        if (!l || l.state.view !== 'export') name = 'finder';
+        else { l.onKey({ key: 'r', code: 'KeyR', shiftKey: false, altKey: true, metaKey: true, ctrlKey: false, repeat: false, getModifierState: () => false, preventDefault() {} }); return true; }
+      }
       return typeof window.luminaCommand === 'function' ? window.luminaCommand(name) : false;
     },
     // View ▸ Zoom 100%: Z is a hold key in the page; the menu toggles it through the page's gesture hook.
