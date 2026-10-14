@@ -142,6 +142,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     /// What the page's file input was last answered with. The panel's grant lasts as long as the app, so a
     /// reload can hand the same clips back without asking. Clips dropped on the page have no URLs and don't come back.
     private var skimURLs: [URL]?
+    /// What Add clips brought into the open shoot since (LOCAL-CHANGES 272): handed back with `skimURLs` on a reload, never
+    /// the shoot's folder (`skimOpened` stays on the folder it was opened from, so Trash and Arrange keep to it).
+    private var skimAddedURLs: [URL] = []
     /// Set while a reload reopens the shoot: the page's file input is answered with these, with no panel.
     private var skimReopenURLs: [URL]?
     /// The page's marks and view by clip (`luminaSkimKeep.take()`), waiting for the reloaded page.
@@ -281,7 +284,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 self.waitForSkimShoot(tries: 0)
             }
         }
-        skimReopenURLs = urls
+        skimReopenURLs = urls + skimAddedURLs
     }
 
     #if DEBUG
@@ -314,6 +317,12 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         guard !urls.isEmpty else { return }
         LuminaLog.app.notice("skim: reopening the shoot the last run left")
         skimURLs = urls
+        skimAddedURLs = ((saved["added"] as? [String]) ?? []).compactMap { b in
+            var stale = false
+            guard let d = Data(base64Encoded: b), let u = try? URL(resolvingBookmarkData: d, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+            _ = u.startAccessingSecurityScopedResource()
+            return u
+        }
         skimKept = kept
         skimNote = "Picked up where you were"
         skimRestoring = true
@@ -326,8 +335,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         webView.evaluateJavaScript("window.luminaSkimKeep ? luminaSkimKeep.take() : null") { kept, _ in
             MainActor.assumeIsolated {
                 if let kept = kept as? String, !kept.contains("\"dropped\":true") {
-                    let marks = urls.compactMap { try? $0.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil).base64EncodedString() }
-                    if let data = try? JSONSerialization.data(withJSONObject: ["kept": kept, "at": Date().timeIntervalSince1970, "bookmarks": marks] as [String: Any]) {
+                    let mark = { (u: URL) in try? u.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil).base64EncodedString() }
+                    let marks = urls.compactMap(mark), added = self.skimAddedURLs.compactMap(mark)
+                    if let data = try? JSONSerialization.data(withJSONObject: ["kept": kept, "at": Date().timeIntervalSince1970, "bookmarks": marks, "added": added] as [String: Any]) {
                         try? data.write(to: file, options: .atomic)
                     }
                 }
@@ -496,11 +506,34 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         if SetsPage.current == .skim {
             // The folder the clips are in is the open shoot's folder for the storage line (drive, Trash).
             // A reload in place answers with the clips that were open, with no panel (reloadSkimKeeping).
-            if let urls = skimReopenURLs { skimReopenURLs = nil; bridge.skimOpened(urls); completionHandler(urls); return }
-            Task { @MainActor in let urls = await chooseClips(); if let urls { skimURLs = urls; bridge.skimOpened(urls) }; completionHandler(urls) }
+            if let urls = skimReopenURLs { skimReopenURLs = nil; bridge.skimOpened(skimURLs ?? urls); completionHandler(urls); return }
+            Task { @MainActor in
+                // Add clips (the page sets window.luminaSkimAdding just before its click): more clips for the open shoot. The
+                // page is told where they are (window.luminaSkimPicked, set before it gets the files) so the Final Cut file
+                // points at them; the shoot's folder stays as it was.
+                let adding = await skimPageFlag("window.luminaSkimAdding === true ? (window.luminaSkimAdding = false, true) : false")
+                let urls = await chooseClips()
+                if let urls {
+                    if adding {
+                        skimAddedURLs += urls
+                        if let data = try? JSONSerialization.data(withJSONObject: urls.map(\.path)), let list = String(data: data, encoding: .utf8) {
+                            _ = await skimPageFlag("(window.luminaSkimPicked = \(list), true)")
+                        }
+                    } else { skimURLs = urls; skimAddedURLs = []; bridge.skimOpened(urls) }
+                }
+                completionHandler(urls)
+            }
             return
         }
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
+    }
+
+    /// Runs a line of the page's script that answers true or false (false when the page doesn't answer).
+    private func skimPageFlag(_ script: String) async -> Bool {
+        guard let webView else { return false }
+        return await withCheckedContinuation { c in
+            webView.evaluateJavaScript(script) { result, _ in c.resume(returning: (result as? Bool) == true) }
+        }
     }
 
     // MARK: Navigation: only our own scheme; downloads go through a save panel
