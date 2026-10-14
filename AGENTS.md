@@ -35,6 +35,7 @@ window. Nobody edits the UI in this repo.
 | `Lumina/Sets/Look/` | The Edit look pipeline (roadmap Prompt 2): `LookString` (the look string, the Edit step's only state), `LookRules` + `rules-v1.json` (stage order, working space, fitted coefficients, `locked` flags), `LookMasks` (Edit's automatic masks without Vision: mask algebra, the guided-filter edge refinement, outlines, which mask is the subject; Foundation only), `LookMath` (every stage's maths in scalar form), `LookKernels` (the same maths as Metal, compiled at first use), `LookPipeline` (the one Core Image graph previews, export and `lumina-render` share; `develop` takes the decoder version and `nr`), `LookRenderer` (developed RAW cached per (rel, px, decoder) under a byte cap, sequence numbers drop stale requests). The Edit canvas (addendum): `LookCanvasSchedule` (two tiers, latest wins, sequence numbers; Foundation only), `LookWarmPlan` (which stage graphs to compile ahead of a drag; Foundation only), `LookByteCache` (byte-capped LRU), `LookBases` (`base` + `small` rgba16Float textures per photo, prefetch), `LookRegionTiles` (RAW 9 512 px tiles for the loupe), `LookCanvas` (the MTKView overlay, CIRenderDestination, display link), `LookRawPolicy` + `LookDecoderProbe` (the RAW tiers, the pin rule, the capability map). Also compiled into the probe and `Tools/parity/lumina-render` through symlinks |
 | `Tools/parity/` | The Lightroom parity harness: the sweep plug-in, `import_refs.py`, `lumina-render`, `delta_e.py`, `parity.py` (`make parity`), `fit.py`, `loop.sh`, `criteria.json`, `golden.json`. See its README and "Parity" below |
 | `Tools/culleval/` | The culling eval: the page's own `lumina-core` run on real shoots, scored against camera bursts and the photographer's keeps (`make culleval`, report in `~/LuminaEvidence/culleval`; `make culleval-test` on Linux), the same keeps question through the app (`culleval-app.mjs` on a probe dump, one matcher and one set of scores for both), and candidate ranking signals (`signals/`). Measures only. See its README |
+| `Tools/masklab/` | The mask lab: automatic masks scored against sparse hand labels (IoU, drift, boundary F, flicker, fps; `score.py`, `make masklab-test` on Linux), and `masklab-track` (SwiftPM, AVAssetReader + Vision; `sam2-coreml` experimental), which holds a selected object through a clip: `bash Tools/masklab/run-tracker-test.sh` on the T7 clips, evidence in `~/LuminaEvidence/masklab`. Measures only. See its README |
 | `design/handoff/vendor/` | React / Babel pinned to the SRI hashes in `support.js` (see `VENDOR.md`) |
 
 **The Edit canvas is the one place native draws pixels over the page.** `LookCanvasView` (an
@@ -78,6 +79,8 @@ bash Tests/linux-swift/run.sh   # local only: CI runs the same tests in LuminaLo
 make parity-test
 # The culling eval's scoring tests (synthetic data) + the guard on the page's readOne, Linux too
 make culleval-test
+# The mask lab's scoring tests (synthetic data) and masklab-track's Foundation-only half, Linux too
+make masklab-test && swift test --package-path Tools/masklab/track
 
 # Build + logic tests (SetsFileOpsTests, SetsSidecarTests, SetsPageBytesTests, SetsNearTests, LookStringTests, LookMathTests,
 # LookPipelineTests: every stage monotonic + grey-preserving on synthetic ramps, the Metal graph equal to LookMath,
