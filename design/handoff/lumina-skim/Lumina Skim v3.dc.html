@@ -268,7 +268,7 @@ body:has([data-view=phone]){background:#111}
               <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px"><span style="color:#FFD27A">Pick up where you were</span><span style="font-size:14px;color:#EFECE6">{{ resumeName }}</span><span style="color:#B8B3AB">{{ resumeLine }}</span></div>
               <button type="button" data-lumina="resume-go" onClick="{{ resumeGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Resume</button>
               <button type="button" data-lumina="resume-other" onClick="{{ resumeOther }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Other clips</button>
-              <span data-lumina="resume-hint" style="flex-basis:100%;color:#9A958D;line-height:1.45">Both open Finder. Resume takes the same clips from the folder you choose and brings these marks back; with Other clips they are let go once you pick. Your clips are never touched.</span>
+              <span data-lumina="resume-hint" style="flex-basis:100%;color:#9A958D;line-height:1.45">Both open Finder. Resume: choose the shoot’s folder (or one above it) and its clips and marks come back. Other clips: a different folder; these marks are let go once you pick. Your clips are never touched.</span>
             </div>
           </sc-if>
           <button type="button" data-lumina="drop" onClick="{{ pickFolder }}" style="color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
@@ -2684,6 +2684,9 @@ class Component extends DCLogic {
   }
   tabKeepDrop() { try { sessionStorage.removeItem(Component.TAB_KEEP); } catch (x) {} if (this.state.resume) this.setState({resume:null}); }
   resumeDrop() { this.kept = null; this.tabKeepDrop(); }
+  // Resume brings the kept clips and marks back; Other clips lets them go, but only once clips are picked (a cancelled picker keeps them).
+  resumeGo = () => { this.pickFolder(); };
+  resumeOther = () => { this.pickFolder(); this.freshPick = true; };
   // The clips of a kept shoot among the files chosen, by name (the capture time is checked once they are listed, by clipKey).
   static resumePick(vids, keys) { if (!keys || !keys.length) return []; const want = new Set(keys.map(k => k.slice(0, k.lastIndexOf('@')))); return vids.filter(f => want.has(f.name.toUpperCase())); }
   // What Resume found: the kept clips that came back and the ones that did not (name and capture time).
@@ -2699,9 +2702,6 @@ class Component extends DCLogic {
   // Refresh keeps the shoot the way a reload does in Safari: the marks for the tab, and Open offers them back.
   staleGo() { if (this.hasShoot()) this.tabKeepSave(); this.staleGoing = true; location.reload(); }
   staleLater() { this.staleSkip = this.state.stale; this.setState({stale:null}); }
-  // Resume brings the kept marks back; Other clips lets them go, but only once clips are picked (a cancelled picker keeps them).
-  resumeGo = () => { this.pickFolder(); };
-  resumeOther = () => { this.pickFolder(); this.freshPick = true; };
   dropSavedMarks() { if (Component.KEEP_MARKS) return; const drop = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (Component.isMarkKey(k)) drop.push(k); } } catch (x) {} drop.forEach(k => this.persist(k, null)); }
   // The dock: every selected clip, in capture order, in one sticky row above the key bar (a small gap where the
   // time run, or the scene, changes). A click puts you on the clip, a double-click opens it in the Viewer, as in the grid. The arrows
@@ -3768,7 +3768,8 @@ class Component extends DCLogic {
     let vids = files.filter(f => Component.isClip(f));
     // Resume in Safari (LOCAL-CHANGES 276): from whatever folder was chosen (the shoot's, or one above it), only the clips the
     // kept shoot had; a folder with none of them opens as it is.
-    if (this.kept && this.state.resume && !this.freshPick) { const hit = Component.resumePick(vids, this.kept.files); if (hit.length) vids = hit; }
+    if (this.freshPick && vids.length) { this.freshPick = false; this.resumeDrop(); }   // Other clips (277): the kept marks go once clips are picked
+    if (this.kept && this.state.resume) { const hit = Component.resumePick(vids, this.kept.files); if (hit.length) vids = hit; }
     // Too big, or a walk cut short: say so on Open and wait for an answer. A reload in the app keeps what was chosen (kept.cap).
     cap = cap || (this.kept && this.kept.cap) || 0; this.bigHeld = null; if (this.state.big) this.setState({big:null});
     if (vids.length && ((vids.length > Component.BIG.clips && !cap) || (walked && !cap))) {
@@ -3781,7 +3782,7 @@ class Component extends DCLogic {
     if (cap && vids.length > cap) { vids = vids.map(f => [rel(f), f]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).slice(0, cap).map(x => x[1]); }
     const photos = files.filter(f => /\.(arw|dng|cr3|cr2|nef|raf|orf|rw2|jpe?g|heic)$/i.test(f.name)).length;
     if (!vids.length) { if (!this.state.resume) this.kept = null; this.keepAt = 'done'; this.setState({impMsg:walked ? 'No clips in the first ' + walked.files.toLocaleString('en-US') + ' files. Pick the folder the clips are in.' : photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
-    this.picked = !!this.pickNext; this.pickNext = false; if (this.freshPick) { this.freshPick = false; this.resumeDrop(); }
+    this.picked = !!this.pickNext; this.pickNext = false;
     const xml = {}; files.filter(f => /\.xml$/i.test(f.name)).forEach(f => { xml[f.name.replace(/M\d\d\.xml$/i, '').replace(/\.xml$/i, '').toUpperCase()] = f; });
     // Listing: every clip's name, size, date and (Sony) length, capture time, camera, profile and timecode, from small
     // reads only, 16 files at a time, before any picture is decoded. The scenes can be moved as soon as this is done.

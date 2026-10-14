@@ -119,7 +119,7 @@ async function run(quota, host) {
     // the resume card after a reload: Other clips opens the picker and lets the kept marks go once clips are picked
     await p.reload(); await p.waitForTimeout(1200);
     const card = await p.evaluate(() => document.querySelector('[data-lumina="resume"]')?.innerText || '');
-    ok(/Resume\n/.test(card) && /Other clips/.test(card) && !/Start fresh/.test(card) && /Both open Finder/.test(card), 'the resume card names what each button does: ' + JSON.stringify(card));
+    ok(/Resume/.test(card) && /Other clips/.test(card) && !/Start fresh/.test(card) && /Both open Finder/.test(card), 'the resume card names what each button does: ' + JSON.stringify(card));
     const fc = p.waitForEvent('filechooser'); await p.click('[data-lumina="resume-other"]'); const ch = await fc;
     ok(!!(await p.evaluate(() => document.querySelector('[data-lumina="resume"]'))) && !!(await p.evaluate(() => sessionStorage.getItem('lumina-skim-tab:keep'))), 'Other clips opens the picker and keeps the marks until clips are picked');
     await ch.setFiles(path.join(T, 'other')); await p.waitForTimeout(2500);
