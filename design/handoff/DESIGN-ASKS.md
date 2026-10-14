@@ -1488,6 +1488,9 @@ Viewer's Canvas, Export's download, the sample button, Get Lumina for Mac) is a 
 name a screen reader, or the visitor's own browser assistant, can read: `aria-label` where the visible
 text is only a key or an icon.
 
+**5. Name the browser the visitor is in.** Export's Save to says "Where Safari saves downloads." in
+every browser; in Chrome it should say Chrome (and "your browser" when the page can't tell).
+
 ### How Prompt 28 is checked once its handoff lands
 
 - `node Tests/web/skim-live.mjs` and `Tests/web/skim-engine.py` still pass; a visitor reaches marked

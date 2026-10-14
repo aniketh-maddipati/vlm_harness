@@ -10,7 +10,8 @@
 //   node Scripts/skim-screenshots.mjs <clips folder>                         → docs/screenshots, 1440 × 900
 //   node Scripts/skim-screenshots.mjs <clips> --out <dir> --scale 2          → 2880 × 1800 (the App Store size)
 //
-// The README's set is taken on 20-second copies of the T7 clips. Clips are read in the browser, as a visitor's
+// The README's set is taken on 20-second copies of the T7 clips (full-length 4K files can outlast the read wait;
+// `ffmpeg -t 20 -c copy` makes the copies). Clips are read in the browser, as a visitor's
 // would be; nothing is uploaded. Google Chrome by default (H.264); LUMINA_BROWSER=chromium uses Playwright's
 // Chromium, which plays WebM only. The page's build stamp is hidden in the images. Bounded (LUMINA_WEB_LIMIT, 180 s).
 import fs from 'node:fs';
