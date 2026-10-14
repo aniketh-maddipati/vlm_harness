@@ -1395,10 +1395,10 @@ extension SetsBridge {
             // Saved files: each entry as it is on disk now (there, changed since it was saved, or gone). Read only.
             guard let list = body["list"] as? [[String: Any]], list.count <= 2000 else { return [String: String]() }
             let roots = pickRoots(), written = pickWritten.all()
-            let items: [(String, Double, [String])] = list.compactMap { e in
+            let items: [(String, Double, [String])] = list.compactMap { e -> (String, Double, [String])? in
                 guard let id = e["id"] as? String, id.utf8.count <= 200, let paths = pickStrings(e["paths"]) else { return nil }
                 let at = SetsNumber.pageClock(e["at"]) ?? 0
-                return (id, at, paths.filter { SkimArrange.plain($0) && (written.contains($0) || roots.contains(where: { r in SkimPlaces.inside($0, root: r) })) })
+                return (id, at, paths.filter { p in SkimArrange.plain(p) && (written.contains(p) || roots.contains(where: { r in SkimPlaces.inside(p, root: r) })) })
             }
             return await Task.detached(priority: .utility) { () -> [String: String] in
                 var out: [String: String] = [:]

@@ -59,7 +59,7 @@ final class SetsBridgeFilesTests: XCTestCase {
         b.reveal = { [unowned self] in shown.append([$0]) }
         b.revealAll = { [unowned self] in shown.append($0) }
         b.openInApp = { _, _ in false }
-        let (r, _) = await call(b, ["op": "openFolder"])
+        let r = await call(b, ["op": "openFolder"])
         XCTAssertEqual((r as? [String: Any])?["name"] as? String, "shoot")
         return b
     }
