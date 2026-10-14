@@ -64,6 +64,7 @@ something it doesn't list):
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access
 python3 Scripts/trust_check.py               # docs/release/TRUST.md's inventory against the code (CI: design handoff)
 node Tests/web/parity.mjs                    # screens-* in prototype vs app parity mode, every snapshot diffed
+node Tests/web/stills-preview.mjs             # the Stills web preview (Scripts/build-stills-preview.sh → lumina-still.pages.dev) built and opened: draws, Edit mounts, no other host, its content policy refuses nothing; main deploys it (.github/workflows/previews.yml)
 # WebKit sandbox (WebKitGTK + JavaScriptCore, real script-message handler): contract, selftest, app flow, screens
 xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3.12 Tests/web/webkit.py   # apt: gir1.2-webkit2-4.1 python3-gi python3-gi-cairo xvfb; runs under the app's offline layers, ends with the escape test (offline)
 # The Skim web preview built and used in Safari's engine (CI: "Skim in WebKit" every PR, "Skim in Safari" on PRs into main + nightly)

@@ -1,0 +1,75 @@
+name: web previews
+
+# Puts the web previews on Cloudflare Pages from main, so they don't depend on a Mac being awake.
+#   Stills (lumina-still.pages.dev): on every push to main that changes its page, its vendor files or its scripts.
+#   Skim (lumina-skim.pages.dev): only when run by hand with "skim" ticked, while a follower on the Mac
+#   still deploys that address from the shared Skim branch (two deployers would take turns overwriting it).
+# Secrets: CLOUDFLARE_API_TOKEN (Account · Cloudflare Pages · Edit, nothing else) and CLOUDFLARE_ACCOUNT_ID.
+# A pull request never runs this, so a fork never sees them.
+on:
+  push:
+    branches: [main]
+    paths:
+      - design/handoff/lumina-cull/**
+      - design/handoff/vendor/**
+      - Scripts/build-stills-preview.sh
+      - Scripts/deploy-stills-preview.sh
+      - Scripts/page_files.sh
+      - .github/workflows/previews.yml
+  workflow_dispatch:
+    inputs:
+      skim:
+        description: Also deploy Skim from main (overwrites what the Mac's follower put there)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-previews
+  cancel-in-progress: false
+
+env:
+  WRANGLER: wrangler@4.150.0
+
+jobs:
+  stills:
+    name: Stills → lumina-still.pages.dev
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22 # wrangler 4 needs Node 22
+      - name: build + deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bash Scripts/deploy-stills-preview.sh
+      - name: the address serves this commit
+        run: |
+          want="$(git rev-parse --short HEAD)"
+          for i in 1 2 3 4 5 6; do
+            got="$(curl -fsS https://lumina-still.pages.dev/version.txt || true)"
+            case "$got" in "$want "*) echo "$got"; exit 0;; esac
+            sleep 10
+          done
+          echo "lumina-still.pages.dev serves '$got', expected $want" >&2; exit 1
+
+  skim:
+    name: Skim → lumina-skim.pages.dev
+    if: github.event_name == 'workflow_dispatch' && inputs.skim
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22 # wrangler 4 needs Node 22
+      - name: build + deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bash Scripts/deploy-skim-preview.sh

@@ -1969,6 +1969,12 @@ class Component extends DCLogic {
     if (meta && kl === 'z') { e.preventDefault(); return e.shiftKey ? this.redo() : this.undo(); }
     if (meta) return;
     if (t && t.tagName === 'INPUT' && k.startsWith('Arrow')) return;
+    // Tab is the next clip and ⇧Tab the one before, as → and ← are (scenes on Scenes, frames' clips in the Viewer);
+    // a text field keeps its own Tab.
+    if (k === 'Tab' && !e.altKey && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) {
+      e.preventDefault(); this.tabFocus = false; if (!this.d.clips.length) return;
+      const d = e.shiftKey ? -1 : 1; return st.lv >= 2 ? this.takeStep(d) : this.move(d);
+    }
     // ⇧C unfurls the cut clips folded at the dock's right, right to left, and folds them back.
     if (kl === 'c' && e.shiftKey && !e.altKey) { e.preventDefault(); if (!e.repeat) this.cutsToggle(); return; }
     if (this.dockKey(e)) return;
