@@ -1,7 +1,7 @@
 import XCTest
 @testable import Lumina
 
-/// Skim's pick in the app (`SkimPickScan`, LOCAL-CHANGES 272): a whole drive is caught before WebKit lists it. The
+/// Skim's pick in the app (`SkimPickScan`, LOCAL-CHANGES 280): a whole drive is caught before WebKit lists it. The
 /// count stops at the file limit, the clip limit is the page's, and the first clips by path come with their sidecars.
 /// Foundation only.
 final class SkimPickScanTests: XCTestCase {

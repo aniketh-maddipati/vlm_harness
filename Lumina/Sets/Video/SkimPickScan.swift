@@ -1,6 +1,6 @@
 import Foundation
 
-/// Skim's pick in the app (LOCAL-CHANGES 272): the folders chosen in the panel, counted here before the page's file
+/// Skim's pick in the app (LOCAL-CHANGES 280): the folders chosen in the panel, counted here before the page's file
 /// input is answered. WebKit lists a picked folder in full before the page sees any of it, so a whole drive (the T7's
 /// top level, a home folder) would hold the page for minutes with nothing on screen. Counting stops at `files`; past
 /// `clips` clips, or when it stopped, the page shows its too-big card (`luminaSkimBig`) and the input is answered with

@@ -491,7 +491,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         }
     }
 
-    /// Skim's pick (LOCAL-CHANGES 272). After the too-big card's "Open the first 1,500" (`luminaSkimBig.want()`), the
+    /// Skim's pick (LOCAL-CHANGES 280). After the too-big card's "Open the first 1,500" (`luminaSkimBig.want()`), the
     /// clips kept from the last count, with no panel. Otherwise the panel, then a count of what was picked before WebKit
     /// lists it: a whole drive or a firehose shows the page's card and answers the input with nothing.
     private func skimPick() async -> [URL]? {
