@@ -146,6 +146,16 @@ checks its arguments and says it needs macOS).
 **Status:** the AVFoundation / Vision / Core ML code has not been compiled or run yet; it was
 written on Linux. The first Mac run is also its first build.
 
+## Sky (`sky/`, `masklab-sky`)
+
+The app's sky mask on stills, for checking it on real photos: `bash Tools/masklab/sky/run-sky-test.sh [folder]` (default
+`/Volumes/Untitled`) builds `masklab-sky` with `swiftc` from the app's own `LookMasks.swift` and `SetsMasks.swift` (a stub
+stands in for the app's reader), takes `SKY_N` photos (240) spread evenly through the folder, reads each one's embedded
+preview at 1024 px as the app does, and writes to `~/LuminaEvidence/skymask/<date-time>/` (`latest` points at it): an
+overlay per photo (the sky the app would offer tinted blue, every other shape outlined, and a caption with the gate's
+score, the sky offered and the finder's area with the gate open), contact sheets of twelve, and `report.json` with each
+photo's top scene labels. Nothing is written next to the photos. Same guard as the tracker test.
+
 ## Rules
 
 - Numbers only: no clip, frame, mask or label is committed. Clip names appear in the reports.
