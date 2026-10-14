@@ -70,12 +70,6 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
 @keyframes lmDot{0%,80%,100%{opacity:0.25;transform:none}40%{opacity:1;transform:translateY(-3px)}}
 @keyframes lmFlash{0%{box-shadow:inset 0 0 0 1.5px #FFD27A;background-color:rgba(255,210,122,0.28)}100%{box-shadow:inset 0 0 0 1.5px rgba(255,210,122,0);background-color:rgba(255,210,122,0.1)}}
 [data-lumina=ws-row][data-loading=true]{position:relative}
-/* the notice's tick boxes (LOCAL-CHANGES 282): on, off, and some of what is under it */
-[data-tick=true]{background:#FFD27A;box-shadow:none}
-[data-tick=true]::after{content:'✓';display:block;color:#1E1D1B;font-size:11px;font-weight:800;line-height:14px;text-align:center}
-[data-tick=false]{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(239,236,230,0.4)}
-[data-tick=mixed]{background:rgba(255,210,122,0.35);box-shadow:inset 0 0 0 1.5px #FFD27A}
-[data-tick=mixed]::after{content:'';display:block;margin:6px 3px 0;height:2px;border-radius:1px;background:#1E1D1B}
 [data-lumina=ws-row][data-loading=true]::after{content:'';position:absolute;top:5px;bottom:5px;left:var(--lm-pad,22px);width:min(220px,50%);border-radius:4px;background:linear-gradient(90deg,rgba(239,236,230,0.03) 25%,rgba(239,236,230,0.12) 50%,rgba(239,236,230,0.03) 75%);background-size:200% 100%;animation:lmShimmer 1.1s linear infinite;pointer-events:none}
 [data-lumina=ws-find-list]{animation:lmDrop 150ms cubic-bezier(0.2,0.8,0.2,1) backwards;transform-origin:top left}
 @media (prefers-reduced-motion:reduce){
@@ -264,18 +258,17 @@ body:has([data-view=phone]){background:#111}
         <div style="width:min(880px,100%);max-height:100%;box-sizing:border-box;border-radius:14px;background:#262523;box-shadow:0 0 0 1px rgba(255,210,122,0.35),0 18px 48px rgba(0,0,0,0.55);display:flex;flex-direction:column;font-size:14px;animation:lmFoldIn 180ms ease-out">
           <div style="flex:none;padding:20px 22px 14px;display:flex;flex-direction:column;gap:6px">
             <div style="display:flex;align-items:center;gap:10px"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:#FFD27A"></span><span data-lumina="mix-head" style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:22px;color:#EFECE6">{{ mixHead }}</span></div>
-            <span data-lumina="mix-span" style="color:#B8B3AB">{{ mixSpan }}</span>
-            <span style="color:#9A958D;line-height:1.45">{{ mixSub }}</span>
+            <span data-lumina="mix-sub" style="color:#B8B3AB;line-height:1.45">{{ mixSub }}</span>
           </div>
-          <div aria-hidden="true" style="flex:none;display:grid;grid-template-columns:28px minmax(0,1fr) 96px 76px 28px;gap:8px;padding:6px 16px;border-top:1px solid rgba(239,236,230,0.08);border-bottom:1px solid rgba(239,236,230,0.08);font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#9A958D"><span></span><span>Day · folder · clip</span><span style="text-align:right">Clips</span><span style="text-align:right">Size</span><span></span></div>
           <div data-lumina="mix-list" role="tree" style="flex:1 1 auto;min-height:80px;overflow-y:auto;padding:4px 4px 8px">
             <sc-for list="{{ mixRows }}" as="r" hint-placeholder-count="6">
-              <div data-lumina="mix-row" data-kind="{{ r.kind }}" data-id="{{ r.id }}" role="treeitem" aria-expanded="{{ r.open }}" style="display:grid;grid-template-columns:28px minmax(0,1fr) 96px 76px 28px;gap:8px;align-items:center;min-height:32px;padding:1px 12px;border-radius:7px;background:{{ r.bg }};opacity:{{ r.op }}">
-                <button type="button" role="checkbox" data-lumina="mix-tick" aria-checked="{{ r.tick }}" aria-label="{{ r.name }}" onClick="{{ r.tickGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;width:28px;height:28px;display:grid;place-items:center;cursor:pointer;border-radius:6px" style-focus="outline:2px solid #FFD27A;outline-offset:0"><span data-tick="{{ r.tick }}" style="width:14px;height:14px;border-radius:4px;box-sizing:border-box"></span></button>
-                <button type="button" data-lumina="mix-name" onClick="{{ r.openGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;text-align:left;min-width:0;min-height:28px;padding-left:{{ r.pad }};display:flex;align-items:center;gap:8px;color:{{ r.fg }};font-weight:{{ r.fw }};cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span data-rot="1" aria-hidden="true" style="flex:none;width:10px;display:inline-block;color:#9A958D;opacity:{{ r.chevOp }};transform:rotate({{ r.rot }})">›</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span><sc-if value="{{ r.tagOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="mix-tag" style="flex:none;padding:1px 7px;border-radius:5px;background:rgba(255,210,122,0.14);color:#FFD27A;font-size:12px;font-weight:400">{{ r.tag }}</span></sc-if></button>
-                <span style="text-align:right;color:#B8B3AB;white-space:nowrap">{{ r.n }}</span>
-                <span style="text-align:right;color:#B8B3AB;white-space:nowrap">{{ r.size }}</span>
-                <sc-if value="{{ r.xOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="mix-remove" aria-label="Take this folder off" title="Take this folder off the list" onClick="{{ r.xGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;width:28px;height:28px;display:grid;place-items:center;border-radius:6px;color:#9A958D;cursor:pointer" style-hover="background:rgba(239,236,230,0.1);color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:0">×</button></sc-if>
+              <div data-lumina="mix-row" data-kind="{{ r.kind }}" data-id="{{ r.id }}" data-on="{{ r.on }}" role="treeitem" aria-expanded="{{ r.open }}" style="display:flex;align-items:stretch;gap:6px;padding:3px 0 3px {{ r.pad }}">
+                <button type="button" data-lumina="mix-toggle" role="switch" data-press="1" aria-checked="{{ r.on }}" onClick="{{ r.go }}" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1 1 auto;min-width:0;min-height:{{ r.h }};padding:6px 14px;border-radius:10px;background:{{ r.bg }};box-shadow:inset 0 0 0 {{ r.ring }};color:{{ r.fg }};opacity:{{ r.op }};cursor:{{ r.cur }};text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto 76px;gap:14px;align-items:center" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">
+                  <span style="min-width:0;display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:{{ r.fw }}">{{ r.name }}</span><sc-if value="{{ r.tagOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="mix-tag" style="flex:none;padding:1px 7px;border-radius:5px;background:rgba(255,210,122,0.14);color:#FFD27A;font-size:12px;font-weight:400">{{ r.tag }}</span></sc-if></span><sc-if value="{{ r.subOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="mix-where" style="font-size:13px;color:#9A958D;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.sub }}</span></sc-if></span>
+                  <span style="text-align:right;color:#B8B3AB;white-space:nowrap">{{ r.n }}</span>
+                  <span style="text-align:right;color:#B8B3AB;white-space:nowrap">{{ r.size }}</span>
+                </button>
+                <sc-if value="{{ r.chevOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="mix-open" aria-label="Show what is inside" aria-expanded="{{ r.open }}" onClick="{{ r.chevGo }}" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;width:36px;border-radius:10px;background:rgba(239,236,230,0.06);color:#B8B3AB;cursor:pointer;display:grid;place-items:center" style-hover="background:rgba(239,236,230,0.12);color:#EFECE6" style-focus="outline:2px solid #FFD27A;outline-offset:1px"><span data-rot="1" aria-hidden="true" style="display:inline-block;font-size:16px;transform:rotate({{ r.rot }})">›</span></button></sc-if>
               </div>
             </sc-for>
           </div>
@@ -283,7 +276,6 @@ body:has([data-view=phone]){background:#111}
             <button type="button" data-lumina="mix-go" aria-disabled="{{ mixGoOff }}" onClick="{{ mixGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:{{ mixGoCur }};opacity:{{ mixGoOp }};display:flex;align-items:center;gap:6px" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⏎</span>{{ mixGoT }}</button>
             <button type="button" data-lumina="mix-back" onClick="{{ mixBack }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:9px 14px;border-radius:10px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);display:grid;place-items:center;font-weight:700;font-size:12px">esc</span>{{ mixBackT }}</button>
             <span style="flex:1"></span>
-            <sc-if value="{{ mixGoneOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="mix-gone" style="display:flex;align-items:center;gap:8px;color:#9A958D">{{ mixGone }}<button type="button" data-lumina="mix-undo" onClick="{{ mixUndo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;padding:4px 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="filter:brightness(1.25)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">Put back</button></span></sc-if>
           </div>
         </div>
       </div>
@@ -4173,35 +4165,45 @@ class Component extends DCLogic {
   mixDay(day) { const p = /^(\d{4})-(\d\d)-(\d\d)$/.exec(day || ''); if (!p) return day || 'No date'; const x = new Date(+p[1], +p[2] - 1, +p[3]); return x.toLocaleDateString(undefined, {weekday:'short', day:'numeric', month:'short', year:'numeric'}); }
   mixVals() {
     const mx = this.state.mix; if (!mx) return {mixOn:false, mixRows:[]};
-    const {m, off, gone, open} = mx, fb = b => this.fmtB(b), tick = (all, on) => on === 0 ? 'false' : on === all ? 'true' : 'mixed', rows = [];
+    const {m, off, open} = mx, fb = b => this.fmtB(b), rows = [];
     const setOff = (xs, val) => this.mixSet(s => { const o = {...s.off}; xs.forEach(x => { if (val) o[x.i] = true; else delete o[x.i]; }); return {off:o}; });
-    const days = []; m.groups.forEach(g => { if (gone[g.key]) return; let dd = days[days.length - 1]; if (!dd || dd.day !== g.day) days.push(dd = {day:g.day, gs:[]}); dd.gs.push(g); });
+    const flip = key => this.mixSet(s => ({open:{...s.open, [key]:!s.open[key]}}));
+    // a row lights when what it holds goes in (Export's Clips cards: gold edge and tint), half-lit when some of it does,
+    // and dims when it is left out; a click lights or dims all of it
+    const look = (all, on) => on === 0 ? {on:'false', bg:'#1E1D1B', ring:'1px rgba(239,236,230,0.08)', fg:'#9A958D', op:0.6} : on === all ? {on:'true', bg:'rgba(255,210,122,0.14)', ring:'1.5px #FFD27A', fg:'#EFECE6', op:1} : {on:'mixed', bg:'rgba(255,210,122,0.06)', ring:'1px rgba(255,210,122,0.5)', fg:'#EFECE6', op:1};
+    const count = (on, all) => (on.length < all.length ? on.length + ' of ' : '') + this.plural(all.length, 'clip');
+    const where = dir => dir ? this.tilde(dir) : 'Picked one by one';
+    const clipRows = (items, pad) => items.forEach(x => rows.push({id:'mix-clip-' + x.i, kind:'clip', name:x.name, sub:'', subOn:false, n:this.hm(String(x.t)), size:fb(x.bytes), pad, h:'36px', fw:'400', cur:'pointer', chevOn:false, rot:'0deg', open:'false', tagOn:!!x.live, tag:x.live ? 'Live Photo' : '',
+      ...look(1, off[x.i] ? 0 : 1), go:() => setOff([x], !off[x.i]), chevGo:() => {}}));
+    const days = []; m.groups.forEach(g => { let dd = days[days.length - 1]; if (!dd || dd.day !== g.day) days.push(dd = {day:g.day, gs:[]}); dd.gs.push(g); });
     days.forEach(dd => {
-      const xs = [].concat(...dd.gs.map(g => g.items)), on = xs.filter(x => !off[x.i]);
-      rows.push({id:'mix-day-' + dd.day, kind:'day', name:this.mixDay(dd.day), pad:'0px', chevOp:0, rot:'0deg', open:'false', tick:tick(xs.length, on.length), n:on.length < xs.length ? on.length + ' of ' + xs.length : String(xs.length), size:fb(on.reduce((a, x) => a + x.bytes, 0)), fg:'#EFECE6', fw:'600', bg:'rgba(239,236,230,0.04)', op:on.length ? 1 : 0.55, tagOn:false, tag:'', xOn:false,
-        tickGo:() => setOff(xs, on.length === xs.length), openGo:() => {}, xGo:() => {}});
+      const xs = [].concat(...dd.gs.map(g => g.items)), on = xs.filter(x => !off[x.i]), one = dd.gs.length === 1, key = one ? dd.gs[0].key : 'day:' + dd.day, isOpen = !!open[key];
+      const lives = xs.filter(x => x.live).length;
+      // a day with one folder is one row (the folder under its name); with several, a row per folder under it
+      rows.push({id:'mix-day-' + dd.day, kind:'day', name:this.mixDay(dd.day), sub:one ? where(dd.gs[0].dir) : this.plural(dd.gs.length, 'folder'), subOn:true, n:count(on, xs), size:fb(on.reduce((a, x) => a + x.bytes, 0)), pad:'0px', h:'52px', fw:'600', cur:'pointer',
+        chevOn:true, rot:isOpen ? '90deg' : '0deg', open:String(isOpen), tagOn:lives > 0, tag:lives ? this.plural(lives, 'Live Photo') : '', ...look(xs.length, on.length), go:() => setOff(xs, on.length === xs.length), chevGo:() => flip(key)});
+      if (!isOpen) return;
+      if (one) return clipRows(dd.gs[0].items, '28px');
       dd.gs.forEach(g => {
-        const gon = g.items.filter(x => !off[x.i]), lives = g.items.filter(x => x.live).length, isOpen = !!open[g.key];
-        rows.push({id:'mix-dir-' + g.key, kind:'folder', name:g.dir ? this.tilde(g.dir) : 'Clips picked on their own', pad:'18px', chevOp:1, rot:isOpen ? '90deg' : '0deg', open:String(isOpen), tick:tick(g.items.length, gon.length), n:gon.length < g.items.length ? gon.length + ' of ' + g.items.length : String(g.items.length), size:fb(gon.reduce((a, x) => a + x.bytes, 0)), fg:'#EFECE6', fw:'400', bg:'transparent', op:gon.length ? 1 : 0.55,
-          tagOn:lives > 0, tag:lives ? this.plural(lives, 'Live Photo movie') : '', xOn:true,
-          tickGo:() => setOff(g.items, gon.length === g.items.length), openGo:() => this.mixSet(s => ({open:{...s.open, [g.key]:!s.open[g.key]}})), xGo:() => this.mixSet(s => ({gone:{...s.gone, [g.key]:true}}))});
-        if (isOpen) g.items.forEach(x => rows.push({id:'mix-clip-' + x.i, kind:'clip', name:x.name, pad:'44px', chevOp:0, rot:'0deg', open:'false', tick:off[x.i] ? 'false' : 'true', n:this.hm(String(x.t)), size:fb(x.bytes), fg:off[x.i] ? '#9A958D' : '#EFECE6', fw:'400', bg:'transparent', op:1, tagOn:!!x.live, tag:x.live ? 'Live Photo' : '', xOn:false,
-          tickGo:() => setOff([x], !off[x.i]), openGo:() => {}, xGo:() => {}}));
+        const gon = g.items.filter(x => !off[x.i]), gOpen = !!open[g.key];
+        rows.push({id:'mix-dir-' + g.key, kind:'folder', name:where(g.dir), sub:'', subOn:false, n:count(gon, g.items), size:fb(gon.reduce((a, x) => a + x.bytes, 0)), pad:'28px', h:'40px', fw:'400', cur:'pointer',
+          chevOn:true, rot:gOpen ? '90deg' : '0deg', open:String(gOpen), tagOn:false, tag:'', ...look(g.items.length, gon.length), go:() => setOff(g.items, gon.length === g.items.length), chevGo:() => flip(g.key)});
+        if (gOpen) clipRows(g.items, '56px');
       });
     });
-    if (m.missing.length) {
-      rows.push({id:'mix-missing', kind:'day', name:'Not found in what you chose', pad:'0px', chevOp:0, rot:'0deg', open:'false', tick:'false', n:String(m.missing.length), size:'', fg:'#FFD27A', fw:'600', bg:'rgba(255,210,122,0.06)', op:1, tagOn:false, tag:'', xOn:false, tickGo:() => {}, openGo:() => {}, xGo:() => {}});
-      m.missing.forEach((x, j) => rows.push({id:'mix-miss-' + j, kind:'missing', name:x.path || x.name, pad:'18px', chevOp:0, rot:'0deg', open:'false', tick:'false', n:x.t ? this.hm(String(x.t)) : '', size:'', fg:'#9A958D', fw:'400', bg:'transparent', op:0.7, tagOn:true, tag:'Missing', xOn:false, tickGo:() => {}, openGo:() => {}, xGo:() => {}}));
-    }
-    const sel = Component.mixPicked(mx), goneN = m.groups.filter(g => gone[g.key]).reduce((a, g) => a + g.items.length, 0);
-    const far = m.gap >= Component.MIX_GAP_DAYS, parts = [m.folders > 1 ? 'come from ' + this.plural(m.folders, 'folder') : '', far ? (m.days === 2 ? 'were shot ' + m.gap + ' days apart' : 'span ' + m.days + ' days, up to ' + m.gap + ' apart') : ''].filter(Boolean);
-    const head = m.expect ? m.n + ' of ' + this.plural(m.n + m.missing.length, 'clip') + ' found' + (m.missing.length ? ' · ' + m.missing.length + ' not in what you chose' : '')
-      : (mx.add ? 'The clips you are adding ' : 'These clips ') + (parts.length ? parts.join(' and ') : 'include ' + this.plural(m.lives, 'Live Photo movie'));
-    const span = m.first === m.last ? this.mixDay(m.first) : this.mixDay(m.first) + ' to ' + this.mixDay(m.last);
-    return {mixOn:true, mixHead:head, mixSpan:span + ' · ' + this.plural(m.n, 'clip') + (m.lives ? ' · ' + this.plural(m.lives, 'Live Photo movie') + ', left out' : ''),
-      mixSub:'Untick a day, a folder or a clip that isn’t part of this shoot, or take a folder off with ×. Nothing on disk changes.', mixRows:rows,
+    if (m.missing.length) m.missing.forEach((x, j) => rows.push({id:'mix-miss-' + j, kind:'missing', name:x.name, sub:x.path && x.path !== x.name ? this.tilde(x.path) : 'Not in the folder you chose', subOn:true, n:x.t ? this.mixDay(String(x.t).slice(0, 10)) : '', size:'', pad:'0px', h:'44px', fw:'400', cur:'default', chevOn:false, rot:'0deg', open:'false', tagOn:true, tag:'Missing',
+      on:'false', bg:'transparent', ring:'1px dashed rgba(255,210,122,0.35)', fg:'#B8B3AB', op:0.8, go:() => {}, chevGo:() => {}}));
+    const sel = Component.mixPicked(mx), yr = d => (d || '').slice(0, 4), mon = d => { const p = /^(\d{4})-(\d\d)/.exec(d || ''); return p ? new Date(+p[1], +p[2] - 1, 1).toLocaleDateString(undefined, {month:'short', year:'numeric'}) : ''; };
+    const range = m.first === m.last ? '' : yr(m.first) !== yr(m.last) ? yr(m.first) + ' to ' + yr(m.last) : mon(m.first) === mon(m.last) ? mon(m.first) : mon(m.first) + ' to ' + mon(m.last);
+    const what = [m.folders > 1 ? this.plural(m.folders, 'different folder') : '', m.days > 1 ? this.plural(m.days, 'different day') + (range ? ' (' + range + ')' : '') : ''].filter(Boolean).join(' and ');
+    const who = (mx.add ? 'The ' + m.n + ' clips you are adding' : 'These ' + m.n + ' clips');
+    const head = m.expect ? 'Found ' + m.n + ' of the ' + this.plural(m.n + m.missing.length, 'clip') + ' in this shoot'
+      : what ? who + ' come from ' + what : who + ' include ' + (m.lives === 1 ? 'a Live Photo' : m.lives + ' Live Photos');
+    const sub = m.expect ? (m.missing.length ? 'The ' + (m.missing.length === 1 ? 'one' : m.missing.length) + ' marked Missing ' + (m.missing.length === 1 ? 'isn’t' : 'aren’t') + ' in the folder you chose. Open the rest, or go back and choose the folder ' + (m.missing.length === 1 ? 'it’s' : 'they’re') + ' in.' : '')
+      : 'Gold goes in. Click a day, a folder or a clip to leave it out, and again to bring it back. › shows what is inside.' + (m.lives ? ' Live Photos (the short movie an iPhone saves with a photo) start left out.' : '') + ' Nothing on disk changes.';
+    return {mixOn:true, mixHead:head, mixSpan:'', mixSub:sub, mixRows:rows,
       mixGoT:(mx.add ? 'Add ' : 'Open ') + this.plural(sel.length, 'clip') + ' · ' + fb(sel.reduce((a, x) => a + x.bytes, 0)), mixGoOff:String(!sel.length), mixGoOp:sel.length ? 1 : 0.45, mixGoCur:sel.length ? 'pointer' : 'default',
-      mixBackT:mx.add ? 'Don’t add' : 'Back', mixGoneOn:goneN > 0, mixGone:this.plural(goneN, 'clip') + ' taken off', mixUndo:() => this.mixSet({gone:{}}), mixGo:this.mixGo, mixBack:this.mixBack};
+      mixBackT:mx.add ? 'Don’t add' : 'Back', mixGoneOn:false, mixGone:'', mixUndo:() => {}, mixGo:this.mixGo, mixBack:this.mixBack};
   }
   // Add clips (LOCAL-CHANGES 282): more clips into the shoot that is open, from Add clips or dropped on the window during
   // Skim, its marks, scenes moved by hand and view kept. Clips already in the shoot (same name and time) are left out.
