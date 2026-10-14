@@ -316,6 +316,9 @@ nonisolated enum SetsPage: String, Sendable {
         exportCheck: (text) => post('skimExportCheck', { text: String(text) }),
         openInFinalCut: (path) => post('skimOpenInFinalCut', { path: String(path) }),
         masks: (frame) => post('skimMasks', { frame: typeof frame === 'string' ? frame : '' }),
+        follow: (id, frame, start) => post('skimFollow', Object.assign({ id: String(id), frame: typeof frame === 'string' ? frame : '' }, start ? { kind: String(start.kind), box: start.box } : {})),
+        followEnd: (id) => post('skimFollow', { id: String(id), end: true }),
+        matte: (m) => post('skimMatte', m && typeof m === 'object' ? { name: String(m.name), w: Number(m.w), h: Number(m.h), frames: Number(m.frames), fd: m.fd, samples: m.samples, dir: m.dir ? String(m.dir) : '' } : {}),
         mark() {}, preview() {}, handoff() {}
       });
     })();

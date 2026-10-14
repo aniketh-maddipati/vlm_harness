@@ -753,7 +753,7 @@ body:has([data-view=phone]){background:#111}
                   <div style="position:absolute;top:0;left:{{ it.ph }};width:2px;height:14px;margin-left:-1px;border-radius:1px;background:#EFECE6"></div>
                 </div>
                 <div style="display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden;color:#9A958D"><span style="color:{{ it.nameC }}">{{ it.name }}</span><span style="color:{{ it.subC }}">{{ it.sub }}</span></div>
-                <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="viewer-selections" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:30px"><span style="color:#9A958D;margin-right:4px">{{ it.olSay }}</span><sc-for list="{{ it.olChips }}" as="oc" hint-placeholder-count="2"><button type="button" data-ol="{{ oc.id }}" aria-pressed="{{ oc.on }}" title="{{ oc.l }} · choose / let go" onClick="{{ olChip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:{{ oc.bg }};color:{{ oc.fg }};box-shadow:inset 0 0 0 1px {{ oc.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ oc.l }}</button></sc-for></div></sc-if>
+                <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="viewer-selections" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:30px"><span style="color:#9A958D;margin-right:4px">{{ it.olSay }}</span><sc-for list="{{ it.olChips }}" as="oc" hint-placeholder-count="2"><button type="button" data-ol="{{ oc.id }}" aria-pressed="{{ oc.on }}" title="{{ oc.l }} · choose / let go" onClick="{{ olChip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:{{ oc.bg }};color:{{ oc.fg }};box-shadow:inset 0 0 0 1px {{ oc.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ oc.l }}</button></sc-for><sc-if value="{{ it.folOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="follow" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:6px"><sc-if value="{{ it.folGoOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-go" title="Follow the chosen shape through the whole clip, from this frame" onClick="{{ folGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Follow through the clip</button></sc-if><sc-if value="{{ it.folStopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-stop" title="Stop following" onClick="{{ folStop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop</button></sc-if><sc-if value="{{ it.folSaveOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-matte" title="Save the followed shape as a black-and-white movie for Final Cut, next to the .fcpxml" onClick="{{ folMatte }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Save matte</button></sc-if><sc-if value="{{ it.folDropOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-drop" title="Let the followed shape go" onClick="{{ folDrop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Let go</button></sc-if><span data-lumina="follow-say" style="color:#9A958D">{{ it.folSay }}</span></span></sc-if></div></sc-if>
               </div>
             </sc-for>
           </div>
@@ -1428,7 +1428,8 @@ class Component extends DCLogic {
     const cv = this.olCv, v = this.vidEl, st = this.state; if (!cv) return;
     const f = this.olFor(), list = Array.isArray(f) ? f : [], sel = this.olSel(), vw = (v && v.videoWidth) || 16, vh = (v && v.videoHeight) || 9;
     const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1, w = Math.max(2, Math.round((cv.clientWidth || 320) * dpr * Math.max(1, st.zc || 1))), h = Math.max(2, Math.round(w * vh / vw));
-    const key = this.olKey() + '|' + (Array.isArray(f) ? f.length : String(f)) + '|' + sel.join(',') + '|' + w + 'x' + h;
+    const fr = this.folOf(this.byId && this.byId[st.cur]), at = fr && fr.samples.length ? Component.folAt(fr.samples, this.vidWant || 0) : null;
+    const key = this.olKey() + '|' + (Array.isArray(f) ? f.length : String(f)) + '|' + sel.join(',') + '|' + w + 'x' + h + '|' + (at ? at.t + ':' + fr.samples.length : '');
     if (key === this.olPainted) return; this.olPainted = key;
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     const x = cv.getContext('2d'); x.clearRect(0, 0, w, h); x.lineJoin = 'round';
@@ -1438,6 +1439,11 @@ class Component extends DCLogic {
       if (on) { x.fillStyle = 'rgba(255,210,122,0.26)'; x.fill(p, 'evenodd'); }
       x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 2.5 : 1.5) * dpr; x.strokeStyle = 'rgba(22,21,20,0.6)'; x.stroke(p);
       x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 1.5 : 1) * dpr; x.strokeStyle = on ? '#FFD27A' : 'rgba(239,236,230,0.9)'; x.stroke(p);
+    }
+    // the followed shape where it was at the nearest followed frame, over the rest
+    if (at && at.outline) {
+      const p = new Path2D(); for (const L of at.outline) { L.forEach(([a, b], i) => i ? p.lineTo(a * w, b * h) : p.moveTo(a * w, b * h)); p.closePath(); }
+      x.setLineDash([]); x.fillStyle = 'rgba(255,210,122,0.18)'; x.fill(p, 'evenodd'); x.lineWidth = 3 * dpr; x.strokeStyle = 'rgba(22,21,20,0.6)'; x.stroke(p); x.lineWidth = 2 * dpr; x.strokeStyle = '#FFD27A'; x.stroke(p);
     }
   }
   olPick(e) {
@@ -1450,7 +1456,7 @@ class Component extends DCLogic {
   olVals(c) {
     const st = this.state, on = !!st.ol && st.lv >= 2 && !!this.olApi() && !!c._file && !this.vidNew; if (!on) return {olOn:false};
     const f = this.olFor(), list = Array.isArray(f) ? f : [], sel = this.olSel();
-    return {olOn:true, olSay:Component.olSay(f, list.filter(s => sel.includes(s.id)).length),
+    return {olOn:true, olSay:Component.olSay(f, list.filter(s => sel.includes(s.id)).length), ...this.folVals(c, list.filter(s => sel.includes(s.id)).length),
       olChips:list.map(s => { const ch = sel.includes(s.id); return {id:s.id, l:Component.olName(s), on:ch, bg:ch ? '#FFD27A' : 'transparent', fg:ch ? '#1E1D1B' : '#EFECE6', ring:ch ? '#FFD27A' : 'rgba(239,236,230,0.3)'}; })};
   }
   // Where a click lands in the frame, 0 … 1 of its width and height, for a picture drawn object-fit: cover in the box r.
@@ -1472,6 +1478,118 @@ class Component extends DCLogic {
   }
   static olName(s) { const n = /-(\d+)$/.exec(s.id || ''); return s.kind === 'subject' ? 'Subject' : s.kind === 'background' ? 'Background' : s.kind === 'sky' ? 'Sky' : (s.kind === 'person' ? 'Person' : 'Object') + (n ? ' ' + n[1] : ''); }
   static olSay(f, n) { return f === undefined || f === 'wait' ? 'reading this frame…' : f === null ? 'this frame couldn’t be read' : !f.length ? 'nothing to choose in this frame' : n ? n + ' chosen' : 'click a shape to choose it'; }
+  // Follow (with the app): the one shape chosen, followed through the whole clip from the frame on show, forward to the
+  // end and back to the start, eight frames a second (fewer in a clip over 75 s, at most 600 frames). Each frame is drawn
+  // from a <video> of its own, so the Viewer stays where it is, and sent to the Mac, which follows the shape's box and
+  // finds its outline there (lumina.video.follow). Exposure, clipping and sharpness are then measured inside the shape,
+  // as the clip's own facts are measured on the whole frame. Save matte writes it as a black-and-white movie the length
+  // of the clip into the Save to folder (lumina.video.matte); the next .fcpxml lists it beside its clip. Nothing is kept
+  // but the matte's path: the followed outlines last until the page is closed.
+  folApi() { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.follow && v.matte ? v : null; }
+  folOf(c) { return c && this.fol ? this.fol.get(c.id) || null : null; }
+  folGo = () => {
+    const st = this.state, c = this.byId && this.byId[st.cur], api = this.folApi(), f = this.olFor(), sel = this.olSel(); if (!c || !c._file || !api || !Array.isArray(f) || sel.length !== 1) return;
+    const s = f.find(x => x.id === sel[0]); if (!s) return;
+    const now = this.folOf(c); if (now && now.state === 'run') return;
+    this.folRun(c, s, Math.max(0, Math.min(c.dur || 0, this.vidWant || 0)), api);
+  };
+  folStop = () => { const c = this.byId && this.byId[this.state.cur], r = this.folOf(c); if (r && r.state === 'run') r.tok.stop = true; };
+  folDrop = () => { const c = this.byId && this.byId[this.state.cur], r = this.folOf(c); if (!r || r.state === 'run') return; this.fol.delete(c.id); this.olPainted = null; this.olPaint(); this.setState(s => ({tick:(s.tick || 0) + 1})); };
+  // the times followed from t0: forward to the end, then back from t0 to the start, `step` apart
+  static folTimes(t0, dur, step) {
+    const end = Math.max(0, (dur || 0) - 0.02), fwd = [], back = [], st = step > 0 ? step : 0.125; t0 = Math.max(0, Math.min(end, t0 || 0));
+    for (let t = t0; t <= end + 1e-9 && fwd.length < 100000; t += st) fwd.push(Math.round(t * 1000) / 1000);
+    for (let t = t0 - st; t >= -1e-9 && back.length < 100000; t -= st) back.push(Math.max(0, Math.round(t * 1000) / 1000));
+    return {fwd, back};
+  }
+  static folStep(dur) { return Math.max(0.125, (dur || 0) / 600); }
+  // the followed frame nearest t (the outline the Viewer shows there), or null
+  static folAt(samples, t) {
+    let best = null, bd = Infinity; for (const s of samples || []) { const d = Math.abs(s.t - t); if (d < bd) { bd = d; best = s; } }
+    return best;
+  }
+  // the measures inside the shape, from each followed frame's own: exposure as the clip's facts put it, clipped and crushed
+  // as a share of the shape, sharpness the lowest of the frames (each on the clip's own scale), and how much of the clip
+  // the shape was in. Null when it was in no frame.
+  static folInside(px, total) {
+    const P = (px || []).filter(Boolean); if (!P.length) return null;
+    const avg = k => P.reduce((s, p) => s + p[k], 0) / P.length, mean = avg('mean'), sh = P.map(p => Math.min(1, p.lap / 0.05));
+    return {ev:Math.round(Math.max(-5, Math.min(5, Math.log2(Math.max(0.01, mean) / 0.46) * 2.2)) * 10) / 10, clip:Math.round(avg('hi') * 1000) / 10, crush:Math.round(avg('lo') * 1000) / 10,
+      sharp:Math.round(Math.min(...sh) * 100) / 100, seen:Math.round(P.length / Math.max(P.length, total || 0) * 100)};
+  }
+  // `pix` inside an outline: the frame's pixels where the mask (an alpha plane the frame's size) is over half
+  pixIn(img, mask) {
+    const D = img.data, W = img.width, H = img.height, M = mask.data, Y = new Float32Array(W * H), In = new Uint8Array(W * H); let sum = 0, hi = 0, lo = 0, n = 0, lap = 0, ln = 0;
+    for (let i = 0, j = 0; i < D.length; i += 4, j++) { if (M[i + 3] < 128) continue; In[j] = 1; const y = (0.2126 * D[i] + 0.7152 * D[i + 1] + 0.0722 * D[i + 2]) / 255; Y[j] = y; sum += y; n++; if (y > 0.98) hi++; else if (y < 0.02) lo++; }
+    if (n < W * H * 0.002 || n < 16) return null;
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const j = y * W + x; if (!In[j] || !In[j - 1] || !In[j + 1] || !In[j - W] || !In[j + W]) continue; lap += Math.abs(4 * Y[j] - Y[j - 1] - Y[j + 1] - Y[j - W] - Y[j + W]); ln++; }
+    return {mean:sum / n, hi:hi / n, lo:lo / n, lap:ln ? lap / ln : 0};
+  }
+  async folRun(c, s, t0, api) {
+    const tok = {}, rec = {tok, shape:{id:s.id, kind:s.kind, name:Component.olName(s)}, t0, state:'run', done:0, samples:[], inside:null, matte:null, why:''};
+    (this.fol || (this.fol = new Map())).set(c.id, rec); this.setState(x => ({tick:(x.tick || 0) + 1}));
+    const url = URL.createObjectURL(c._file), v = document.createElement('video'), ids = [];
+    v.muted = true; v.preload = 'auto'; v.playsInline = true;
+    const wait = (ev, ms) => new Promise((res, rej) => { const to = setTimeout(() => { v.removeEventListener(ev, ok); rej('timeout'); }, ms); function ok() { clearTimeout(to); v.removeEventListener(ev, ok); res(); } v.addEventListener(ev, ok); });
+    const b64 = cv => new Promise(r => cv.toBlob(r, 'image/jpeg', 0.85)).then(b => b ? new Promise((r, j) => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).replace(/^data:[^,]*,/, '')); fr.onerror = j; fr.readAsDataURL(b); }) : '');
+    let last = 0; const tell = () => { const now = Date.now(); if (now - last > 250) { last = now; this.setState(x => ({tick:(x.tick || 0) + 1})); } };
+    try {
+      v.src = url; await wait('loadedmetadata', 10000);
+      const vw = v.videoWidth, vh = v.videoHeight; if (!vw || !vh) throw 'no video';
+      const sc = Math.min(1, 1024 / Math.max(vw, vh)), big = document.createElement('canvas'); big.width = Math.max(2, Math.round(vw * sc)); big.height = Math.max(2, Math.round(vh * sc));
+      const mw = 320, mh = Math.max(2, Math.round(320 * vh / vw)), small = document.createElement('canvas'), mk = document.createElement('canvas'); small.width = mk.width = mw; small.height = mk.height = mh;
+      const bx = big.getContext('2d'), sx = small.getContext('2d', {willReadFrequently:true}), kx = mk.getContext('2d', {willReadFrequently:true});
+      const T = Component.folTimes(t0, v.duration || c.dur, Component.folStep(v.duration || c.dur)), total = T.fwd.length + T.back.length, px = [];
+      for (const [dir, times] of [['f', T.fwd], ['b', T.back]]) {
+        const id = c.id + '|' + dir + '|' + Date.now(); ids.push(id);
+        for (let i = 0; i < times.length; i++) {
+          if (tok.stop || this.folOf(c) !== rec) throw 'stopped';
+          v.currentTime = times[i]; try { await wait('seeked', 8000); } catch (e) { rec.samples.push({t:times[i], box:null, outline:null, held:false}); continue; }
+          for (let k = 0; k < 3; k++) { bx.drawImage(v, 0, 0, big.width, big.height); sx.drawImage(big, 0, 0, mw, mh); if (!this.blank(sx.getImageData(0, 0, mw, mh)) || k === 2) break; await new Promise(r => setTimeout(r, 120)); }
+          const r = await api.follow(id, await b64(big), i === 0 ? {kind:s.kind, box:s.box} : null);
+          if (!r) { if (i === 0 && dir === 'f') throw 'refused'; rec.samples.push({t:times[i], box:null, outline:null, held:false}); continue; }
+          const out = r.shape && Array.isArray(r.shape.outline) ? r.shape.outline : null;
+          rec.samples.push({t:times[i], box:r.box || null, outline:out, held:!!r.held});
+          if (out) {
+            kx.clearRect(0, 0, mw, mh); const p = new Path2D(); for (const L of out) { L.forEach(([a, b], j) => j ? p.lineTo(a * mw, b * mh) : p.moveTo(a * mw, b * mh)); p.closePath(); } kx.fillStyle = '#fff'; kx.fill(p, 'evenodd');
+            px.push(this.pixIn(this.toDisplay(sx.getImageData(0, 0, mw, mh), c), kx.getImageData(0, 0, mw, mh)));
+          }
+          rec.done = rec.samples.length / total; tell();
+        }
+      }
+      rec.samples.sort((a, b) => a.t - b.t); rec.inside = Component.folInside(px, total); rec.state = 'done';
+    } catch (x) { rec.state = x === 'stopped' ? 'stopped' : 'failed'; rec.why = x === 'stopped' ? '' : x === 'refused' ? 'the Mac couldn’t read this frame' : 'the clip couldn’t be read'; }
+    ids.forEach(id => { try { api.followEnd(id); } catch (e) {} });
+    URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {}
+    if (rec.state === 'stopped' && this.folOf(c) === rec) this.fol.delete(c.id);
+    this.olPainted = null; this.olPaint(); this.setState(x => ({tick:(x.tick || 0) + 1}));
+  }
+  // Final Cut's frame lengths (buildX keeps its own copy, so it runs on its own), the clip's length in its frames as the
+  // .fcpxml counts them, and the matte's size (SkimFollow.matteSize; buildX works it out the same way)
+  static FDS = {24:[1001, 24000], 25:[100, 2500], 30:[1001, 30000], 50:[100, 5000], 60:[1001, 60000], 100:[100, 10000], 120:[1001, 120000]};
+  static clipFd(c, rate) { const r = c.fps || rate || 24, fd = c.fd || Component.FDS[r] || [1001, 24000]; return {fd, nf:c.nf || Math.max(1, Math.floor((c.dur || 1) * fd[1] / fd[0] + 0.01))}; }
+  static matteSize(w, h) { if (!(w > 0) || !(h > 0)) return null; const s = Math.min(1, 1920 / Math.max(w, h)), ev = v => Math.max(2, Math.round(v / 2) * 2); return {w:ev(w * s), h:ev(h * s)}; }
+  matteKey(d) { return 'lumina-skim:mattes:' + this.storeKey(d || this.d).replace(/^lumina-skim:/, ''); }
+  mattes() { const d = this.d; if (!d) return {}; const k = this.matteKey(d); if (this.matteK !== k) { this.matteK = k; let m = null; try { m = JSON.parse(localStorage.getItem(k) || 'null'); } catch (x) {} this.matteM = m && typeof m === 'object' ? m : {}; } return this.matteM; }
+  folMatte = async () => {
+    const c = this.byId && this.byId[this.state.cur], r = this.folOf(c), api = this.folApi(); if (!c || !r || r.state !== 'done' || r.saving || !api) return;
+    const {fd, nf} = Component.clipFd(c, this.d && this.d.shoot.rate);
+    r.saving = true; r.why = ''; this.setState(x => ({tick:(x.tick || 0) + 1}));
+    let o = null; try { o = await api.matte({name:c.name, w:c.w, h:c.h, frames:nf, fd, samples:r.samples.map(x => ({t:x.t, outline:x.outline || []})), dir:this.exDir('fcp')}); } catch (e) {}
+    r.saving = false;
+    if (o && o.ok) { r.matte = {path:o.path, name:o.name}; const m = {...this.mattes(), [c.id]:{path:o.path, name:o.name, shape:r.shape.name}}; this.matteM = m; this.persist(this.matteKey(), JSON.stringify(m)); }
+    else r.why = (o && o.why) || 'The app did not answer.';
+    this.setState(x => ({tick:(x.tick || 0) + 1}));
+  };
+  // The follow's line under the picture, and its buttons
+  folVals(c, chosen) {
+    const r = this.folOf(c), m = this.mattes()[c.id], api = this.folApi(); if (!api) return {folOn:false};
+    const can = !r || r.state !== 'run', pc = v => Math.round(v * 100) + '%';
+    return {folOn:true, folGoOn:can && chosen === 1, folStopOn:!!r && r.state === 'run', folSaveOn:!!r && r.state === 'done' && !r.saving, folDropOn:!!r && r.state !== 'run',
+      folSay:r ? r.state === 'run' ? 'following ' + r.shape.name + ' · ' + pc(r.done) : r.state === 'failed' ? 'not followed: ' + r.why
+        : r.saving ? 'saving the matte…' : r.why ? r.why : r.matte ? 'matte saved · ' + r.matte.name + ' · in the next .fcpxml' : r.shape.name + ' followed' + (r.inside ? ' · in ' + r.inside.seen + '% of the clip' : ' · not found in the clip')
+        : m ? 'matte saved · ' + m.name : ''};
+  }
   // Only the profiles the preview converts (S-Log3, S-Log2, HLG) change with the switch; a clip that is already
   // Rec.709, or whose profile is some other name or not known, is shown as it is, switch on or off.
   pvOn(c) { return !!this.state.pv && this.needsPv(c); }
@@ -2738,7 +2856,7 @@ class Component extends DCLogic {
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, tsGo:this.tsGo, tsBack:false, tsFwd:false, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static', lv2Rows:'auto', topCol:'1', picRow:'2', infoCol:'1', infoRow:'3',
       wClick:this.wClick, 
-      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef, olCvRef:this.olCvRef, olChip:this.olChip, olClick:this.olClick,
+      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef, olCvRef:this.olCvRef, olChip:this.olChip, olClick:this.olClick, folGo:this.folGo, folStop:this.folStop, folMatte:this.folMatte, folDrop:this.folDrop,
       grid42:true,
       boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
       undoN:st.undo.length, redoN:st.redo.length, undoC:st.undo.length ? '#EFECE6' : '#6E6A64', redoC:st.redo.length ? '#EFECE6' : '#6E6A64',
@@ -2875,6 +2993,8 @@ class Component extends DCLogic {
         facts.push({k:'bump', v:(f.bump != null ? 'frame ' + ((f.idx ? f.idx[f.bump] : f.bump) + 1) : f.n && f.n < 3 ? '—' : 'none') + dsx('bump')});
         if (f.prov) facts.unshift({k:'measured', v:this.fromN(f.n || 1) + ' of ' + f.of + ' · more as you watch', c:'#9A958D'});
       }
+      // inside the followed shape (Follow): the same measures on its pixels only, across the clip
+      { const fr = this.folOf(c), I = fr && fr.state === 'done' ? fr.inside : null; if (fr && fr.state === 'done') facts.push({k:'shape', v:I ? fr.shape.name + ' · ' + (I.ev > 0 ? '+' : I.ev < 0 ? '−' : '') + Math.abs(I.ev).toFixed(1) + ' stops · ' + (I.sharp < 0.35 ? 'soft' : 'sharp') + ' ' + I.sharp.toFixed(2) + ' lowest · clipped ' + this.pct(I.clip) + ' · crushed ' + this.pct(I.crush) + ' · in ' + I.seen + '% of the clip' : fr.shape.name + ' · not in the clip'}); }
       facts.push({k:'rate', v:(c.fps ? c.fps + 'p' : 'unknown') + dsx('rate')});
       facts.push({k:'duration', v:this.fmtDur(c.dur)});
       facts.push({k:'size', v:this.fmtB(c.bytes)});
@@ -2885,7 +3005,7 @@ class Component extends DCLogic {
       facts.push({k:'mark', v:m ? this.W(m) : 'undecided', c:m ? MK[m] : '#9A958D'});
       facts.forEach(x => { if (!x.c) x.c = '#EFECE6'; x.ff = x.k === 'path' ? 'ui-monospace,Menlo,monospace' : 'inherit'; x.fs = x.k === 'path' ? '12px' : '14px'; });
       // the info in cards, one per kind of fact, each its own colour and texture so the eye finds it: what the clip looks like, the file, where it is
-      const GK = {look:['exposure', 'crushed', 'sharpness', 'motion', 'bump', 'measured', 'measuring', 'measures'], file:['rate', 'duration', 'size', 'format', 'profile'], where:['recorded', 'path']};
+      const GK = {look:['exposure', 'crushed', 'sharpness', 'motion', 'bump', 'shape', 'measured', 'measuring', 'measures'], file:['rate', 'duration', 'size', 'format', 'profile'], where:['recorded', 'path']};
       const groups = [['look', 'Picture', '#9DB8FF', 'repeating-linear-gradient(135deg,rgba(157,184,255,0.07) 0 2px,transparent 2px 8px),rgba(157,184,255,0.08)', 1, 'auto'],
         ['file', 'File', '#E0C49A', 'radial-gradient(rgba(224,196,154,0.18) 1px,transparent 1.4px) 0 0/9px 9px,rgba(224,196,154,0.08)', 2, 'auto'],
         ['where', 'Where', '#8FD3C7', 'repeating-linear-gradient(0deg,rgba(143,211,199,0.07) 0 1px,transparent 1px 7px),rgba(143,211,199,0.07)', 4, 'auto']]
@@ -5164,7 +5284,7 @@ class Component extends DCLogic {
   buildX() {
     const st = this.state, d = this.d, ex = st.ex; if (!d) return {n:0, text:''};
     let fp = 0; d.clips.forEach(c => { const t = [c.dur, c.nf, c.fd, c.fps, c.w, c.h, c.ltc, c.path, c.profile && c.profile.gamma, c.profile && c.profile.primaries, c.ach, c.arate, c.facts && c.facts.state, c.facts && String(c.facts.idx), c.facts && String(c.facts.sharpF), c.facts && c.facts.bump].join('|'); for (let i = 0; i < t.length; i++) fp = (fp * 31 + t.charCodeAt(i)) | 0; });
-    const bk = [d, d.clips.length, fp, st.marks, JSON.stringify(ex), this.SC, this.G, JSON.stringify(this.exHost || null)], bm = this.bxM;
+    const bk = [d, d.clips.length, fp, st.marks, JSON.stringify(ex), this.SC, this.G, JSON.stringify(this.exHost || null), JSON.stringify(this.mattes ? this.mattes() : null)], bm = this.bxM;
     if (bm && bm.k.every((v, i) => v === bk[i])) return bm.x;
     const bx = (() => {
     const xe = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -5173,9 +5293,9 @@ class Component extends DCLogic {
     // a keyword collection per scene. Commas would split a keyword in two there, so they go.
     const kwT = t => String(t || '').replace(/[,\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim(), kwM = kwT(ex.kw == null ? 'maybe' : ex.kw), scOf = {}, kws = new Set();
     if (ex.scenes) (this.SC || this.G || []).forEach((g, i) => g.clips.forEach(c => { scOf[c.id] = kwT('Scene ' + (i + 1) + (g.title ? ' · ' + g.title : '')); }));
-    const clips = d.clips.filter(inc), FD = {24:[1001, 24000], 25:[100, 2500], 30:[1001, 30000], 50:[100, 5000], 60:[1001, 60000], 100:[100, 10000], 120:[1001, 120000]};
+    const clips = d.clips.filter(inc), FD = {24:[1001, 24000], 25:[100, 2500], 30:[1001, 30000], 50:[100, 5000], 60:[1001, 60000], 100:[100, 10000], 120:[1001, 120000]}, MT = (this.mattes && this.mattes()) || {};
     const fmts = {}, fl = []; let fi = 1;
-    const fmt = c => { const r = c.fps || d.shoot.rate || 24, w = c.w || 3840, h = c.h || 2160, fd = c.fd || FD[r] || [1001, 24000], k = fd[0] + '/' + fd[1] + '-' + w + 'x' + h; if (!fmts[k]) { fmts[k] = {id:'r' + (fi++), n:fd[0], dd:fd[1]}; fl.push('    <format id="' + fmts[k].id + '" frameDuration="' + fd[0] + '/' + fd[1] + 's" width="' + w + '" height="' + h + '"/>'); } return fmts[k]; };
+    const fmt = (c, mz) => { const r = c.fps || d.shoot.rate || 24, w = mz ? mz.w : c.w || 3840, h = mz ? mz.h : c.h || 2160, fd = c.fd || FD[r] || [1001, 24000], k = fd[0] + '/' + fd[1] + '-' + w + 'x' + h; if (!fmts[k]) { fmts[k] = {id:'r' + (fi++), n:fd[0], dd:fd[1]}; fl.push('    <format id="' + fmts[k].id + '" frameDuration="' + fd[0] + '/' + fd[1] + 's" width="' + w + '" height="' + h + '"/>'); } return fmts[k]; };
     // whole frames, never more than the file holds: the camera's own frame count when it gave one, else the length rounded down
     const rt = (c, f) => (c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01))) * f.n + '/' + f.dd + 's';
     // where the clips are: the real location when the page was given one (the app), else the folder the user named in Export
@@ -5204,7 +5324,7 @@ class Component extends DCLogic {
       (F.sharpF || []).forEach((v, j) => { if (v < 0.35 && F.idx[j] != null) out.push({k:at(F.idx[j]), t:'soft · sharpness ' + v.toFixed(2)}); });
       if (F.bump != null && F.idx[F.bump] != null) out.push({k:at(F.idx[F.bump]), t:'bump · brightness jumps'});
       const seen = new Set(); return out.sort((a, b) => a.k - b.k).filter(m => !seen.has(m.k + m.t) && seen.add(m.k + m.t)).map(m => '        <marker start="' + (base + m.k) * f.n + '/' + f.dd + 's" duration="' + f.n + '/' + f.dd + 's" value="' + xe(m.t) + '"/>'); };
-    const al = [], cl = [], sq = [];
+    const al = [], cl = [], sq = []; let mts = false;
     clips.forEach((c, i) => {
       const f = fmt(c), du = rt(c, f), s0 = t0(c, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
       sq.push({c, i, f, nm, s0, m, nf:c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01))});
@@ -5219,6 +5339,13 @@ class Component extends DCLogic {
       if (rate) cl.push('        <rating start="' + s0 + '" duration="' + du + '" value="' + rate + '"/>');
       cl.push(...flagMk(c, f, s0));
       cl.push('      </asset-clip>');
+      // the followed shape's matte (Follow ▸ Save matte), the clip's length frame for frame, beside it in the event with the keyword "matte"
+      const mt = MT[c.id]; if (mt && mt.path) {
+        const W0 = c.w || 3840, H0 = c.h || 2160, ms = Math.min(1, 1920 / Math.max(W0, H0)), ev2 = v => Math.max(2, Math.round(v / 2) * 2), mf = fmt(c, {w:ev2(W0 * ms), h:ev2(H0 * ms)}), mn = xe(c.name.replace(/\.\w+$/, '') + ' matte' + (mt.shape ? ' · ' + mt.shape : ''));
+        al.push('    <asset id="m' + (i + 1) + '" name="' + mn + '" start="0s" duration="' + du + '" hasVideo="1" hasAudio="0" format="' + mf.id + '">', '      <media-rep kind="original-media" src="' + xe('file://' + String(mt.path).split('/').map(encodeURIComponent).join('/')) + '"/>', '    </asset>');
+        cl.push('      <asset-clip ref="m' + (i + 1) + '" name="' + mn + '" duration="' + du + '" format="' + mf.id + '" tcFormat="NDF">', '        <keyword start="0s" duration="' + du + '" value="matte"/>', '      </asset-clip>');
+        kws.add('matte'); mts = true;
+      }
     });
     // A "Skim" folder in the event's browser (round 2, fcpxml item 3): a keyword collection per scene (with Scenes on), and smart
     // collections for Selected (favorites), Maybe (the maybe keyword) and Cut (rejected), each only when the file can fill it.
@@ -5229,6 +5356,7 @@ class Component extends DCLogic {
       if (kwM && sq.some(x => x.m === 'maybe')) co.push('        <smart-collection name="Maybe" match="all">', '          <match-keywords rule="includesAny">', '            <keyword-name value="' + xe(kwM) + '"/>', '          </match-keywords>', '        </smart-collection>');
       if (ex.rate !== false && sq.some(x => x.m === 'cut')) co.push('        <smart-collection name="' + xe(Wd('cut')) + '" match="all">', '          <match-ratings value="rejected"/>', '        </smart-collection>');
       scK.forEach(k => co.push('        <keyword-collection name="' + xe(k) + '"/>'));
+      if (mts) co.push('        <keyword-collection name="matte"/>');
       if (co.length) { co.unshift('      <collection-folder name="Skim">'); co.push('      </collection-folder>'); }
     }
     const pj = [];

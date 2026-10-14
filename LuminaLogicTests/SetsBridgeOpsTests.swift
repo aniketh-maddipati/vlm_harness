@@ -163,7 +163,8 @@ final class SetsBridgeOpsTests: XCTestCase {
         "saveSession": ["id", "json", "summary"], "recents": [], "reopen": ["id"], "workingFiles": ["id"], "removeShoot": ["id"],
         "writeInto": ["label", "files"], "readSidecars": ["root", "files"], "writeSidecars": ["root", "files"], "reveal": ["path"],
         "setPrefs": ["prefs"], "checkAccess": [], "reopenDenied": [], "reopenCurrent": [],
-        "skimMasks": ["frame"],
+        "skimMasks": ["frame"], "skimFollow": ["id", "frame", "kind", "box", "end"],
+        "skimMatte": ["name", "w", "h", "frames", "fd", "samples", "dir"],
         // Handoff's file view (Prompt 27, `SetsBridgeFilesTests` for what each does when it may).
         "filesPlaces": [], "filesDirList": ["path"], "filesPlaceAdd": ["at"], "filesPlaceRemove": ["path"], "filesDirMake": ["parent", "name"],
         "filesSaveToChoose": [], "filesSaveToAsk": [], "filesSaveToSet": ["path"], "filesReveal": ["paths"], "filesSavedCheck": ["list"],
@@ -186,6 +187,8 @@ final class SetsBridgeOpsTests: XCTestCase {
         // Per op, where the op needs a real rect to reach the field.
         let goodFor: [String: [String: Any]] = [
             "canvasLayout": ["x": 100, "y": 50, "w": 400, "h": 300, "visible": true, "dpr": 2, "holes": [["x": 120, "y": 60, "w": 50, "h": 20]]],
+            // a matte that would be written but for the field under test (no Save to folder here, so none is)
+            "skimMatte": ["name": "C0001.MP4", "w": 64, "h": 36, "frames": 2, "fd": [1, 24], "samples": [["t": 0, "outline": [] as [Any]]]],
         ]
         for (op, fields) in Self.fields.sorted(by: { $0.key < $1.key }) {
             // Missing everything, and the op alone with a wrong-typed op name next to it.
@@ -239,6 +242,10 @@ final class SetsBridgeOpsTests: XCTestCase {
             return url.path == shoot.path || url.path.hasPrefix(shoot.path + "/") ? nil : "revealed \(url.path)"
         case ("skimMasks", "frame"):
             return r != nil && !(r is NSNull) ? "found selections in a frame that is not a JPEG" : nil
+        case ("skimFollow", _):
+            return r != nil && !(r is NSNull) && !(field == "end" && truthy) ? "followed a frame that is not a JPEG" : nil
+        case ("skimMatte", _):
+            return ((r as? [String: Any])?["ok"] as? Bool) == true ? "wrote a matte" : nil
         case ("canvasEnter", "rel"):
             return e == nil ? "entered a hostile rel" : nil
         default:

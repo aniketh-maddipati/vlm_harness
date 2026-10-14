@@ -80,11 +80,15 @@ nonisolated final class SetsMasks: @unchecked Sendable {
 
     /// The masks in an upright JPEG, found at `pixels` on the long edge.
     static func masks(jpeg: Data) -> [LookMasks.Found]? {
+        image(jpeg: jpeg).flatMap { masks($0) }
+    }
+
+    /// An upright JPEG as a picture at most `pixels` on the long edge.
+    static func image(jpeg: Data) -> CGImage? {
         guard let src = CGImageSourceCreateWithData(jpeg as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
         let opts: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
                                      kCGImageSourceThumbnailMaxPixelSize: pixels]
-        guard let image = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
-        return masks(image)
+        return CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
     }
 
     /// The longest frame Skim may hand over, as base64 (`skimMasks`): a frame at `pixels` is a few hundred KB.
@@ -93,8 +97,13 @@ nonisolated final class SetsMasks: @unchecked Sendable {
     /// Skim's `lumina.video.masks(frame)`: the masks in one frame of a clip, which the page draws from its
     /// own `<video>` and sends as a base64 JPEG. Nil for anything that is not one, or is larger than `frameLimit`.
     static func masks(frame: Any?) -> [LookMasks.Found]? {
+        image(frame: frame).flatMap { masks($0) }
+    }
+
+    /// A frame the Skim page sent (a base64 JPEG, at most `frameLimit`) as a picture; nil for anything else.
+    static func image(frame: Any?) -> CGImage? {
         guard let s = frame as? String, !s.isEmpty, s.utf8.count <= frameLimit, let jpeg = Data(base64Encoded: s) else { return nil }
-        return masks(jpeg: jpeg)
+        return image(jpeg: jpeg)
     }
 
     /// The masks in a picture. `refine`: snap each mask's edge to the picture's own edges

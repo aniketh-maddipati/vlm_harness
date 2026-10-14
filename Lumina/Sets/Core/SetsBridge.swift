@@ -701,6 +701,33 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             let frame = body["frame"] as? String
             guard let found = await Task.detached(priority: .userInitiated, operation: { SetsMasks.masks(frame: frame) }).value else { return (NSNull(), nil) }
             return (found.map(\.dictionary), nil)
+        case "skimFollow":
+            // Follow: one chosen shape followed through a clip (SkimFollower, Vision's object tracker on the Mac), one frame
+            // the page drew from its own <video> at a time, in and out of memory. `end` lets the follow go; nothing is kept.
+            guard let id = body["id"] as? String, !id.isEmpty, id.utf8.count <= 64 else { return (NSNull(), nil) }
+            if (body["end"] as? Bool) == true { SkimFollower.shared.end(id); return (true, nil) }
+            let frame = body["frame"] as? String, start = SkimFollow.start(kind: body["kind"], box: body["box"])
+            if body["kind"] != nil || body["box"] != nil, start == nil { return (NSNull(), nil) }
+            guard let step = await Task.detached(priority: .userInitiated, operation: { SkimFollower.shared.step(id: id, frame: frame, start: start) }).value else { return (NSNull(), nil) }
+            return (step.json, nil)
+        case "skimMatte":
+            // A followed shape as a black-and-white movie for Final Cut (SkimMatte), written as a new file into the folder the
+            // workshop names (one Skim was let into), else the Save to folder; never a card, never over a file, never the clip.
+            guard let req = SkimMatte.request(body) else { return (["ok": false, "why": "Nothing to save."], nil) }
+            let into: URL, scoped: Bool
+            if let d = body["dir"] as? String, !d.isEmpty {
+                guard skimGranted(d) else { return (["ok": false, "why": "Lumina has no access to that folder. Give it access in Export first."], nil) }
+                into = URL(fileURLWithPath: d, isDirectory: true); scoped = false
+            } else if let dir = skimExportFolder() {
+                into = dir; scoped = dir.startAccessingSecurityScopedResource()
+            } else {
+                return (["ok": false, "why": "Choose a Save to folder in Export first: the matte goes next to the .fcpxml."], nil)
+            }
+            defer { if scoped { into.stopAccessingSecurityScopedResource() } }
+            if SetsFileOps.isCard(into) { return (["ok": false, "why": Self.skimCardRefusal], nil) }
+            let saved = await Task.detached(priority: .userInitiated) { await SkimMatte.write(req, into: into) }.value
+            if saved.ok { skimSaved.insert(saved.path); onEvent?("skim matte saved \(saved.path)") }
+            return (saved.json, nil)
         case "skimExportPlace":
             // Export ▸ Save to: the folder Skim saves its Final Cut file and cut list into (none: ask each time), and the
             // folder the open shoot was read from, so the .fcpxml points Final Cut at the clips where they are.
