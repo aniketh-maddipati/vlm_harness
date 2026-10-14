@@ -94,7 +94,20 @@ async function run(host) {
   const text = sel => p.evaluate(s => document.querySelector(s)?.innerText || '', sel);
   ok(await p.$('[data-lumina="export-plan"]'), (host ? 'app' : 'browser') + ': the Export controls are there');
   if (shots) await p.screenshot({path:path.join(shots, (host ? 'app' : 'browser') + '-export.png'), fullPage:true});
+  // LOCAL-CHANGES 288: three parts in order (anything to export, what Final Cut gets, the files)
+  ok(await p.evaluate(() => { const y = s => document.querySelector('[data-lumina="' + s + '"]').getBoundingClientRect().top; return y('ex-part-ready') < y('ex-part-fcp') && y('ex-part-fcp') < y('ex-part-files') && y('ex-part-files') < y('ex-part-more'); })
+    && /^3 clips to export/.test(await text('[data-lumina="ex-ready"]')), (host ? 'app' : 'browser') + ': Export reads in three parts: ' + await text('[data-lumina="ex-ready"]') + ' · ' + await text('[data-lumina="ex-ready-sub"]'));
   if (!host) {
+    // Files is never blank in a browser: the folder the shoot came from, each clip with its mark, and a way to open another
+    const clipRows = await p.$$eval('[data-lumina="ws-row"][data-kind="clip"]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()));
+    ok(clipRows.length === 8 && clipRows.filter(t => /selected/.test(t)).length === 2 && clipRows.filter(t => /maybe/.test(t)).length === 1 && /this shoot/i.test(await text('[data-lumina="ws-tree"]')),
+      'browser: Files lists the folder opened, every clip with its mark: ' + clipRows.slice(0, 3).join(' | '));
+    ok(await p.$('[data-lumina="ws-conn-open"]') && !await p.$('[data-lumina="ws-find"]'), 'browser: Files offers Open another folder… and no search it could not run');
+    const und = await p.$$eval('[data-lumina="ws-row"][data-kind="clip"]', es => es.filter(e => /undecided/.test(e.innerText)).map(e => e.getAttribute('data-path')));
+    await p.click('[data-lumina="ws-row"][data-path="' + und[0] + '"]'); await p.keyboard.press('m'); await p.waitForTimeout(200);
+    ok(/maybe/.test(await text('[data-lumina="ws-row"][data-path="' + und[0] + '"]')) && /^4 clips to export/.test(await text('[data-lumina="ex-ready"]')), 'browser: M on a clip in Files marks it, and part 1 counts it: ' + await text('[data-lumina="ex-ready"]'));
+    await p.keyboard.press('Meta+z'); await p.waitForTimeout(200);
+    if (shots) { await p.evaluate(() => document.querySelector('[data-lumina="ex-part-files"]').scrollIntoView()); await p.screenshot({path:path.join(shots, 'browser-files.png')}); await p.evaluate(() => { document.querySelector('[data-screen-label="Export"]').scrollTop = 0; }); }
     ok(/Your browser’s download folder/.test(await text('[data-lumina="export-dest"]')), 'browser: Save to names the download folder');
     ok(/^⌘⏎ downloads .+\.fcpxml\.$/.test(await text('[data-lumina="export-then"]')), 'browser: the plan line: ' + await text('[data-lumina="export-then"]'));
     await p.click('[data-lumina="ex-mem"]'); await p.waitForTimeout(200);
@@ -186,11 +199,11 @@ async function run(host) {
     await p.keyboard.press('ArrowLeft'); await p.keyboard.press('ArrowLeft'); await p.waitForTimeout(250);
     ok(!await p.$('[data-lumina="ws-row"][data-path="' + made + '"]'), 'app: ← goes out to the parent and furls it');
     await p.keyboard.press('ArrowRight'); await p.waitForTimeout(250);
-    await p.dragAndDrop('[data-lumina="ws-file-fcp"]', '[data-lumina="ws-row"][data-path="/Volumes/SONY"]'); await p.waitForTimeout(250);
+    await p.dragAndDrop('[data-lumina="ws-chip-fcp"]', '[data-lumina="ws-row"][data-path="/Volumes/SONY"]'); await p.waitForTimeout(250);
     ok(!/SONY/.test(await text('[data-lumina="ws-to-fcp"]')), 'app: a camera card takes no drop');
-    await p.dragAndDrop('[data-lumina="ws-file-fcp"]', '[data-lumina="ws-row"][data-path="' + made + '"]'); await p.waitForTimeout(300);
+    await p.dragAndDrop('[data-lumina="ws-chip-fcp"]', '[data-lumina="ws-row"][data-path="' + made + '"]'); await p.waitForTimeout(300);
     ok(/Tuesday export/.test(await text('[data-lumina="ws-to-fcp"]')) && /Final Cut file/.test(await text('[data-lumina="ws-row"][data-path="' + made + '"]')), 'app: the Final Cut file dropped on the new folder goes there: ' + await text('[data-lumina="ws-to-fcp"]'));
-    await p.dragAndDrop('[data-lumina="ws-file-cut"]', '[data-lumina="ws-row"][data-path="/Volumes/T7"]'); await p.waitForTimeout(300);
+    await p.dragAndDrop('[data-lumina="ws-chip-cut"]', '[data-lumina="ws-row"][data-path="/Volumes/T7"]'); await p.waitForTimeout(300);
     ok(/\/Volumes\/T7$/.test((await text('[data-lumina="ws-to-cut"]')).trim()), 'app: the cut list can go somewhere else: ' + await text('[data-lumina="ws-to-cut"]'));
     ok(/to \/Volumes\/T7\/Projects\/Tuesday export/.test(await text('[data-lumina="export-then"]')), 'app: the plan line names the folder: ' + await text('[data-lumina="export-then"]'));
     if (shots) await p.screenshot({path:path.join(shots, 'app-workshop.png'), fullPage:true});
