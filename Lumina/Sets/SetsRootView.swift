@@ -142,11 +142,14 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     /// What the page's file input was last answered with. The panel's grant lasts as long as the app, so a
     /// reload can hand the same clips back without asking. Clips dropped on the page have no URLs and don't come back.
     private var skimURLs: [URL]?
-    /// What Add clips brought into the open shoot since (LOCAL-CHANGES 272): handed back with `skimURLs` on a reload, never
+    /// What Add clips brought into the open shoot since (LOCAL-CHANGES 282): handed back with `skimURLs` on a reload, never
     /// the shoot's folder (`skimOpened` stays on the folder it was opened from, so Trash and Arrange keep to it).
     private var skimAddedURLs: [URL] = []
     /// Set while a reload reopens the shoot: the page's file input is answered with these, with no panel.
     private var skimReopenURLs: [URL]?
+    /// A pick too big for one go (`SkimPickScan`): the first clips by path, handed over when the page's card asks for them.
+    private var skimBigFirst: [URL]?
+    private var skimPickStop: SkimPickScan.Stop?
     /// The page's marks and view by clip (`luminaSkimKeep.take()`), waiting for the reloaded page.
     private var skimKept: String?
     /// The picture of the page as it was, over the reloading page until the shoot is back, then faded out.
@@ -498,6 +501,45 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         }
     }
 
+    /// Skim's pick (LOCAL-CHANGES 280). After the too-big card's "Open the first 1,500" (`luminaSkimBig.want()`), the
+    /// clips kept from the last count, with no panel. Otherwise the panel, then a count of what was picked before WebKit
+    /// lists it: a whole drive or a firehose shows the page's card and answers the input with nothing.
+    private func skimPick() async -> [URL]? {
+        if let first = skimBigFirst {
+            skimBigFirst = nil
+            if await skimEval("window.luminaSkimBig ? luminaSkimBig.want() : false") as? Bool == true { skimURLs = first; skimAddedURLs = []; bridge.skimOpened(first); return first }
+        }
+        guard let urls = await chooseClips() else { return nil }
+        skimPickStop?.set(); let stop = SkimPickScan.Stop(); skimPickStop = stop
+        let name = Self.jsString(SkimPickScan.name(of: urls))
+        await skimEval("window.luminaSkimBig && luminaSkimBig.looking(\(name), 0, 0)")
+        let wv = webView
+        let r = await Task.detached(priority: .userInitiated) {
+            SkimPickScan.scan(urls, progress: { n, c in
+                Task { @MainActor in if !stop.isSet { wv?.evaluateJavaScript("window.luminaSkimBig && luminaSkimBig.looking(\(name), \(n), \(c))", completionHandler: nil) } }
+            }, stop: { stop.isSet })
+        }.value
+        guard !stop.isSet else { return nil }
+        if r.tooBig {
+            skimBigFirst = r.first
+            let o = (try? JSONSerialization.data(withJSONObject: r.json)).flatMap { String(data: $0, encoding: .utf8) } ?? "null"
+            await skimEval("window.luminaSkimBig && luminaSkimBig.show(\(o))")
+            return nil
+        }
+        await skimEval("window.luminaSkimBig && luminaSkimBig.looking(null)")
+        skimURLs = urls; skimAddedURLs = []; bridge.skimOpened(urls)
+        return urls
+    }
+
+    @discardableResult private func skimEval(_ js: String) async -> Any? {
+        guard let webView else { return nil }
+        return await withCheckedContinuation { c in webView.evaluateJavaScript(js) { v, _ in c.resume(returning: v) } }
+    }
+
+    nonisolated private static func jsString(_ s: String) -> String {
+        (try? JSONSerialization.data(withJSONObject: [s])).flatMap { String(data: $0, encoding: .utf8) }.map { String($0.dropFirst().dropLast()) } ?? "''"
+    }
+
     // MARK: WKUIDelegate
 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
@@ -511,17 +553,17 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 // Add clips (the page sets window.luminaSkimAdding just before its click): more clips for the open shoot. The
                 // page is told where they are (window.luminaSkimPicked, set before it gets the files) so the Final Cut file
                 // points at them; the shoot's folder stays as it was.
-                let adding = await skimPageFlag("window.luminaSkimAdding === true ? (window.luminaSkimAdding = false, true) : false")
-                let urls = await chooseClips()
-                if let urls {
-                    if adding {
+                if await skimPageFlag("window.luminaSkimAdding === true ? (window.luminaSkimAdding = false, true) : false") {
+                    let urls = await chooseClips()
+                    if let urls {
                         skimAddedURLs += urls
                         if let data = try? JSONSerialization.data(withJSONObject: urls.map(\.path)), let list = String(data: data, encoding: .utf8) {
                             _ = await skimPageFlag("(window.luminaSkimPicked = \(list), true)")
                         }
-                    } else { skimURLs = urls; skimAddedURLs = []; bridge.skimOpened(urls) }
+                    }
+                    completionHandler(urls); return
                 }
-                completionHandler(urls)
+                completionHandler(await skimPick())
             }
             return
         }

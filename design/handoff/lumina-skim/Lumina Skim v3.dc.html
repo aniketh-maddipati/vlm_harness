@@ -70,7 +70,7 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
 @keyframes lmDot{0%,80%,100%{opacity:0.25;transform:none}40%{opacity:1;transform:translateY(-3px)}}
 @keyframes lmFlash{0%{box-shadow:inset 0 0 0 1.5px #FFD27A;background-color:rgba(255,210,122,0.28)}100%{box-shadow:inset 0 0 0 1.5px rgba(255,210,122,0);background-color:rgba(255,210,122,0.1)}}
 [data-lumina=ws-row][data-loading=true]{position:relative}
-/* the notice's tick boxes (LOCAL-CHANGES 280): on, off, and some of what is under it */
+/* the notice's tick boxes (LOCAL-CHANGES 282): on, off, and some of what is under it */
 [data-tick=true]{background:#FFD27A;box-shadow:none}
 [data-tick=true]::after{content:'✓';display:block;color:#1E1D1B;font-size:11px;font-weight:800;line-height:14px;text-align:center}
 [data-tick=false]{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(239,236,230,0.4)}
@@ -220,6 +220,9 @@ body:has([data-view=phone]){background:#111}
       <sc-if value="{{ recNoteOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="marks-back" role="status" style="margin-left:16px;flex:none;color:#A9D18E;white-space:nowrap;animation:fade 160ms ease-out">{{ recNote }}</div></sc-if>
       <sc-if value="{{ loadOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="load-status" role="status" aria-live="polite" onClick="{{ progToggle }}" title="P" style="margin-left:16px;min-width:0;display:flex;align-items:center;gap:8px;color:#EFECE6;cursor:pointer;white-space:nowrap;overflow:hidden"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:{{ loadDot }};animation:{{ loadAnim }}"></span><span style="overflow:hidden;text-overflow:ellipsis">{{ loadLine }}</span><span data-lumina="fill-note" style="flex:none;color:#9A958D">{{ fillNote }}</span></div></sc-if>
       <sc-if value="{{ pauseOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-pause" aria-pressed="{{ pauseA }}" onClick="{{ pauseGo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:{{ pauseBg }};color:{{ pauseFg }};font-weight:{{ pauseFw }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ pauseT }}</button></sc-if>
+      <sc-if value="{{ stopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-stop" onClick="{{ readStop }}" title="{{ stopTip }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop here</button></sc-if>
+      <sc-if value="{{ cancelOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="read-cancel" onClick="{{ readCancel }}" title="Throw this load away and go back to Open" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#FF8A7A;cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Cancel</button></sc-if>
+      <sc-if value="{{ cancelAsk }}" hint-placeholder-val="{{ false }}"><div data-lumina="cancel-ask" role="alertdialog" aria-label="Throw away this load" style="margin-left:10px;flex:none;display:flex;align-items:center;gap:8px;height:34px;padding:0 3px 0 12px;border-radius:8px;background:#262523;box-shadow:inset 0 0 0 1px rgba(255,138,122,0.45);white-space:nowrap;animation:fade 140ms ease-out"><span style="color:#EFECE6">{{ cancelQ }}</span><button type="button" data-lumina="cancel-yes" onClick="{{ cancelYes }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:#FF8A7A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Throw away</button><button type="button" data-lumina="cancel-no" onClick="{{ cancelNo }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Keep loading</button></div></sc-if>
       <sc-if value="{{ haltOn }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ resumeRead }}" style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:10px;flex:none;height:28px;padding:0 10px;border-radius:6px;display:flex;align-items:center;background:#FFD27A;color:#1E1D1B;font-weight:800;cursor:pointer" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Go on</button></sc-if>
     </div>
   </div>
@@ -352,7 +355,7 @@ body:has([data-view=phone]){background:#111}
         </div>
       </div>
     </sc-if>
-    <!-- Add clips (LOCAL-CHANGES 280): after Open's own inputs, so Open's folder input stays the page's first file input -->
+    <!-- Add clips (LOCAL-CHANGES 282): after Open's own inputs, so Open's folder input stays the page's first file input -->
     <input ref="{{ addRef }}" type="file" data-lumina="add-input" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ addIn }}" style="display:none"></input>
     <input ref="{{ addDirRef }}" type="file" data-lumina="add-folder-input" webkitdirectory="" multiple="" onChange="{{ addIn }}" style="display:none"></input>
     <sc-if value="{{ isExport }}" hint-placeholder-val="{{ false }}">
@@ -1100,6 +1103,34 @@ class Component extends DCLogic {
   static nextPace(pace) { return pace === 'paused' ? 'auto' : 'paused'; }
   // Go on is saved with the other controls; a pause is for this tab only, so a later visit never starts paused.
   pauseToggle = () => { const to = Component.nextPace(this.mp.pace); if (to === 'auto') return this.setMp('pace', to); this.mp = {...this.mp, pace:to}; this.setState(s => ({tick:(s.tick || 0) + 1})); };
+  // Stop here and Cancel, beside Go on while reading is paused (or stopped on a bad card). Stop here keeps the clips read
+  // so far and lets the rest go; the shoot goes on with them, their other frames filling in behind. Cancel asks first
+  // (cancelAsk), then throws the load away and goes back to Open. Neither touches a file on the drive.
+  static readKept(clips) { return clips.filter(c => (c.facts && c.facts.state !== 'pending') || (c.frames || []).some(Boolean)); }
+  readStop = () => {
+    const d = this.d; if (!d || !d.shoot || !d.shoot.real || !this.realReading()) return;
+    const keep = Component.readKept(d.clips), n = d.clips.length; if (!keep.length) return;
+    const gone = d.clips.filter(c => keep.indexOf(c) < 0); d.shoot.key = this.storeKey(d);
+    this.qTok = {}; const tok = this.qTok; this.halt = false; this.failRun = 0; this.reading.clear();
+    this.dropFrames(gone); d.clips = keep; this.byId = {}; keep.forEach((c, i) => { c._i = i; this.byId[c.id] = c; });
+    d.shoot.bytes = keep.reduce((s, c) => s + c.bytes, 0); this.regap(d);
+    if (this.mp.pace === 'paused') this.mp = {...this.mp, pace:'auto'};
+    const st = this.state, ids = new Set(keep.map(c => c.id)), marks = {}; Object.keys(st.marks).forEach(id => { if (ids.has(id)) marks[id] = st.marks[id]; });
+    this.recNote = {t:'Stopped · kept ' + keep.length + ' of ' + this.plural(n, 'clip'), at:Date.now()};
+    this.setState({imp:null, cancelAsk:false, marks, cur:ids.has(st.cur) ? st.cur : keep[0].id, sel:(st.sel || []).filter(id => ids.has(id)), ...(!st.cuts && !this.userCut ? {nCut:this.fitCut(keep.length)} : {})}, () => this.save());
+    this.readyAt = Date.now(); this.fillStart(keep, tok);
+  };
+  readCancel = () => { if (this.realReading()) this.setState({cancelAsk:true}); };
+  cancelNo = () => this.setState({cancelAsk:false});
+  cancelYes = () => {
+    const d = this.d; this.setState({cancelAsk:false}); if (!d || !d.shoot || !d.shoot.real) return;
+    // a load with no marks, now or saved before, leaves no card on Open; marks already saved stay saved
+    const key = this.storeKey(d), name = d.shoot.name; let prev = null; try { prev = JSON.parse(localStorage.getItem(key) || 'null'); } catch (x) {}
+    const marked = o => !!o && Object.keys(o).length > 0;
+    if (!marked(this.state.marks) && !marked(this.state.dis) && !(prev && (marked(prev.km) || marked(prev.kd) || (prev.kc && prev.kc.length)))) this.persist(key, null);
+    if (this.mp.pace === 'paused') this.mp = {...this.mp, pace:'auto'}; this.halt = false; this.failRun = 0; this.reading.clear();
+    this.clearMemory(); this.setState({impMsg:'Stopped loading “' + name + '”. Nothing on the drive was touched.'});
+  };
   mp = (() => { try { return {...Component.MEMDEF, ...JSON.parse(localStorage.getItem('lumina-skimprefs:mem') || '{}')}; } catch (x) { return {...Component.MEMDEF}; } })();
   setMp(k, v) { this.mp = {...this.mp, [k]:v}; try { localStorage.setItem('lumina-skimprefs:mem', JSON.stringify(this.mp)); } catch (x) {} if (k === 'budget') this.enforce(); this.setState(s => ({tick:(s.tick || 0) + 1})); }
   frameIdx() { const n = this.mp.per || 8; return n >= 8 ? [0, 1, 2, 3, 4, 5, 6, 7] : Array.from({length:n}, (_, k) => Math.floor((k + 0.5) * 8 / n)); }
@@ -1161,6 +1192,7 @@ class Component extends DCLogic {
     document.addEventListener('visibilitychange', this._stV); window.addEventListener('focus', this._stV);
     // The Mac app's reload in place (⌘R, a hot build; LOCAL-CHANGES 257): take() hands it the open shoot's marks and view by clip
     // (name and time, as clipKey), the app reloads, reopen(kept) answers the file picker with the same clips and puts them back.
+    window.luminaSkimBig = this.bigHost();
     window.luminaSkimKeep = {take:() => this.keepTake(), reopen:kept => this.keepReopen(kept), state:() => this.keepAt || 'idle'};
     // luminaSkimDebug() reports; luminaSkimDebug('panel') also opens the Working memory panel, luminaSkimDebug('off') hides it again, luminaSkimDebug('colour') saves the colour check frames.
     window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); else if (what === 'colour') this.colourCheck(); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
@@ -1174,7 +1206,7 @@ class Component extends DCLogic {
     this._ph = () => { if (this.hasShoot()) this.tabKeepSave(); }; window.addEventListener('pagehide', this._ph);
     this.touchOn();
     this._kw = e => { if ((e.metaKey || e.ctrlKey) && (e.key === 'w' || e.key === 'W')) { e.preventDefault(); this.closeShoot(); } }; window.addEventListener('keydown', this._kw);
-    // clips dropped on the window during Skim go into the open shoot (LOCAL-CHANGES 280); the page's own drags carry no files
+    // clips dropped on the window during Skim go into the open shoot (LOCAL-CHANGES 282); the page's own drags carry no files
     window.addEventListener('dragenter', this.addEnter); window.addEventListener('dragleave', this.addLeave); window.addEventListener('dragover', this.addOver); window.addEventListener('drop', this.addDrop);
     if (!document.getElementById('lumina-pv-filters')) document.body.insertAdjacentHTML('beforeend', '<svg xmlns="http://www.w3.org/2000/svg" id="lumina-pv-filters" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><filter id="lumina-slog3" color-interpolation-filters="sRGB" x="0" y="0" width="1" height="1"><feComponentTransfer><feFuncR type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncG type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/><feFuncB type="table" tableValues="0.0000 0.0225 0.0459 0.0709 0.0984 0.1292 0.1631 0.1996 0.2387 0.2810 0.3268 0.3766 0.4301 0.4876 0.5500 0.6167 0.6851 0.7530 0.8170 0.8740 0.9223 0.9604 0.9866 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000"/></feComponentTransfer><feColorMatrix type="matrix" values="1.9014 -0.8790 -0.0434 0.0000 0.0067 -0.1553 1.3955 -0.2447 0.0000 0.0003 0.0021 -0.3185 1.3129 0.0000 -0.0011 0 0 0 1 0"/></filter></svg>');
   }
@@ -2447,7 +2479,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const st = this.state, MK = Component.MK;
-    const base = {lv2Cols:'minmax(0,1fr) minmax(240px,300px)', storeOn:false, storeFlex:'0 4 auto', storeLine:'', storeRows:[], storeFg:'#9A958D', storeBg:'rgba(239,236,230,0.06)', storeArrow:'▴', notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, dockExOn:false, dockExN:'', memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
+    const base = {lv2Cols:'minmax(0,1fr) minmax(240px,300px)', storeOn:false, storeFlex:'0 4 auto', storeLine:'', storeRows:[], storeFg:'#9A958D', storeBg:'rgba(239,236,230,0.06)', storeArrow:'▴', notSafari:false, unsupOn:false, unsupLine:'', cardsOn:false, webPrev:!!(typeof window !== 'undefined' && window.luminaPreview), memMoreOn:true, pfOn:false, pfRows:[], pfBg:'rgba(239,236,230,0.1)', recNoteOn:false, recNote:'', haltOn:false, loadOn:false, loadLine:'', loadDot:'#FFD27A', loadAnim:'none', fillNote:'', memMore:false, memMoreT:'More', tileCols:4, tileGap:'20px 18px', memCtl:[], memTest:[], memCtlNote:'', progOn:false, noKeepOn:false, paceOn:false, progRows:[], tileMin:272, tileGap:'20px 18px', progPill:'', shootName:'', shootLine:'', lvX:0, lvN:3, lvTabsOn:false, scOn:false, lvF:false, ft:[], fCols:4, fTh:300, fPh:160, fPadT:0, fPadB:0, foldLine:'', foldAt:'', foldNextT:'', foldLessT:'', foldMoreT:'', foldLessOp:1, foldScC:'#9A958D', foldClC:'#9A958D', cvA:false, cvT:'one grid · off', cvFg:'#B8B3AB', cvBg:'rgba(239,236,230,0.06)', lvTabs:[], pvA:true, pvBg:'rgba(239,236,230,0.16)', pvTrack:'#5B5854', pvKnob:'14px', pvLine:'', askOpts:[], isEmpty:false, stripOn:false, takeStripOn:false, lv0:false, lv1:false, lv2:false, hints:[], wells:[], counts:'', countsOn:true, propOn:false, handOffer:false, cutSoFar:'', cutC:'#9A958D', dropNote:'Read only.', dbgOn:false, pauseOn:false, stopOn:false, cancelOn:false, cancelAsk:false, forgetOn:false, freeTxt:'', boxOn:false, box:{x:0, y:0, w:0, h:0}, cv:{}, row:{items:[], cw:0, connOn:false, l0:0, lw:0, ticks:[], label:'', oneOn:false, one:''}, ticks:[], strip:[], tstrip:[], chs:[], secs:[], grid42:true, undoN:0, redoN:0, undoC:'#6E6A64', redoC:'#6E6A64', isSkim:false, isImport:false, isExport:false, stepTabs:[], stX:0, dockExOn:false, dockExN:'', memOn:false, memPill:'', memBg:'transparent', impOn:false, impW:'0%', hasShoot:false, hintLead:''};
     if (!st.ready || !this.d) return base;
     this.index();
     // Export is a page of its own: the shortcuts across the top, the files and folders below
@@ -2683,7 +2715,7 @@ class Component extends DCLogic {
     Object.assign(vals, this.extraVals(markN, markB, und));
     Object.assign(vals, this.dockVals(vals));
     vals.hints = (vals.hints || []).map(h => ({...h, bg:Component.kbLit(h.k, st.kbLit) ? 'rgba(239,236,230,0.34)' : 'rgba(239,236,230,0.12)'}));
-    vals.skimBarD = st.lv >= 2 && !vals.loadOn && !vals.unsupOn && !vals.recNoteOn && !vals.pauseOn && !vals.haltOn && !vals.lvTabsOn ? 'none' : 'flex';
+    vals.skimBarD = st.lv >= 2 && !vals.loadOn && !vals.unsupOn && !vals.recNoteOn && !vals.pauseOn && !vals.haltOn && !vals.cancelAsk && !vals.lvTabsOn ? 'none' : 'flex';
     return vals;
   }
   // A stored entry that holds marks: a shoot's entry ('lumina-skim:<shoot>'), not the read clock or the folder locations.
@@ -2695,9 +2727,9 @@ class Component extends DCLogic {
     // dropped clips can't be handed back (the app never learns where they are): the app doesn't reload
     if ((this.picked === false || this.addDropped) && !any) return JSON.stringify({dropped:true});
     const K = id => this.byId[id] ? this.clipKey(this.byId[id]) : null, by = o => { const out = {}; Object.keys(o || {}).forEach(id => { const k = K(id); if (k) out[k] = o[id]; }); return out; };
-    return JSON.stringify({name:d.shoot.name, marks:by(st.marks), dis:by(st.dis), cuts:st.cuts ? st.cuts.map(K).filter(Boolean) : null, nCut:st.nCut, userCut:!!this.userCut, cur:K(st.cur), step:st.step, lv:st.lv, gi:st.gi, zl:st.zl, ex:st.ex, n:d.clips.length, cap:d.shoot.cap || 0, files:d.clips.map(c => this.clipKey(c)),
-      // where added clips are when the app said (LOCAL-CHANGES 280)
-      ap:d.clips.reduce((o, c) => { if (String(c.path || '')[0] === '/') o[this.clipKey(c)] = c.path; return o; }, {})});
+    return JSON.stringify({name:d.shoot.name, marks:by(st.marks), dis:by(st.dis), cuts:st.cuts ? st.cuts.map(K).filter(Boolean) : null, nCut:st.nCut, userCut:!!this.userCut, cur:K(st.cur), step:st.step, lv:st.lv, gi:st.gi, zl:st.zl, ex:st.ex, n:d.clips.length, cap:d.shoot.cap || 0,
+      // which clips the shoot holds (a folder pruned on Open, clips added), and where added clips are when the app said (282)
+      ks:d.clips.map(c => this.clipKey(c)), ap:d.clips.reduce((o, c) => { if (String(c.path || '')[0] === '/') o[this.clipKey(c)] = c.path; return o; }, {})});
   }
   keepReopen(kept) {
     let k = null; try { k = typeof kept === 'string' ? JSON.parse(kept) : kept; } catch (x) {}
@@ -2711,7 +2743,7 @@ class Component extends DCLogic {
     if (!Object.keys(ids).some(key => key === k.cur || (k.marks && key in k.marks) || (k.dis && key in k.dis) || (k.cuts && k.cuts.includes(key)))) { this.keepAt = 'done'; return; }
     const by = o => { const out = {}; Object.keys(o || {}).forEach(key => { if (ids[key]) out[ids[key]] = o[key]; }); return out; };
     if (k.name) d.shoot.name = k.name; this.userCut = !!k.userCut;
-    if (k.files && !this.hostStore()) { const g = Component.resumeGap(k.files, ids); this.resumeGap = g; window.luminaSkimResumeGap = g;
+    const ks = k.ks || k.files; if (ks && !this.hostStore()) { const g = Component.resumeGap(ks, ids); this.resumeGap = g; window.luminaSkimResumeGap = g;
       this.flash(g.missing.length ? 'Picked up ' + g.found + ' of ' + this.plural(g.n, 'clip') + ' · not in that folder: ' + g.missing.slice(0, 3).map(m => m.name).join(', ') + (g.missing.length > 3 ? ' and ' + (g.missing.length - 3) + ' more' : '') : 'Picked up where you were · ' + this.plural(g.n, 'clip'), g.missing.length ? 6000 : 2200); }
     const cuts = k.cuts ? k.cuts.map(key => ids[key]).filter(Boolean) : null, cur = ids[k.cur] || this.state.cur, step = d.clips.length ? (k.step || 'skim') : 'import';
     this.setState({marks:by(k.marks), dis:by(k.dis), cuts, nCut:k.nCut || this.state.nCut, cur, step, lv:k.lv ?? this.state.lv, gi:k.gi || 0, zl:k.zl ?? this.state.zl, ex:{...this.state.ex, ...(k.ex || {})}}, () => { this.keepAt = 'done'; });
@@ -3780,7 +3812,11 @@ class Component extends DCLogic {
   dropLeave = () => this.setState({dropHot:false});
   dropIn = async e => {
     e.preventDefault(); this.setState({dropHot:false}); this.pickNext = false; if (this.state.mix) return;
-    const rel = this.rel = new Map(), out = [], B = Component.BIG, tok = this.walkTok = {};
+    const got = await this.dropFiles(e); if (!got) return; this.rel = got.rel; this.importFiles(got.files, 0, got.cut ? {files:got.cut} : null);
+  };
+  // What was dropped, folders walked: the files and each one's place inside what was dropped. Null when a newer drop or pick took over.
+  async dropFiles(e) {
+    const rel = new Map(), out = [], B = Component.BIG, tok = this.walkTok = {};
     // A whole drive or a home folder is a firehose: the walk counts files and clips as it goes, says so on Open, and
     // stops past B.files (cut), so what was found so far is offered instead of a page that never answers.
     let n = 0, clips = 0, bytes = 0, cut = false, said = 0;
@@ -3793,20 +3829,8 @@ class Component extends DCLogic {
     });
     const ens = [...(e.dataTransfer.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean), flat = [...(e.dataTransfer.files || [])];
     if (ens.length) await Promise.all(ens.map(en => walk(en, ''))); else out.push(...flat);
-    if (tok !== this.walkTok) return;
-    this.importFiles(out, 0, cut ? {files:n} : null);
-  };
-  // What was dropped on Skim to add (LOCAL-CHANGES 280), folders walked: the files and each one's place inside what was dropped.
-  async dropFiles(e) {
-    const rel = new Map(), out = [];
-    const walk = (en, p) => new Promise(res => {
-      if (en.isFile) en.file(f => { rel.set(f, p + f.name); out.push(f); res(); }, () => res());
-      else if (en.isDirectory) { const rd = en.createReader(), all = []; const step = () => rd.readEntries(es => { if (!es.length) { Promise.all(all.map(x => walk(x, p + en.name + '/'))).then(res); return; } all.push(...es); step(); }, () => res()); step(); }
-      else res();
-    });
-    const ens = [...(e.dataTransfer.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean), flat = [...(e.dataTransfer.files || [])];
-    if (ens.length) await Promise.all(ens.map(en => walk(en, ''))); else out.push(...flat);
-    return {files:out, rel};
+    if (tok !== this.walkTok) return null;
+    return {files:out, rel, cut:cut ? n : 0};
   }
   gammaName(g) { return /s-?log3/i.test(g) ? 'S-Log3' : /s-?log2/i.test(g) ? 'S-Log2' : /hlg/i.test(g) ? 'HLG' : /709|rec/i.test(g) ? 'none' : g; }
   primName(p) { return /gamut3.?cine/i.test(p) ? 'S-Gamut3.Cine' : /gamut3/i.test(p) ? 'S-Gamut3' : /gamut/i.test(p) ? 'S-Gamut' : /2020/.test(p) ? 'Rec.2020' : /709/.test(p) ? 'Rec.709' : p; }
@@ -3820,28 +3844,40 @@ class Component extends DCLogic {
         : N(b.n) + ' clips · ' + sz + '. Skim takes up to ' + N(lim) + ' at a time; more would slow every key.') + ' Pick the card or the day you want, or open ' + (over ? 'the first ' + N(lim) + ' by name.' : 'what was found.'),
       go:over ? 'Open the first ' + N(lim) : 'Open the ' + N(b.n) + ' found'};
   }
-  bigPick = () => { this.bigHeld = null; this.setState({big:null}); this.pickFolder(); };
-  bigGo = () => { const h = this.bigHeld; this.bigHeld = null; this.setState({big:null}); if (h) this.importFiles(h.files, Component.BIG.clips); };
+  bigPick = () => { this.bigHeld = null; this.bigWant = false; this.bigRoot = null; this.setState({big:null}); this.pickFolder(); };
+  // In the app the folder was counted before WebKit listed it (SkimPickScan) and the app holds the first clips: the input
+  // is clicked again and answered with them, no panel (luminaSkimBig.want).
+  bigGo = () => { const h = this.bigHeld; this.bigHeld = null; this.setState({big:null}); if (!h) return;
+    if (h.host) { this.bigWant = true; this.bigCap = Component.BIG.clips; if (this.fileEl) this.fileEl.click(); } else this.importFiles(h.files, Component.BIG.clips); };
+  // The app's side of the card (SetsRootView.skimPick): its count while it looks, what it found, and whether the first clips were asked for.
+  bigHost() {
+    const N = x => Number(x).toLocaleString('en-US');
+    return {
+      looking:(name, n, clips) => this.setState({impMsg:name == null ? null : n ? 'Looking through ' + N(n) + ' files in “' + name + '” · ' + this.plural(clips, 'clip') + ' so far…' : 'Looking through “' + name + '”…'}),
+      show:o => { if (!o) return; this.keepAt = 'done';
+        if (!o.n) { this.bigHeld = null; this.setState({big:null, impMsg:'No clips in the first ' + N(o.cut) + ' files of “' + o.name + '”. Pick the folder the clips are in.'}); return; }
+        this.bigHeld = {host:true}; this.bigRoot = o.name; this.setState({impMsg:null, big:{n:o.n, bytes:o.bytes, cut:o.cut || 0, name:o.name}}); if (this.state.step !== 'import') this.setStep('import'); },
+      want:() => { const w = !!this.bigWant; this.bigWant = false; return w; }};
+  }
   async importFiles(files, cap, walked, pre) {
     const rel = f => (this.rel && this.rel.get(f)) || f.webkitRelativePath || f.name;
     let vids = pre ? pre.vids : files.filter(f => Component.isClip(f));
-    // pre: the clips chosen on the Open view (LOCAL-CHANGES 280), listed already; nothing below the listing is asked again
     if (!pre) {
-    // Resume in Safari (LOCAL-CHANGES 276): from whatever folder was chosen (the shoot's, or one above it), only the clips the
-    // kept shoot had; a folder with none of them opens as it is.
-    if (this.freshPick && vids.length) { this.freshPick = false; this.resumeDrop(); }   // Other clips (277): the kept marks go once clips are picked
-    if (this.kept && this.state.resume) { const hit = Component.resumePick(vids, this.kept.files); if (hit.length) vids = hit; }
-    // Too big, or a walk cut short: say so on Open and wait for an answer. A reload in the app keeps what was chosen (kept.cap).
-    cap = cap || (this.kept && this.kept.cap) || 0; this.bigHeld = null; if (this.state.big) this.setState({big:null});
-    if (vids.length && ((vids.length > Component.BIG.clips && !cap) || (walked && !cap))) {
-      const root = rel(vids[0]).split('/')[0] || 'This folder';
-      this.bigHeld = {files}; this.keepAt = 'done';
-      this.setState({impMsg:null, big:{n:vids.length, bytes:vids.reduce((s, f) => s + f.size, 0), cut:walked ? walked.files : 0, name:/\.\w+$/.test(root) ? 'These clips' : root}});
-      if (this.state.step !== 'import') this.setStep('import');
-      return;
+      // Resume in Safari (LOCAL-CHANGES 276): from whatever folder was chosen (the shoot's, or one above it), only the clips the
+      // kept shoot had; a folder with none of them opens as it is.
+      if (this.freshPick && vids.length) { this.freshPick = false; this.resumeDrop(); }   // Other clips (277): the kept marks go once clips are picked
+      if (this.kept && this.state.resume) { const hit = Component.resumePick(vids, this.kept.ks || this.kept.files); if (hit.length) vids = hit; }
+      // Too big, or a walk cut short: say so on Open and wait for an answer. A reload in the app keeps what was chosen (kept.cap).
+      cap = cap || this.bigCap || (this.kept && this.kept.cap) || 0; this.bigCap = 0; this.bigHeld = null; if (this.state.big) this.setState({big:null});
+      if (vids.length && ((vids.length > Component.BIG.clips && !cap) || (walked && !cap))) {
+        const root = rel(vids[0]).split('/')[0] || 'This folder';
+        this.bigHeld = {files}; this.keepAt = 'done';
+        this.setState({impMsg:null, big:{n:vids.length, bytes:vids.reduce((s, f) => s + f.size, 0), cut:walked ? walked.files : 0, name:/\.\w+$/.test(root) ? 'These clips' : root}});
+        if (this.state.step !== 'import') this.setStep('import');
+        return;
+      }
+      if (cap && vids.length > cap) { vids = vids.map(f => [rel(f), f]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).slice(0, cap).map(x => x[1]); }
     }
-    }
-    if (!pre && cap && vids.length > cap) { vids = vids.map(f => [rel(f), f]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).slice(0, cap).map(x => x[1]); }
     const photos = files.filter(f => /\.(arw|dng|cr3|cr2|nef|raf|orf|rw2|jpe?g|heic)$/i.test(f.name)).length;
     if (!vids.length) { if (!this.state.resume) this.kept = null; this.keepAt = 'done'; this.setState({impMsg:walked ? 'No clips in the first ' + walked.files.toLocaleString('en-US') + ' files. Pick the folder the clips are in.' : photos ? photos + ' photos and no clips in that folder. Photos are picked in Pick.' : 'No clips in that folder.'}); return; }
     if (pre) this.picked = pre.picked; else { this.picked = !!this.pickNext; this.pickNext = false; }
@@ -3854,8 +3890,8 @@ class Component extends DCLogic {
       this.setState({impMsg:'Listing ' + this.plural(vids.length, 'clip') + '…'});
       metas = await this.inBatches(vids, 16, f => this.tailMeta(f, xml[f.name.replace(/\.\w+$/, '').toUpperCase()]));
       if (lt !== this.listTok) return;
-      const picked = this.picked, relMap = this.rel, again = (vs, ms) => { this.rel = relMap; return this.importFiles(files, cap, walked, {vids:vs, metas:ms, picked}); };
-      // a kept shoot coming back: its own clips, no notice (LOCAL-CHANGES 280)
+      const picked = this.picked, relMap = this.rel, again = (vs, ms) => { this.rel = relMap; return this.importFiles(files, cap, null, {vids:vs, metas:ms, picked}); };
+      // a kept shoot coming back: its own clips, no notice (LOCAL-CHANGES 282)
       const kept = this.keptOnly(vids, metas);
       if (kept && kept.missing.length) { const lives = Component.liveSet(files, rel), items = kept.at.map(i => ({i, name:vids[i].name, path:rel(vids[i]), t:metas[i].t || this.iso(vids[i].lastModified), bytes:vids[i].size, live:false}));
         if (this.mixAsk(items, sel => again(sel.map(x => vids[x.i]), sel.map(x => metas[x.i])), false, {force:true, missing:kept.missing})) return; }
@@ -3870,7 +3906,7 @@ class Component extends DCLogic {
     clips.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
     const rates = {}; clips.forEach(c => { if (c.fps) rates[c.fps] = (rates[c.fps] || 0) + 1; });
     const rate = +(Object.keys(rates).sort((a, b) => rates[b] - rates[a])[0] || 24);
-    const root = rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
+    const root = (/\.\w+$/.test(rel(vids[0]).split('/')[0]) && this.bigRoot) || rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; this.bigRoot = null; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
     const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true, cap:cap || 0}, clips, gaps:[]};
     if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0; this.skipped = 0; this.addDropped = false; this.addTok = null;
     this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.want = null; this.setState({}, () => this.save());
@@ -3886,14 +3922,14 @@ class Component extends DCLogic {
   // Reopening a kept shoot (a reload in the app, Pick up where you were in Safari): only the clips it held, so a folder
   // pruned on the notice or clips added from elsewhere come back as they were, with no notice. Null: nothing to narrow.
   keptOnly(vids, metas) {
-    const k = this.kept; if (!k || !Array.isArray(k.files) || !k.files.length) return null; const ks = new Set(k.files), at = [];
+    const k = this.kept; if (!k || !Array.isArray(k.ks) || !k.ks.length) return null; const ks = new Set(k.ks), at = [];
     vids.forEach((f, i) => { if (ks.has(this.clipKey({name:f.name, t:metas[i].t || this.iso(f.lastModified)}))) at.push(i); });
     if (!at.length) return null; const got = new Set(at.map(i => this.clipKey({name:vids[i].name, t:metas[i].t || this.iso(vids[i].lastModified)})));
     // what the kept shoot held and this pick doesn't: by name and time (clipKey is NAME@time), with its place when the app gave one
-    const missing = k.files.filter(key => !got.has(key)).map(key => { const a = key.lastIndexOf('@'); return {name:key.slice(0, a), t:key.slice(a + 1), path:(k.ap && k.ap[key]) || ''}; });
+    const missing = k.ks.filter(key => !got.has(key)).map(key => { const a = key.lastIndexOf('@'); return {name:key.slice(0, a), t:key.slice(a + 1), path:(k.ap && k.ap[key]) || ''}; });
     return {at, vids:at.map(i => vids[i]), metas:at.map(i => metas[i]), missing};
   }
-  // Clips from several places (LOCAL-CHANGES 280). After the listing, before anything is drawn: when the clips come from
+  // Clips from several places (LOCAL-CHANGES 282). After the listing, before anything is drawn: when the clips come from
   // more than one folder, from days far apart (MIX_GAP_DAYS between two of them), or include a Live Photo's movie (a .MOV
   // beside a .HEIC or .JPG of the same name), Open shows them by day and folder, as Export lists files, and nothing goes in
   // until Open N clips. A day, a folder or a clip can be unticked, a folder removed from the list; Live Photo movies start
@@ -3968,7 +4004,7 @@ class Component extends DCLogic {
       mixGoT:(mx.add ? 'Add ' : 'Open ') + this.plural(sel.length, 'clip') + ' · ' + fb(sel.reduce((a, x) => a + x.bytes, 0)), mixGoOff:String(!sel.length), mixGoOp:sel.length ? 1 : 0.45, mixGoCur:sel.length ? 'pointer' : 'default',
       mixBackT:mx.add ? 'Don’t add' : 'Back', mixGoneOn:goneN > 0, mixGone:this.plural(goneN, 'clip') + ' taken off', mixUndo:() => this.mixSet({gone:{}}), mixGo:this.mixGo, mixBack:this.mixBack};
   }
-  // Add clips (LOCAL-CHANGES 280): more clips into the shoot that is open, from Add clips or dropped on the window during
+  // Add clips (LOCAL-CHANGES 282): more clips into the shoot that is open, from Add clips or dropped on the window during
   // Skim, its marks, scenes moved by hand and view kept. Clips already in the shoot (same name and time) are left out.
   // In the app the panel takes clips or folders, and the app hands their places over (window.luminaSkimPicked) so the
   // Final Cut file points at them wherever they are; it keeps them with the shoot for ⌘R. In a browser the picker takes
@@ -3988,7 +4024,7 @@ class Component extends DCLogic {
   addDrop = async e => {
     this.addN = 0; if (this.state.addHot) this.setState({addHot:false});
     if (!this.canAdd() || !Component.hasFiles(e)) return; e.preventDefault();
-    const got = await this.dropFiles(e); this.addFiles(got.files, {rel:got.rel, dropped:true});
+    const got = await this.dropFiles(e); if (!got) return; this.addFiles(got.files, {rel:got.rel, dropped:true});
   };
   async addFiles(files, how) {
     const d = this.d; if (!d || !d.shoot || !d.shoot.real || !d.clips.length) { this.rel = how.rel; this.pickNext = !how.dropped; return this.importFiles(files); }
@@ -4090,7 +4126,7 @@ class Component extends DCLogic {
   // The transfer the file is tagged with (the nclx colour box of its video track, ISO/IEC 23091-2): 18 is HLG, 16 is PQ,
   // 1 is BT.709. Sony tags S-Log3 as BT.709, so only HLG is told from this; S-Log3 without its metadata is told from its picture.
   static moovTransfer(u8) {
-    // nclx (MP4) or QuickTime's own nclc, as a .MOV may carry it: the transfer sits at the same place in both
+    // nclx (MP4) or the nclc of QuickTime, as a .MOV may carry it: the transfer sits at the same place in both
     for (let o = 4; o + 14 <= u8.length; o++) if (u8[o] === 0x63 && u8[o + 1] === 0x6F && u8[o + 2] === 0x6C && u8[o + 3] === 0x72 && u8[o + 4] === 0x6E && u8[o + 5] === 0x63 && u8[o + 6] === 0x6C && (u8[o + 7] === 0x78 || u8[o + 7] === 0x63)) return (u8[o + 10] << 8) | u8[o + 11];
     return null;
   }
@@ -4205,6 +4241,8 @@ class Component extends DCLogic {
     return {progOn:st.progOn && n > 0, progToggle:() => this.state.progOn ? this.progShut() : this.setState({progOn:true}),
       progGo:e => { const id = e.currentTarget.getAttribute('data-prog'); if (!this.byId || !this.byId[id]) return; this.wantScroll = ['[data-clip="' + id + '"]']; if (st.cv) { if (st.lv < 2) this.wantScroll = ['@cur']; return this.setState({step:'skim', lv:st.lv >= 2 ? 2 : 0, cur:id, sel:[], box:null}); } this.setState({step:'skim', lv:Math.max(1, Math.min(st.lv, 2)), cur:id, gi:this.gOfAll ? (this.gOfAll[id] ?? st.gi) : st.gi, sel:[], box:null}); },
       progH:running ? (st.imp.pass === 2 ? 'Measuring · ' : st.imp.pass === 1.5 ? 'Trying again · ' : 'Reading · ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + ' added', pfOn:!!st.pfOn && n > 0, pfRows:st.pfOn ? this.profRows() : [], pfBg:st.pfOn ? 'rgba(239,236,230,0.22)' : 'rgba(239,236,230,0.1)', pfToggle:e => { Component.letGo(e); this.setState(s => ({pfOn:!s.pfOn})); }, recNoteOn:!!(this.recNote && Date.now() - this.recNote.at < 12000), recNote:this.recNote ? this.recNote.t : '', progSum:sum + (this.lastClock && this.lastClock.name === (this.d && this.d.shoot.name) && !running && st.dbg ? ' · listed ' + (this.lastClock.listed != null ? this.lastClock.listed + ' ms' : '—') + ', covers and flags ' + this.fmtSec(this.lastClock.done) + (this.lastClock.filled != null ? ', detail ' + this.fmtSec(this.lastClock.filled) : this.lastClock.fillStop ? ', detail stopped at the frames limit' : '') : ''), unsupOn:(this.unsup || 0) + (this.skipped || 0) > 0, unsupLine:(this.unsup || 0) + (this.skipped || 0) > 0 ? ((this.skipped || 0) ? this.plural(this.skipped, 'clip') + ' skipped' : this.plural(this.unsup, 'clip') + ' to skip') + ' · a format this browser can\u2019t play' + (this.notSafari() ? ' · open in Safari' : '') : '', haltOn:!!this.halt && running, resumeRead:this.resumeRead, progRows:st.progOn ? (() => { if (rows.length <= 240) return rows; const a = Math.max(0, C.findIndex(c => c.id === (reading || st.cur))); const s0 = Math.max(0, Math.min(rows.length - 240, a - 60)); return rows.slice(s0, s0 + 240); })() : [],
+      ...((held, kept) => ({stopOn:held && kept > 0 && !st.cancelAsk, stopTip:'Keep the ' + this.plural(kept, 'clip') + ' read so far and skim them', readStop:this.readStop,
+        cancelOn:held && !st.cancelAsk, readCancel:this.readCancel, cancelAsk:running && n > 0 && !!st.cancelAsk, cancelQ:'Throw away this load and go back to Open?', cancelYes:this.cancelYes, cancelNo:this.cancelNo}))(running && n > 0 && (this.mp.pace === 'paused' || !!this.halt), running ? Component.readKept(C).length : 0),
       pauseOn:running && n > 0 && !this.halt, pauseGo:this.pauseToggle, pauseA:this.mp.pace === 'paused', pauseT:this.mp.pace === 'paused' ? 'Go on' : 'Pause', pauseBg:this.mp.pace === 'paused' ? '#FFD27A' : 'rgba(239,236,230,0.08)', pauseFg:this.mp.pace === 'paused' ? '#1E1D1B' : '#EFECE6', pauseFw:this.mp.pace === 'paused' ? 800 : 400,
       paceOn, paceLine:paceOn ? 'Reading ' + this.paceWord(h) : '',
       progPill:running ? (st.imp.pass === 2 ? 'measuring ' : 'reading ') + st.imp.done + ' of ' + st.imp.n : this.plural(n, 'clip') + (bad ? ' · ' + bad + ' can\u2019t read' : ''), loadOn:(running || readyOn) && n > 0, loadLine, fillNote, loadDot:running ? '#FFD27A' : '#A9D18E', loadAnim:running ? 'breathe 1.2s ease-in-out infinite' : 'none',

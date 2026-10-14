@@ -1,4 +1,4 @@
-// Clips from several places and phone clips (LOCAL-CHANGES 272), read out of the page itself: when Open shows the notice
+// Clips from several places and phone clips (LOCAL-CHANGES 282), read out of the page itself: when Open shows the notice
 // (mixOf), what it lets in (mixPicked), a Live Photo's movie told from the still beside it (liveSet), and an iPhone HEVC
 // .MOV (made here with ffmpeg and libx265, skipped without them) read as a clip with its own time, rate and HLG tag.
 //
@@ -50,7 +50,7 @@ test('a Live Photo movie: a .MOV with a still of the same name in the same folde
 
 test('the page keeps the shoot’s clips and the added clips’ places for a reload, and narrows a reopen to them', () => {
   const take = extractMethod(src, 'keepTake', 'keepTake(any) {');
-  assert.match(take, /files:d\.clips\.map\(c => this\.clipKey\(c\)\)/); assert.match(take, /this\.addDropped/);
+  assert.match(take, /ks:d\.clips\.map\(c => this\.clipKey\(c\)\)/); assert.match(take, /this\.addDropped/);
   assert.match(extractMethod(src, 'keepApply', 'keepApply() {'), /k\.ap\[this\.clipKey\(c\)\]/);
   const imp = extractMethod(src, 'importFiles', 'async importFiles(files, cap, walked, pre) {');
   assert.ok(imp.indexOf('this.keptOnly(') < imp.indexOf('this.mixAsk('), 'a kept shoot coming back never asks');
@@ -58,7 +58,7 @@ test('the page keeps the shoot’s clips and the added clips’ places for a rel
 
 test('a resume: every kept clip found goes straight in; some missing opens the view with what is not found', () => {
   const keptOnly = new Function('return function ' + extractMethod(src, 'keptOnly', 'keptOnly(vids, metas) {'))();
-  const pg = ks => ({kept:{files:ks, ap:{'C3.MP4@2026-10-01T10:03:00':'/Volumes/T7/C3.MP4'}}, clipKey:c => (c.name || '').toUpperCase() + '@' + (c.t || '').slice(0, 19), iso:() => ''});
+  const pg = ks => ({kept:{ks, ap:{'C3.MP4@2026-10-01T10:03:00':'/Volumes/T7/C3.MP4'}}, clipKey:c => (c.name || '').toUpperCase() + '@' + (c.t || '').slice(0, 19), iso:() => ''});
   const vids = ['C1.MP4', 'C2.MP4', 'X.MP4'].map(name => ({name})), metas = ['2026-10-01T10:01:00', '2026-10-01T10:02:00', '2026-10-01T11:00:00'].map(t => ({t}));
   const all = keptOnly.call(pg(['C1.MP4@2026-10-01T10:01:00', 'C2.MP4@2026-10-01T10:02:00']), vids, metas);
   assert.deepEqual(all.at, [0, 1]); assert.deepEqual(all.missing, []);

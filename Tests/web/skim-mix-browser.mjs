@@ -1,4 +1,4 @@
-// Clips from several places, and Add clips (LOCAL-CHANGES 272), in a real browser: the web preview build in headless
+// Clips from several places, and Add clips (LOCAL-CHANGES 282), in a real browser: the web preview build in headless
 // Chromium over clips made here with ffmpeg. Open with clips in two folders a week apart shows the notice by day and
 // folder; unticking a folder leaves it out; a Live Photo's movie starts unticked; one folder opens with no notice.
 // During Skim, Add clips and a drop on the window put more clips in the shoot with the marks kept, and clips already
@@ -73,7 +73,7 @@ await chooser.setFiles(fs.readdirSync(phone).map(n => path.join(phone, n)));
 ok(await until(() => /\b4 clips\b/.test((document.querySelector('[data-lumina="shoot-line"]') || {}).innerText || '')), 'two phone clips added: ' + await nClips());
 const kept = await p.evaluate(() => JSON.parse(window.luminaSkimKeep.take()));
 ok(JSON.stringify(kept.marks) === JSON.stringify(marks0), 'the mark is still there');
-ok(kept.files.length === 4, 'the shoot lists its 4 clips for a reload');
+ok(kept.ks.length === 4, 'the shoot lists its 4 clips for a reload');
 ok(await until(() => /2 clips added/.test(document.body.innerText)), 'the bar says 2 clips added');
 
 // 3. the same clips dropped on the window: already here, nothing added
