@@ -567,7 +567,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     /// Skim's pick (LOCAL-CHANGES 280). After the too-big card's "Open the first 1,500" (`luminaSkimBig.want()`), the
     /// clips kept from the last count, with no panel. Otherwise the panel, then a count of what was picked before WebKit
     /// lists it: a whole drive or a firehose shows the page's card and answers the input with nothing. What WebKit gets is
-    /// the clips and their sidecars, never the folder (`skimHand`, LOCAL-CHANGES 292).
+    /// the clips and their sidecars, never the folder (`skimHand`, LOCAL-CHANGES 298).
     private func skimPick() async -> [URL]? {
         if let held = skimBigHeld, !skimBigForAdd {
             skimBigHeld = nil
@@ -666,7 +666,13 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 // Resume on Open's card (LOCAL-CHANGES 288): the last shoot's clips from their bookmarks, no panel.
                 if await skimPageFlag("window.luminaSkimResuming === true ? (window.luminaSkimResuming = false, true) : false"), let last = skimLastURLs {
                     skimURLs = last; skimAddedURLs = skimLastAdded; bridge.skimOpened(last)
-                    completionHandler(last + skimLastAdded); return
+                    // counted and handed over as clips, as a pick is (skimHand), so a big folder never holds the page
+                    let all = last + skimLastAdded
+                    if let r = await skimCount(all, room: SkimPickScan.clips) {
+                        await skimEval("window.luminaSkimBig && luminaSkimBig.looking(null)")
+                        if r.clips > 0, !r.tooBig { completionHandler(await skimHand(r)); return }
+                    }
+                    completionHandler(all); return
                 }
                 #endif
                 // Add clips (the page sets window.luminaSkimAdding just before its click): more clips for the open shoot. The
