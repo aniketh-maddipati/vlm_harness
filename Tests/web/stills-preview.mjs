@@ -59,12 +59,27 @@ check(await page.locator('meta[http-equiv="Content-Security-Policy"]').count() =
 // No stills on the site: the page finds out in the background and Open offers a folder, not the sample card.
 await page.waitForFunction(() => /Folder or card/.test(document.body.innerText) && !/SONY-A7M4/.test(document.body.innerText), null, { timeout: 5000 })
   .then(() => check(true, 'without the sample stills Open drops the sample card'), () => check(false, 'without the sample stills Open drops the sample card'));
+check(await page.locator('[data-lumina="no-sample"]').isVisible(), 'and says why');
 stills = true;
 await page.reload({ waitUntil: 'load' });
 await page.waitForFunction(() => /SONY-A7M4/.test(document.body.innerText), null, { timeout: 10000 })
   .then(() => check(true, 'with them it keeps the sample card'), () => check(false, 'with them it keeps the sample card'));
 await page.waitForTimeout(800);
 check(/SONY-A7M4/.test(await page.evaluate(() => document.body.innerText)), 'and still has it once they have loaded');
+check(await page.locator('[data-lumina="no-sample"]').count() === 0, 'with no notice');
+
+// Pick: ⇧⏎ opens the shoot card (with its keys), ⇧⏎ again closes it, holding ⇧ opens nothing.
+await page.keyboard.press('Escape');
+await page.evaluate(() => window.luminaCommand && window.luminaCommand('stepCull'));
+await page.waitForTimeout(600);
+const card = page.locator('[data-lumina="sources"]');
+await page.keyboard.press('Shift+Enter'); await page.waitForTimeout(300);
+check(await card.isVisible() && await page.locator('[data-lumina="sources-keys"]').isVisible(), '⇧⏎ in Pick opens the shoot card, with ⇧⏎ and esc on it');
+await page.keyboard.press('Shift+Enter'); await page.waitForTimeout(300);
+check(!(await card.count()), '⇧⏎ again closes it');
+await page.keyboard.down('Shift'); await page.waitForTimeout(700);
+check(!(await card.count()), 'holding ⇧ opens nothing');
+await page.keyboard.up('Shift');
 
 // Edit is its own page, fetched when the step is first shown: ⌘3 as in the app's menu, after the first-run card.
 await page.keyboard.press('Escape');
