@@ -45,6 +45,24 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
     [data-press]:active{transform:scale(0.97);transition:transform 90ms ease-out!important}
   }
 }
+/* The strip above the Viewer (LOCAL-CHANGES 273): a frame under the pointer lifts out of the strip and grows over the
+   picture on a spring, so it can be read without the strip taking height from the picture. Reduce motion: it only lights. */
+[data-lumina=furled-takes] button[data-strip]{position:relative;transform-origin:50% 0}
+[data-lumina=furled-takes] button[data-strip]::after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:0 10px 24px rgba(0,0,0,0.55),0 0 0 1px rgba(239,236,230,0.35);opacity:0;pointer-events:none;transition:opacity 120ms ease-out}
+@media (hover:hover){
+  [data-lumina=furled-takes] button[data-strip]:hover{z-index:2}
+  [data-lumina=furled-takes] button[data-strip]:hover::after{opacity:1}
+}
+@media (hover:hover) and (prefers-reduced-motion:no-preference){
+  [data-lumina=furled-takes] button[data-strip]{transition:transform 220ms cubic-bezier(0.2,0.8,0.2,1)}
+  [data-lumina=furled-takes] button[data-strip]:hover{transform:translateY(-3px) scale(1.6)}
+  [data-lumina=furled-takes] button[data-strip]:active{transform:translateY(-3px) scale(1.5);transition-duration:90ms}
+}
+@supports (transition-timing-function:linear(0,1)){
+  @media (hover:hover) and (prefers-reduced-motion:no-preference){
+    [data-lumina=furled-takes] button[data-strip]{transition:transform 450ms linear(0,0.0314,0.11,0.216,0.3343,0.4542,0.5679,0.6708,0.7603,0.8353,0.896,0.9435,0.9791,1.0046,1.0216,1.032,1.0371,1.0384,1.037,1.0339,1.0298,1.0252,1.0206,1.0163,1.0124,1.009,1.0061,1.0038,1)}
+  }
+}
 /* Fetching (LOCAL-CHANGES 268): a line runs along the top of the list while a folder is read or a search runs, a folder being
    read shimmers, the search's dots bounce, and a folder found and shown in the list glows once. */
 @keyframes lmBar{0%{transform:translateX(-100%)}100%{transform:translateX(290%)}}
@@ -487,11 +505,13 @@ body:has([data-view=phone]){background:#111}
       </div>
     </sc-if>
     <sc-if value="{{ takeStripOn }}" hint-placeholder-val="{{ false }}">
-      <div data-lumina="furled-takes" style="flex:none;height:60px;display:flex;align-items:center;gap:4px;padding:0 20px;border-bottom:1px solid rgba(239,236,230,0.06);overflow:hidden">
+      <div data-lumina="furled-takes" style="flex:none;height:60px;display:flex;align-items:center;gap:4px;padding:0 20px;border-bottom:1px solid rgba(239,236,230,0.06);overflow:visible;position:relative;z-index:4">
         <span data-lumina="strip-where" style="flex:none;width:{{ tPosW }}px;color:#B8B3AB;white-space:nowrap">{{ tPos }}</span>
+        <sc-if value="{{ tsBack }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="strip-back" aria-label="Earlier clips" title="Earlier clips" onClick="{{ tsGo }}" data-d="-1" style="flex:none;width:28px;height:45px;margin:0 Mback;border-radius:6px;display:grid;place-items:center;background:rgba(239,236,230,0.06);color:#EFECE6;font-size:15px;line-height:1;cursor:pointer" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">‹</button></sc-if>
         <sc-for list="{{ tstrip }}" as="ts" hint-placeholder-count="8">
-          <button type="button" data-strip="{{ ts.id }}" aria-label="{{ ts.tip }}" title="{{ ts.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="text-align:left;color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0 0 0 {{ ts.ml }}px;font:inherit;-webkit-appearance:none;appearance:none;flex:none;width:80px;height:45px;border-radius:3px;background:{{ ts.bg }};filter:{{ ts.flt }};opacity:{{ ts.op }};animation:{{ ts.anim }};box-shadow:{{ ts.edge }};outline:{{ ts.out }};outline-offset:2px;cursor:pointer"></button>
+          <button type="button" data-strip="{{ ts.id }}" aria-label="{{ ts.tip }}" title="{{ ts.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="text-align:left;color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0 0 0 {{ ts.ml }}px;font:inherit;-webkit-appearance:none;appearance:none;flex:none;width:96px;height:54px;border-radius:3px;background:{{ ts.bg }};filter:{{ ts.flt }};opacity:{{ ts.op }};animation:{{ ts.anim }};box-shadow:{{ ts.edge }};outline:{{ ts.out }};outline-offset:2px;cursor:pointer"></button>
         </sc-for>
+        <sc-if value="{{ tsFwd }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="strip-forward" aria-label="Later clips" title="Later clips" onClick="{{ tsGo }}" data-d="1" style="flex:none;width:28px;height:45px;margin:0 Mforward;border-radius:6px;display:grid;place-items:center;background:rgba(239,236,230,0.06);color:#EFECE6;font-size:15px;line-height:1;cursor:pointer" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">›</button></sc-if>
       </div>
     </sc-if>
 
@@ -2068,6 +2088,8 @@ class Component extends DCLogic {
     const st = this.state; if (st.ready && st.step === 'export') return this.wsWheel(e);
     if (!st.ready || st.step !== 'skim' || !this.d.clips.length) return;
     if (e.ctrlKey) { e.preventDefault(); return this.zoomBy(-e.deltaY * 0.01, e); }
+    // Over the strip above the Viewer a scroll or a swipe either way moves the strip a frame at a time (tsGo's paging, finer).
+    if (st.lv >= 2 && e.target && e.target.closest && e.target.closest('[data-lumina="furled-takes"]')) { e.preventDefault(); return this.tsWheel(e); }
     if (st.lv >= 2 && Component.zoomHeld(st.zc) && !e.ctrlKey) { const pic = e.target && e.target.closest && e.target.closest('[data-pic]'); if (pic && pic.getAttribute('data-clip') === st.cur && Math.abs(e.deltaY) >= Math.abs(e.deltaX)) { e.preventDefault(); return this.panBy(e.deltaX, e.deltaY, pic); } }
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5) {
       e.preventDefault();
@@ -2145,6 +2167,14 @@ class Component extends DCLogic {
     this.setState({gi:i});
   };
   gDbl = e => { if (!this.state.held) this.unfurl(+e.currentTarget.getAttribute('data-gi')); };
+  // The arrows at the strip's ends page it (a strip less one frame) without moving off the clip you are on; moving to
+  // another clip centres the strip on it again.
+  tsGo = e => { const w = this.tsWin; if (!w) return; const d = +e.currentTarget.getAttribute('data-d'), s0 = Math.max(0, Math.min(w.len - w.n, w.s0 + d * Math.max(1, w.n - 1))); this.setState({tsP:{cur:this.state.cur, s0}}); };
+  tsWheel(e) {
+    const w = this.tsWin; if (!w) return; const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    this.tsAcc = (this.tsAcc || 0) + d * (e.deltaMode === 1 ? 33 : 1); const k = Math.trunc(this.tsAcc / 48); if (!k) return; this.tsAcc -= k * 48;
+    const s0 = Math.max(0, Math.min(w.len - w.n, w.s0 + k)); if (s0 !== w.s0) { this.tsWin = {...w, s0}; this.setState({tsP:{cur:this.state.cur, s0}}); }
+  }
   sClick = e => { this.setState({cur:e.currentTarget.getAttribute('data-strip'), fx:0}); };
   wM(e) { return e.currentTarget.getAttribute('data-well'); }
   wClick = e => { const m = this.wM(e), st = this.state; if (!this.isTouch() && e.currentTarget.closest && e.currentTarget.closest('[data-lumina="footer"]')) { Component.letGo(e); return this.bkSet(m); } if (this.cvGrid() && !st.sel.length) return this.cvMark(m); if (st.sel.length || st.lv === 0) return this.areaMark(this.targets(), m); this.quick(m); };
@@ -2369,7 +2399,7 @@ class Component extends DCLogic {
       stripOn:sk && !empty && st.lv === 1, takeStripOn:sk && !empty && st.lv >= 2,
       lv0:sk && !empty && !st.cv && st.lv === 0, lv1:sk && !empty && !st.cv && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
-      tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static', lv2Rows:'auto', topCol:'1', picRow:'2', infoCol:'1', infoRow:'3',
+      tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, tsGo:this.tsGo, tsBack:false, tsFwd:false, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static', lv2Rows:'auto', topCol:'1', picRow:'2', infoCol:'1', infoRow:'3',
       wClick:this.wClick, 
       scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef,
       grid42:true,
@@ -2434,9 +2464,15 @@ class Component extends DCLogic {
     // The strip above the Viewer: the clips of the whole shoot around the one you are on (a gap where the scene
     // changes), marks as coloured edges, cut clips dimmed, and where you are in the shoot.
     if (st.lv >= 2 && curGi != null) {
-      const fl = this.flat, at = Math.max(0, fl.indexOf(st.cur)), n = Math.max(5, Math.floor((st.vw - 40 - 96) / 86)), s0 = Math.max(0, Math.min(fl.length - n, at - Math.floor(n / 2)));
-      let pg = null;
-      vals.tstrip = fl.slice(s0, s0 + n).map((id, j) => { const c = this.byId[id], m = st.marks[id], t0 = this.tone(c, 0), g = this.gOfAll[id], brk = j > 0 && g !== pg; pg = g;
+      const fl = this.flat, at = Math.max(0, fl.indexOf(st.cur)), room = st.vw - 40 - 96 - 64, paged = st.tsP && st.tsP.cur === st.cur;
+      // as many frames as fit with the gaps where the scene changes (10 px each), the arrows kept in view
+      let n = Math.max(5, Math.floor(room / 100)), s0 = 0;
+      for (; ; n--) { s0 = Math.max(0, Math.min(fl.length - n, paged ? st.tsP.s0 : at - Math.floor(n / 2))); let w = -4;
+        for (let j = s0; j < Math.min(fl.length, s0 + n); j++) w += 100 + (j > s0 && this.gOfAll[fl[j]] !== this.gOfAll[fl[j - 1]] ? 10 : 0);
+        if (w <= room || n <= 3) break; }
+      this.tsWin = {s0, n, len:fl.length}; vals.tsBack = s0 > 0; vals.tsFwd = s0 + n < fl.length;
+      let pgG = null;
+      vals.tstrip = fl.slice(s0, s0 + n).map((id, j) => { const c = this.byId[id], m = st.marks[id], t0 = this.tone(c, 0), g = this.gOfAll[id], brk = j > 0 && g !== pgG; pgG = g;
         return {id, ml:brk ? 10 : 0, op:m === 'cut' ? 0.45 : 1, tip:c.name.replace(/\.\w+$/, '') + (m ? ' · ' + this.W(m) : ''), bg:t0.bg, flt:t0.flt, anim:t0.anim, edge:m ? 'inset 0 0 0 3px ' + MK[m] : 'none', out:id === st.cur ? '2px solid #EFECE6' : 'none'}; });
       vals.tPos = (at + 1) + ' of ' + fl.length; vals.tPosW = 92;
     }
