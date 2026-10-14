@@ -3336,7 +3336,8 @@ class Component extends DCLogic {
     this.wsChev(r.key);
     if (!on) return this.wsFurl(r);
     const had = Array.isArray(w.kids[r.path]);
-    this.wsSet(x => ({open:{...x.open, [r.key]:true}}), () => { if (had) this.wsUnfurlFx(r.path); this.wsAhead(); });
+    // the rows slide in once they are on screen: read ahead before the click, or a read ahead that landed while this one opened
+    this.wsSet(x => ({open:{...x.open, [r.key]:true}}), () => { const k = (this.state.ws || {}).kids || {}; if (had || Array.isArray(k[r.path])) this.wsUnfurlFx(r.path); this.wsAhead(); });
     this.wsKids(r.path, had);
   }
   // A folder's listing. `quiet`: it is on screen already (read ahead or before), so it stays there while it is read again,

@@ -65,7 +65,7 @@ async function run(host) {
       arrangeUndo: id => { window.__calls.push(['undo', id]); const D = window.__dirs, at = q => q.slice(0, q.lastIndexOf('/')), r = (window.__runs || []).find(x => x.id === id); if (!r || r.undone) return ask([]);
         r.undone = true; return ask(r.moves.filter(m => m.ok).map(m => { const L = D[at(m.to)], i = L.findIndex(f => f.path === m.to), [f] = L.splice(i, 1); D[at(m.from)].push({...f, path:m.from}); return {from:m.from, to:m.to, ok:true, why:''}; })); },
       arrangeList: () => ask((window.__runs || []).map(({moves, ...x}) => x)),
-      exportCheck: text => { window.__calls.push(['check']); const m = [...text.matchAll(/src="file:\/\/([^"]+)"/g)].map(x => decodeURIComponent(x[1])); return ask({dtd:'ok', errors:[], unchecked:0, missing:m.filter(p => /C0002/.test(p))}); },
+      exportCheck: text => { window.__calls.push(['check']); const m = [...text.matchAll(/src="file:\/\/([^"]+)"/g)].map(x => decodeURIComponent(x[1])), name = p => p.split('/').pop(); if (!window.__miss && m.length) window.__miss = name(m[0]); return ask({dtd:'ok', errors:[], unchecked:0, missing:m.filter(p => name(p) === window.__miss)}); },
       exportReveal: p => { window.__calls.push(['reveal', p]); return ask(true); },
       openInFinalCut: p => { window.__calls.push(['fcp', p]); return ask({ok:true, app:'Final Cut Pro'}); },
       drive: () => ask({name:'T7', total:1e12, free:150e9, readOnly:false, card:false, trash:0}),
@@ -137,7 +137,7 @@ async function run(host) {
     ok(await p.$('[data-lumina="ex-scope-maybes"][aria-checked="true"]') && !await p.$('[data-lumina="export-summary"]') && !await p.$('[data-lumina="ex-scenes"]'), 'app: quick export: clips as three choices, no summary, no Final Cut options');
     for (const id of ['ex-openfc', 'ex-trash', 'ex-mem']) await p.click('[data-lumina="' + id + '"]'), await p.waitForTimeout(150);
     await p.waitForTimeout(600);
-    ok(/missing on disk: C0002/.test(await text('[data-lumina="sum-verify"]')), 'app: the background check flags the missing clip file before saving: ' + await text('[data-lumina="sum-verify"]'));
+    ok((await text('[data-lumina="sum-verify"]')).includes('missing on disk: ' + await p.evaluate(() => window.__miss)), 'app: the background check flags the missing clip file before saving: ' + await text('[data-lumina="sum-verify"]'));
     const plan = await text('[data-lumina="export-then"]');
     ok(/saves .+\.fcpxml to ~\/Movies\/Exports, opens it in Final Cut, moves 2 cut clips .+ to the Trash and clears .+ of working memory\./.test(plan) || /saves .+ to ~\/Movies\/Exports, opens it in Final Cut and moves 2 cut clips/.test(plan), 'app: the plan line: ' + plan);
     if (shots) await p.screenshot({path:path.join(shots, 'app-export-on.png'), fullPage:true});
@@ -272,7 +272,7 @@ async function run(host) {
     ok(savedF && savedF[3] === made && savedT && savedT[3] === '/Volumes/T7', 'app: each file is saved in the folder it was dropped on');
     ok(savedF && savedF[2].includes('file:///Users/sam/Desktop/dump/Selected/' + sel1), 'app: the Final Cut file points at the clips where Arrange moved them');
     ok(calls.map(c => c[0]).filter(c => !/check|list|mkdir|arrange|size/.test(c)).join(' ') === 'save save fcp trash', 'app: (cut list), save, then Final Cut, then the Trash: ' + calls.map(c => c[0]).join(' '));
-    ok(/clip file missing on disk: C0002\.MP4/.test(r) && /missing on disk/.test(await text('[data-lumina="sum-verify"]')), 'app: a missing clip file is flagged in the result and the summary');
+    ok(r.includes('clip file missing on disk: ' + await p.evaluate(() => window.__miss)) && /missing on disk/.test(await text('[data-lumina="sum-verify"]')), 'app: a missing clip file is flagged in the result and the summary');
     ok(/Saved .+ in \/Volumes\/T7\/Projects\/Tuesday export/.test(r) && /Opened in Final Cut Pro/.test(r) && /Moved 2 cut clips/.test(r) && /working memory/.test(r), 'app: the result: ' + r.replace(/\n/g, ' | '));
     if (shots) { await p.evaluate(() => { const e = document.querySelector('[data-screen-label="Export"]'); if (e) e.scrollTop = 0; }); await p.screenshot({path:path.join(shots, 'app-done.png')}); }
     ok(/Tuesday export/.test(await text('[data-lumina="dest-line"]')) && await p.$('[data-lumina="dest-unpin"]'), 'app: Save to at the top shows the folder picked below');
