@@ -74,13 +74,15 @@ nonisolated final class SetsDust: @unchecked Sendable {
     }
 
     /// Drawn into a linear grey float bitmap: Core Graphics converts from the JPEG's own colour space.
+    /// Float components are big-endian unless the byte order says otherwise; Swift's Float is little.
     static func luma(_ image: CGImage) -> LookDust.Plane? {
         let w = image.width, h = image.height
         guard w > 0, h > 0, let space = CGColorSpace(name: CGColorSpace.linearGray) else { return nil }
         var px = [Float](repeating: 0, count: w * h)
         let drawn = px.withUnsafeMutableBytes { buf -> Bool in
             guard let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 32, bytesPerRow: w * 4, space: space,
-                                      bitmapInfo: CGImageAlphaInfo.none.rawValue | CGBitmapInfo.floatComponents.rawValue) else { return false }
+                                      bitmapInfo: CGImageAlphaInfo.none.rawValue | CGBitmapInfo.floatComponents.rawValue
+                                                  | CGBitmapInfo.byteOrder32Little.rawValue) else { return false }
             ctx.interpolationQuality = .none
             ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
             return true
