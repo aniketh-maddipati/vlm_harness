@@ -85,16 +85,14 @@ test('every clip is referenced by an original-media rep at its real path', () =>
 
 // Step 2 of design/handoff/lumina-skim/FRIEND-DEMO.md. Each of these needs a change to buildX,
 // and the ones marked (FCP) can only be settled by importing into Final Cut Pro.
-test('camera timecode as the asset start, the clip start and the start of its rating and keyword', () => {
+test('every clip starts at 0s, where Final Cut reads its media, camera timecode or not', () => {
+  // Final Cut takes a file's start from the file and reads 00:00:00:00 for these Sony MP4s; a start at the camera's
+  // LtcChange left each clip "Modified File" with "no shared media range" on relink (2026-10-15).
   const { text } = buildFixture();
-  const fx2 = fixture();
-  fx2.clips.forEach((c, i) => {
-    const [hh, mm, ss, ff] = c.tc.split(':').map(Number), fr = ((hh * 60 + mm) * 60 + ss) * c.tcFps + ff, want = `${fr * c.fpsDen}/${c.fpsNum}s`;
-    assert.equal(attr(text, 'asset', `a${i+1}`, 'start'), want, c.name + ' asset');
-    assert.equal(attr(text, 'asset-clip', `a${i+1}`, 'start'), want, c.name + ' clip');
-    const body = new RegExp(`<asset-clip ref="a${i+1}"[\\s\\S]*?</asset-clip>`).exec(text)[0];
-    for (const m of body.matchAll(/<(rating|keyword) start="([^"]+)"/g)) assert.equal(m[2], want, c.name + ' ' + m[1]);
-  });
+  assert.ok(fixture().clips.every(c => c.tc && c.tc !== '00:00:00:00'), 'the fixture has camera timecode');
+  for (const a of text.match(/<asset [^>]*>/g)) assert.match(a, / start="0s" /, a);
+  assert.doesNotMatch(text, /<asset-clip [^>]*start=/);
+  for (const m of text.matchAll(/<(rating|keyword) start="([^"]+)"/g)) assert.equal(m[2], '0s', m[0]);
 });
 test('a clip with no timecode starts at 0s', () => {
   const c = ctxFromFixture(fx, { all: true }); c.d.clips.forEach((k, i) => { k.ltc = ['', '16994420', '30000000', 'bogus', '', ''][i]; });   // none, 99 s, frame 30 at 24, not digits

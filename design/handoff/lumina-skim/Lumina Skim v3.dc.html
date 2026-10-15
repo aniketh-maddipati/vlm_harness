@@ -5106,12 +5106,10 @@ class Component extends DCLogic {
     // Final Cut's own name for its built-in Sony conversion, as it writes it on a clip whose Camera LUT is set to
     // Sony S-Log3/S-Gamut3.Cine (read from an export of Final Cut Pro 12.4). Only that pair is known; other log clips get none.
     const lut = c => ex.lut !== false && c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine' ? ' customLUTOverride="35 (Sony_SLog3_SGamut3Cine_v2)"' : '';
-    // the camera's timecode as where the clip starts, so Final Cut shows the same in and out as the camera (and a relink by
-    // timecode finds the file): the Sony sidecar's first LtcChange, counted at the timecode's own rate (24 for 23.98, 30 for
-    // 29.97, non-drop as tcFormat says) times the frame length. 0s when the clip has none or it doesn't read as timecode.
-    // (the LtcChange value is eight digits, frames, seconds, minutes, hours as decimal pairs: "16324420" is 20:44:32:16)
-    const ltcF = (v, rate) => { const s = String(v || ''); if (!/^\d{8}$/.test(s) || !(rate > 0)) return 0; const ff = +s.slice(0, 2), ss = +s.slice(2, 4), mm = +s.slice(4, 6), hh = +s.slice(6, 8); return hh > 23 || mm > 59 || ss > 59 || ff >= rate ? 0 : ((hh * 60 + mm) * 60 + ss) * rate + ff; };
-    const t0 = (c, f) => { const fr = ltcF(c.ltc, Math.round(f.dd / f.n)); return fr ? fr * f.n + '/' + f.dd + 's' : '0s'; };
+    // every clip starts at 0s, where Final Cut reads it: Final Cut takes a file's start from the file itself and reads 00:00:00:00
+    // for Sony MP4s, sidecar or not, so a start at the camera's LtcChange left the clip with "no shared media range" (Modified File,
+    // no relink; 2026-10-15). The timecode stays in Skim (c.ltc).
+    const t0 = () => '0s';
     // the sound as the camera or the file states it (round 2, fcpxml item 3); a clip whose sound was never read keeps hasAudio="1"
     const AR = {32000:'32k', 44100:'44.1k', 48000:'48k', 88200:'88.2k', 96000:'96k', 176400:'176.4k', 192000:'192k'};
     const aud = c => c.ach > 0 ? ' hasAudio="1" audioSources="1" audioChannels="' + c.ach + '"' + (AR[c.arate] ? ' audioRate="' + AR[c.arate] + '"' : '') : c.ach === 0 ? ' hasAudio="0"' : ' hasAudio="1"';
