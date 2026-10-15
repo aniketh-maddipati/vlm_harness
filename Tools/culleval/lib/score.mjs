@@ -103,6 +103,9 @@ export function bestOf(groups, kept) {
   return out;
 }
 
+// The core's flags, in the report's order.
+export const FLAGS = ['soft', 'blown', 'shake', 'dark'];
+
 // Sum of several picks() / pairwise() results (their counts), ratios recomputed.
 export function pool(list) {
   const s = { tp: 0, fp: 0, fn: 0, tn: 0, frames: 0 };
