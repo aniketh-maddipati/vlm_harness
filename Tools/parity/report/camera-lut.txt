@@ -1,0 +1,9 @@
+camera profile as learned colour tables vs today's form, held-out photos, ΔE2000 median / p95 (median over photos)
+style      train test    base (Adobe)   today (10 numbers)        table 9³       table 17³
+Standard     110   50    2.80 /  6.03         2.43 /  5.76    3.87 /  7.76    2.91 /  6.44
+Neutral       80   80    2.38 /  4.98         1.12 /  2.88    2.81 /  6.74    1.54 /  4.04
+Deep          95   65    6.11 / 10.64         2.60 /  6.35    4.17 /  9.04    2.53 /  6.97   (split by file: one shoot)
+Landscape     29   13    3.72 /  7.31         1.47 /  4.37    2.83 /  6.40    1.40 /  4.00   (split by file: one shoot)
+Light         26   12    4.35 /  7.62         3.22 /  7.28    3.46 /  9.37    2.66 /  7.87   (split by file: one shoot)
+Portrait      23    9    2.84 /  3.77         1.78 /  2.96    2.73 /  5.59    1.39 /  3.66   (split by file: one shoot)
+smooth 1.0; tables in /Users/aniketh/LuminaEvidence/camera-profile/luts.json

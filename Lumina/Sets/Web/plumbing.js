@@ -94,7 +94,7 @@
     HOOKS.filter(k => typeof window[k] !== 'function').map(k => 'window.' + k));
   // The native read (below) repeats the page's onDir and readOne step for step. When a design sync
   // changes either, the contract check reports it so the repeat gets reviewed; the app keeps working.
-  const ONDIR = 3232859415;
+  const ONDIR = 2744738129;
   const fnv = t => { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
   const readHash = logic => {
     const proto = logic && Object.getPrototypeOf(logic);
@@ -411,7 +411,7 @@
       const ph = LuminaCore.phoneOf(m); if (ph) { m.flReal = m.fl; if (m.fl35) m.fl = m.fl35; m.model = ph.short; m.lens = ph.zoom ? ph.zoom + ' camera' : m.lens; }
       const xk = rel.replace(/\.[^.\/]+$/, '').toLowerCase(), xo = xmpMap[xk] || null, xpath = xo ? xo.path : rel.replace(/\.[^.\/]+$/, '') + '.xmp';
       const baseP = { lowpv: !!m._lowpv, wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, model: m.model || null, make: m.make || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, bytes: f.size, lens: m.lens || null, serial: m.serial || null,
-        program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null,
+        program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, style: m.style || null, releaseMode2: m.releaseMode2 ?? null,
         fileObj: fileRef(rel), xpath, xmp: xo && xo.tx, lrEd: LuminaCore.hasDevelop(xo && xo.tx), name, path: rel, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso };
       let me = null, portrait = false, tb = null;
       try {
@@ -1078,9 +1078,9 @@
   //     canvas, the image path and the JPEG export, whichever reference the page had then.
   //   · Sharpening rests at 40 on the page, Lightroom's RAW default; the Mac's 0 is no sharpening
   //     (its Sharpness sweep starts from 0, Tools/parity/README.md). A look without `shp` is 40.
-  // And with the Mac's `lumina-camera-profile` setting on, every look gets the camera profile
-  // (`prof:camera`) until the page has a control for it (DESIGN-ASKS Prompt 28).
-  const SHP_DEFAULT = 40, CAMERA_PROFILE = !!cfg.cameraProfile;
+  //   · The profile: the page's Camera (the camera's own look for the photo's Creative Style) is its
+  //     default and writes no key; Adobe Color writes `prof:adobe`. A look without `prof` is camera.
+  const SHP_DEFAULT = 40;
   const macLook = (look, p) => {
     const out = String(look || '').trim().split(/\s+/).filter(Boolean);
     if (out.some(t => t.startsWith('wb:')) && !out.some(t => t.startsWith('wbref:'))) {
@@ -1089,7 +1089,7 @@
       out.push('wbref:' + k + '/' + (t > 0 ? '+' : '') + t);
     }
     if (!out.some(t => t.startsWith('shp:'))) out.push('shp:' + SHP_DEFAULT);
-    if (CAMERA_PROFILE && !out.some(t => t.startsWith('prof:'))) out.push('prof:camera');
+    if (!out.some(t => t.startsWith('prof:'))) out.push('prof:camera');
     return out.join(' ');
   };
   // A photo the Mac can't put on the canvas (not in the shoot, canvasEnter refused): there is no
