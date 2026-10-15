@@ -43,7 +43,11 @@ eq('drop onto a stack merges',kinds(LC.buildShoot(fx.stacks.input,fx.stackMerge.
   { const m=head([[0x0110,2,new Uint8Array([73,76,67,69,0])],[0x8769,4,{ifd:[[0x927C,7,mn(3)]]}]]); eq('SONY-less MakerNote is read · frame 3 of 5 → seqImage 3',m&&m.seqImage,3); }
   { const m=head([[0x0110,2,new Uint8Array([73,76,67,69,0])],[0x8769,4,{ifd:[[0x927C,7,mn(0)]]}]]); eq('single shot → seqImage null',m&&m.seqImage,null); } }
 { const base=(i,o)=>({name:'DSC'+(10000+i)+'.ARW',path:'s/'+i,date:'2026:09:26 15:00:'+String(o.sec??i*3).padStart(2,'0'),exp:0.004,fl:50,ev:null,iso:100,lens:'FE 50',lum:0.5,focus:300,clip:0,portrait:false,src:'',lg:'',...o}), fl=(d,k)=>d.order.map(id=>d.byId[id][k]);
-  eq('a single is never soft',fl(LC.buildShoot([base(0,{focus:5})],{}),'soft'),[false]);
+  eq('a single alone in its row is never soft',fl(LC.buildShoot([base(0,{focus:5,spot:1})],{}),'soft'),[false]);
+  eq('single far under its row with nothing sharp → soft',fl(LC.buildShoot([0,1,2,3].map(i=>base(i,{focus:i===3?40:300,spot:i===3?20:900})),{}),'soft'),[false,false,false,true]);
+  eq('single far under its row with a sharp patch (shallow focus, fog) → not soft',fl(LC.buildShoot([0,1,2,3].map(i=>base(i,{focus:i===3?40:300,spot:900})),{}),'soft'),[false,false,false,false]);
+  eq('single with nothing sharp but near its row (a soft scene) → not soft',fl(LC.buildShoot([0,1,2,3].map(i=>base(i,{focus:i===3?200:300,spot:i===3?20:900})),{}),'soft'),[false,false,false,false]);
+  eq('soft single is not a suggested keep',(d=>d.sugKeep[d.order[3]]||false)(LC.buildShoot([0,1,2,3].map(i=>base(i,{focus:i===3?40:300,spot:i===3?20:900})),{})),false);
   eq('burst frame under 0.45× its sharpest is soft',fl(LC.buildShoot([0,1,2].map(i=>base(i,{sec:0,seqImage:i+1,focus:[300,100,290][i]})),{}),'soft'),[false,true,false]);
   eq('a bracket is never blown',fl(LC.buildShoot([0,1,2].map(i=>base(i,{sec:0,releaseMode2:2,clip:[20,0,1][i]})),{}),'blown'),[false,false,false]);
   eq('single at 6 % clip, row median 1 % → blown',fl(LC.buildShoot([0,1,2,3,4].map(i=>base(i,{clip:i===4?6:1})),{}),'blown')[4],true);
