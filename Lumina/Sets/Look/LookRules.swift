@@ -26,8 +26,11 @@ nonisolated struct LookRules: Codable, Equatable, Sendable {
     var order: [String] = LookRules.canonicalOrder
     var stages: [String: Stage] = [:]
 
-    /// Where the stages sit, and why the two added ones sit where they do:
+    /// Where the stages sit, and why the added ones sit where they do:
     ///
+    /// - `camera` (the camera profile) comes first, right on the base: it swaps Adobe Color for the
+    ///   camera's own look, and every slider then works on top of it, as in Lightroom, where the
+    ///   profile sits under the Basic panel.
     /// - `curve` (the tone curve) comes after every stage that sets the tones (exposure, white
     ///   balance, whites and blacks, highlights and shadows, contrast): it is display-referred, a
     ///   map from the tone the picture has to the tone it should have, as in Lightroom, where the
@@ -38,7 +41,7 @@ nonisolated struct LookRules: Codable, Equatable, Sendable {
     ///   trims (with `bw` the picture has no chroma left and the mixer does nothing, as on the
     ///   page, which hides it then). Clarity and sharpening then see the final luminances, and
     ///   the vignette stays last, over everything, as a post-crop effect.
-    static let canonicalOrder = ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer",
+    static let canonicalOrder = ["rawDevelop", "camera", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer",
                                  "clarity", "sharpen", "vignette", "outputTransform"]
     static let fileName = "rules-v1.json"
 
@@ -61,7 +64,7 @@ nonisolated struct LookRules: Codable, Equatable, Sendable {
     /// loads: the stage is put at its canonical place with no coefficients, i.e. the code's
     /// fallbacks, which are the shipped numbers. It changes nothing for a look that does not
     /// use the stage.
-    static let addedStages: [(name: String, after: String)] = [("curve", "contrast"), ("mixer", "colour")]
+    static let addedStages: [(name: String, after: String)] = [("curve", "contrast"), ("mixer", "colour"), ("camera", "rawDevelop")]
 
     func upgraded() -> LookRules {
         var r = self

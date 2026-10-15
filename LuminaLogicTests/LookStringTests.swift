@@ -49,6 +49,21 @@ final class LookStringTests: XCTestCase {
         XCTAssertEqual(try Look.parse(l.format()), l)
     }
 
+    /// `prof:camera`: the camera profile. Written only when set; `prof:adobe` is the default.
+    func testCameraProfile() throws {
+        XCTAssertFalse(Look().camera)
+        let l = try Look.parse("prof:camera ev:+0.30")
+        XCTAssertTrue(l.camera)
+        XCTAssertFalse(l.isNeutral, "the camera profile changes the render")
+        XCTAssertTrue(l.format().contains(" prof:camera"))
+        XCTAssertEqual(try Look.parse(l.format()), l)
+        XCTAssertFalse(try Look.parse("prof:adobe").camera)
+        XCTAssertFalse(Look().format().contains("prof"))
+        XCTAssertThrowsError(try Look.parse("prof:vivid"))
+        XCTAssertTrue(l.runs("camera")); XCTAssertFalse(Look().runs("camera"))
+        XCTAssertTrue(Look().toggling("camera").camera)
+    }
+
     /// `rot`: a quarter turn, geometry like the crop. Written only when set, last.
     func testQuarterTurn() throws {
         XCTAssertEqual(Look().rot, 0)
@@ -147,7 +162,7 @@ final class LookStringTests: XCTestCase {
         let l = try Look.parse(s)
         XCTAssertEqual(l.format(), s)
         XCTAssertEqual(try Look.parse(s.split(separator: " ").reversed().joined(separator: " ")), l, "any order")
-        XCTAssertEqual(Look.keys, ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot"])
+        XCTAssertEqual(Look.keys, ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "crop", "rot"])
         let old = "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:-20 nr:40 bw:1 crop:0.1000,0.2000,0.5000,0.6000/-1.50"
         XCTAssertEqual(try Look.parse(old).format(), old)
     }

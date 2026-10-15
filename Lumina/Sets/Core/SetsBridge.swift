@@ -1103,6 +1103,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     // MARK: Settings (MENUS.md): stored per user
 
     static let prefsKey = "lumina-prefs"
+    /// Edit renders every photo with the camera profile (`prof:camera`) until the page has a
+    /// control for it (DESIGN-ASKS Prompt 28). Off unless set: `defaults write <bundle id> lumina-camera-profile -bool true`.
+    static let cameraProfileKey = "lumina-camera-profile"
 
     static var prefs: [String: Any]? {
         guard let text = UserDefaults.standard.string(forKey: prefsKey), let data = text.data(using: .utf8) else { return nil }
