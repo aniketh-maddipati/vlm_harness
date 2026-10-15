@@ -758,7 +758,7 @@ final class LookCanvasController: NSObject {
     /// export at the same size). Nil until the bases exist.
     func renderToImage() -> CGImage? {
         guard let c = current, let e = c.entry else { return nil }
-        let img = pipeline.apply(c.look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot, anchor: e.anchor, masks: placedMasks(c.look)?.placed(photo: e.toPhoto(small: false))), crop: false)
+        let img = pipeline.apply(c.look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot, anchor: e.anchor, style: e.style, masks: placedMasks(c.look)?.placed(photo: e.toPhoto(small: false))), crop: false)
         return pipeline.context.createCGImage(pipeline.output(img), from: img.extent.integral, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
     }
 
@@ -1042,7 +1042,7 @@ final class LookCanvasController: NSObject {
         if tier == .small { src = source.small; srcSize = source.smallSize } else { src = source.base; srcSize = source.baseSize }
         let masks = placedMasks(look)
         var photo = source.toPhoto(small: tier == .small)
-        var image = pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: source.asShot, anchor: source.anchor, masks: masks?.placed(photo: photo)), crop: false)
+        var image = pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: source.asShot, anchor: source.anchor, style: source.style, masks: masks?.placed(photo: photo)), crop: false)
         // Where the photo goes: fit the canvas (contain), or the zoomed region filling it.
         let dw = size.width, dh = size.height
         var visible = CGRect(origin: .zero, size: srcSize)
@@ -1059,7 +1059,7 @@ final class LookCanvasController: NSObject {
         if tier == .base, !cropDraft.active, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z, reg.rot == look.rot {
             region = reg
             photo = reg.photo
-            let regionImage = pipeline.apply(look, to: LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, masks: masks?.placed(photo: photo)), crop: false)
+            let regionImage = pipeline.apply(look, to: LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, style: reg.style, masks: masks?.placed(photo: photo)), crop: false)
             let vis = CGRect(x: z.x * reg.photoSize.width, y: (1 - z.y - z.h) * reg.photoSize.height, width: z.w * reg.photoSize.width, height: z.h * reg.photoSize.height)
             image = regionImage.cropped(to: vis.intersection(reg.rect))
             visible = vis

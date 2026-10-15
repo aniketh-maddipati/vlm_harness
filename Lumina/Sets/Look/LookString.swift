@@ -48,6 +48,9 @@ nonisolated struct Look: Equatable, Sendable {
     var mixer = Mixer()
     /// Black and white: chroma to zero in the colour stage. Optional key `bw:1`.
     var bw: Bool = false
+    /// The profile: Adobe Color (Lumina's base, the default) or the camera's own look for the
+    /// Creative Style the photo was shot with (`prof:camera`, the `camera` stage). Optional key.
+    var camera: Bool = false
     var crop: Crop?
     /// A quarter turn of the picture, clockwise: 0, 90, 180 or 270 (`rot:90`). Geometry like the
     /// crop, and applied after it: the crop box and its straighten angle stay in the frame as
@@ -222,7 +225,7 @@ nonisolated struct Look: Equatable, Sendable {
     /// The crop tool's aspect preset: what the crop box was drawn with, not something to render.
     static let pageOnly: Set<String> = ["cropRatio"]
     /// Canonical key order; also the order `format` writes.
-    static let keys = ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "nr", "bw", "crop", "rot", "mask"]
+    static let keys = ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "crop", "rot", "mask"]
     /// The plain numeric sliders, key → field.
     static let sliders: [String: WritableKeyPath<Look, Double>] = [
         "ev": \.ev, "con": \.contrast, "hl": \.highlights, "sh": \.shadows, "wh": \.whites, "bl": \.blacks,
@@ -233,7 +236,7 @@ nonisolated struct Look: Equatable, Sendable {
     /// develop's own noise reduction, `nr`, which lives in the RAW stage).
     var isNeutral: Bool {
         ev == 0 && wb == nil && contrast == 0 && highlights == 0 && shadows == 0 && whites == 0 && blacks == 0
-            && vibrance == 0 && saturation == 0 && clarity == 0 && sharpen == 0 && vignette == 0 && !bw
+            && vibrance == 0 && saturation == 0 && clarity == 0 && sharpen == 0 && vignette == 0 && !bw && !camera
             && curve.isNeutral && mixer.isNeutral && locals.isEmpty
     }
 
@@ -334,6 +337,9 @@ nonisolated struct Look: Equatable, Sendable {
                 look.vignetteShape = VignetteShape(midpoint: v[0], roundness: v[1], feather: v[2], highlights: v[3])
             case "bw":
                 look.bw = raw == "1" || raw == "true"
+            case "prof":
+                guard raw == "camera" || raw == "adobe" else { throw ParseError(description: "prof wants camera or adobe, got '\(raw)'") }
+                look.camera = raw == "camera"
             case "nr":
                 look.nr = clamp(try number(raw, "nr"), nrRange)
             case "wbref":
@@ -397,7 +403,7 @@ nonisolated struct Look: Equatable, Sendable {
     // MARK: Format
 
     /// Canonical text. Reset values are written too (the page can diff two looks by eye); `wb`,
-    /// `vigs`, the curve keys, the mixer keys, `nr`, `bw`, `crop` and `rot` only when set; each
+    /// `vigs`, the curve keys, the mixer keys, `prof`, `nr`, `bw`, `crop` and `rot` only when set; each
     /// `mask:` token only with the keys it has off reset (ev to 2 places, the others whole).
     func format() -> String {
         func signed(_ v: Double, _ decimals: Int) -> String {
@@ -434,6 +440,7 @@ nonisolated struct Look: Equatable, Sendable {
             let v = mixer[keyPath: field]
             if v.contains(where: { $0 != 0 }) { out.append("\(key):" + v.map { signed($0, 0) }.joined(separator: ",")) }
         }
+        if camera { out.append("prof:camera") }
         if let nr { out.append("nr:\(Int(nr.rounded()))") }
         if bw { out.append("bw:1") }
         if let c = crop {

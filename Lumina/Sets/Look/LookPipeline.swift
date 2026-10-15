@@ -42,6 +42,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         /// The photo's automatic masks, placed on this image: what a look's `mask:` tokens blend
         /// through. Nil (no masks known) renders the look without them.
         var masks: PhotoMasks? = nil
+        /// The Creative Style the camera shot with (`LookCameraStyle`), for the camera profile.
+        /// Nil for anything not read from a Sony RAW (the embedded JPEG already is the camera's look).
+        var style: String? = nil
         var extent: CGRect { image.extent }
         var longEdge: CGFloat { max(image.extent.width, image.extent.height) }
 
@@ -204,7 +207,8 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         }
         guard let out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite else { throw Failure("couldn't decode \(url.lastPathComponent)") }
         let asShot = Look.WhiteBalance(kelvin: Double(raw.neutralTemperature), tint: Double(raw.neutralTint))
-        return Developed(image: try baseMatched(Self.atOrigin(out), rules: rules), asShot: asShot, anchor: toneAnchor(raw: url, rules: rules))
+        return Developed(image: try baseMatched(Self.atOrigin(out), rules: rules), asShot: asShot, anchor: toneAnchor(raw: url, rules: rules),
+                         style: LookCameraStyle.read(url: url))
     }
 
     // MARK: the tone anchor
@@ -260,14 +264,18 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     static func baseMatched(_ img: CIImage, rules: LookRules) throws -> CIImage {
         let m = LookMath.BaseMatch(rules)
         guard !m.isIdentity else { return img }
-        let w = m.rows, lum = rules.luma
-        let args: [Any] = [img, CIVector(x: w[0][0], y: w[0][1], z: w[0][2], w: 0), CIVector(x: w[1][0], y: w[1][1], z: w[1][2], w: 0),
-                           CIVector(x: w[2][0], y: w[2][1], z: w[2][2], w: 0),
-                           CIVector(x: m.lift, y: m.s, z: 1 / rules.perceptualGamma, w: rules.perceptualGamma),
-                           CIVector(x: lum[0], y: lum[1], z: lum[2], w: 0),
-                           CIVector(x: m.hiDesat, y: m.hiFrom, z: m.loDesat, w: m.loBelow)]
-        guard let out = try LookKernels.shared().apply("lookBase", extent: img.extent, args) else { throw Failure("base match failed") }
+        guard let out = try LookKernels.shared().apply("lookBase", extent: img.extent, baseArgs(img, m, rules)) else { throw Failure("base match failed") }
         return out
+    }
+
+    /// `lookBase`'s arguments for one base match (rawDevelop's, or the camera profile's).
+    static func baseArgs(_ img: CIImage, _ m: LookMath.BaseMatch, _ rules: LookRules) -> [Any] {
+        let w = m.rows, lum = rules.luma
+        return [img, CIVector(x: w[0][0], y: w[0][1], z: w[0][2], w: 0), CIVector(x: w[1][0], y: w[1][1], z: w[1][2], w: 0),
+                CIVector(x: w[2][0], y: w[2][1], z: w[2][2], w: 0),
+                CIVector(x: m.lift, y: m.s, z: 1 / rules.perceptualGamma, w: rules.perceptualGamma),
+                CIVector(x: lum[0], y: lum[1], z: lum[2], w: 0),
+                CIVector(x: m.hiDesat, y: m.hiFrom, z: m.loDesat, w: m.loBelow)]
     }
 
     /// The radial gain of `LookLensShading` as an image over `extent` (the centre of the frame is
@@ -400,6 +408,11 @@ nonisolated final class LookPipeline: @unchecked Sendable {
 
         for stage in r.lookStages where look.runs(stage) {
             switch stage {
+            case "camera":
+                // The camera's look for the photo's Creative Style, the base match's form with the
+                // style's numbers. Nothing without a style: an embedded JPEG already is the camera's look.
+                guard dev.style != nil, let m = LookMath.BaseMatch(camera: dev.style, r), !m.isIdentity else { continue }
+                pass("lookBase", Self.baseArgs(img, m, r))
             case "exposure":
                 let g = LookMath.exposureGain(look.ev, r), w = LookMath.exposureWhite(r)
                 pass("lookExposure", [img, CIVector(x: g, y: w)])
@@ -635,7 +648,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         let e = dev.extent.integral
         guard let cg = context.createCGImage(dev.image, from: e, format: .RGBAh, colorSpace: workingSpace) else { throw Failure("rasterise failed") }
         // The bitmap starts at the extent's origin, the image at (0, 0): the masks move with it.
-        var out = Developed(image: CIImage(cgImage: cg), asShot: dev.asShot, anchor: dev.anchor)
+        var out = Developed(image: CIImage(cgImage: cg), asShot: dev.asShot, anchor: dev.anchor, style: dev.style)
         out.masks = dev.masks?.placed(CGAffineTransform(translationX: -e.minX, y: -e.minY))
         return (out, cg.bytesPerRow * cg.height)
     }

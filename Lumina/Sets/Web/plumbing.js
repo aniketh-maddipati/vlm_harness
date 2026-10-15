@@ -1091,7 +1091,9 @@
   //     canvas, the image path and the JPEG export, whichever reference the page had then.
   //   · Sharpening rests at 40 on the page, Lightroom's RAW default; the Mac's 0 is no sharpening
   //     (its Sharpness sweep starts from 0, Tools/parity/README.md). A look without `shp` is 40.
-  const SHP_DEFAULT = 40;
+  // And with the Mac's `lumina-camera-profile` setting on, every look gets the camera profile
+  // (`prof:camera`) until the page has a control for it (DESIGN-ASKS Prompt 30).
+  const SHP_DEFAULT = 40, CAMERA_PROFILE = !!cfg.cameraProfile;
   const macLook = (look, p) => {
     const out = String(look || '').trim().split(/\s+/).filter(Boolean);
     if (out.some(t => t.startsWith('wb:')) && !out.some(t => t.startsWith('wbref:'))) {
@@ -1100,6 +1102,7 @@
       out.push('wbref:' + k + '/' + (t > 0 ? '+' : '') + t);
     }
     if (!out.some(t => t.startsWith('shp:'))) out.push('shp:' + SHP_DEFAULT);
+    if (CAMERA_PROFILE && !out.some(t => t.startsWith('prof:'))) out.push('prof:camera');
     return out.join(' ');
   };
   // A photo the Mac can't put on the canvas (not in the shoot, canvasEnter refused): there is no

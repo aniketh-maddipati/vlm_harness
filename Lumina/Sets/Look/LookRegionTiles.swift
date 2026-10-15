@@ -50,6 +50,7 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let image: CIImage           // the composite, origin at rect.origin
         let asShot: Look.WhiteBalance
         let anchor: LookMath.ToneAnchor           // the photo's tone anchor, the same one its bases carry
+        var style: String? = nil                  // the photo's Creative Style, as its bases carry it
         let tiles: Int
         let fromCache: Int
         let firstTileMs: Double
@@ -175,10 +176,10 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let turn = LookPipeline.turnTransform(size: size, rot: rot)
         if !turn.isIdentity {
             return Region(rel: rel, decoder: decoder, roi: roi, rot: rot, photoSize: rot % 180 == 0 ? size : CGSize(width: size.height, height: size.width),
-                          rect: rect.applying(turn), image: composite.transformed(by: turn), asShot: dev.asShot, anchor: dev.anchor,
+                          rect: rect.applying(turn), image: composite.transformed(by: turn), asShot: dev.asShot, anchor: dev.anchor, style: dev.style,
                           tiles: tiles.count, fromCache: hits, firstTileMs: firstMs, totalMs: total, facts: facts)
         }
-        return Region(rel: rel, decoder: decoder, roi: roi, photoSize: size, rect: rect, image: composite, asShot: dev.asShot, anchor: dev.anchor,
+        return Region(rel: rel, decoder: decoder, roi: roi, photoSize: size, rect: rect, image: composite, asShot: dev.asShot, anchor: dev.anchor, style: dev.style,
                       tiles: tiles.count, fromCache: hits, firstTileMs: firstMs, totalMs: total, facts: facts)
     }
 

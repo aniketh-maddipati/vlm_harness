@@ -4,12 +4,17 @@
   "workingSpace": "extendedLinearSRGB",
   "perceptualGamma": 2.2,
   "luma": [0.2126, 0.7152, 0.0722],
-  "order": ["rawDevelop", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer", "clarity", "sharpen", "vignette", "outputTransform"],
+  "order": ["rawDevelop", "camera", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer", "clarity", "sharpen", "vignette", "outputTransform"],
   "stages": {
     "rawDevelop": {
       "locked": false,
       "form": "CIRAWFilter, Apple's default profile, no auto; scaleFactor for size; draft mode below draftBelowPx; lensShading undoes the lens's corner falloff in linear space with the camera's own VignettingCorrParams, scaled in stops (LookLensShading: 1 is the camera's partial correction; Lightroom's lens profile is 1.3-2.2x that on the sweep); then the base match to Lightroom's Adobe Color (LookMath.baseMatch): a luma midtone curve p + baseLift*p*(1-p) + baseS*p*(1-p)*(p-0.5) in perceptual space, and a colour mix with off-diagonals baseRG … baseBG whose rows sum to 1; last, colour fades toward the pixel's luma near white (baseHiDesat above perceptual baseHiFrom) and in the deepest shadows (baseLoDesat below baseLoBelow)",
       "coefficients": { "boostAmount": 1.0, "draftBelowPx": 0, "lensShading": 1.6, "baseRG": 0.13533, "baseRB": -0.00287, "baseGR": -0.00067, "baseGB": 0.13514, "baseBR": 0.0025, "baseBG": 0.01245, "baseLift": 0.03303, "baseS": 0.30271, "baseHiDesat": 0.6218, "baseHiFrom": 0.9251, "baseLoDesat": 0.5062, "baseLoBelow": 0.1964 }
+    },
+    "camera": {
+      "locked": false,
+      "form": "the camera profile (look key prof:camera): the camera's own look for the Creative Style the photo was shot with (Sony MakerNote 0xB020, LookCameraStyle), on top of the base. The base match's form (LookMath.baseMatch) with the style's numbers, named <style>Lift, <style>S, <style>RG … <style>LoDesat; a style without numbers uses standard's. Fitted from Lumina's base to each ARW's embedded JPEG (Tools/parity/camera_fit.py), measured on held-out shoots",
+      "coefficients": { "standardLift": -0.02844, "standardS": -0.52794, "standardRG": 0.05772, "standardRB": -0.06138, "standardGR": -0.03127, "standardGB": -0.14154, "standardBR": 0.04469, "standardBG": -0.11926, "standardHiDesat": 0.0, "standardLoDesat": 0.46354, "neutralLift": -0.10323, "neutralS": -0.36677, "neutralRG": -0.02187, "neutralRB": 0.09813, "neutralGR": 0.01415, "neutralGB": 0.01091, "neutralBR": 0.04772, "neutralBG": 0.07948, "neutralHiDesat": 0.0, "neutralLoDesat": 0.88356, "deepLift": -0.38873, "deepS": -0.88175, "deepRG": -0.11468, "deepRB": -0.00406, "deepGR": -0.00947, "deepGB": -0.20256, "deepBR": -0.03598, "deepBG": 0.02911, "deepHiDesat": 0.0, "deepLoDesat": 0.10464, "landscapeLift": -0.05604, "landscapeS": 0.12396, "landscapeRG": -0.41915, "landscapeRB": 0.10747, "landscapeGR": -0.09026, "landscapeGB": -0.20679, "landscapeBR": -0.08719, "landscapeBG": -0.23796, "landscapeHiDesat": 0.0, "landscapeLoDesat": 0.37748, "lightLift": -0.00762, "lightS": -0.35227, "lightRG": 0.04579, "lightRB": -0.18034, "lightGR": 0.01733, "lightGB": -0.12727, "lightBR": 0.0051, "lightBG": -0.03861, "lightHiDesat": 0.0, "lightLoDesat": 0.0, "portraitLift": -0.05153, "portraitS": -0.89437, "portraitRG": -0.2572, "portraitRB": 0.07265, "portraitGR": 0.08176, "portraitGB": 0.00889, "portraitBR": 0.11899, "portraitBG": -0.26104, "portraitHiDesat": 0.0, "portraitLoDesat": 0.0 }
     },
     "exposure": {
       "locked": false,

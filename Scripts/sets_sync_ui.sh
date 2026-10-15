@@ -5,10 +5,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT/Scripts/page_files.sh"
 DST="$ROOT/Lumina/Sets/Web"
-# Page files from an earlier handoff (renamed since) must not linger in the bundle.
+# Page files from an earlier handoff (renamed since) must not linger in the bundle. Other byte copies
+# SetsPageBytesTests lists (the Skim page and its data) are not this page's and stay.
+KEEP=("${PAGE_FILES[@]}")
+while IFS= read -r p; do KEEP+=("$p"); done < <(grep -oE '"Lumina/Sets/Web/[^"]+"' "$ROOT/LuminaLogicTests/SetsPageBytesTests.swift" | tr -d '"' | xargs -I{} basename {})
 for f in "$DST"/*.dc.html "$DST"/lumina-*.js; do
   [[ -e $f ]] || continue
-  keep=0; for p in "${PAGE_FILES[@]}"; do [[ $(basename "$f") == "$p" ]] && keep=1; done
+  keep=0; for p in "${KEEP[@]}"; do [[ $(basename "$f") == "$p" ]] && keep=1; done
   [[ $keep == 1 ]] || { rm "$f"; echo "removed stale $(basename "$f")"; }
 done
 for f in "${PAGE_FILES[@]}"; do cp "$ROOT/design/handoff/lumina-cull/$f" "$DST/"; done

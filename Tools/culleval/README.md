@@ -3,7 +3,7 @@
 How well do Lumina's rows, stacks and automatic keeps match what was really shot and what the
 photographer really kept? This measures it. It changes nothing: the logic under test is the design's
 own `lumina-core` (`design/handoff/lumina-cull`, shipped byte for byte), loaded as it is. A problem
-it finds goes into `design/handoff/DESIGN-ASKS.md`.
+it finds is fixed in the page (AGENTS.md, "The rule").
 
 ```bash
 make culleval          # every shoot in ~/LuminaEvidence/culleval/shoots.json → report (0.2 s once cached)

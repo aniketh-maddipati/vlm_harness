@@ -56,6 +56,38 @@ def linear(p, rules):
     return np.power(np.maximum(0.0, p), gamma(rules))
 
 
+# ---- the base match form (LookMath.baseMatch): rawDevelop's base, and the camera profile ---------
+
+BASE_KEYS = ("lift", "s", "rg", "rb", "gr", "gb", "br", "bg", "hiDesat", "hiFrom", "loDesat", "loBelow")
+BASE_RESET = {"lift": 0.0, "s": 0.0, "rg": 0.0, "rb": 0.0, "gr": 0.0, "gb": 0.0, "br": 0.0, "bg": 0.0,
+              "hiDesat": 0.0, "hiFrom": 0.9, "loDesat": 0.0, "loBelow": 0.2}
+
+
+def base_match(rgb, m, rules):
+    """A midtone curve on luma (hue kept), a colour mix whose rows sum to 1, then colour fading
+    toward luma near white and in the deepest shadows (LookMath.baseMatch). m: BASE_KEYS."""
+    m = {**BASE_RESET, **m}
+    c = np.asarray(rgb, dtype=np.float64)
+    y = luma(c, rules)
+    p = perceptual(y, rules)
+    pc = np.clip(p, 0.0, 1.0)
+    y2 = linear(p + m["lift"] * p * (1 - pc) + m["s"] * p * (1 - pc) * (pc - 0.5), rules)
+    g = np.where(y > 1e-6, y2 / np.maximum(y, 1e-6), 1.0)
+    t = c * g[..., None]
+    rows = np.array([[1 - m["rg"] - m["rb"], m["rg"], m["rb"]],
+                     [m["gr"], 1 - m["gr"] - m["gb"], m["gb"]],
+                     [m["br"], m["bg"], 1 - m["br"] - m["bg"]]])
+    mixed = t @ rows.T
+    if m["hiDesat"] == 0 and m["loDesat"] == 0:
+        return mixed
+    ym = luma(mixed, rules)
+    q = np.clip(perceptual(ym, rules), 0.0, 1.0)
+    hi = np.clip((q - m["hiFrom"]) / max(1e-3, 1 - m["hiFrom"]), 0.0, 1.0)
+    lo = np.clip((m["loBelow"] - q) / max(1e-3, m["loBelow"]), 0.0, 1.0)
+    keep = np.clip(1 - m["hiDesat"] * hi * hi - m["loDesat"] * lo * lo, 0.0, 1.0)
+    return ym[..., None] + (mixed - ym[..., None]) * keep[..., None]
+
+
 # ---- look strings ---------------------------------------------------------------------------
 
 VIGNETTE_SHAPE = (50.0, 0.0, 50.0, 0.0)      # vigs: midpoint, roundness, feather, highlights at reset
@@ -88,7 +120,7 @@ def parse_look(s):
     """The look string → dict (the twelve sliders + bw). Mirrors Look.parse, without clamping."""
     look = {"ev": 0.0, "wb": None, "con": 0.0, "hl": 0.0, "sh": 0.0, "wh": 0.0, "bl": 0.0, "vib": 0.0, "sat": 0.0,
             "clr": 0.0, "shp": 0.0, "vig": 0.0, "vigs": VIGNETTE_SHAPE, "tc": (0.0, 0.0, 0.0),
-            "crv": None, "crvr": None, "crvg": None, "crvb": None, "mixh": (0.0,) * 8, "mixs": (0.0,) * 8, "mixl": (0.0,) * 8, "bw": False, "crop": None, "nr": None, "rot": 0}
+            "crv": None, "crvr": None, "crvg": None, "crvb": None, "mixh": (0.0,) * 8, "mixs": (0.0,) * 8, "mixl": (0.0,) * 8, "bw": False, "prof": "adobe", "crop": None, "nr": None, "rot": 0}
     s = (s or "").strip()
     if s in ("", "none"):
         return look
@@ -117,6 +149,11 @@ def parse_look(s):
             look[key] = None if identity else tuple(pts)
         elif key == "bw":
             look["bw"] = raw in ("1", "true")
+        elif key == "prof":
+            # The profile: adobe (the base) or camera (the `camera` stage, by the photo's Creative Style).
+            if raw not in ("adobe", "camera"):
+                raise ValueError(f"prof wants camera or adobe, got {raw!r}")
+            look["prof"] = raw
         elif key == "nr":
             # Detail ▸ luminance noise reduction: a develop (RAW stage) parameter, not a look stage.
             look["nr"] = min(100.0, max(0.0, float(raw)))
@@ -181,6 +218,8 @@ def format_look(look):
     for key in MIXER_KEYS:
         if any(look.get(key) or ()):
             out.append(f"{key}:" + ",".join(signed(v, 0) for v in look[key]))
+    if look.get("prof") == "camera":
+        out.append("prof:camera")
     if look.get("nr") is not None:
         out.append(f"nr:{int(round(look['nr']))}")
     if look.get("bw"):
