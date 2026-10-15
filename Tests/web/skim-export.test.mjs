@@ -50,7 +50,7 @@ test('Everything exports every clip; Only selected narrows it', () => {
 
 test('durations are whole frames of the clip format', () => {
   const { text } = buildFixture();
-  assert.match(text, /<format id="r1" frameDuration="1001\/24000s" width="3840" height="2160"\/>/);
+  assert.match(text, /<format id="r1" name="FFVideoFormat3840x2160p2398" frameDuration="1001\/24000s" width="3840" height="2160"\/>/);
   fx.clips.forEach((c, i) => {
     const want = `${c.durF * 1001}/24000s`;
     assert.equal(attr(text, 'asset', `a${i+1}`, 'duration'), want, c.name);
@@ -129,6 +129,12 @@ test('the file tells Final Cut to leave the clips where they are', () => {
   // Without it Final Cut copies media it imports from a removable drive into the library (71 GB off the T7, 2026-10-14).
   const { text } = buildFixture();
   assert.match(text, /<fcpxml version="1\.10">\n  <import-options>\n    <option key="copy assets" value="0"\/>\n  <\/import-options>\n  <resources>/);
+});
+test('a standard size and rate carries Final Cut\'s own format name, which the timeline needs', () => {
+  // An unnamed format on the sorted project's sequence imported with "Encountered an unexpected value. (format=\"r1\" …/sequence[1]/)".
+  const { text } = buildFixture();
+  const seq = /<sequence format="(r\d+)"/.exec(text)[1];
+  assert.match(text, new RegExp('<format id="' + seq + '" name="FFVideoFormat3840x2160p2398" frameDuration="1001/24000s"'));
 });
 test('Final Cut honours rating, keyword and timecode on import', { skip: '(FCP) needs an import check' }, () => {});
 

@@ -5089,7 +5089,12 @@ class Component extends DCLogic {
     if (ex.scenes) (this.SC || this.G || []).forEach((g, i) => g.clips.forEach(c => { scOf[c.id] = kwT('Scene ' + (i + 1) + (g.title ? ' · ' + g.title : '')); }));
     const clips = d.clips.filter(inc), FD = {24:[1001, 24000], 25:[100, 2500], 30:[1001, 30000], 50:[100, 5000], 60:[1001, 60000], 100:[100, 10000], 120:[1001, 120000]};
     const fmts = {}, fl = []; let fi = 1;
-    const fmt = c => { const r = c.fps || d.shoot.rate || 24, w = c.w || 3840, h = c.h || 2160, fd = c.fd || FD[r] || [1001, 24000], k = fd[0] + '/' + fd[1] + '-' + w + 'x' + h; if (!fmts[k]) { fmts[k] = {id:'r' + (fi++), n:fd[0], dd:fd[1]}; fl.push('    <format id="' + fmts[k].id + '" frameDuration="' + fd[0] + '/' + fd[1] + 's" width="' + w + '" height="' + h + '"/>'); } return fmts[k]; };
+    // Final Cut's own name for a standard size and rate ("FFVideoFormat3840x2160p2398"): a project's timeline needs one, an
+    // unnamed format there is "an unexpected value" on import (2026-10-15). Other sizes and rates stay unnamed, as clips accept.
+    const FFS = {'1280x720':'720p', '1920x1080':'1080p', '3840x2160':'3840x2160p', '4096x2160':'4096x2160p'};
+    const FFR = {'1001/24000':'2398', '100/2400':'24', '1/24':'24', '100/2500':'25', '1/25':'25', '1001/30000':'2997', '100/3000':'30', '1/30':'30', '100/5000':'50', '1/50':'50', '1001/60000':'5994', '100/6000':'60', '1/60':'60'};
+    const ffName = (fd, w, h) => FFS[w + 'x' + h] && FFR[fd[0] + '/' + fd[1]] ? 'FFVideoFormat' + FFS[w + 'x' + h] + FFR[fd[0] + '/' + fd[1]] : '';
+    const fmt = c => { const r = c.fps || d.shoot.rate || 24, w = c.w || 3840, h = c.h || 2160, fd = c.fd || FD[r] || [1001, 24000], k = fd[0] + '/' + fd[1] + '-' + w + 'x' + h; if (!fmts[k]) { fmts[k] = {id:'r' + (fi++), n:fd[0], dd:fd[1]}; fl.push('    <format id="' + fmts[k].id + '"' + (ffName(fd, w, h) ? ' name="' + ffName(fd, w, h) + '"' : '') + ' frameDuration="' + fd[0] + '/' + fd[1] + 's" width="' + w + '" height="' + h + '"/>'); } return fmts[k]; };
     // whole frames, never more than the file holds: the camera's own frame count when it gave one, else the length rounded down
     const rt = (c, f) => (c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01))) * f.n + '/' + f.dd + 's';
     // where the clips are: the real location when the page was given one (the app), else the folder the user named in Export
