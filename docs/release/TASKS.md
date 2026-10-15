@@ -5,7 +5,7 @@ in below; the first list (2026-10-01) is kept at the end, with what landed.
 
 Rules for every worker:
 - One task = one branch = one PR. Edit only the files the task owns; one merge owner.
-- Never touch `Lumina/Sets/Web/*` except `plumbing.js`. Anything visible goes to `design/handoff/DESIGN-ASKS.md` as "Prompt (number assigned at merge) — …".
+- Never touch `Lumina/Sets/Web/*` directly except `plumbing.js`. Anything visible is changed in the page in `design/handoff/` and copied over (ruled 2026-10-14; AGENTS.md, "The rule"). "Design ask" below is history: read it as a page change.
 - **Tests on this Mac run only when the user asked for that run**, through the guard (`Scripts/test_guard.py`, PR #184), bounded, one at a time, nothing left running at the end of a turn. A refusal is reported, never retried. No loops, no kill loops, no disk images, no screen-owning suites unasked. While `~/LuminaEvidence/.tests-off` exists, nothing runs here: the proof is CI on the PR.
 - Never run `gh pr merge --auto` on this repo: `main` has no required checks, so it merges at once.
 - CI builds Debug with the runner's older Xcode. Code must compile there and in Release with the local Xcode (the `SetsFirstAnswer` deinit broke Release for three merges).

@@ -51,4 +51,4 @@ The probe's hidden window does not capture the Metal photo, so the pictures belo
 
 - Screen references are still the v11 pictures. `bash Scripts/probe.sh screens` will differ until the new look is approved and recorded (`sets_sync_design.sh --record`). Do that after the list above, not before.
 - `lumina.still` is not implemented. Crop uses the Metal layer. If Crop ever shows only the thumbnail, the layer was hidden and that call is the missing piece.
-- The filmstrip, the grid choices, Reset, and 0° are the page's. If one of them is missing or worded wrong, it goes in `design/handoff/DESIGN-ASKS.md`. It does not get patched in this repo.
+- The filmstrip, the grid choices, Reset, and 0° are the page's. If one of them is missing or worded wrong, fix it in the page (`design/handoff/lumina-cull/`, then copied; AGENTS.md, "The rule").

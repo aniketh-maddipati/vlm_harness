@@ -1,3 +1,6 @@
+> **History (ruled 2026-10-14: "no more design asks, just make the ui").** No new prompts are written
+> here. UI changes are made in the page files in this repo (AGENTS.md, "The rule").
+
 # Design asks for the next handoff (after v8 / Edit v21)
 
 > **Status after the Prompts 20–24 handoff (2026-10-08).** The app now ships `Lumina Sets v12.dc.html`
