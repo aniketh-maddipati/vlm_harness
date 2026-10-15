@@ -54,6 +54,16 @@ eq('drop onto a stack merges',kinds(LC.buildShoot(fx.stacks.input,fx.stackMerge.
   eq('mergeXmp replaces the old Lumina pass keyword, keeps others',[m.includes('Lumina pass 3'),m.includes('Lumina pass 1'),m.includes('Family'),m.includes('Lumina|pass 3'),m.includes('Lumina|pass 1'),m.includes('People|Family')],[true,false,true,true,false,true]);
   const s=LC.mergeXmp('<x:xmpmeta><rdf:RDF><rdf:Description rdf:about="" xmp:Rating="1"/></rdf:RDF></x:xmpmeta>',2,null,'Lumina pass 2');
   eq('mergeXmp on a bare sidecar adds both bags',[s.includes('<rdf:li>Lumina pass 2</rdf:li>'),s.includes('<rdf:li>Lumina|pass 2</rdf:li>'),s.includes('xmp:Rating="2"')],[true,true,true]); }
+{ const spots=[{x:0.25,y:0.5,r:0.01},{x:0.9,y:0.1,r:0.004},{x:NaN,y:0.1,r:0.01}];
+  const bare=LC.freshXmp(3,null,null,null), d=LC.retouchXmp(bare,spots);
+  eq('retouchXmp: one heal per good spot, dabs as stored fractions',[(d.match(/crs:SpotType="heal"/g)||[]).length,d.includes('<rdf:li>d 0.250000 0.500000</rdf:li>'),d.includes('crs:Radius="0.004000"'),d.includes('xmp:Rating="3"')],[2,true,true,true]);
+  eq('retouchXmp: a ratings-only sidecar gets a current process and settings',[d.includes('crs:ProcessVersion="15.4"'),d.includes('crs:HasSettings="True"'),(d.match(/xmlns:crs=/g)||[]).length],[true,true,1]);
+  const lr=bare.replace('xmp:Rating="3"','xmp:Rating="3" crs:ProcessVersion="11.0" crs:HasSettings="True"').replace('/>','><crs:RetouchAreas><rdf:Seq><rdf:li/></rdf:Seq></crs:RetouchAreas></rdf:Description>');
+  eq('retouchXmp: Lightroom\'s own retouching is left alone',LC.retouchXmp(lr,spots),lr);
+  const pv=LC.retouchXmp(bare.replace('xmp:Rating="3"','xmp:Rating="3" crs:ProcessVersion="11.0"'),spots);
+  eq('retouchXmp: keeps the photo\'s process version',[pv.includes('crs:ProcessVersion="11.0"'),pv.includes('15.4')],[true,false]);
+  eq('retouchXmp: no spots, no change',LC.retouchXmp(bare,[]),bare);
+  eq('retouchXmp: mergeXmp after it keeps the heals',LC.mergeXmp(d,4,null,null).includes('crs:RetouchAreas'),true); }
 { const ex='ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0', srt=o=>JSON.stringify(Object.keys(o).sort().map(k=>[k,o[k]]));
   eq('look string: roadmap example parse → format is identical',LC.lookString(LC.parseLook(ex)),ex);
   const L={ev:0.35,wb:5600,tint:-4,crop:{x:0.1,y:0,w:0.8,h:1,ang:1.5,ratio:'4:5'},curve:[[0,0],[0.5,0.55],[1,1]],sat_red:-10,bw:true}, s=LC.lookString(L);
