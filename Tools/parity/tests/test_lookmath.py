@@ -31,10 +31,25 @@ class LookMathMirrorTests(unittest.TestCase):
                 yield s, v
 
     def test_rules_file_names_every_stage(self):
-        self.assertEqual(self.rules["order"], ["rawDevelop"] + lm.STAGES + ["outputTransform"])
+        # camera (the camera profile) runs on the base by the photo's Creative Style; the flat
+        # chain here has no photo, so it is in the rules and not in STAGES.
+        self.assertEqual(self.rules["order"], ["rawDevelop", "camera"] + lm.STAGES + ["outputTransform"])
         for s in lm.STAGES:
             self.assertIn(s, self.rules["stages"])
         self.assertAlmostEqual(sum(self.rules["luma"]), 1.0, places=3)
+
+    def test_camera_profiles_keep_greys_grey(self):
+        """Every style's camera profile: a grey stays the same grey, and the ramp only rises."""
+        c = self.rules["stages"]["camera"]["coefficients"]
+        names = {"Lift": "lift", "S": "s", "RG": "rg", "RB": "rb", "GR": "gr", "GB": "gb", "BR": "br", "BG": "bg", "HiDesat": "hiDesat", "LoDesat": "loDesat"}
+        styles = {k[:-4] for k in c if k.endswith("Lift")}
+        self.assertTrue(styles)
+        ramp = np.repeat(np.linspace(0, 1.2, 241)[:, None], 3, axis=1)
+        for st in styles:
+            m = {v: c[st + k] for k, v in names.items() if st + k in c}
+            out = lm.base_match(ramp, m, self.rules)
+            self.assertLess(np.max(np.abs(out - out[:, :1])), 1e-9, st)
+            self.assertTrue(np.all(np.diff(out[:, 1]) > 0), st)
 
     def test_reset_is_identity(self):
         np.testing.assert_allclose(lm.flat(self.ramp, lm.parse_look(""), AS_SHOT, self.rules), self.ramp, atol=1e-12)

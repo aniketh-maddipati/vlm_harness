@@ -714,6 +714,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             let dir = URL(fileURLWithPath: path, isDirectory: true)
             if body["files"] as? Bool == true { return (await Task.detached(priority: .userInitiated) { SkimPlaces.entries(in: dir) }.value?.map(\.json) ?? NSNull(), nil) }
             return (await Task.detached(priority: .userInitiated) { SkimPlaces.folders(in: dir) }.value?.map(\.json) ?? NSNull(), nil)
+        case "skimDirSize":
+            // A folder's total size for the tree (every file under it added up, sizes only), only inside a folder Lumina has
+            // access to, off the main thread. Read only.
+            guard let path = body["path"] as? String, SkimArrange.plain(path), skimGranted(path) else { return (NSNull(), nil) }
+            let dir = URL(fileURLWithPath: path, isDirectory: true)
+            return (await Task.detached(priority: .utility) { SkimPlaces.size(of: dir) }.value?.json ?? NSNull(), nil)
         case "skimFind":
             // Export's search: folders whose name holds every word typed, under the folders Lumina has access to (names only,
             // nothing opened), off the main thread. A newer search cancels the one still running.
@@ -1097,6 +1103,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     // MARK: Settings (MENUS.md): stored per user
 
     static let prefsKey = "lumina-prefs"
+    /// Edit renders every photo with the camera profile (`prof:camera`) until the page has a
+    /// control for it (DESIGN-ASKS Prompt 28). Off unless set: `defaults write <bundle id> lumina-camera-profile -bool true`.
+    static let cameraProfileKey = "lumina-camera-profile"
 
     static var prefs: [String: Any]? {
         guard let text = UserDefaults.standard.string(forKey: prefsKey), let data = text.data(using: .utf8) else { return nil }

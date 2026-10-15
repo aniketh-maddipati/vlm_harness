@@ -50,6 +50,8 @@ nonisolated final class LookBases: @unchecked Sendable {
         let asShot: Look.WhiteBalance
         /// The photo's tone anchor (`LookPipeline.Developed.anchor`).
         let anchor: LookMath.ToneAnchor
+        /// The photo's Creative Style (`LookPipeline.Developed.style`).
+        var style: String? = nil
         let baseSize: CGSize
         let smallSize: CGSize
         /// The photo's upright size after the crop, in the RAW's own pixels (the region tiles map to it).
@@ -171,7 +173,7 @@ nonisolated final class LookBases: @unchecked Sendable {
             if !previewOnly { why = "\(error)" }
             dev = try LookPipeline.developPreview(url: url, offset: p.offset, length: p.length, orientation: p.orientation, longEdge: nil)
             let c = Self.croppedSize(dev.extent.size, look.crop, rot: look.rot)
-            dev = LookPipeline.Developed(image: LookPipeline.scaled(dev.image, longEdge: Int((max(dev.extent.width, dev.extent.height) * min(canvas.width / max(1, c.width), canvas.height / max(1, c.height))).rounded(.up))), asShot: dev.asShot, anchor: dev.anchor)
+            dev = LookPipeline.Developed(image: LookPipeline.scaled(dev.image, longEdge: Int((max(dev.extent.width, dev.extent.height) * min(canvas.width / max(1, c.width), canvas.height / max(1, c.height))).rounded(.up))), asShot: dev.asShot, anchor: dev.anchor, style: dev.style)
         }
         let photoSize = Self.croppedSize(native ?? dev.extent.size, look.crop, rot: look.rot)
         // Crop, straighten and the quarter turn are baked in; the look runs with crop: false on top.
@@ -186,7 +188,7 @@ nonisolated final class LookBases: @unchecked Sendable {
         let smallRect = CGRect(x: 0, y: 0, width: max(1, (baseRect.width / 4).rounded(.down)), height: max(1, (baseRect.height / 4).rounded(.down)))
         let smallImg = LookPipeline.atOrigin(img.applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: smallRect.width / baseRect.width, kCIInputAspectRatioKey: 1])).cropped(to: smallRect)
         let (base, small, textures, bytes) = try rasterise(img, baseRect, smallImg, smallRect)
-        let entry = Entry(base: base, small: small, asShot: dev.asShot, anchor: dev.anchor, baseSize: baseRect.size, smallSize: smallRect.size, photoSize: photoSize,
+        let entry = Entry(base: base, small: small, asShot: dev.asShot, anchor: dev.anchor, style: dev.style, baseSize: baseRect.size, smallSize: smallRect.size, photoSize: photoSize,
                           bytes: bytes, source: source, decoder: source == "raw" ? key.decoder : nil, developMs: Date().timeIntervalSince(t0) * 1000,
                           onGPU: !textures.isEmpty, textures: textures, why: why)
         lock.withLock {

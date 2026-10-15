@@ -52,7 +52,7 @@ final class LookMathTests: XCTestCase {
 
     func testRulesFileLoadsAndIsCanonical() throws {
         XCTAssertEqual(rules.order, LookRules.canonicalOrder)
-        XCTAssertEqual(rules.lookStages, ["exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer", "clarity", "sharpen", "vignette"])
+        XCTAssertEqual(rules.lookStages, ["camera", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer", "clarity", "sharpen", "vignette"])
         for s in rules.lookStages { XCTAssertNotNil(rules.stages[s], s) }
         XCTAssertNoThrow(try rules.validate())
         var bad = rules!; bad.order = ["exposure", "rawDevelop", "outputTransform"]
@@ -466,6 +466,41 @@ final class LookMathTests: XCTestCase {
         let mid = LookMath.baseMatch(LookMath.RGB(r: 0.3, g: 0.2, b: 0.1), fade, rules)
         XCTAssertEqual(mid.r, 0.3, accuracy: 1e-12, "midtones untouched"); XCTAssertEqual(mid.g, 0.2, accuracy: 1e-12); XCTAssertEqual(mid.b, 0.1, accuracy: 1e-12)
         XCTAssertTrue(LookMath.baseMatch(.gray(0.97), fade, rules).isNeutral)
+    }
+
+    /// The camera profile: the base match's form with a Creative Style's numbers from the `camera`
+    /// stage. Every style the rules name keeps greys grey and is monotonic; a style without numbers
+    /// uses Standard's; with neither there is no profile. The flat chain runs it only for
+    /// `prof:camera` and a photo with a style.
+    func testCameraProfilePerStyle() throws {
+        let have = rules.stages["camera"]?.coefficients ?? [:]
+        let styles = Set(have.keys.compactMap { $0.hasSuffix("Lift") ? String($0.dropLast(4)) : nil })
+        for style in styles {
+            let m = try XCTUnwrap(LookMath.BaseMatch(camera: style, rules))
+            for row in m.rows { XCTAssertEqual(row.reduce(0, +), 1, accuracy: 1e-12) }
+            var last = -1.0
+            for i in 0...240 {
+                let out = LookMath.baseMatch(.gray(Double(i) / 200), m, rules)
+                XCTAssertTrue(out.isNeutral, "\(style): grey \(Double(i) / 200) → \(out)")
+                XCTAssertGreaterThan(out.g, last, "\(style): monotonic at \(Double(i) / 200)")
+                last = out.g
+            }
+        }
+        var r = rules!
+        r.stages["camera"] = LookRules.Stage(coefficients: ["standardLift": 0.1, "standardS": 0.2, "landscapeLift": -0.05])
+        XCTAssertEqual(LookMath.BaseMatch(camera: "landscape", r)?.lift, -0.05)
+        XCTAssertEqual(LookMath.BaseMatch(camera: "Landscape", r)?.lift, -0.05, "names are matched lower-cased")
+        XCTAssertEqual(LookMath.BaseMatch(camera: "sepia", r)?.lift, 0.1, "a style without numbers uses Standard's")
+        XCTAssertEqual(LookMath.BaseMatch(camera: nil, r)?.s, 0.2)
+        r.stages["camera"] = LookRules.Stage()
+        XCTAssertNil(LookMath.BaseMatch(camera: "standard", r))
+
+        r.stages["camera"] = LookRules.Stage(coefficients: ["standardLift": 0.1, "standardS": 0.2])
+        let c = LookMath.RGB(r: 0.3, g: 0.2, b: 0.1)
+        var look = Look(); look.camera = true
+        XCTAssertEqual(LookMath.flat(c, look: Look(), asShot: asShot, rules: r, style: "standard"), c, "no prof:camera, no profile")
+        XCTAssertEqual(LookMath.flat(c, look: look, asShot: asShot, rules: r), c, "no style (an embedded JPEG), no profile")
+        XCTAssertNotEqual(LookMath.flat(c, look: look, asShot: asShot, rules: r, style: "standard"), c)
     }
 
     /// Exposure is a scene gain seen through a sigmoid tone curve (the form Lightroom's sweep

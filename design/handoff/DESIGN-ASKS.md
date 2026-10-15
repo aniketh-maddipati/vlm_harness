@@ -1,3 +1,6 @@
+> **History (ruled 2026-10-14: "no more design asks, just make the ui").** No new prompts are written
+> here. UI changes are made in the page files in this repo (AGENTS.md, "The rule").
+
 # Design asks for the next handoff (after v8 / Edit v21)
 
 > **Status after the Prompts 20–24 handoff (2026-10-08).** The app now ships `Lumina Sets v12.dc.html`
@@ -1459,7 +1462,23 @@ Reply with the complete Handoff block (`data-screen-label="2 Handoff"`) and ever
 changed or added, as full functions, not a description and not a partial diff. List any new
 `window.lumina` call the page makes, with its arguments and the answer it expects.
 
-## Prompt 28 — Skim's web preview shows itself in a minute and ends at the Mac app (paste into Claude Design)
+## Prompt 28 — Edit can start from the camera's look (paste into Claude Design)
+
+> In Edit, add a **Profile** choice next to Auto and Crop: **Adobe Color** (today's start, the default) or
+> **Camera** (the look the camera gave its own JPEG, for the Creative Style the photo was shot with). Pick shows
+> the camera's JPEG and Edit starts from the RAW, so today a photo looks flatter the moment it opens in Edit;
+> Camera removes that jump.
+>
+> - The core's look string carries it as `prof:camera` (absent = Adobe Color). Sliders work on top of either.
+> - Per photo and for the whole shoot, like the other looks: copy / paste and Variations carry it.
+>
+> Until this lands the Mac has a setting (`lumina-camera-profile`) that turns it on for every photo.
+
+How it is checked: `LookStringTests.testCameraProfile` (the key), `node Tests/web/plumbing-harness.mjs` (the
+look reaches the canvas unchanged), and `python3 Tools/parity/camera_fit.py fit` (ΔE2000 to the camera's JPEG on
+held-out shoots, `Tools/parity/report/camera-profile.txt`).
+
+## Prompt 29 — Skim's web preview shows itself in a minute and ends at the Mac app (paste into Claude Design)
 
 The Skim web preview (`window.luminaPreview`, lumina-skim.pages.dev) exists to show what Skim does
 and to send people to the Mac app. Today a visitor has to bring their own clips before they see anything, and
@@ -1491,7 +1510,7 @@ text is only a key or an icon.
 **5. Name the browser the visitor is in.** Export's Save to says "Where Safari saves downloads." in
 every browser; in Chrome it should say Chrome (and "your browser" when the page can't tell).
 
-### How Prompt 28 is checked once its handoff lands
+### How Prompt 29 is checked once its handoff lands
 
 - `node Tests/web/skim-live.mjs` and `Tests/web/skim-engine.py` still pass; a visitor reaches marked
   clips from the Open screen with one click on the sample.
