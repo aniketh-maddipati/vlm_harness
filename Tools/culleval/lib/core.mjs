@@ -35,7 +35,7 @@ export function run(list, cuts = {}) {
     (bracket ? ids : [pick]).forEach(p => pagePick.add(p));
     for (const f of g.frames) {
       stack.set(f.path, g.gid);
-      flags.set(f.path, { soft: !!f.soft, blown: !!f.blown, shake: !!f.shake, dark: !!f.dark, sharp: f.sharp, focus: f.focus, rank: f.rank, bn: f.bn, kind: g.kind });
+      flags.set(f.path, { soft: !!f.soft, nothingSharp: !!f.nothingSharp, spot: f.spot ?? null, blown: !!f.blown, shake: !!f.shake, dark: !!f.dark, sharp: f.sharp, focus: f.focus, rank: f.rank, bn: f.bn, kind: g.kind });
     }
   }
   Object.keys(d.sugKeep).forEach(id => sug.add(P(id)));
