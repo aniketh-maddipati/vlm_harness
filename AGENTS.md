@@ -5,19 +5,31 @@ Sony ARW shooters.
 
 ## The rule
 
-**The design is the product.** Lumina's UI is the Claude Design page in `design/handoff/lumina-cull/`
-(`Lumina Sets v12.dc.html`, with `Lumina Edit v23.dc.html` mounted inside it, + `support.js` + `lumina-core-v4.js` +
-`lumina-v4-data.js` + `lumina-measure.js` + `lumina-selftest.js`; the names live in `Scripts/page_files.sh`). The app ships those files **byte for byte** inside a native
-window. Nobody edits the UI in this repo.
+**The page is the product, and it is edited here** (ruled 2026-10-14: "no more design asks, just make
+the ui"). Lumina's UI is the page in `design/handoff/lumina-cull/` (`Lumina Sets v12.dc.html`, with
+`Lumina Edit v23.dc.html` mounted inside it, + `support.js` + `lumina-core-v4.js` + `lumina-v4-data.js` +
+`lumina-measure.js` + `lumina-selftest.js`; the names live in `Scripts/page_files.sh`). The app ships
+those files **byte for byte** inside a native window.
 
-- Something visible is wrong or missing (layout, copy, keys, empty states)? It goes into
-  `design/handoff/DESIGN-ASKS.md` as a ready-to-paste Claude Design prompt. It never gets patched here.
-- A new handoff arrives as a zip. Sync it with `bash Scripts/sets_sync_design.sh "<zip>"`. That runs the
-  fixtures, audits the wording and demo layer, installs the files, checks the plumbing contract,
-  compares every screen pixel for pixel, and runs the robustness suites. It never commits. Add
-  `--record` once the new look is approved.
-  Before installing, step 2b prints every line the new page files add that names network or bridge
-  surface (`fetch(`, `postMessage`, `new Function`, a URL, …): a zip is a code import, so read them. Report only.
+- Something visible is wrong or missing (layout, copy, keys, empty states)? Fix it in the page.
+  Stills: edit `design/handoff/lumina-cull/`, then copy the changed files to `Lumina/Sets/Web/`
+  (`bash Scripts/sets_sync_ui.sh`, or `cp`); `python3 Scripts/page_bytes.py` must print 12 / 12.
+  Skim: edit `design/handoff/lumina-skim/` (`dev-skim.sh --watch` copies it in). Then the checks below
+  (the node fixtures, `node Tests/web/plumbing-harness.mjs`). The project agent `page-ui-editor`
+  (`.claude/agents/`) does this.
+- `design/handoff/DESIGN-ASKS.md` is history: no new prompts are written there.
+- Project agents (`.claude/agents/`): `page-ui-editor` (a page change, checked headlessly),
+  `hot-build-pusher` (a branch into Lumina Dev, Lumina Skim or Safari :8765 without stopping another
+  session's watcher), `pr-shepherd` (local checks CI will run, one push, one PR, merges only when told),
+  `canvas-debugger` (the native Edit canvas, measured first).
+- **No Claude Design zip sync without the owner's say-so.** `bash Scripts/sets_sync_design.sh "<zip>"`
+  installs a whole handoff over the page files and would overwrite every in-repo page edit. When the
+  owner asks for one, it runs the fixtures, audits the wording and demo layer, installs the files,
+  checks the plumbing contract, compares every screen pixel for pixel and runs the robustness suites.
+  It never commits. Step 2b prints every line the new page files add that names network or bridge
+  surface (`fetch(`, `postMessage`, `new Function`, a URL, …): a zip is a code import, so read them.
+- Pixel references (`Tests/probe/reference`) are re-recorded with `bash Scripts/probe.sh reference --record`
+  (or `sets_sync_design.sh --record`) once the owner approves a page change, not before.
 - Authority order: `design/handoff/lumina-cull` (its `README.md` sets the order inside it: README, CHANGES-v0.05 / v0.04 / v0.03,
   BRIDGE-v0.03, REMAINING-v0.03, then CHANGES-v0.02, BRIDGE-v0.02, NATIVE-EDIT → the Sets v11 and Edit v22 pages → BRIDGE, TEST-PLAN, ROADMAP → `reference/`)
   → `Lumina/Sets` (plumbing) → tests. The handoff's `reference/plumbing.js` is an older reference; the app's is
@@ -228,11 +240,11 @@ harness enforces it (`Scripts/test_guard.py`, `Tools/LuminaProbe/…/Guard.swift
 - **New reach needs a row in `docs/release/TRUST.md`.** A bridge op, entitlement, permission prompt, `NSWorkspace.shared.open`, URL in Swift, privacy-manifest reason or vendored file that the inventory doesn't list fails `Scripts/trust_check.py` (CI's `design handoff` job). It also fails on a networking API in app code, `NSLog` or `print` (log through `LuminaLog`, names and paths `.private`), a network call in `plumbing.js`, an unpinned Action and a Swift package.
 - **The page's offline layers live in `SetsOffline.swift`** (content rules, the page's CSP, the no-WebRTC script). `Tests/web/webkit.py offline` reads them from that file and tries 32 ways out against a local listener; `app-offline` (in `probe.sh smoke`) checks them in WKWebView. A design that needs a new source (a font, a worker) is a change there, reviewed like an entitlement.
 
-- **Don't edit `Lumina/Sets/Web/*.html|support.js|lumina-core-v4.js|lumina-v4-data.js|lumina-selftest.js|vendor`.** Change the design, then sync. `SetsPageBytesTests` and CI fail on drift.
-- **`plumbing.js` supplies behaviour and data, never UI.** If the page can't show something, that's a design ask.
+- **Don't edit `Lumina/Sets/Web/*.html|support.js|lumina-core-v4.js|lumina-v4-data.js|lumina-selftest.js|vendor` directly.** Edit the page in `design/handoff/`, then copy it over. `SetsPageBytesTests` and CI fail on drift.
+- **`plumbing.js` supplies behaviour and data, never UI.** If the page can't show something, change the page.
 - **The native read repeats the page's `onDir` and `readOne`.** `probe.sh contract` fails (`__lumina.drift()`) when a sync changes either: review the read in `plumbing.js`, then update `ONDIR` (`node Tests/web/plumbing-harness.mjs --hash` prints it). Parity with the page's own read is checked with `card-clock.json` in both modes.
 - **Plumbing never replaces the page's `onScroll`.** The page's handler moves the time axis (`syncAx`), notes the scroll time its read uses to hold rebuilds, and narrows the window at rest; v8 broke when plumbing skipped it. `node Tests/web/plumbing-harness.mjs` checks the axis every frame, no rebuild under a moving scroll, tiles keeping the page's fade, and menu Undo after queued keys; `probe.sh scroll` reports the same on the Mac (`time axis off`, `grid rebuilt`, `tiles without their fade`, and `keys-spam`).
-- **Cull rows are keyed by the page** (v0.05, CHANGES-v0.03 ask 11). `probe.sh scroll` still reports `rows out of place`; a sync that brings it back above 0 % on a Mac is a design ask, not a plumbing patch.
+- **Cull rows are keyed by the page** (v0.05, CHANGES-v0.03 ask 11). `probe.sh scroll` still reports `rows out of place`; a sync that brings it back above 0 % on a Mac is a page change, not a plumbing patch.
 - **Pixel parity is 0 px.** App-mode screens (`screens-*-app`, plumbing's test-only parity mode: the design's sample shoot and card) must match the prototype reference byte for byte. Both twins run with `"storageWrites": false`, because the page's "saved" label is browser-only. CSS tricks that change anti-aliasing are out; content-visibility was tried and rejected.
 - **The probe never touches a real card.** Fault tests use disk images, and the probe's card watcher only accepts its own images.
 - **A disk image is a card to the app** (`volumeIsRemovable`), with or without DCIM: Save on one is refused "on the card". A scenario that needs the write itself on an image (case-sensitive, full) uses the probe's `nativeSidecar` step with `"guard": false`.
@@ -407,7 +419,7 @@ never where the user is waiting. The rules live in `LookRawPolicy` (tiers, gatin
   `LookCanvasController.onDecoderFallback`).
 - **Facts from the model.** When a RAW 9 region exists, its sharpness (Laplacian variance) and
   clipping come from the tiles, not the JPEG: `facts.source: "raw9-region" | "jpeg"` through
-  `luminaEditStats`; the page updates the tile's flag words (DESIGN-ASKS, the addendum to Prompt 1).
+  `luminaEditStats`; the page updates the tile's flag words (the page's job; DESIGN-ASKS Prompt 1's addendum has the spec).
 - **Thermal and battery.** Region tiles run at `.userInitiated`, export at `.utility`. At
   `thermalState == .serious` or in Low Power Mode, region refinement waits 400 ms of stillness and
   export adds the footer fact `raw 9 · slowed by thermal state`. Never disabled, only deferred.
