@@ -5163,7 +5163,7 @@ class Component extends DCLogic {
       pj.unshift('      <project name="' + xe((ex.event || d.shoot.name) + ' · sorted') + '">', '        <sequence format="' + S.id + '" duration="' + (at * S.n) + '/' + S.dd + 's" tcStart="0s" tcFormat="NDF">', '          <spine>');
       pj.push('          </spine>', '        </sequence>', '      </project>');
     }
-    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...co, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
+    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <import-options>', '    <option key="copy assets" value="0"/>', '  </import-options>', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...co, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
     return {n:clips.length, text, kws:[...kws]};
   })();
     this.bxM = {k:bk, x:bx}; return bx;

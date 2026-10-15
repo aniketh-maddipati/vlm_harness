@@ -125,6 +125,11 @@ test('the export is DTD-valid against the version it declares', t => {
   // only ever valid against the DTD for the version it declares.
   assert.ok(r.ok, `not valid against FCPXMLv${v}:\n${r.errors}`);
 });
+test('the file tells Final Cut to leave the clips where they are', () => {
+  // Without it Final Cut copies media it imports from a removable drive into the library (71 GB off the T7, 2026-10-14).
+  const { text } = buildFixture();
+  assert.match(text, /<fcpxml version="1\.10">\n  <import-options>\n    <option key="copy assets" value="0"\/>\n  <\/import-options>\n  <resources>/);
+});
 test('Final Cut honours rating, keyword and timecode on import', { skip: '(FCP) needs an import check' }, () => {});
 
 // ---- Export's In Final Cut options (ratings, the maybe keyword, scenes as keywords, the Camera LUT) ----
