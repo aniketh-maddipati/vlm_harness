@@ -369,7 +369,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             masks = masks?.placed(g.transform)
         }
         var anchor = dev.anchor
-        img = stages(look, on: img, asShot: dev.asShot, anchor: &anchor)
+        img = stages(look, on: img, asShot: dev.asShot, style: dev.style, anchor: &anchor)
         guard !look.locals.isEmpty, let masks else { return img }
         let extent = img.extent
         for local in look.locals {
@@ -377,7 +377,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                   let mask = maskImage(found, masks, extent: extent) else { continue }
             // The mask's own exposure moves its own copy of the anchor, as the global one does.
             var a = anchor
-            let adjusted = stages(local.look, on: img, asShot: dev.asShot, anchor: &a)
+            let adjusted = stages(local.look, on: img, asShot: dev.asShot, style: dev.style, anchor: &a)
             img = adjusted.applyingFilter("CIBlendWithRedMask", parameters: [kCIInputBackgroundImageKey: img, kCIInputMaskImageKey: mask]).cropped(to: extent)
         }
         return img
@@ -386,7 +386,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// The look's stages on `input` (its extent is the frame the stages see: the blurs' radii and
     /// the vignette follow it), in the rules' order, the ones at reset left out. `anchor` comes
     /// back moved by the exposure stage. The global look and each mask's run through here.
-    private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, anchor: inout LookMath.ToneAnchor) -> CIImage {
+    private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, style: String?, anchor: inout LookMath.ToneAnchor) -> CIImage {
         var img = input
         let extent = img.extent
         let longEdge = max(extent.width, extent.height)
@@ -411,7 +411,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             case "camera":
                 // The camera's look for the photo's Creative Style, the base match's form with the
                 // style's numbers. Nothing without a style: an embedded JPEG already is the camera's look.
-                guard dev.style != nil, let m = LookMath.BaseMatch(camera: dev.style, r), !m.isIdentity else { continue }
+                guard style != nil, let m = LookMath.BaseMatch(camera: style, r), !m.isIdentity else { continue }
                 pass("lookBase", Self.baseArgs(img, m, r))
             case "exposure":
                 let g = LookMath.exposureGain(look.ev, r), w = LookMath.exposureWhite(r)
