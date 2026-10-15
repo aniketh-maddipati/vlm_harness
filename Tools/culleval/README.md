@@ -77,6 +77,9 @@ folder, `from` / `to` (`"2026-02-08 14:00:00"`) a stretch of capture time within
 - **Keeps**: precision / recall / F1 of the suggested keeps and of "P on every unit" against the
   real keeps, next to the keep rate (keeping everything scores precision = keep rate, recall 100 %).
   Flags read as "reject": how many flagged frames were really rejected.
+  Each flag on its own (soft, blown, shake, dark): how many flagged frames were kept anyway, and the
+  keep rate with and without the flag. A flag kept about as often as an unflagged frame is firing on
+  choices (blur on purpose, a silhouette), not mistakes.
 - **Best of stack**: in groups where the photographer kept exactly one frame, did Lumina pick it?
   For Lumina's own stacks, and for the truth groups as if they had been stacked by hand (the same
   `cuts` the B key makes, so the core itself answers). Next to chance, and by group size.

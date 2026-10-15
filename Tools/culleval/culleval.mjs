@@ -14,7 +14,7 @@ import { execFileSync } from 'node:child_process';
 import { run, cutsFor, coreHash } from './lib/core.mjs';
 import { measureAll, keyOf, READONE, readOneHash } from './lib/measure.mjs';
 import { seconds, truthGroups, matchExports, inOrder } from './lib/truth.mjs';
-import { pairwise, splits, cutBy, picks, bestOf, pool, prf, members } from './lib/score.mjs';
+import { pairwise, splits, cutBy, picks, bestOf, pool, prf, members, FLAGS } from './lib/score.mjs';
 import { markdown } from './lib/report.mjs';
 
 const t0 = Date.now();
@@ -84,7 +84,7 @@ async function shoot(sh) {
   r.driveRead = { frames: list.filter(p => p.seqImage != null || p.releaseMode2 != null).length, truthFrames: frames.filter(f => (ex.get(f.id).ReleaseMode2 || 0) !== 0).length };
   r.whatIfDriveRead = { drive: { ...pairwise(whatIf.stack, truth.drive, ids), ...splits(whatIf.stack, truth.drive, ids) }, repeat: { ...pairwise(whatIf.stack, truth.repeat, ids), ...splits(whatIf.stack, truth.repeat, ids) } };
   r.stacks = { stacks: core.stacks.filter(s => s.ids.length > 1).length, framesInStacks: core.stacks.filter(s => s.ids.length > 1).reduce((n, s) => n + s.ids.length, 0), brackets: core.stacks.filter(s => s.kind === 'bracket').length };
-  r.flags = { soft: 0, blown: 0, shake: 0, dark: 0 }; for (const f of core.flags.values()) for (const k of Object.keys(r.flags)) if (f[k]) r.flags[k]++;
+  r.flags = Object.fromEntries(FLAGS.map(k => [k, 0])); for (const f of core.flags.values()) for (const k of Object.keys(r.flags)) if (f[k]) r.flags[k]++;
 
   // Keeps: exports, sidecars, or a saved Lumina session.
   let kept = null, scope = ids, source = null;
@@ -119,6 +119,11 @@ async function shoot(sh) {
     // Flags as a reject signal: of the flagged frames, how many did the photographer reject.
     const rej = new Set(scope.filter(id => !kept.has(id)));
     r.picks.flagsAsReject = picks(flagged, rej, scope);
+    // Each flag on its own, as an override rate: of the frames it flags, how many were kept anyway, next to
+    // the keep rate of the frames it doesn't flag. Kept-if-flagged near kept-if-not means the flag isn't
+    // telling the photographer anything: it can't tell a mistake from a choice
+    // (blur on purpose, a silhouette), which is the case for a model that can.
+    r.picks.byFlag = Object.fromEntries(FLAGS.map(k => [k, picks(new Set(scope.filter(id => core.flags.get(id)[k])), kept, scope)]));
     // Best of stack: Lumina's own stacks, then the truth groups as if the photographer had stacked them.
     const group = s => ({ ids: s.ids, pick: s.pick }), within = s => s.ids.every(id => inScope.has(id)) && s.kind !== 'bracket';
     r.bestOf = { stacks: bestOf(core.stacks.filter(within).map(group), kept) };
@@ -175,7 +180,7 @@ if (missing.length) {
 const shoots = []; for (const sh of config.shoots) { const r = await shoot(sh); shoots.push(r); if (r.skipped) log('skipped ' + sh.id + ': ' + r.skipped); }
 const done = shoots.filter(s => !s.skipped), withKeeps = done.filter(s => s.picks), full = withKeeps.filter(s => s.complete);
 const sumBest = (list, k) => { const s = { oneKeeper: 0, agree: 0, chanceSum: 0, groups: 0 }; for (const x of list) { const b = x.bestOf[k]; s.groups += b.groups; s.oneKeeper += b.oneKeeper; s.agree += b.agree; s.chanceSum += (b.chance || 0) * b.oneKeeper; } return { groups: s.groups, oneKeeper: s.oneKeeper, agree: s.agree, agreement: s.oneKeeper ? s.agree / s.oneKeeper : null, chance: s.oneKeeper ? s.chanceSum / s.oneKeeper : null }; };
-const poolOf = list => list.length ? { shoots: list.length, suggested: pool(list.map(s => s.picks.suggested)), pagePick: pool(list.map(s => s.picks.pagePick)), flagsAsReject: pool(list.map(s => s.picks.flagsAsReject)), bestOf: { stacks: sumBest(list, 'stacks'), repeat: sumBest(list, 'repeat'), scene: sumBest(list, 'scene') } } : null;
+const poolOf = list => list.length ? { shoots: list.length, suggested: pool(list.map(s => s.picks.suggested)), pagePick: pool(list.map(s => s.picks.pagePick)), flagsAsReject: pool(list.map(s => s.picks.flagsAsReject)), byFlag: Object.fromEntries(FLAGS.map(k => [k, pool(list.map(s => s.picks.byFlag[k]))])), bestOf: { stacks: sumBest(list, 'stacks'), repeat: sumBest(list, 'repeat'), scene: sumBest(list, 'scene') } } : null;
 const pooled = { frames: done.reduce((n, s) => n + s.frames, 0), grouping: {}, whatIfDriveRead: {}, picksComplete: poolOf(full), picksAll: poolOf(withKeeps) };
 for (const level of ['drive', 'repeat', 'scene']) {
   const g = done.map(s => s.grouping[level]), sum = k => g.reduce((n, x) => n + x[k], 0);
