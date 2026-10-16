@@ -160,6 +160,21 @@ function freshXmp(rating,label,dev,kw){
   if(dev){ const f=(v,d=2)=>(v>=0?'+':'')+(+v).toFixed(d); a+=' crs:Version="15.0" crs:ProcessVersion="11.0" crs:HasSettings="True" crs:Exposure2012="'+f(dev.Exposure||0)+'" crs:Contrast2012="'+f(dev.Contrast||0,0)+'" crs:Highlights2012="'+f(dev.Highlights||0,0)+'" crs:Shadows2012="'+f(dev.Shadows||0,0)+'"'+(dev.Temp?' crs:WhiteBalance="Custom" crs:Temperature="'+Math.round(dev.Temp)+'" crs:Tint="+0"':''); }
   return '<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>\n<x:xmpmeta xmlns:x="adobe:ns:meta/">\n <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n  <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:lr="http://ns.adobe.com/lightroom/1.0/" '+a+(kw?'>\n   <dc:subject><rdf:Bag><rdf:li>'+kw+'</rdf:li></rdf:Bag></dc:subject>\n   <lr:hierarchicalSubject><rdf:Bag><rdf:li>Lumina|'+kw.replace(/^Lumina /,'')+'</rdf:li></rdf:Bag></lr:hierarchicalSubject>\n  </rdf:Description>':'/>')+'\n </rdf:RDF>\n</x:xmpmeta>\n<?xpacket end="w"?>\n'; }
 
+// Dust spots as Lightroom spot heals (crs:RetouchAreas: one heal per spot, a single round Mask/Paint
+// dab, the source left for Lightroom to choose). spots: [{x,y,r}] as fractions of the RAW as stored
+// (sensor orientation, as Lightroom's crop is), r a fraction of the stored width. A sidecar that
+// already has retouching keeps it untouched and gets none (Lightroom's own heals win). The heal
+// carries the photo's process version when it has one, else Lightroom's current one, so a ratings-only
+// sidecar doesn't fall back to an old process.
+function retouchXmp(src,spots){ if(!src||!spots||!spots.length||/crs:RetouchAreas|crs:RetouchInfo/.test(src)) return src;
+  const n=v=>(+v).toFixed(6), li=s=>'<rdf:li><rdf:Description crs:SpotType="heal" crs:SourceState="sourceAutoComputed" crs:Opacity="1" crs:Feather="0.5" crs:Seed="0"><crs:Masks><rdf:Seq><rdf:li><rdf:Description crs:What="Mask/Paint" crs:MaskActive="true" crs:MaskBlendMode="0" crs:MaskInverted="false" crs:MaskValue="1" crs:Radius="'+n(s.r)+'" crs:Flow="1" crs:CenterWeight="1"><crs:Dabs><rdf:Seq><rdf:li>r '+n(s.r)+'</rdf:li><rdf:li>d '+n(s.x)+' '+n(s.y)+'</rdf:li></rdf:Seq></crs:Dabs></rdf:Description></rdf:li></rdf:Seq></crs:Masks></rdf:Description></rdf:li>';
+  const block='<crs:RetouchAreas><rdf:Seq>'+spots.filter(s=>[s.x,s.y,s.r].every(v=>isFinite(v))&&s.r>0).map(li).join('')+'</rdf:Seq></crs:RetouchAreas>';
+  let x=src; if(!/xmlns:crs\s*=/.test(x)) x=x.replace(/<rdf:Description\b/,m=>m+' xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"');
+  if(!/crs:ProcessVersion/.test(x)) x=x.replace(/<rdf:Description\b/,m=>m+' crs:ProcessVersion="15.4"');
+  if(!/crs:HasSettings/.test(x)) x=x.replace(/<rdf:Description\b/,m=>m+' crs:HasSettings="True"');
+  if(/<rdf:Description\b[^>]*\/>/.test(x)) x=x.replace(/(<rdf:Description\b[^>]*?)\s*\/>/,'$1>'+block+'</rdf:Description>'); else x=x.replace(/(<rdf:Description\b[^>]*>)/,'$1'+block);
+  return x; }
+
 // Existing sidecar already has develop settings (edited in Lightroom / Camera Raw)?
 function hasDevelop(x){ return !!(x&&(/crs:HasSettings\s*=\s*"True"/i.test(x)||/<crs:HasSettings>True</i.test(x)||/crs:(Exposure2012|Temperature|Contrast2012|Highlights2012|Shadows2012)/.test(x))); }
 
@@ -220,6 +235,6 @@ function phoneOf(m){ const mk=(m&&m.make||'').trim(), md=(m&&m.model||'').trim()
   const ph=(/^(apple|google|xiaomi|redmi|poco|oneplus|oppo|vivo|realme|huawei|honor|motorola|nothing|fairphone|zte|nubia|tecno|infinix|hmd)\b/i.test(mk))||/^samsung/i.test(mk)&&!/^(NX|WB|EX|ST|PL|ES)\d/i.test(md)||/^sony/i.test(mk)&&/^(XQ-|SO-|Xperia)/i.test(md)||/^asus/i.test(mk)&&/^(ASUS_|ROG|Zenfone)/i.test(md)||/\b(iPhone|iPad|Pixel)\b/i.test(md);
   if(!ph) return null; const short=/^apple|^google/i.test(mk)||md.toLowerCase().startsWith(mk.toLowerCase())?md:(mk.charAt(0).toUpperCase()+mk.slice(1).toLowerCase()+' '+md);
   let zoom=''; if(m.fl35){ const r=m.fl35/24, Z=[0.5,1,2,3,5,10]; let best=Z[0]; Z.forEach(z=>{ if(Math.abs(Math.log(r/z))<Math.abs(Math.log(r/best))) best=z; }); zoom=best+'×'; } return {short,zoom}; }
-const LuminaCore={phoneOf,ham,peakOf,rowScore,sweep,undoSweep,rowDone,paint,jpegTiff,editFilter,parseHead,assemblePreview,measure,crc32,zip,mergeXmp,freshXmp,hasDevelop,buildShoot,exportPlan,lookString,parseLook};
+const LuminaCore={phoneOf,ham,peakOf,rowScore,sweep,undoSweep,rowDone,paint,jpegTiff,editFilter,parseHead,assemblePreview,measure,crc32,zip,mergeXmp,freshXmp,retouchXmp,hasDevelop,buildShoot,exportPlan,lookString,parseLook};
 g.LuminaCore=LuminaCore; if(typeof module!=='undefined'&&module.exports) module.exports=LuminaCore;
 })(typeof window!=='undefined'?window:globalThis);

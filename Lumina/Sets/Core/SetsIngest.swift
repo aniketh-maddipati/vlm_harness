@@ -378,6 +378,10 @@ nonisolated final class SetsIngest: @unchecked Sendable {
         return out
     }
 
+    /// The embedded preview as stored, not turned: for measures that belong to the sensor rather
+    /// than the picture (`SetsDust`). Read like the grid's bytes, cached with them.
+    func storedPreview(_ p: Preview) throws -> Data { try previewBytes(p, cache: true) }
+
     /// The grid thumbnail: the embedded preview upright, resized once by ImageIO to cover the largest
     /// tile on a Retina screen (see `thumbnail`), saved as a 0.9 JPEG. The page reads the preview
     /// (as stored) just before, so the bytes usually come from the cache, not the card.

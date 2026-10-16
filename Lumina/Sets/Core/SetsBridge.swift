@@ -39,6 +39,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     let ingest = SetsIngest()
     /// How alike two photos' previews are, for the page's retake stacks (`lumina.near`).
     private(set) lazy var near = SetsNear(ingest: ingest)
+    /// Sensor dust across the frames the page names (`lumina.dust`).
+    private(set) lazy var dust = SetsDust(ingest: ingest)
     private var pendingSource: URL?
     /// The recent shoot `pendingSource` reopens: the folder keeps that shoot's id wherever its
     /// bookmark found it (renamed or moved), instead of becoming a second shoot.
@@ -463,6 +465,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // preview can't be measured; the page then keeps its own rule.
             guard let a = Self.ingestPreview(body["a"]), let b = Self.ingestPreview(body["b"]), let d = await near.distance(a, b) else { return (NSNull(), nil) }
             return (d, nil)
+        case "dust":
+            // Sensor dust across a shoot: the spots in each group of frames (by stored size) and,
+            // turned upright, on each photo. Previews only, never a RAW decode; nothing is written.
+            let items = (body["items"] as? [[String: Any]] ?? []).compactMap(Self.ingestPreview)
+            guard !items.isEmpty else { return (NSNull(), nil) }
+            return (await dust.find(items), nil)
         case "ingestStats":
             return (ingest.snapshot.dictionary, nil)
         case "shootOpened":
