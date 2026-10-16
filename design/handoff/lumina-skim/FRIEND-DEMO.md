@@ -28,9 +28,9 @@ The pitch: sort the whole card in one pass without heat or crashes; Final Cut on
    59.94, XAVC S-I 10-bit 4:2:2 and XAVC S 8-bit 4:2:0, 2ch 48 kHz. S-Log3 waits on his clip:
    - exact file paths: in the app, the real URL of each clip (native knows it; pass it to the page with the listing);
      the browser keeps today's guess and says to use File ▸ Relink Files;
-   - camera timecode from the Sony sidecar (LtcChangeTable) as the asset `start` and as each
-     asset-clip's own `start` (the DTD gives asset-clip its own start; set only the asset's and every clip
-     still points at 0s, outside its asset's range), so in/out match the file;
+   - ~~camera timecode from the Sony sidecar (LtcChangeTable) as the asset `start`~~: dropped (LOCAL-CHANGES 303).
+     Final Cut reads these MP4s as starting at 00:00:00:00, so a clip at its camera timecode had no shared
+     media range with its file; every clip starts at 0s;
    - ratings already written (`<rating value="favorite|reject">`): confirm Final Cut 10.6+/11 reads them, fix the form if not;
    - one keyword per scene ("Scene 3 · 10:32–13:00") so scenes become keyword collections
      (keyword @value is a comma-separated list, so a scene label must never contain a comma);
