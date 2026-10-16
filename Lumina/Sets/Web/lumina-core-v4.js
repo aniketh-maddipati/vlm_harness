@@ -162,7 +162,8 @@ function freshXmp(rating,label,dev,kw){
 
 // Dust spots as Lightroom spot heals (crs:RetouchAreas: one heal per spot, a single round Mask/Paint
 // dab, the source left for Lightroom to choose). spots: [{x,y,r}] as fractions of the RAW as stored
-// (sensor orientation, as Lightroom's crop is), r a fraction of the stored width. A sidecar that
+// (sensor orientation, as Lightroom's crop is) and before any crop, r a fraction of the stored width
+// (checked in Lightroom across orientations 1, 3, 6 and 8, a crop, and corner spots). A sidecar that
 // already has retouching keeps it untouched and gets none (Lightroom's own heals win). The heal
 // carries the photo's process version when it has one, else Lightroom's current one, so a ratings-only
 // sidecar doesn't fall back to an old process.
