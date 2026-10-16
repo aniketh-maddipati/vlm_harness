@@ -842,8 +842,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             fallthrough   // Show in Finder: a file on Export's list, found through its bookmark
         case "skimExportsOpen":
             // Show in Finder, or Open in Final Cut: a file on Export's list, found through its bookmark.
-            guard let id = body["id"] as? String, let e = skimLedger.entry(id), e.trashed == nil, let u = skimLedgerOpen(e), SkimArrange.isFile(u.url.path) else { return (["ok": false, "why": "That file is not there any more."], nil) }
-            defer { if u.scoped { u.url.stopAccessingSecurityScopedResource() } }
+            guard let id = body["id"] as? String, let e = skimLedger.entry(id), e.trashed == nil, let u = skimLedgerOpen(e) else { return (["ok": false, "why": "That file is not there any more."], nil) }
+            defer { if u.scoped { u.url.stopAccessingSecurityScopedResource() } }   // set before any check that can return
+            guard SkimArrange.isFile(u.url.path) else { return (["ok": false, "why": "That file is not there any more."], nil) }
             if op == "skimExportsReveal" { reveal(u.url); return (["ok": true], nil) }
             guard e.kind == "fcpxml" else { return (["ok": false, "why": "Only a Final Cut file opens in Final Cut."], nil) }
             guard let app = Self.finalCut() else { return (["ok": false, "why": "Final Cut Pro is not on this Mac."], nil) }

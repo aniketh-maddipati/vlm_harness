@@ -24,6 +24,9 @@ nonisolated struct SkimTrash: Sendable {
     }
 
     let log: URL
+    /// Held across each read, change and save of the note: Move and Put back run on their own tasks, and two that overlap
+    /// would otherwise each save what they read and drop the other's entries (and Put back with them).
+    private static let noteLock = NSLock()
     /// Moves one file to the Trash and answers where it went (`FileManager.trashItem` in the app).
     let trash: @Sendable (URL) throws -> URL
 
@@ -97,6 +100,7 @@ nonisolated struct SkimTrash: Sendable {
     /// Nothing moves when `refusal` is set.
     func move(root: URL, rels: [String], shoot: String, refusal: String?, now: Double = Date().timeIntervalSince1970 * 1000) -> [Answer] {
         if let refusal { return rels.map { Answer(rel: $0, ok: false, bytes: 0, why: refusal) } }
+        Self.noteLock.lock(); defer { Self.noteLock.unlock() }
         var log = all(), out: [Answer] = []
         for rel in rels {
             guard let clip = Self.resolve(root: root, rel: rel) else { out.append(Answer(rel: rel, ok: false, bytes: 0, why: "not in the opened folder")); continue }
@@ -118,6 +122,7 @@ nonisolated struct SkimTrash: Sendable {
 
     /// Puts a shoot's moved files back where they were, while they are still in the Trash. One answer per clip.
     func putBack(shoot: String) -> [Answer] {
+        Self.noteLock.lock(); defer { Self.noteLock.unlock() }
         var log = all(), keep: [Moved] = [], by: [String: (ok: Bool, bytes: Int64, why: String)] = [:]
         let fm = FileManager.default
         for m in log {

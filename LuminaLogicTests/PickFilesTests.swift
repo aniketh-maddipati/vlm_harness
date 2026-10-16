@@ -123,6 +123,13 @@ final class PickFilesTests: XCTestCase {
         XCTAssertFalse(fm.fileExists(atPath: tmp.appendingPathComponent("DSC0003.xmp").path))
     }
 
+    func testSidecarThroughALinkedFolderMakesNoFolderOutside() throws {
+        let to = try dir("saveto2"), outside = try dir("elsewhere")
+        try fm.createSymbolicLink(at: to.appendingPathComponent("link"), withDestinationURL: outside)
+        XCTAssertThrowsError(try PickFiles.writeSidecar(Data("x".utf8), rel: "link/made/DSC0004.xmp", into: to))
+        XCTAssertFalse(fm.fileExists(atPath: outside.appendingPathComponent("made").path), "refused before any folder is made")
+    }
+
     func testTheNoteOfWrittenFilesAndSaveTo() throws {
         let w = PickFiles.Written(file: tmp.appendingPathComponent("pick/written.json"))
         XCTAssertEqual(w.all(), [])

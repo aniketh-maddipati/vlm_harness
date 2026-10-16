@@ -229,10 +229,17 @@ nonisolated enum PickFiles {
               (rel as NSString).pathExtension.lowercased() == "xmp" else { throw SetsFileOps.SidecarError(name: stem, reason: "refused") }
         if SetsFileOps.isCard(dir) { throw SetsFileOps.SidecarError(name: stem, reason: "on the card") }
         let url = dir.appendingPathComponent(rel).standardizedFileURL, parent = url.deletingLastPathComponent()
+        let root = dir.standardizedFileURL.resolvingSymlinksInPath().path
+        func inside(_ u: URL) -> Bool { let at = u.resolvingSymlinksInPath().path; return at == root || at.hasPrefix(root + "/") }
+        // Checked on the nearest folder that exists before any folder is made, so a linked subfolder can't get folders made
+        // outside `dir` by a write that is then refused.
+        var existing = parent
+        let top = dir.standardizedFileURL.path
+        while !FileManager.default.fileExists(atPath: existing.path), existing.path != top, existing.path != "/" { existing.deleteLastPathComponent() }
+        guard inside(existing) else { throw SetsFileOps.SidecarError(name: stem, reason: "refused") }
         do { try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true) }
         catch { throw SetsFileOps.SidecarError(name: stem, reason: SetsFileOps.reason(error)) }
-        let root = dir.standardizedFileURL.resolvingSymlinksInPath().path, at = parent.resolvingSymlinksInPath().path
-        guard at == root || at.hasPrefix(root + "/") else { throw SetsFileOps.SidecarError(name: stem, reason: "refused") }
+        guard inside(parent) else { throw SetsFileOps.SidecarError(name: stem, reason: "refused") }
         if (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true { throw SetsFileOps.SidecarError(name: stem, reason: "refused") }
         if SetsFileOps.isLocked(url) { throw SetsFileOps.SidecarError(name: stem, reason: "locked") }
         do {
