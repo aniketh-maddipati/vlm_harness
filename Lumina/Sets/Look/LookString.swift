@@ -55,6 +55,9 @@ nonisolated struct Look: Equatable, Sendable {
     /// `luminanceNoiseReductionAmount` (RAW 9 §6). Nil = the decoder's default. A develop
     /// parameter, not a look stage: it changes the `base`, not the graph on top of it.
     var nr: Double?
+    /// Sensor dust lifted out (`dust:1`): the spots `LookDust.Registry` holds for the photo, divided
+    /// out in the RAW stage's linear light. A develop parameter like `nr`. Optional key.
+    var dust: Bool = false
 
     struct WhiteBalance: Equatable, Sendable {
         var kelvin: Double
@@ -178,7 +181,7 @@ nonisolated struct Look: Equatable, Sendable {
     /// The crop tool's aspect preset: what the crop box was drawn with, not something to render.
     static let pageOnly: Set<String> = ["cropRatio"]
     /// Canonical key order; also the order `format` writes.
-    static let keys = ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "crop", "rot"]
+    static let keys = ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "dust", "crop", "rot"]
     /// The plain numeric sliders, key → field.
     static let sliders: [String: WritableKeyPath<Look, Double>] = [
         "ev": \.ev, "con": \.contrast, "hl": \.highlights, "sh": \.shadows, "wh": \.whites, "bl": \.blacks,
@@ -280,6 +283,8 @@ nonisolated struct Look: Equatable, Sendable {
                 look.vignetteShape = VignetteShape(midpoint: v[0], roundness: v[1], feather: v[2], highlights: v[3])
             case "bw":
                 look.bw = raw == "1" || raw == "true"
+            case "dust":
+                look.dust = raw == "1" || raw == "true"
             case "prof":
                 guard raw == "camera" || raw == "adobe" else { throw ParseError(description: "prof wants camera or adobe, got '\(raw)'") }
                 look.camera = raw == "camera"
@@ -327,7 +332,7 @@ nonisolated struct Look: Equatable, Sendable {
     // MARK: Format
 
     /// Canonical text. Reset values are written too (the page can diff two looks by eye); `wb`,
-    /// `vigs`, the curve keys, the mixer keys, `prof`, `nr`, `bw`, `crop` and `rot` only when set.
+    /// `vigs`, the curve keys, the mixer keys, `prof`, `nr`, `bw`, `dust`, `crop` and `rot` only when set.
     func format() -> String {
         func signed(_ v: Double, _ decimals: Int) -> String {
             let r = (v * pow(10, Double(decimals))).rounded() / pow(10, Double(decimals))
@@ -366,6 +371,7 @@ nonisolated struct Look: Equatable, Sendable {
         if camera { out.append("prof:camera") }
         if let nr { out.append("nr:\(Int(nr.rounded()))") }
         if bw { out.append("bw:1") }
+        if dust { out.append("dust:1") }
         if let c = crop {
             let f = { (v: Double) in String(format: "%.4f", v) }
             out.append("crop:\(f(c.x)),\(f(c.y)),\(f(c.w)),\(f(c.h))" + (c.rotate == 0 ? "" : "/\(String(format: "%.2f", c.rotate))"))

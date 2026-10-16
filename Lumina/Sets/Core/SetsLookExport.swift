@@ -60,7 +60,7 @@ nonisolated enum SetsLookExport {
     }
 
     private static func encode(_ pipe: LookPipeline, _ look: Look, url: URL, px: Int?, format: String, decoder: Int?) throws -> Data {
-        let dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipe.rules, decoderVersion: decoder, nr: look.nr)
+        let dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipe.rules, decoderVersion: decoder, nr: look.nr, dust: look.dust)
         // Core Image carries the source's metadata (GPS, serials) through to the encoder: cleared
         // here, so the file holds only what withMetadata writes.
         let img = pipe.apply(look, to: dev).settingProperties([:])
