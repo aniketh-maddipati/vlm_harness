@@ -1862,7 +1862,11 @@ class Component extends DCLogic {
   // and the photos not decided that have no sidecar yet: an existing sidecar is never given a rating nobody chose).
   saveIds(scope){ const s=this.state, sc=scope||this.hoOpt('scope','picks'), base=(s.passN||1)<2?this.kept():this.data.order.filter(id=>this.passOf(id)>0); if(sc==='picks') return base;
     const S=new Set(base), B=this.data.byId; return this.data.order.filter(id=>{ if(S.has(id)) return true; const m=this.hoMark(id); return m==='maybe'||(sc==='all'&&(m==='out'||!B[id].xmp)); }); }
-  xmpFor(id){ const p=this.data.byId[id], o=this.hoRate(id), L=''; return p&&p.xmp?LuminaCore.mergeXmp(p.xmp,o.r,L,o.kw):LuminaCore.freshXmp(o.r,L,null,o.kw); }
+  xmpFor(id){ const p=this.data.byId[id], o=this.hoRate(id), L=''; return this.dustXmp(id,p&&p.xmp?LuminaCore.mergeXmp(p.xmp,o.r,L,o.kw):LuminaCore.freshXmp(o.r,L,null,o.kw)); }
+  // Sensor dust: a photo whose Edit look has dust:1 also gets Lightroom spot heals, for the spots Edit's dust search found on it
+  // (window.luminaDustResult, as stored; this session only). The look itself stays out of the sidecar.
+  dustXmp(id,x){ const D=window.luminaDustResult, S=D&&D.stored; if(!S||typeof S!=='object'||!LuminaCore.retouchXmp) return x; const p=this.data.byId[id], sp=p&&S[p.rel||p.path||p.file]; if(!Array.isArray(sp)||!sp.length) return x;
+    const t=Date.now(); if(!this._dzSt||t-this._dzSt.t>500) this._dzSt={t,st:this.editStore()}; const Lk=this._dzSt.st.looks||{}, o=Lk[id]||(p.gid&&Lk[p.gid])||{}; return o.dust?LuminaCore.retouchXmp(x,sp):x; }
   // Handoff's keys. Returns true when it took the key. The new-folder field has its own (mkKey).
   handKey(e,k,cmd){ const s=this.state, w=this.hoW()||Component.HO0(), code=e.code, kl=k.length===1?k.toLowerCase():k;
     if(w.cm){ if(k==='Escape'){ e.preventDefault(); this.hoSet({cm:null}); return true; } this.hoSet({cm:null}); }
