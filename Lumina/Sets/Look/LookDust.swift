@@ -492,6 +492,66 @@ nonisolated enum LookDust {
         return out
     }
 
+    // MARK: In the develop
+
+    /// The deepest share of light the develop takes away under a spot. Where less got through, lifting
+    /// further only lifts noise; those spots are left to the clone heal (`heal`) or to Lightroom's.
+    static let maxDevelopDepth = 0.75
+
+    /// The gain that lifts one spot out of a frame: 1 / (1 − depth · g), g a Gaussian of σ = reach / 2.5,
+    /// over the box (`x0`, `y0`, `width` × `height`, top row first) where it differs from 1.
+    struct Patch: Equatable, Sendable {
+        let x0: Int
+        let y0: Int
+        let width: Int
+        let height: Int
+        let gain: [Float]
+    }
+
+    /// `spot`'s gain in a frame `width` × `height` px in the spot's own orientation (as stored), or nil
+    /// when it falls outside the frame or takes no light.
+    static func patch(_ spot: Spot, width: Int, height: Int) -> Patch? {
+        let depth = min(maxDevelopDepth, spot.depth)
+        guard width > 0, height > 0, depth > 0, spot.r > 0, spot.x.isFinite, spot.y.isFinite else { return nil }
+        let reach = spot.r * Double(width), sigma = reach / 2.5
+        let cx = spot.x * Double(width), cy = spot.y * Double(height), half = 1.2 * reach + 1
+        let x0 = max(0, Int((cx - half).rounded(.down))), x1 = min(width, Int((cx + half).rounded(.up)))
+        let y0 = max(0, Int((cy - half).rounded(.down))), y1 = min(height, Int((cy + half).rounded(.up)))
+        guard x1 > x0, y1 > y0 else { return nil }
+        var gain = [Float](repeating: 1, count: (x1 - x0) * (y1 - y0))
+        for y in y0..<y1 {
+            for x in x0..<x1 {
+                gain[(y - y0) * (x1 - x0) + (x - x0)] = Float(1 / (1 - depth * gauss((x, y), cx, cy, sigma)))
+            }
+        }
+        return Patch(x0: x0, y0: y0, width: x1 - x0, height: y1 - y0, gain: gain)
+    }
+
+    /// The spots found for each photo (as stored), by its file: `SetsDust` fills it after a search,
+    /// the develop reads it for a look with `dust:1`.
+    final class Registry: @unchecked Sendable {
+        static let shared = Registry()
+        private let lock = NSLock()
+        private var spots: [String: [Spot]] = [:]
+        private var _generation = 1
+
+        private static func key(_ url: URL) -> String { url.standardizedFileURL.path }
+
+        func set(_ found: [Spot], for url: URL) { lock.withLock { spots[Self.key(url)] = found.isEmpty ? nil : found; _generation += 1 } }
+        /// Goes up on every `set`: a develop cache keyed by it drops dust-lifted images made before.
+        var generation: Int { lock.withLock { _generation } }
+        func spots(for url: URL) -> [Spot] { lock.withLock { spots[Self.key(url)] ?? [] } }
+
+        /// A number that changes when `url`'s spots do (0 for none).
+        func stamp(for url: URL) -> Int {
+            let found = spots(for: url)
+            guard !found.isEmpty else { return 0 }
+            var h = Hasher()
+            for s in found { h.combine(s.x); h.combine(s.y); h.combine(s.r); h.combine(s.depth) }
+            return h.finalize() | 1
+        }
+    }
+
     static func smoothstep(_ a: Double, _ b: Double, _ v: Double) -> Double {
         let t = min(1, max(0, (v - a) / (b - a)))
         return t * t * (3 - 2 * t)
