@@ -248,7 +248,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
 
     /// Each dust spot's gain (`LookDust.patch`) as a small opaque image placed over its box in
     /// `extent` (the frame as stored, top row first in the patch, Core Image's origin at the bottom).
-    /// Multiplied onto the frame, where there is no patch the frame is left as it is.
+    /// Each is multiplied onto the frame inside its box only; elsewhere the frame is left as it is.
     static func dustGain(_ spots: [LookDust.Spot], extent: CGRect) -> [CIImage] {
         guard !spots.isEmpty, !extent.isInfinite, extent.width >= 1, extent.height >= 1 else { return [] }
         let w = Int(extent.width.rounded()), h = Int(extent.height.rounded())
@@ -566,8 +566,11 @@ nonisolated final class LookShadingFilter: CIFilter {
         if let shading, let gain = LookPipeline.shadingGain(shading, amount: amount, extent: extent) {
             img = gain.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: extent)
         }
+        // Multiply compositing answers only where both images are (the patch's box), so the lifted
+        // box goes back over the frame.
         for patch in LookPipeline.dustGain(dust, extent: extent) {
-            img = patch.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: extent)
+            img = patch.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: patch.extent)
+                .composited(over: img).cropped(to: extent)
         }
         return img
     }
