@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { LuminaCore, CORE_FILE, PAGE_FILE, sha, coreHash } from './core.mjs';
 
-export const READONE = '90ef314774b89942';
+export const READONE = '3d3317007b1ed25f';
 export function readOneHash() {
   const html = fs.readFileSync(PAGE_FILE, 'utf8'), a = html.indexOf('async readOne('), b = html.indexOf('async onDir(', a);
   return a < 0 || b < 0 ? null : sha(html.slice(a, b));
@@ -56,7 +56,7 @@ const IN_PAGE = async ({ url, ori }) => {
     let blob = await (await fetch(url)).blob();
     if (ori === 3 || ori === 6 || ori === 8) { const b0 = await createImageBitmap(blob, { imageOrientation: 'none' }), sw = ori !== 3, c = document.createElement('canvas'); c.width = sw ? b0.height : b0.width; c.height = sw ? b0.width : b0.height; const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(ori === 6 ? Math.PI / 2 : ori === 8 ? -Math.PI / 2 : Math.PI); x.drawImage(b0, -b0.width / 2, -b0.height / 2); b0.close(); blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.92)); }
     const sm = await createImageBitmap(blob, { resizeWidth: 360, resizeQuality: 'medium' }), portrait = sm.height > sm.width, me = LuminaCore.measure(sm); sm.close();
-    return { portrait, dhash: me.dhash, lum: me.lum, focus: me.focus, clip: me.clip };
+    return { portrait, dhash: me.dhash, lum: me.lum, focus: me.focus, spot: me.spot, clip: me.clip };
   } catch (_) { return null; }
 };
 
@@ -85,7 +85,7 @@ export async function measureAll(files, cacheFile, { jobs = 4, log = () => {} } 
         const f = todo[i]; let rec;
         try {
           const h = head(f); if (!h) throw new Error('unreadable');
-          const m = h.m, base = { lowpv: false, wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, make: m.make || null, name: path.basename(f), path: f, bytes: h.size, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso, model: m.model || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, lens: m.lens || null, serial: m.serial || null, program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null };
+          const m = h.m, base = { lowpv: false, wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, make: m.make || null, style: m.style || null, name: path.basename(f), path: f, bytes: h.size, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso, model: m.model || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, lens: m.lens || null, serial: m.serial || null, program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, releaseMode2: m.releaseMode2 ?? null };
           let me = null;
           if (h.preview) { bytes.set('/p/' + i, h.preview); me = await page.evaluate(IN_PAGE, { url: '/p/' + i, ori: m.orient || 1 }); }
           rec = me ? { ...base, ...me } : { ...base, nopv: true, portrait: false, lum: null, focus: 0, clip: 0, dhash: null };

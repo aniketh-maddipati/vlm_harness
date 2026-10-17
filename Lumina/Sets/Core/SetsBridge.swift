@@ -41,6 +41,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     private(set) lazy var near = SetsNear(ingest: ingest)
     /// The selections found in a photo's preview, for Edit's automatic masks (`lumina.masks`).
     private(set) lazy var masks = SetsMasks(ingest: ingest)
+    /// Sensor dust across the frames the page names (`lumina.dust`).
+    private(set) lazy var dust = SetsDust(ingest: ingest)
     private var pendingSource: URL?
     /// The recent shoot `pendingSource` reopens: the folder keeps that shoot's id wherever its
     /// bookmark found it (renamed or moved), instead of becoming a second shoot.
@@ -479,6 +481,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // the preview can't be read; an empty list when there is nothing to select.
             guard let p = Self.ingestPreview(body["preview"]), let found = await masks.masks(p) else { return (NSNull(), nil) }
             return (found.map(\.dictionary), nil)
+        case "dust":
+            // Sensor dust across a shoot: the spots in each group of frames (by stored size) and,
+            // turned upright, on each photo. Previews only, never a RAW decode; nothing is written.
+            let items = (body["items"] as? [[String: Any]] ?? []).compactMap(Self.ingestPreview)
+            guard !items.isEmpty else { return (NSNull(), nil) }
+            return (await dust.find(items), nil)
         case "ingestStats":
             return (ingest.snapshot.dictionary, nil)
         case "shootOpened":
@@ -1161,9 +1169,6 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     // MARK: Settings (MENUS.md): stored per user
 
     static let prefsKey = "lumina-prefs"
-    /// Edit renders every photo with the camera profile (`prof:camera`) until the page has a
-    /// control for it (DESIGN-ASKS Prompt 30). Off unless set: `defaults write <bundle id> lumina-camera-profile -bool true`.
-    static let cameraProfileKey = "lumina-camera-profile"
 
     static var prefs: [String: Any]? {
         guard let text = UserDefaults.standard.string(forKey: prefsKey), let data = text.data(using: .utf8) else { return nil }

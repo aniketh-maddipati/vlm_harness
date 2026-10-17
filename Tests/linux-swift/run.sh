@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Linux sandbox for the app's Foundation-only Swift: compiles Lumina/Sets/Core/{SetsFileOps,
 # SetsShootStore,SetsExport,SetsIngest,SetsExportMetadata,SetsOffline,SetsExternalLinks,PickFiles}.swift and Lumina/Sets/Look/{LookString,LookRules,LookMath,
-# LookCanvasSchedule,LookWarmPlan,LookByteCache,LookRawPolicy,LookLensShading,LookMasks}.swift unchanged with Swift 6.1 (Docker image
+# LookCanvasSchedule,LookWarmPlan,LookByteCache,LookRawPolicy,LookLensShading,LookDust,LookMasks}.swift unchanged with Swift 6.1 (Docker image
 # swift:6.1-noble) and runs the logic tests that don't need Core Image / ImageIO / AppKit:
 #   SetsSidecarTests, SetsTrustTests, SetsFileOpsTests,
 #   LookStringTests, LookMathTests (the look grammar and the stage maths on synthetic ramps),
+#   LookDustTests (sensor dust found across a synthetic shoot, and lifted or cloned out of a photo),
 #   LookCanvasTests (the canvas schedule, the warm-up plan, the byte cache, the RAW tiers and the pin rule),
 #   LookMasksTests (Edit's automatic masks: algebra, edge refinement, outlines, naming, rasterising),
 #   VideoPolicyTests (the video module's budgets, tiers, pacing, pressure order and profile → transform; Lumina/Sets/Video/VideoPolicy.swift),
@@ -22,8 +23,8 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
 B="$HERE/Build"; rm -rf "$B"; mkdir -p "$B/Lumina" "$B/Tests"
 for f in SetsFileOps SetsShootStore SetsExport SetsIngest SetsExportMetadata SetsOffline SetsExternalLinks PickFiles; do cp "$ROOT/Lumina/Sets/Core/$f.swift" "$B/Lumina/"; done
-for f in LookString LookRules LookMath LookCanvasSchedule LookWarmPlan LookByteCache LookRawPolicy LookLensShading LookMasks; do cp "$ROOT/Lumina/Sets/Look/$f.swift" "$B/Lumina/"; done
-cp "$ROOT/Lumina/Sets/Video/VideoPolicy.swift" "$ROOT/Lumina/Sets/Video/SkimStore.swift" "$ROOT/Lumina/Sets/Video/SkimCovers.swift" "$ROOT/Lumina/Sets/Video/SkimDrive.swift" "$ROOT/Lumina/Sets/Video/SkimTrash.swift" "$ROOT/Lumina/Sets/Video/SkimExport.swift" "$ROOT/Lumina/Sets/Video/SkimPlaces.swift" "$ROOT/Lumina/Sets/Video/SkimArrange.swift" "$ROOT/Lumina/Sets/Video/SkimLedger.swift" "$ROOT/Lumina/Sets/Video/SkimPickScan.swift" "$ROOT/Lumina/Sets/Video/SkimFollow.swift" "$B/Lumina/"
+for f in LookString LookRules LookMath LookCanvasSchedule LookWarmPlan LookByteCache LookRawPolicy LookLensShading LookDust LookMasks; do cp "$ROOT/Lumina/Sets/Look/$f.swift" "$B/Lumina/"; done
+cp "$ROOT/Lumina/Sets/Video/VideoPolicy.swift" "$ROOT/Lumina/Sets/Video/SkimStore.swift" "$ROOT/Lumina/Sets/Video/SkimCovers.swift" "$ROOT/Lumina/Sets/Video/SkimDrive.swift" "$ROOT/Lumina/Sets/Video/SkimTrash.swift" "$ROOT/Lumina/Sets/Video/SkimExport.swift" "$ROOT/Lumina/Sets/Video/SkimPlaces.swift" "$ROOT/Lumina/Sets/Video/SkimArrange.swift" "$ROOT/Lumina/Sets/Video/SkimLedger.swift" "$ROOT/Lumina/Sets/Video/SkimPickScan.swift" "$B/Lumina/"
 cp "$ROOT/Lumina/Sets/Look/rules-v1.json" "$B/rules-v1.json"     # LookMathTests read it via LUMINA_RULES (only this folder is mounted)
 # swift-corelibs-foundation's FileManager.replaceItemAt fails on Linux and deletes the original
 # (checked with swift 6.1). Darwin's is correct. In this copy only, the replace is the POSIX rename
@@ -50,7 +51,7 @@ extension URLResourceKey { static let volumeAvailableCapacityForImportantUsageKe
 extension URLResourceValues { var volumeAvailableCapacityForImportantUsage: Int64? { nil } }
 SWIFT
 cp "$ROOT/LuminaLogicTests/SetsTrustTests.swift" "$ROOT/LuminaLogicTests/LookStringTests.swift" "$ROOT/LuminaLogicTests/LookMathTests.swift" \
-   "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" "$ROOT/LuminaLogicTests/LookMasksTests.swift" "$ROOT/LuminaLogicTests/VideoPolicyTests.swift" "$ROOT/LuminaLogicTests/SkimStoreTests.swift" "$ROOT/LuminaLogicTests/SkimCoversTests.swift" "$ROOT/LuminaLogicTests/SkimDriveTests.swift" "$ROOT/LuminaLogicTests/SkimTrashTests.swift" "$ROOT/LuminaLogicTests/SkimExportTests.swift" "$ROOT/LuminaLogicTests/SkimPlacesTests.swift" "$ROOT/LuminaLogicTests/SkimArrangeTests.swift" "$ROOT/LuminaLogicTests/SkimLedgerTests.swift" "$ROOT/LuminaLogicTests/SkimPickScanTests.swift" "$ROOT/LuminaLogicTests/SkimFollowTests.swift" "$ROOT/LuminaLogicTests/PickFilesTests.swift" \
+   "$ROOT/LuminaLogicTests/LookCanvasTests.swift" "$ROOT/LuminaLogicTests/LookLensShadingTests.swift" "$ROOT/LuminaLogicTests/LookDustTests.swift" "$ROOT/LuminaLogicTests/LookMasksTests.swift" "$ROOT/LuminaLogicTests/VideoPolicyTests.swift" "$ROOT/LuminaLogicTests/SkimStoreTests.swift" "$ROOT/LuminaLogicTests/SkimCoversTests.swift" "$ROOT/LuminaLogicTests/SkimDriveTests.swift" "$ROOT/LuminaLogicTests/SkimTrashTests.swift" "$ROOT/LuminaLogicTests/SkimExportTests.swift" "$ROOT/LuminaLogicTests/SkimPlacesTests.swift" "$ROOT/LuminaLogicTests/SkimArrangeTests.swift" "$ROOT/LuminaLogicTests/SkimLedgerTests.swift" "$ROOT/LuminaLogicTests/SkimPickScanTests.swift" "$ROOT/LuminaLogicTests/PickFilesTests.swift" \
    "$ROOT/LuminaLogicTests/SetsShootStoreTests.swift" "$ROOT/LuminaLogicTests/SetsShootImportTests.swift" \
    "$ROOT/LuminaLogicTests/SetsExportMetadataTests.swift" "$ROOT/LuminaLogicTests/SetsOfflineTests.swift" "$ROOT/LuminaLogicTests/SetsExternalLinksTests.swift" "$B/Tests/"
 # SetsFileOpsTests and SetsSidecarTests without any test that needs Core Image, or the locked-file

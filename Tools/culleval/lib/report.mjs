@@ -40,6 +40,9 @@ export function markdown(rep, local = {}) {
     out.push(table(['', 'frames', 'really kept', 'auto keeps', 'precision', 'recall', 'F1', 'keep rate'], rows), '');
     out.push('Flags (soft, blown, shake) read as "reject": precision = flagged frames the photographer did reject.', '',
       table(['shoot', 'flagged', 'of them rejected', 'precision', 'share of all rejects'], K.map(s => { const f = s.picks.flagsAsReject; return [s.id, f.auto, f.tp, pct(f.precision), pct(f.recall)]; })), '');
+    const BF = rep.pooled.picksAll.byFlag;
+    if (BF) out.push('Each flag on its own, all shoots with keeps: how often a flagged frame was kept anyway. When "kept if flagged" is close to "kept if not", the flag is mostly firing on frames the photographer chose (blur on purpose, a silhouette), not on mistakes.', '',
+      table(['flag', 'flagged', 'kept anyway', 'kept if flagged', 'kept if not'], Object.entries(BF).map(([k, f]) => [k, f.auto, f.tp, pct(f.precision), pct(f.tn + f.fn ? f.fn / (f.fn + f.tn) : null)])), '');
     out.push('### Best of stack', '', 'Groups where the photographer kept exactly one frame: did Lumina pick the same one? "Lumina\'s stacks" are the stacks it made. The other two rows take the truth groups as if they had been stacked by hand and ask the core which frame it keeps. Chance = picking at random.', '');
     const bo = (name, b) => [name, b.groups, b.oneKeeper, b.agree, pct(b.agreement), pct(b.chance)];
     const br = []; for (const s of K) br.push(bo(s.id + ' · Lumina\'s stacks', s.bestOf.stacks), bo(s.id + ' · bursts by hand', s.bestOf.repeat), bo(s.id + ' · tries at one picture', s.bestOf.scene));

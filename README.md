@@ -47,7 +47,7 @@ Open ──▶ Skim ──▶ Export
 |---|---|---|
 | ![Skim with clips marked](docs/screenshots/skim-marked.jpg) | ![The Viewer](docs/screenshots/skim-viewer.jpg) | ![Export](docs/screenshots/skim-export.jpg) |
 
-Screenshots are from the web preview, on 20-second copies of the T7 clips below.
+Screenshots are from the web preview, on 20-second copies of the T7 clips below; `node Scripts/skim-screenshots.mjs <clips>` takes them again (`--scale 2` for the App Store size).
 
 ### Trying it on the T7 clips
 

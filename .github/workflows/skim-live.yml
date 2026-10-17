@@ -1,0 +1,32 @@
+name: skim live
+
+# lumina-skim.pages.dev as a visitor gets it (Tests/web/skim-live.mjs): the page answers and draws, four clips
+# are read, one is marked, the Final Cut file is built, no page error, nothing asked of another host, and the
+# build stamp matches version.txt. Skim is deployed by a follower on the Mac (and by hand from previews.yml),
+# so this runs on a schedule and by hand rather than after a push. It only reads the public address: no secrets.
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Address to check
+        default: https://lumina-skim.pages.dev/
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    name: lumina-skim.pages.dev works
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: playwright (drives the runner's Google Chrome, which plays the H.264 clips)
+        run: npm i -g playwright@1.56.1
+      - name: the live page, used
+        run: NODE_PATH="$(npm root -g)" node Tests/web/skim-live.mjs "${{ inputs.url || 'https://lumina-skim.pages.dev/' }}"

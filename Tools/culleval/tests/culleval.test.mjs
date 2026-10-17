@@ -171,12 +171,13 @@ test('report: file names stay below the "Worst" heading', () => {
     stacks: { stacks: 1, framesInStacks: 2, brackets: 0 }, flags: { soft: 0, blown: 0, shake: 0, dark: 0 }, truth: { source: 'exports', exports: 1, edited: 1, frames: 2, kept: 1 },
     picks: { suggested: pk, pagePick: pk, flagsAsReject: pk }, bestOf: { stacks: b, repeat: b, scene: b },
     patterns: { falseKeeps: 0, falseKeeps_sceneHasAKeeper: 0, falseKeeps_sceneAllRejected: 0, falseKeeps_loneFrame: 0, missedKeeps: 0, missedKeeps_flaggedSoft: 0, missedKeeps_flaggedBlown: 0, missedKeeps_flaggedShake: 0, missedKeeps_notSharpestInStack: 0, scenesWithKeeper_notOneStack: 0, scenesWithKeeper: 1 } };
-  const one = { shoots: 1, suggested: pk, pagePick: pk, flagsAsReject: pk, bestOf: { stacks: b, repeat: b, scene: b } };
+  const one = { shoots: 1, suggested: pk, pagePick: pk, flagsAsReject: pk, byFlag: { soft: pk }, bestOf: { stacks: b, repeat: b, scene: b } };
   const md = markdown({ when: 'now', core: 'x', readOneDrift: false, gaps: { repeatGap: 2, sceneGap: 10 }, shoots: [shoot],
     pooled: { grouping: { drive: g, repeat: g, scene: g }, whatIfDriveRead: { drive: g, repeat: g }, driveRead: { frames: 0, truthFrames: 0 }, picksComplete: one, picksAll: one } },
     { s: { worst: [{ kind: 'k', kept: 'DSC01234.ARW', lumina: 'DSC01235.ARW', detail: '' }], groupingWorst: [] } });
   const [above, below] = md.split('\n## Worst');
   assert.ok(!/DSC0123/.test(above)); assert.ok(/DSC01234\.ARW/.test(below)); assert.ok(/F1/.test(above));
+  assert.match(above, /\| soft \| 1 \| 1 \| 100 % \| 0 % \|/, 'a flag\'s override rate: flagged, kept anyway, kept if flagged, kept if not');
 });
 
 // ——— through the app (lib/app.mjs): a probe dump against picks

@@ -67,7 +67,7 @@ test('a saved matte is listed beside its clip in the .fcpxml', () => {
   assert.match(x, /<asset-clip ref="m\d+" name="[^"]+ matte · Person 1" duration="[^"]+" format="r\d+" tcFormat="NDF">\n\s+<keyword start="0s" duration="[^"]+" value="matte"\/>/);
   assert.match(x, /<keyword-collection name="matte"\/>/);
   // the matte's format: the clip's frame length at the matte's size
-  const fm = /<asset id="m\d+"[^>]* format="(r\d+)"/.exec(x)[1], f = new RegExp('<format id="' + fm + '" frameDuration="([^"]+)" width="(\\d+)" height="(\\d+)"/').exec(x);
+  const fm = /<asset id="m\d+"[^>]* format="(r\d+)"/.exec(x)[1], f = new RegExp('<format id="' + fm + '"(?: name="[^"]+")? frameDuration="([^"]+)" width="(\\d+)" height="(\\d+)"/').exec(x);
   assert.ok(f, 'the matte has a format of its own'); assert.ok(+f[2] <= 1920 && +f[3] <= 1920 && +f[2] % 2 === 0 && +f[3] % 2 === 0, f[0]);
   // the same length as the clip
   const a = new RegExp('<asset id="a\\d+" name="' + keep.name.replace(/\.\w+$/, '') + '"[^>]* duration="([^"]+)"').exec(x)[1], m = /<asset id="m\d+"[^>]* duration="([^"]+)"/.exec(x)[1];

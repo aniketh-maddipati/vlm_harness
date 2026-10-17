@@ -73,3 +73,12 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: bash Scripts/deploy-skim-preview.sh
+      - name: the address serves this commit, and works (Tests/web/skim-live.mjs)
+        run: |
+          npm i -g playwright@1.56.1
+          want="$(git rev-parse --short HEAD)"
+          for i in 1 2 3 4 5 6; do
+            case "$(curl -fsS https://lumina-skim.pages.dev/version.txt || true)" in "$want "*) break;; esac
+            sleep 10
+          done
+          LUMINA_LIVE_EXPECT="$want" NODE_PATH="$(npm root -g)" node Tests/web/skim-live.mjs

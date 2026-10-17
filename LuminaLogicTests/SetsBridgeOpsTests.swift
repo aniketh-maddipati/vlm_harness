@@ -155,7 +155,7 @@ final class SetsBridgeOpsTests: XCTestCase {
     /// The fields each op reads (SetsBridge.swift, `userContentController`). `openSettings` is left
     /// out on purpose (it opens System Settings).
     static let fields: [String: [String]] = [
-        "ready": ["missing"], "cullCard": [], "openFolder": [], "prefetch": ["items"], "near": ["a", "b"], "masks": ["preview"], "ingestStats": [],
+        "ready": ["missing"], "cullCard": [], "openFolder": [], "prefetch": ["items"], "near": ["a", "b"], "dust": ["items"], "masks": ["preview"], "ingestStats": [],
         "shootOpened": ["name", "n", "date", "bodies"], "shootHeader": [], "decoderUpdate": [],
         "canvasEnter": ["rel", "model", "look", "prev", "next", "preview", "prevPreview", "nextPreview"], "canvasLeave": [],
         "canvasLayout": ["x", "y", "w", "h", "visible", "dpr", "holes"], "canvasLook": ["look", "drag", "key", "roi", "t", "seq"],
