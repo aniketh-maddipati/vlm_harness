@@ -39,11 +39,72 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         /// The photo's tone anchor (log-mean luma of the whole developed frame): Highlights and
         /// Shadows act relative to it. The same number for every size, tier and crop of a photo.
         let anchor: LookMath.ToneAnchor
+        /// The photo's automatic masks, placed on this image: what a look's `mask:` tokens blend
+        /// through. Nil (no masks known) renders the look without them.
+        var masks: PhotoMasks? = nil
         /// The Creative Style the camera shot with (`LookCameraStyle`), for the camera profile.
         /// Nil for anything not read from a Sony RAW (the embedded JPEG already is the camera's look).
         var style: String? = nil
         var extent: CGRect { image.extent }
         var longEdge: CGFloat { max(image.extent.width, image.extent.height) }
+
+        /// The same image with `found` as its masks, the image being the whole upright photo (a
+        /// develop, a preview, an export): the photo's top left is the image's top left.
+        func withMasks(_ found: [LookMasks.Found]?, key: String) -> Developed {
+            var d = self
+            d.masks = found.map { PhotoMasks(key: key, found: $0, toImage: LookPipeline.frameTransform(image.extent)) }
+            return d
+        }
+    }
+
+    /// A photo's automatic masks as one image sees them (`Look.locals`, DESIGN-ASKS Prompt 29): the
+    /// outlines `SetsMasks` found (`LookMasks.Found.outline`: fractions of the upright photo from
+    /// its top left, before crop and turn) and `toImage`, where a point of the photo lands in this
+    /// image (Core Image pixels, y up). Whatever makes an image from a photo, or moves one (the
+    /// geometry, a scale, a tile's place, a turn), moves `toImage` with it, so a mask stays on the
+    /// same content in the canvas's bases, the loupe's tiles, a preview and the export alike.
+    struct PhotoMasks: @unchecked Sendable {
+        /// What the raster cache knows these outlines by (`key(rel:_:)`).
+        let key: String
+        let found: [LookMasks.Found]
+        var toImage: CGAffineTransform
+
+        /// After `toImage`, `t` (the image moved by it).
+        func placed(_ t: CGAffineTransform) -> PhotoMasks {
+            var m = self
+            m.toImage = toImage.concatenating(t)
+            return m
+        }
+
+        /// The photo, then `t`: for outlines placed by a transform from photo fractions.
+        func placed(photo t: CGAffineTransform) -> PhotoMasks {
+            var m = self
+            m.toImage = t
+            return m
+        }
+
+        /// The photo's path and a digest of what was found in it: two findings of one photo with
+        /// different outlines never share a raster.
+        static func key(rel: String, _ found: [LookMasks.Found]) -> String {
+            var h = Hasher()
+            for f in found {
+                h.combine(f.id)
+                for loop in f.outline { h.combine(loop.count); for p in loop { h.combine(p.x); h.combine(p.y) } }
+            }
+            return "\(rel)#\(found.count)#\(h.finalize())"
+        }
+    }
+
+    /// Photo fractions (0 … 1 from the top left) → pixels of an upright image covering `rect`
+    /// (Core Image, y up): (u, v) → (minX + u·w, maxY − v·h).
+    static func frameTransform(_ rect: CGRect) -> CGAffineTransform {
+        CGAffineTransform(a: rect.width, b: 0, c: 0, d: -rect.height, tx: rect.minX, ty: rect.maxY)
+    }
+
+    /// The transform that lays rect `a` onto rect `b` (a scale and a move, no flip).
+    static func mapping(from a: CGRect, to b: CGRect) -> CGAffineTransform {
+        guard a.width > 0, a.height > 0, !a.isInfinite, !b.isInfinite else { return .identity }
+        return CGAffineTransform(a: b.width / a.width, b: 0, c: 0, d: b.height / a.height, tx: b.minX - a.minX * b.width / a.width, ty: b.minY - a.minY * b.height / a.height)
     }
 
     let rules: LookRules
@@ -294,16 +355,45 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// result is rendered. Stages at their reset value are left out (`Look.runs`), so a neutral
     /// look is the developed image (plus crop). Core Image fuses the stages that run into one
     /// program per set of stages, compiled the first time it renders (`LookWarmPlan`).
+    ///
+    /// Then the adjustments inside a mask (`Look.locals`), in order: the same stages with the
+    /// mask's values, on the picture the global look made, blended into it through the mask
+    /// (`maskImage`). A mask `dev` does not carry (no masks found yet, another id) is left out:
+    /// the render is the look without it, never a failure.
     func apply(_ look: Look, to dev: Developed, crop: Bool = true) -> CIImage {
         var img = dev.image
-        if crop { img = geometry(img, look.crop, rot: look.rot) }
+        var masks = dev.masks
+        if crop {
+            let g = geometryPlaced(img, look.crop, rot: look.rot)
+            img = g.image
+            masks = masks?.placed(g.transform)
+        }
+        var anchor = dev.anchor
+        img = stages(look, on: img, asShot: dev.asShot, style: dev.style, anchor: &anchor)
+        guard !look.locals.isEmpty, let masks else { return img }
+        let extent = img.extent
+        for local in look.locals {
+            guard !local.isNeutral, let found = masks.found.first(where: { $0.id == local.mask }),
+                  let mask = maskImage(found, masks, extent: extent) else { continue }
+            // The mask's own exposure moves its own copy of the anchor, as the global one does.
+            var a = anchor
+            let adjusted = stages(local.look, on: img, asShot: dev.asShot, style: dev.style, anchor: &a)
+            img = adjusted.applyingFilter("CIBlendWithRedMask", parameters: [kCIInputBackgroundImageKey: img, kCIInputMaskImageKey: mask]).cropped(to: extent)
+        }
+        return img
+    }
+
+    /// The look's stages on `input` (its extent is the frame the stages see: the blurs' radii and
+    /// the vignette follow it), in the rules' order, the ones at reset left out. `anchor` comes
+    /// back moved by the exposure stage. The global look and each mask's run through here.
+    private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, style: String?, anchor: inout LookMath.ToneAnchor) -> CIImage {
+        var img = input
         let extent = img.extent
         let longEdge = max(extent.width, extent.height)
         let gam = CIVector(x: 1 / rules.perceptualGamma, y: rules.perceptualGamma)
         let lum = CIVector(x: rules.luma[0], y: rules.luma[1], z: rules.luma[2], w: 0)
         let ones = CIVector(x: 1, y: 1, z: 1, w: 1), zero = CIVector(x: 0, y: 0, z: 0, w: 0)
         let r = rules
-        var anchor = dev.anchor
 
         func pass(_ name: String, _ args: [Any]) {
             if let out = kernels.apply(name, extent: extent, args) { img = out }
@@ -321,7 +411,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             case "camera":
                 // The camera's look for the photo's Creative Style, the base match's form with the
                 // style's numbers. Nothing without a style: an embedded JPEG already is the camera's look.
-                guard dev.style != nil, let m = LookMath.BaseMatch(camera: dev.style, r), !m.isIdentity else { continue }
+                guard style != nil, let m = LookMath.BaseMatch(camera: style, r), !m.isIdentity else { continue }
                 pass("lookBase", Self.baseArgs(img, m, r))
             case "exposure":
                 let g = LookMath.exposureGain(look.ev, r), w = LookMath.exposureWhite(r)
@@ -329,7 +419,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 anchor.mean = LookMath.exposure(anchor.mean, gain: g, white: w)
                 anchor.high = anchor.high.map { LookMath.exposure($0, gain: g, white: w) }
             case "whiteBalance":
-                let g = LookMath.whiteBalanceGains(look.wb, asShot: dev.asShot, r)
+                let g = LookMath.whiteBalanceGains(look.wb, asShot: asShot, r)
                 pass("lookWhiteBalance", [img, CIVector(x: g.r, y: g.g, z: g.b, w: 1), CIVector(x: LookMath.whiteBalanceWhite(r), y: 0)])
             case "whitesBlacks":
                 let wbk = CIVector(x: look.whites * r.k("whitesBlacks", "whitesPerUnit", 0.003),
@@ -407,11 +497,75 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         return img
     }
 
+    // MARK: masks (adjustments inside a mask)
+
+    /// How far a mask's edge is softened, as a fraction of the photo's long edge: about 12 px of
+    /// a 2048 px raster, the same share of the photo on the canvas, a tile and the export.
+    static let maskFeather = 0.006
+    private static let maskRasters = 48
+    private let maskLock = NSLock()
+    private var maskCache: [String: CIImage] = [:]
+    private var maskOrder: [String] = []
+
+    /// `found`'s outline as a mask over `extent` of an image `masks` is placed on: 1 inside, 0
+    /// outside, antialiased and feathered (`LookMasks.raster`), sampled through `toImage`, so any
+    /// crop, straighten, turn, scale or tile lines up. Nil when the photo is not a usable size in
+    /// this image (a degenerate transform).
+    ///
+    /// The raster is made in the photo's own frame at one of a few sizes chosen from how large
+    /// the photo is in this image (`LookMasks.rasterSize`) and kept (one-channel, 8 bit, a few MB
+    /// at most): a slider moving inside a mask reuses it on every frame.
+    func maskImage(_ found: LookMasks.Found, _ masks: PhotoMasks, extent: CGRect) -> CIImage? {
+        let t = masks.toImage
+        // How many pixels of this image the whole photo spans, across and down.
+        let pw = (t.a * t.a + t.b * t.b).squareRoot(), ph = (t.c * t.c + t.d * t.d).squareRoot()
+        guard pw.isFinite, ph.isFinite, pw >= 1, ph >= 1, !extent.isEmpty, !extent.isInfinite else { return nil }
+        guard let plane = maskRaster(found, key: masks.key, photo: CGSize(width: pw, height: ph)) else { return nil }
+        let w = plane.extent.width, h = plane.extent.height
+        // Raster pixels (Core Image, y up: its first row is the photo's top) → photo fractions → this image.
+        let toPhoto = CGAffineTransform(a: 1 / w, b: 0, c: 0, d: -1 / h, tx: 0, ty: 1)
+        return plane.clampedToExtent().transformed(by: toPhoto.concatenating(t)).cropped(to: extent)
+    }
+
+    /// The raster for a photo that is `photo` pixels in the image asking (cached).
+    func maskRaster(_ found: LookMasks.Found, key: String, photo: CGSize) -> CIImage? {
+        let size = LookMasks.rasterSize(photo: Double(photo.width), Double(photo.height))
+        let k = "\(key)|\(found.id)|\(size.width)x\(size.height)"
+        if let hit = maskLock.withLock({ maskCache[k] }) { return hit }
+        let plane = LookMasks.raster(found.outline, width: size.width, height: size.height, feather: Self.maskFeather)
+        guard !plane.isEmpty else { return nil }
+        let bytes = Data(plane.values.map { UInt8((min(1, max(0, $0)) * 255).rounded()) })
+        let img = CIImage(bitmapData: bytes, bytesPerRow: size.width, size: CGSize(width: size.width, height: size.height), format: .R8, colorSpace: nil)
+        maskLock.withLock {
+            if maskCache.updateValue(img, forKey: k) == nil { maskOrder.append(k) }
+            while maskOrder.count > Self.maskRasters { maskCache.removeValue(forKey: maskOrder.removeFirst()) }
+        }
+        return img
+    }
+
+    /// The rasters `look`'s masks need on an image `masks` is placed on, made now (off the main
+    /// thread: the canvas calls this before it draws the first frame with them).
+    func prepareMasks(_ look: Look, _ masks: PhotoMasks) {
+        let t = masks.toImage
+        let photo = CGSize(width: (t.a * t.a + t.b * t.b).squareRoot(), height: (t.c * t.c + t.d * t.d).squareRoot())
+        guard photo.width >= 1, photo.height >= 1, photo.width.isFinite, photo.height.isFinite else { return }
+        for local in look.locals { if let f = masks.found.first(where: { $0.id == local.mask }) { _ = maskRaster(f, key: masks.key, photo: photo) } }
+    }
+
     /// The geometry alone: crop and straighten in the frame as shot, then the quarter turn
     /// (`Look.rot`). The canvas bakes it into its `base`, then applies the look with `crop: false`;
     /// previews and exports get it from `apply`. One function for all of them, so they agree.
     func geometry(_ img: CIImage, _ c: Look.Crop?, rot: Int = 0) -> CIImage {
-        Self.turned(c.map { cropped(img, $0) } ?? img, rot: rot)
+        geometryPlaced(img, c, rot: rot).image
+    }
+
+    /// `geometry`, and where a point of `img` lands in its result (Core Image pixels to Core Image
+    /// pixels): the masks of a photo follow its picture through the crop, the straighten and the
+    /// turn with this (`PhotoMasks.placed`).
+    func geometryPlaced(_ img: CIImage, _ c: Look.Crop?, rot: Int = 0) -> (image: CIImage, transform: CGAffineTransform) {
+        let cut = c.map { croppedPlaced(img, $0) } ?? (img, .identity)
+        let turn = Self.turnedPlaced(cut.image, rot: rot)
+        return (turn.image, cut.transform.concatenating(turn.transform))
     }
 
     /// The transform that turns a frame of `size` clockwise by `rot` degrees (a multiple of 90)
@@ -428,21 +582,34 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     }
 
     /// `img` (origin at 0, 0) turned clockwise by `rot` degrees. 0 is the image itself.
-    static func turned(_ img: CIImage, rot: Int) -> CIImage {
-        guard ((rot % 360) + 360) % 360 != 0, !img.extent.isInfinite else { return img }
-        return atOrigin(img.transformed(by: turnTransform(size: img.extent.size, rot: rot)))
+    static func turned(_ img: CIImage, rot: Int) -> CIImage { turnedPlaced(img, rot: rot).image }
+
+    /// `turned`, and the transform it moved the picture by.
+    static func turnedPlaced(_ img: CIImage, rot: Int) -> (image: CIImage, transform: CGAffineTransform) {
+        guard ((rot % 360) + 360) % 360 != 0, !img.extent.isInfinite else { return (img, .identity) }
+        let turn = turnTransform(size: img.extent.size, rot: rot)
+        return atOriginPlaced(img.transformed(by: turn), after: turn)
     }
 
-    /// Straighten about the centre, then the box as fractions of the frame (y from the top).
-    private func cropped(_ img: CIImage, _ c: Look.Crop) -> CIImage {
+    /// `atOrigin`, with the transform so far (`after`) and the move it adds.
+    static func atOriginPlaced(_ img: CIImage, after t: CGAffineTransform = .identity) -> (image: CIImage, transform: CGAffineTransform) {
+        let e = img.extent
+        guard e.origin != .zero, !e.isInfinite else { return (img, t) }
+        return (atOrigin(img), t.concatenating(CGAffineTransform(translationX: -e.origin.x, y: -e.origin.y)))
+    }
+
+    /// Straighten about the centre, then the box as fractions of the frame (y from the top); and
+    /// the transform the picture moved by.
+    private func croppedPlaced(_ img: CIImage, _ c: Look.Crop) -> (image: CIImage, transform: CGAffineTransform) {
         let e = img.extent
         var out = img
+        var t = CGAffineTransform.identity
         if c.rotate != 0 {
-            let t = CGAffineTransform(translationX: e.midX, y: e.midY).rotated(by: -c.rotate * .pi / 180).translatedBy(x: -e.midX, y: -e.midY)
+            t = CGAffineTransform(translationX: e.midX, y: e.midY).rotated(by: -c.rotate * .pi / 180).translatedBy(x: -e.midX, y: -e.midY)
             out = out.transformed(by: t)
         }
         let rect = CGRect(x: e.minX + c.x * e.width, y: e.minY + (1 - c.y - c.h) * e.height, width: c.w * e.width, height: c.h * e.height).integral
-        return Self.atOrigin(out.cropped(to: rect))
+        return Self.atOriginPlaced(out.cropped(to: rect), after: t)
     }
 
     // MARK: outputTransform
@@ -480,7 +647,10 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     func rasterised(_ dev: Developed) throws -> (Developed, Int) {
         let e = dev.extent.integral
         guard let cg = context.createCGImage(dev.image, from: e, format: .RGBAh, colorSpace: workingSpace) else { throw Failure("rasterise failed") }
-        return (Developed(image: CIImage(cgImage: cg), asShot: dev.asShot, anchor: dev.anchor, style: dev.style), cg.bytesPerRow * cg.height)
+        // The bitmap starts at the extent's origin, the image at (0, 0): the masks move with it.
+        var out = Developed(image: CIImage(cgImage: cg), asShot: dev.asShot, anchor: dev.anchor, style: dev.style)
+        out.masks = dev.masks?.placed(CGAffineTransform(translationX: -e.minX, y: -e.minY))
+        return (out, cg.bytesPerRow * cg.height)
     }
 
     // MARK: reading pixels (tests, the ramp dump)

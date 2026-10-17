@@ -56,6 +56,13 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let firstTileMs: Double
         let totalMs: Double
         let facts: Facts
+
+        /// Where a point of the upright photo (fractions from its top left) lands in `image`: the
+        /// whole frame at full size, then the quarter turn (the crop is not applied to a region).
+        var photo: CGAffineTransform {
+            let unturned = rot % 180 == 0 ? photoSize : CGSize(width: photoSize.height, height: photoSize.width)
+            return LookPipeline.frameTransform(CGRect(origin: .zero, size: unturned)).concatenating(LookPipeline.turnTransform(size: unturned, rot: rot))
+        }
     }
 
     struct Stats: Codable, Equatable, Sendable {

@@ -44,15 +44,15 @@ nonisolated struct SkimExport: Sendable {
 
     /// The page's suggested name as one plain file name with an extension Skim writes: no folders, no leading dot,
     /// no control characters or colons, at most 128 characters. Nil when nothing is left or the extension is not one
-    /// of `extensions`.
-    static func safeName(_ suggested: String) -> String? {
+    /// of `allowed` (`extensions`; a matte is a .mov, `SkimFollow.matteName`).
+    static func safeName(_ suggested: String, allowed: Set<String> = extensions) -> String? {
         if suggested.hasSuffix("/") || suggested.hasSuffix("\\") { return nil }   // a folder, not a file
         let last = suggested.split(whereSeparator: { $0 == "/" || $0 == "\\" }).last.map(String.init) ?? ""
         var name = String(String.UnicodeScalarView(last.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) && $0 != ":" }))
         while let f = name.first, f == "." || f.isWhitespace { name.removeFirst() }
         name = name.trimmingCharacters(in: .whitespaces)
         let ext = (name as NSString).pathExtension, stem = (name as NSString).deletingPathExtension
-        guard extensions.contains(ext.lowercased()), !stem.isEmpty else { return nil }
+        guard allowed.contains(ext.lowercased()), !stem.isEmpty else { return nil }
         return String(stem.prefix(120)) + "." + ext
     }
 

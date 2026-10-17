@@ -224,6 +224,20 @@ final class LookCanvasController: NSObject {
     private var flightSeq = 0
     private var lastPresentedSeq = 0
     private var facts = ""
+    /// The photo's automatic masks (DESIGN-ASKS Prompts 28, 29), asked for once per photo the
+    /// first time its look has `mask:` tokens or a mask is shown: `masks` is nil until they land
+    /// (or when none could be found; the look then renders without them). `ready` are the ids
+    /// whose rasters were made off the main thread; a mask is drawn from its first frame after.
+    private var photoMasks: (rel: String, masks: LookPipeline.PhotoMasks?, ready: Set<String>)?
+    private var preparing: Set<String> = []
+    private let maskQueue = DispatchQueue(label: "lumina.look.masks", qos: .userInitiated)
+    /// `lumina.edit.showMask(id)`: the mask whose outline the canvas draws over the photo, nil for none.
+    private var shownMask: String?
+    /// The outline drawn last, kept while nothing it depends on moves (a slider drag reuses it).
+    private var maskOverlay: (key: String, image: CIImage)?
+    /// Finds the masks of a photo (its rel and embedded preview); `done` on the main thread, nil
+    /// when they can't be found. Set by the bridge (`SetsMasks`); nil: the canvas has no masks.
+    var findMasks: ((String, LookBases.PreviewFallback?, @escaping ([LookMasks.Found]?) -> Void) -> Void)?
 
     /// Facts for the page's facts line ("canvas: native", "raw 9 · region", "refining…").
     var onFacts: ((String) -> Void)?
@@ -305,11 +319,13 @@ final class LookCanvasController: NSObject {
         let size = canvasPixels()
         let key = LookBases.Key(rel: rel, decoder: decoder, look: parsed, canvas: size)
         let same = current?.rel == rel
-        if !same { schedule.reset(); region = nil; supersedeRegion(); stats.region = false; asShotTold = nil; developTries = 0; developRetrying = false; cannotDevelop = nil; drawFails = 0; baseSeen = false; draftSource = nil }
+        if !same { schedule.reset(); region = nil; supersedeRegion(); stats.region = false; asShotTold = nil; developTries = 0; developRetrying = false; cannotDevelop = nil; drawFails = 0; baseSeen = false; draftSource = nil
+                   photoMasks = nil; preparing = []; shownMask = nil; maskOverlay = nil }
         current = (rel, url, key, parsed, bases.entry(key), preview, decoder, regionDecoder, same ? current?.standIn : nil)
         stats.rel = rel
         bases.pin(key)
         ensureBases()
+        ensureMasks()
         // A base kept from a develop that failed (the embedded JPEG stood in): the RAW is tried again.
         if let e = current?.entry { baseSeen = true; if e.why != nil { developAgain(key) } }
         // The neighbours wait until this photo's base is on screen and the canvas is still.
@@ -384,6 +400,7 @@ final class LookCanvasController: NSObject {
     func leave() {
         asShotTold = nil
         current = nil
+        photoMasks = nil; preparing = []; shownMask = nil; maskOverlay = nil
         standIns.pin(nil); standIns.forget()
         developRetrying = false; cannotDevelop = nil; baseSeen = false
         schedule.reset()
@@ -483,6 +500,7 @@ final class LookCanvasController: NSObject {
             ensureBases()
             tellAsShot()
         } else { current?.look = parsed }
+        if !parsed.locals.isEmpty { ensureMasks() }
         zoom = roi
         if cropDraft.active { ensureDraftSource() }
         // The page's clock → ours: the smallest arrival − emit gap seen is the offset within a message's transit.
@@ -740,7 +758,7 @@ final class LookCanvasController: NSObject {
     /// export at the same size). Nil until the bases exist.
     func renderToImage() -> CGImage? {
         guard let c = current, let e = c.entry else { return nil }
-        let img = pipeline.apply(c.look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot, anchor: e.anchor, style: e.style), crop: false)
+        let img = pipeline.apply(c.look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot, anchor: e.anchor, masks: placedMasks(c.look)?.placed(photo: e.toPhoto(small: false)), style: e.style), crop: false)
         return pipeline.context.createCGImage(pipeline.output(img), from: img.extent.integral, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
     }
 
@@ -748,6 +766,102 @@ final class LookCanvasController: NSObject {
     var currentPreview: LookBases.PreviewFallback? { current?.preview }
     /// The look `renderToImage` renders (the newest the canvas was given).
     var currentLook: String { current?.look.format() ?? "" }
+
+    // MARK: Masks (DESIGN-ASKS Prompts 28 §3 and 29)
+
+    /// `lumina.edit.showMask(id | null)`: the canvas draws that mask's outline over the photo (a
+    /// light hairline, a faint tint inside), in its own coordinates, so it follows the crop, the
+    /// turn, the zoom and Crop's draft; nil hides it. The masks are the photo's (`findMasks`); an
+    /// id the photo does not have draws nothing. False on the image path, where nothing native draws.
+    func showMask(_ id: String?) -> Bool {
+        if id != shownMask { shownMask = id; maskOverlay = nil }
+        ensureMasks()
+        kickRest(); kick()
+        return path == .native && view != nil
+    }
+
+    /// The photo's masks, asked for once per photo when its look has `mask:` tokens or one is shown.
+    private func ensureMasks() {
+        guard let c = current, let find = findMasks, !c.look.locals.isEmpty || shownMask != nil else { return }
+        guard photoMasks?.rel != c.rel else { prepareMasks(); return }
+        let rel = c.rel
+        photoMasks = (rel, nil, [])
+        preparing = []
+        find(rel, c.preview) { [weak self] found in
+            guard let self, self.photoMasks?.rel == rel, let found else { return }
+            self.photoMasks = (rel, LookPipeline.PhotoMasks(key: LookPipeline.PhotoMasks.key(rel: rel, found), found: found, toImage: .identity), [])
+            self.maskOverlay = nil
+            self.prepareMasks()
+            if self.shownMask != nil { self.kickRest(); self.kick() }
+        }
+    }
+
+    /// The rasters the look on the canvas blends through, made on `maskQueue` for the base on
+    /// screen (both tiers) and the loupe's region, so a mask's first frame does not rasterise on
+    /// the main thread. Until its raster is ready a mask is left out of the frame (`placedMasks`).
+    private func prepareMasks() {
+        guard let c = current, let pm = photoMasks, pm.rel == c.rel, let masks = pm.masks, let entry = c.entry ?? c.standIn?.entry else { return }
+        let ids = Set(c.look.locals.map(\.mask)).subtracting(pm.ready).subtracting(preparing).filter { id in masks.found.contains { $0.id == id } }
+        guard !ids.isEmpty else { return }
+        preparing.formUnion(ids)
+        var look = Look()
+        look.locals = c.look.locals.filter { ids.contains($0.mask) }
+        var places = [masks.placed(photo: entry.toPhoto(small: false)), masks.placed(photo: entry.toPhoto(small: true))]
+        if let reg = region, reg.rel == c.rel { places.append(masks.placed(photo: reg.photo)) }
+        let pipeline = self.pipeline, rel = c.rel
+        maskQueue.async { [weak self] in
+            for p in places { pipeline.prepareMasks(look, p) }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, self.photoMasks?.rel == rel else { return }
+                    self.preparing.subtract(ids)
+                    self.photoMasks?.ready.formUnion(ids)
+                    self.schedule.again(at: self.now())
+                    self.kick()
+                }
+            }
+        }
+    }
+
+    /// The masks a render of `look` blends through: the photo's, the ones with a raster ready.
+    /// Placed per image by the caller (`PhotoMasks.placed(photo:)`). Nil when the look has none.
+    private func placedMasks(_ look: Look) -> LookPipeline.PhotoMasks? {
+        guard !look.locals.isEmpty, let pm = photoMasks, pm.rel == current?.rel, let m = pm.masks, !pm.ready.isEmpty else { return nil }
+        return LookPipeline.PhotoMasks(key: m.key, found: m.found.filter { pm.ready.contains($0.id) }, toImage: .identity)
+    }
+
+    /// The shown mask's outline over the photo: `toDrawable` places the photo's fractions in the
+    /// drawable (y up), as `compose` placed the picture. The hairline is the crop grid's colour,
+    /// one CSS pixel wide; inside, the same colour at a faint alpha, filled even-odd so a hole
+    /// stays clear. Kept until the placement, the size or the mask changes.
+    private func withMaskOutline(_ image: CIImage, toDrawable t: CGAffineTransform, size: CGSize) -> CIImage {
+        guard let id = shownMask, let pm = photoMasks, pm.rel == current?.rel, let found = pm.masks?.found.first(where: { $0.id == id }) else { return image }
+        let w = Int(size.width.rounded()), h = Int(size.height.rounded())
+        guard w > 1, h > 1, [t.a, t.b, t.c, t.d, t.tx, t.ty].allSatisfy(\.isFinite) else { return image }
+        let key = "\(pm.masks?.key ?? "")|\(id)|\(w)x\(h)|\(t.a),\(t.b),\(t.c),\(t.d),\(t.tx),\(t.ty)|\(stats.dpr)"
+        if let o = maskOverlay, o.key == key { return o.image.composited(over: image) }
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return image }
+        // The bitmap's origin is the bottom left, matching the drawable (y up), as the crop guides'.
+        let outline = CGMutablePath()
+        for loop in found.outline where loop.count >= 3 {
+            outline.addLines(between: loop.map { CGPoint(x: $0.x, y: $0.y).applying(t) })
+            outline.closeSubpath()
+        }
+        guard !outline.isEmpty else { return image }
+        ctx.addPath(outline)
+        ctx.setFillColor(red: 239.0 / 255, green: 236.0 / 255, blue: 230.0 / 255, alpha: 0.14)
+        ctx.fillPath(using: .evenOdd)
+        ctx.addPath(outline)
+        ctx.setStrokeColor(red: 239.0 / 255, green: 236.0 / 255, blue: 230.0 / 255, alpha: 0.85)
+        ctx.setLineWidth(max(1, CGFloat(stats.dpr)))
+        ctx.setLineJoin(.round)
+        ctx.strokePath()
+        guard let cg = ctx.makeImage() else { return image }
+        let overlay = CIImage(cgImage: cg)
+        maskOverlay = (key, overlay)
+        return overlay.composited(over: image)
+    }
 
     // MARK: Bases
 
@@ -765,6 +879,7 @@ final class LookCanvasController: NSObject {
             guard let self, let cur = self.current, cur.key == c.key, cur.entry == nil, case .success(let e) = r else { return }
             self.current?.standIn = (c.key, e)
             self.schedule.again(at: self.now())
+            self.prepareMasks()
             self.setFacts()
             self.kick()
         }
@@ -787,6 +902,7 @@ final class LookCanvasController: NSObject {
             if redraw { schedule.again(at: now()) }
             tellAsShot()
             if e.why != nil { stats.renderErrors += 1; developAgain(key) }
+            prepareMasks()
             setFacts()
             kick()
             updatePrefetch()
@@ -903,7 +1019,10 @@ final class LookCanvasController: NSObject {
     /// of `size` (contain), or the zoomed region filling it. The drawable's render and the warm-up
     /// both build it here, so they compile the same programs. `image` is the look before placing
     /// (the rest statistics read it); `region` the loupe's RAW 9 region when it was used.
-    private func compose(_ look: Look, tier: LookCanvasSchedule.Tier, roi: LookCanvasSchedule.ROI?, entry: LookBases.Entry, size: CGSize) -> (placed: CIImage, image: CIImage, region: LookRegionTiles.Region?) {
+    /// `photo` is where the photo's fractions land in the drawable (y up): the shown mask's
+    /// outline is drawn with it (`withMaskOutline`), and the look's masks are placed on each
+    /// source image the same way, so both stay on the picture.
+    private func compose(_ look: Look, tier: LookCanvasSchedule.Tier, roi: LookCanvasSchedule.ROI?, entry: LookBases.Entry, size: CGSize) -> (placed: CIImage, image: CIImage, region: LookRegionTiles.Region?, photo: CGAffineTransform) {
         // The draft angle is the crop's straighten, absolute. It turns the full frame once.
         // The on-screen base already contains the applied crop, so turning that as well stacks
         // a second rotated copy. Until the full frame is ready, that base is shown unturned.
@@ -921,7 +1040,9 @@ final class LookCanvasController: NSObject {
         }
         let src: CIImage, srcSize: CGSize
         if tier == .small { src = source.small; srcSize = source.smallSize } else { src = source.base; srcSize = source.baseSize }
-        var image = pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: source.asShot, anchor: source.anchor, style: source.style), crop: false)
+        let masks = placedMasks(look)
+        var photo = source.toPhoto(small: tier == .small)
+        var image = pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: source.asShot, anchor: source.anchor, masks: masks?.placed(photo: photo), style: source.style), crop: false)
         // Where the photo goes: fit the canvas (contain), or the zoomed region filling it.
         let dw = size.width, dh = size.height
         var visible = CGRect(origin: .zero, size: srcSize)
@@ -937,22 +1058,26 @@ final class LookCanvasController: NSObject {
         var region: LookRegionTiles.Region?
         if tier == .base, !cropDraft.active, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z, reg.rot == look.rot {
             region = reg
-            let regionImage = pipeline.apply(look, to: LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, style: reg.style), crop: false)
+            photo = reg.photo
+            let regionImage = pipeline.apply(look, to: LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, masks: masks?.placed(photo: photo), style: reg.style), crop: false)
             let vis = CGRect(x: z.x * reg.photoSize.width, y: (1 - z.y - z.h) * reg.photoSize.height, width: z.w * reg.photoSize.width, height: z.h * reg.photoSize.height)
             image = regionImage.cropped(to: vis.intersection(reg.rect))
             visible = vis
         }
         let s = min(dw / max(1, visible.width), dh / max(1, visible.height))
-        let out = image.transformed(by: CGAffineTransform(translationX: -visible.minX, y: -visible.minY).concatenating(CGAffineTransform(scaleX: s, y: s)))
+        let fit = CGAffineTransform(translationX: -visible.minX, y: -visible.minY).concatenating(CGAffineTransform(scaleX: s, y: s))
+        let out = image.transformed(by: fit)
         let ox = ((dw - visible.width * s) / 2).rounded(), oy = ((dh - visible.height * s) / 2).rounded()
         var placed = pipeline.output(out).transformed(by: CGAffineTransform(translationX: ox, y: oy))
+        photo = photo.concatenating(fit).concatenating(CGAffineTransform(translationX: ox, y: oy))
         if applyDraft {
             // The page's photo box, in the drawable (y up): the full frame fills it, then rotates
             // and scales once about its centre. Corners that leave the box stay in the picture.
-            let photo = CGRect(x: ox - visible.minX * s, y: oy - visible.minY * s, width: srcSize.width * s, height: srcSize.height * s)
-            placed = draftPlaced(placed, photo: photo, size: size)
+            let box = CGRect(x: ox - visible.minX * s, y: oy - visible.minY * s, width: srcSize.width * s, height: srcSize.height * s)
+            placed = draftPlaced(placed, photo: box, size: size)
+            if let turn = Self.draftTurn(photo: box, angle: cropDraft.angle, cover: cropDraft.cover) { photo = photo.concatenating(turn) }
         }
-        return (placed, image, region)
+        return (placed, image, region, photo)
     }
 
     /// The crop frame in drawable pixels (y up), from the viewport CSS rect the page sent.
@@ -972,17 +1097,22 @@ final class LookCanvasController: NSObject {
         Self.draftPlaced(image, photo: photo, canvas: size, angle: cropDraft.angle, cover: cropDraft.cover, frame: draftFrame(size))
     }
 
+    /// Crop's draft straighten and cover scale about the centre of the photo's box (drawable
+    /// pixels, y up); nil when the draft turns nothing. The picture and the shown mask's outline
+    /// both turn by it.
+    static func draftTurn(photo: CGRect, angle: Double, cover: Double) -> CGAffineTransform? {
+        guard abs(angle) > 0.05 || abs(cover - 1) > 0.001 else { return nil }
+        let c = CGPoint(x: photo.midX, y: photo.midY)
+        return CGAffineTransform(translationX: c.x, y: c.y)
+            .rotated(by: -angle * .pi / 180)
+            .scaledBy(x: cover, y: cover)
+            .translatedBy(x: -c.x, y: -c.y)
+    }
+
     /// `frame` is the crop window in the same pixel space as `photo` (y up). Nil leaves the turn undimmed.
     static func draftPlaced(_ image: CIImage, photo: CGRect, canvas: CGSize, angle: Double, cover: Double, frame: CGRect?) -> CIImage {
         var out = image
-        if abs(angle) > 0.05 || abs(cover - 1) > 0.001 {
-            let c = CGPoint(x: photo.midX, y: photo.midY)
-            let turn = CGAffineTransform(translationX: c.x, y: c.y)
-                .rotated(by: -angle * .pi / 180)
-                .scaledBy(x: cover, y: cover)
-                .translatedBy(x: -c.x, y: -c.y)
-            out = out.transformed(by: turn)
-        }
+        if let turn = draftTurn(photo: photo, angle: angle, cover: cover) { out = out.transformed(by: turn) }
         // The drawable's edge, not the upright photo. A corner in the canvas margin stays.
         let raw = out.extent
         if canvas.width > 1, canvas.height > 1, !raw.isNull, !raw.isInfinite, raw.width.isFinite, raw.height.isFinite {
@@ -1051,7 +1181,8 @@ final class LookCanvasController: NSObject {
         let t0 = CACurrentMediaTime()
         let dw = CGFloat(drawable.texture.width), dh = CGFloat(drawable.texture.height)
         let composed = compose(look, tier: r.tier, roi: r.roi, entry: entry, size: CGSize(width: dw, height: dh))
-        let placed = cropDraft.guides.isEmpty ? composed.placed : withGuides(composed.placed, size: CGSize(width: dw, height: dh))
+        let outlined = shownMask == nil ? composed.placed : withMaskOutline(composed.placed, toDrawable: composed.photo, size: CGSize(width: dw, height: dh))
+        let placed = cropDraft.guides.isEmpty ? outlined : withGuides(outlined, size: CGSize(width: dw, height: dh))
         let image = composed.image, region = composed.region
         guard let cb = queue.makeCommandBuffer() else { schedule.failed(r); rendering = false; drawAgain(); return }
         let dest = CIRenderDestination(mtlTexture: drawable.texture, commandBuffer: cb)

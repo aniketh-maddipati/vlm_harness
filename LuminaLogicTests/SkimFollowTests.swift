@@ -1,0 +1,124 @@
+import XCTest
+@testable import Lumina
+
+/// Skim's Follow and the matte for Final Cut, the maths (`SkimFollow`): which shape in a frame is the one followed,
+/// what the page may send, and which followed frames each matte frame is made from.
+final class SkimFollowTests: XCTestCase {
+    typealias Box = LookMasks.Box
+    typealias P = LookMasks.Point
+
+    private func shape(_ id: String, _ kind: LookMasks.Kind, _ b: Box) -> LookMasks.Found {
+        LookMasks.Found(id: id, kind: kind, score: 1, box: b, area: b.w * b.h,
+                        outline: [[P(x: b.x, y: b.y), P(x: b.x + b.w, y: b.y), P(x: b.x + b.w, y: b.y + b.h), P(x: b.x, y: b.y + b.h)]])
+    }
+
+    func testOverlap() {
+        let a = Box(x: 0, y: 0, w: 0.5, h: 0.5)
+        XCTAssertEqual(SkimFollow.iou(a, a), 1, accuracy: 1e-9)
+        XCTAssertEqual(SkimFollow.iou(a, Box(x: 0.5, y: 0.5, w: 0.5, h: 0.5)), 0)
+        XCTAssertEqual(SkimFollow.iou(a, Box(x: 0.25, y: 0, w: 0.5, h: 0.5)), 1.0 / 3, accuracy: 1e-9)
+        XCTAssertEqual(SkimFollow.iou(Box(x: 0, y: 0, w: 0, h: 0), Box(x: 0, y: 0, w: 0, h: 0)), 0)
+    }
+
+    func testTheShapeOnTheBoxIsTheOneFollowed() {
+        let found = [shape("person-1", .person, Box(x: 0.1, y: 0.1, w: 0.2, h: 0.5)),
+                     shape("person-2", .person, Box(x: 0.6, y: 0.1, w: 0.2, h: 0.5)),
+                     shape("sky", .sky, Box(x: 0, y: 0, w: 1, h: 0.3)),
+                     shape("background", .background, Box(x: 0, y: 0, w: 1, h: 1))]
+        // the box has moved a little since the last frame: still person 2
+        XCTAssertEqual(SkimFollow.match(kind: .person, box: Box(x: 0.62, y: 0.12, w: 0.2, h: 0.5), in: found)?.id, "person-2")
+        // nothing under the box: not in this frame (the background, which covers it, is never the person)
+        XCTAssertNil(SkimFollow.match(kind: .person, box: Box(x: 0.4, y: 0.7, w: 0.1, h: 0.1), in: found))
+        XCTAssertNil(SkimFollow.match(kind: .person, box: nil, in: found))
+        // the sky and the background are the frame's own, wherever the box is
+        XCTAssertEqual(SkimFollow.match(kind: .sky, box: nil, in: found)?.id, "sky")
+        XCTAssertEqual(SkimFollow.match(kind: .background, box: Box(x: 0, y: 0, w: 0.1, h: 0.1), in: found)?.id, "background")
+        XCTAssertNil(SkimFollow.match(kind: .sky, box: nil, in: Array(found.prefix(2))))
+    }
+
+    func testBarelyTouchingIsNotTheShape() {
+        let found = [shape("object-1", .object, Box(x: 0, y: 0, w: 0.2, h: 0.2))]
+        XCTAssertNil(SkimFollow.match(kind: .object, box: Box(x: 0.15, y: 0.15, w: 0.2, h: 0.2), in: found))
+        XCTAssertEqual(SkimFollow.match(kind: .object, box: Box(x: 0.05, y: 0.05, w: 0.2, h: 0.2), in: found)?.id, "object-1")
+    }
+
+    func testFlipGoesBothWays() {
+        let b = Box(x: 0.1, y: 0.2, w: 0.3, h: 0.4), f = SkimFollow.flipped(b)
+        XCTAssertEqual(f.y, 0.4, accuracy: 1e-9)
+        XCTAssertEqual(SkimFollow.flipped(f).y, b.y, accuracy: 1e-12)
+    }
+
+    func testStartTakesOnlyAKindAndABox() {
+        XCTAssertEqual(SkimFollow.start(kind: "person", box: [0.1, 0.2, 0.3, 0.4])?.box, Box(x: 0.1, y: 0.2, w: 0.3, h: 0.4))
+        XCTAssertNil(SkimFollow.start(kind: "person", box: [0.1, 0.2, 0.3]))
+        XCTAssertNil(SkimFollow.start(kind: "face", box: [0.1, 0.2, 0.3, 0.4]))
+        XCTAssertNil(SkimFollow.start(kind: 42, box: [0.1, 0.2, 0.3, 0.4]))
+        XCTAssertNil(SkimFollow.start(kind: "person", box: [Double.nan, 0, 1, 1]))
+        XCTAssertNil(SkimFollow.start(kind: "person", box: [0.5, 0.5, 0, 0.2]))
+        XCTAssertNil(SkimFollow.start(kind: "person", box: ["a", 0, 1, 1]))
+        // out of the frame is cut to the frame
+        XCTAssertEqual(SkimFollow.start(kind: "object", box: [-0.5, 0.5, 2, 2])?.box, Box(x: 0, y: 0.5, w: 1, h: 0.5))
+    }
+
+    func testStepAnswer() {
+        let s = SkimFollow.Step(box: Box(x: 0.123456, y: 0, w: 0.5, h: 0.5), held: true, shape: nil)
+        XCTAssertEqual(s.json["held"] as? Bool, true)
+        XCTAssertEqual((s.json["box"] as? [Double])?.first, 0.1235)
+        XCTAssertTrue(s.json["shape"] is NSNull)
+        XCTAssertTrue(SkimFollow.Step(box: nil, held: false, shape: nil).json["box"] is NSNull)
+    }
+
+    func testMatteSize() {
+        XCTAssertEqual(SkimFollow.matteSize(width: 3840, height: 2160).map { [$0.width, $0.height] }, [1920, 1080])
+        XCTAssertEqual(SkimFollow.matteSize(width: 1280, height: 720).map { [$0.width, $0.height] }, [1280, 720])
+        XCTAssertEqual(SkimFollow.matteSize(width: 2160, height: 3840).map { [$0.width, $0.height] }, [1080, 1920])
+        XCTAssertEqual(SkimFollow.matteSize(width: 4096, height: 2161).map { [$0.width % 2, $0.height % 2] }, [0, 0])
+        XCTAssertNil(SkimFollow.matteSize(width: 0, height: 1080))
+        XCTAssertNil(SkimFollow.matteSize(width: 100_000, height: 1080))
+    }
+
+    func testSamplesAreReadInTimeOrder() throws {
+        let s = try XCTUnwrap(SkimFollow.samples([
+            ["t": 1.0, "outline": [[[0, 0], [1, 0], [1, 1]]]],
+            ["t": 0.5, "outline": [] as [Any]],
+            ["t": 0.75, "outline": [[[0, 0], [1, 0]], [[0, 0], [1, "x"], [1, 1]], [[0, 0], [0.5, 0], [0.5, 0.5]]]],
+        ]))
+        XCTAssertEqual(s.map(\.t), [0.5, 0.75, 1.0])
+        XCTAssertEqual(s[0].outline.count, 0)
+        XCTAssertEqual(s[1].outline.count, 1, "a loop of two points and one with a bad point are left out")
+        XCTAssertNil(SkimFollow.samples([] as [Any]))
+        XCTAssertNil(SkimFollow.samples([["t": -1, "outline": [] as [Any]]]))
+        XCTAssertNil(SkimFollow.samples([["t": Double.infinity]]))
+        XCTAssertNil(SkimFollow.samples("samples"))
+        XCTAssertNil(SkimFollow.samples(Array(repeating: ["t": 0.0] as [String: Any], count: SkimFollow.maxSamples + 1)))
+    }
+
+    func testEachMatteFrameIsMadeFromTheFollowedFramesAroundIt() throws {
+        let s = [0.0, 0.125, 0.25, 0.5].map { SkimFollow.Sample(t: $0, outline: []) }
+        let a = try XCTUnwrap(SkimFollow.around(0.1875, in: s))
+        XCTAssertEqual([a.before, a.after], [1, 2]); XCTAssertEqual(a.weight, 0.5, accuracy: 1e-9)
+        let b = try XCTUnwrap(SkimFollow.around(0.3, in: s))
+        XCTAssertEqual([b.before, b.after], [2, 3]); XCTAssertEqual(b.weight, 0.2, accuracy: 1e-9)
+        XCTAssertEqual(SkimFollow.around(-1, in: s).map { [$0.before, $0.after] }, [0, 0])
+        XCTAssertEqual(SkimFollow.around(9, in: s).map { [$0.before, $0.after] }, [3, 3])
+        XCTAssertEqual(SkimFollow.around(0.125, in: s).map { $0.before == 1 || $0.after == 1 }, true)
+        XCTAssertNil(SkimFollow.around(0, in: []))
+    }
+
+    func testFrameLength() {
+        XCTAssertEqual(SkimFollow.frameLength([1001, 24000]).map { [$0.n, $0.d] }, [1001, 24000])
+        XCTAssertEqual(SkimFollow.frameLength([100, 2500]).map { [$0.n, $0.d] }, [100, 2500])
+        XCTAssertNil(SkimFollow.frameLength([0, 24000]))
+        XCTAssertNil(SkimFollow.frameLength([1, 1000]), "1000 frames a second")
+        XCTAssertNil(SkimFollow.frameLength([2, 1]), "half a frame a second")
+        XCTAssertNil(SkimFollow.frameLength([1001]))
+    }
+
+    func testMatteName() {
+        XCTAssertEqual(SkimFollow.matteName(clip: "C0042.MP4"), "C0042 matte.mov")
+        XCTAssertEqual(SkimFollow.matteName(clip: "../../C0042.MP4"), "C0042 matte.mov")
+        XCTAssertEqual(SkimFollow.matteName(clip: "a:b.mov"), "ab matte.mov")
+        XCTAssertEqual(SkimFollow.matteName(clip: ""), "matte.mov")
+        XCTAssertNil(SkimExport.safeName("C0042 matte.mov"), "the .fcpxml's own save still takes only its own kinds")
+    }
+}

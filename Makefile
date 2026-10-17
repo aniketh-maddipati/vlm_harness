@@ -12,6 +12,9 @@
 #   make culleval          grouping + auto keeps vs what was shot and kept → ~/LuminaEvidence/culleval/report
 #   make culleval-test     its scoring tests (Linux too)
 #   make culleval-app      the same keeps question through the app: DUMPS="<run>/dump-decisions/decisions.json …" EXPORTS=exports.csv [OUT=report.md]
+#
+# The mask lab (Tools/masklab/README.md):
+#   make masklab-test      its scoring tests (synthetic data, Linux too)
 
 PARITY   := Tools/parity
 RENDER   := $(PARITY)/lumina-render/.build/release/lumina-render
@@ -86,3 +89,8 @@ culleval-test:
 
 culleval-app:
 	node Tools/culleval/culleval-app.mjs --exports $(EXPORTS) $(if $(OUT),--out $(OUT)) $(DUMPS)
+
+# The mask lab (Tools/masklab/README.md). The run itself: bash Tools/masklab/run-tracker-test.sh (Mac).
+.PHONY: masklab-test
+masklab-test:
+	$(PY) -m unittest discover -s Tools/masklab/tests

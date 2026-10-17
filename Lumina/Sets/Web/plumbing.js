@@ -247,6 +247,18 @@
       return native('near', { a: A, b: B }).then(d => (typeof d === 'number' && isFinite(d) ? d : null), () => null);
     },
     nearLimit: typeof cfg.nearLimit === 'number' ? cfg.nearLimit : null,
+    // The selections the Mac finds in a photo by itself, for Edit's automatic masks (DESIGN-ASKS
+    // Prompt 28), on its embedded preview (never a RAW decode). Takes a photo path; resolves to a
+    // list, subject first: [{id, kind ('subject' | 'person' | 'object' | 'sky' | 'background'), score,
+    // box: [x, y, w, h], area, outline: [[[x, y], …], …]}], every number a fraction of the photo
+    // from its top left, each outline loop closed and filled even-odd (a hole is a loop of its own).
+    // An empty list is a photo with nothing to select; null when the photo wasn't read here or the
+    // Mac can't read its preview.
+    masks: rel => {
+      const P = previewAt.get(String(rel));
+      if (!P) return Promise.resolve(null);
+      return native('masks', { preview: P }).then(m => (Array.isArray(m) ? m : null), () => null);
+    },
     // Sensor dust across a shoot, found by the Mac on the embedded previews (never a RAW decode).
     // Takes photo paths (best: one per stack, different scenes, stopped down); resolves to
     // { frames, unread, groups: [{ size: [w, h], frames, spots }], photos: { path: spots } }, where a
@@ -635,8 +647,9 @@
       if (label === 'jpeg') {
         // The Edit step's JPEGs (Prompt 1 §7): {name, look: {src, look, px}} rendered natively through
         // LookPipeline with the decoder the shoot pins for that body; the result names the decoder.
+        // `preview`: the embedded preview the Mac finds the photo's masks on, for a look's mask: tokens.
         const byPath = {}; for (const p of Object.values((logic.data && logic.data.byId) || {})) if (p.path) byPath[p.path] = p;
-        const list = files.filter(f => f && f.look && f.look.src).map(f => ({ name: f.name, look: { src: f.look.src, look: macLook(f.look.look || '', byPath[f.look.src]), px: f.look.px == null ? null : f.look.px, model: (byPath[f.look.src] || {}).model || null } }));
+        const list = files.filter(f => f && f.look && f.look.src).map(f => ({ name: f.name, look: { src: f.look.src, look: macLook(f.look.look || '', byPath[f.look.src]), px: f.look.px == null ? null : f.look.px, model: (byPath[f.look.src] || {}).model || null, preview: previewAt.get(f.look.src) || null } }));
         return native('writeInto', { label: 'jpeg', files: list, dir: typeof dir === 'string' ? dir : '' }).then(reasons);
       }
       if (label !== 'xmp') return null;
@@ -759,7 +772,7 @@
   // Encoded with encodeURIComponent (`query`, as media URLs), not URLSearchParams: the latter writes a
   // space as '+', and a look's sign ('ev:+0.30') must stay a '+'. Each path segment on its own.
   const renderURL = (rel, q) => (location.protocol === 'lumina:' ? 'lumina://render/' : location.origin + '/render/') + rel.split('/').map(encodeURIComponent).join('/') + '?' + query(q);
-  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null, photo: null, entered: false, late: null, refused: null };
+  const ed = { rel: null, look: '', model: null, rect: null, visible: false, dragging: false, path: 'image', native: null, header: null, factsText: '', roi: null, loupe: false, seq: 0, decoder: null, rectTimer: 0, preview: null, photo: null, entered: false, late: null, refused: null, mask: null };
   // The image path's latest-wins renderer (addendum §7): one fetch in flight, the newest look
   // waits, a quarter-size render while dragging, the full one at rest (drag end, key, 120 ms idle).
   const img = { pending: null, inFlight: false, shown: 0, tier: null, url: null, fetches: 0, superseded: 0, restTimer: 0, last: null };
@@ -1117,6 +1130,7 @@
       const [id, p] = photoAt(l, rel); if (!p) { refused(rel, 'not in this shoot', seq); return null; }
       const o = l.data.order, k = o.indexOf(id), nb = d => { const q = l.data.byId[o[k + d]]; return q ? [q.path, previewOf(q.lg)] : [null, null]; };
       const [prev, prevPreview] = nb(-1), [next, nextPreview] = nb(1);
+      if (ed.rel !== rel) ed.mask = null;            // the Mac lets a shown mask go with its photo
       ed.rel = rel; ed.photo = p; ed.model = p.model || null; ed.look = look || (l.state.look || {})[id] || ''; ed.loupe = ed.loupe && !!zoomView(); ed.roi = null; ed.zoom = null; ed.zoomKey = undefined; ed.zoomMoving = false; ed.loupeKey = null; ed.preview = previewOf(p.lg);
       img.shown = 0; img.tier = null; img.pending = null; ed.seq = seq; ed.entered = false; ed.late = null; ed.refused = null;
       let r;
@@ -1131,7 +1145,7 @@
       zoomWatch();
       return edit.facts();
     },
-    leave() { watchHoles(false); ed.rel = null; ed.entered = false; ed.late = null; ed.refused = null; ed.loupe = false; ed.zoom = null; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
+    leave() { watchHoles(false); ed.rel = null; ed.mask = null; ed.entered = false; ed.late = null; ed.refused = null; ed.loupe = false; ed.zoom = null; clearTimeout(img.restTimer); img.pending = null; native('canvasLeave', {}); edit.layout(null, false); },
     // The canvas rect in CSS px from the page's top-left, on layout and resize; `visible` = Edit shows.
     // {force: true} (the probe) keeps the canvas up whatever the page's view is.
     // `holes` (on the rect or in `o`): page chrome lying over the photo, [{x, y, w, h}] in CSS px as
@@ -1213,6 +1227,17 @@
     dragEnd() { ed.dragging = false; lastChange = performance.now(); scheduleSave(); if (!ed.rel) return; native('canvasDrag', { start: false }); if (ed.path === 'image') { clearTimeout(img.restTimer); imgSubmit('base'); } },
     // 100 % with G held: RAW 9 on the visible region (RAW 9 §2).
     loupe(on, roi) { ed.loupe = !!on; if (roi) ed.roi = roi; if (ed.rel) native('canvasLoupe', { on: !!on, roi: on ? ed.roi : null }); },
+    // DESIGN-ASKS Prompt 28 §3: the mask the page is showing (a Masks row hovered or chosen), by the id
+    // lumina.masks gave it ('subject', 'person-1', …); null hides it. The Mac draws its outline on the
+    // canvas itself (a light hairline, a faint tint inside), in the canvas's own coordinates, as it
+    // draws the crop guides; the page draws nothing over the canvas for it. Anything that is not such
+    // an id is null. Resolves true when the Mac draws it (the native canvas), false otherwise (the
+    // image path, or no photo on the canvas): the page then draws the outline itself, as in the web preview.
+    showMask(id) {
+      ed.mask = typeof id === 'string' && /^[a-z0-9-]{1,64}$/.test(id) ? id : null;
+      if (!ed.rel) return Promise.resolve(false);
+      return native('canvasMask', { id: ed.mask }).then(r => r === true, () => false);
+    },
     // The facts line's inputs: the canvas path, raw 9 yes/no, the pin, the offer (+ Prompt 1's {canvas, raw9, decoder, note}).
     facts() { return Object.assign({ text: factsText(), rel: ed.rel }, ed.header || {}, factsObj()); },
     // The Mac's numbers (the probe reads them): latency, dropped frames, bases resident, tiles, …
@@ -1221,7 +1246,7 @@
     updateDecoder() { return native('decoderUpdate', {}).then(h => { edit.header(h); return edit.facts(); }); },
     header(h) { if (h && typeof h === 'object') { ed.header = Object.assign({}, ed.header || {}, h); if (h.canvas) ed.path = h.canvas; noteAsShot(h); } pushFacts(); if (ed.visible) zoomWatch(); },
     get image() { return img.url; },
-    state() { return { rel: ed.rel, look: ed.look, path: ed.path, rect: ed.rect, visible: ed.visible, force: !!ed.force, dragging: ed.dragging, seq: ed.seq, loupe: ed.loupe, roi: ed.roi, zoom: ed.zoom || null,
+    state() { return { rel: ed.rel, look: ed.look, path: ed.path, rect: ed.rect, visible: ed.visible, force: !!ed.force, dragging: ed.dragging, seq: ed.seq, loupe: ed.loupe, roi: ed.roi, zoom: ed.zoom || null, mask: ed.mask || null,
       image: { shown: img.shown, tier: img.tier, fetches: img.fetches, superseded: img.superseded, inFlight: img.inFlight, pending: !!img.pending, url: img.url }, facts: ed.factsText, header: ed.header }; },
   };
   window.lumina.edit = edit;

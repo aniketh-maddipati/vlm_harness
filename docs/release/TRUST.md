@@ -95,6 +95,7 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `notices` | the bundled licence texts | — |
 | `prefetch` | previews in the opened folders, into memory | — |
 | `near` | two previews in the opened folders (Vision, on the Mac) | — |
+| `masks` | one preview in the opened folders: the subject, people, objects and background (Vision, on the Mac) | — |
 | `dust` | previews in the opened folders, as stored (sensor dust, on the Mac) | — |
 | `ingestStats` | read counters | — |
 | `shootOpened` | — | the shoot in `shoots/index.json` (name, path, volume, counts, bookmark) |
@@ -103,17 +104,18 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `canvasEnter` | a RAW in the opened folders | — (renders on screen) |
 | `canvasLeave` | — | — |
 | `canvasLayout` | — | — |
-| `canvasLook` | — | — |
+| `canvasLook` | — (a look with `mask:` tokens: the photo's preview, as `masks` does, when its masks were not found yet) | — |
 | `canvasDrag` | — | — |
 | `canvasZoom` | — | — |
 | `canvasLoupe` | the RAW's region at 100 % | — |
+| `canvasMask` | the photo on the canvas's preview, as `masks` does, when its masks were not found yet | — (draws one mask's outline on screen) |
 | `canvasStats` | render counters | — |
 | `saveSession` | — | `shoots/<id>/session.json` (size capped, id checked) |
 | `recents` | `shoots/index.json` | — |
 | `reopen` | a recent shoot through its bookmark | — |
 | `workingFiles` | sizes in the container | — |
 | `removeShoot` | — | deletes `shoots/<id>/` in the container (id checked) |
-| `writeInto` | RAWs in the opened folders | an export: `.xmp` bytes or rendered `.jpg` `.tif` `.png`, in a folder the user picks (not the card, not the source), or Handoff's Save to folder when it is one Lumina has access to and neither; the files written are noted in `pick/written.json` |
+| `writeInto` | RAWs in the opened folders (and, for a look with `mask:` tokens, the photo's preview, as `masks` does) | an export: `.xmp` bytes or rendered `.jpg` `.tif` `.png`, in a folder the user picks (not the card, not the source), or Handoff's Save to folder when it is one Lumina has access to and neither; the files written are noted in `pick/written.json` |
 | `readSidecars` | `.xmp` files in the opened folder | — |
 | `writeSidecars` | — | `.xmp` beside its RAW in the opened folder, `.lumina-bak` first; with Handoff's Save to, into that folder instead (one Lumina has access to, or one the folder panel names that is not the opened folder or a card), `.lumina-bak` first, read back; the files written are noted in `pick/written.json` in the container |
 | `reveal` | — | — (shows a file in Finder, only inside the opened folders or the last export) |
@@ -131,6 +133,9 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `skimTrashPutBack` | `skim/trash.json` | moves this shoot's files from the Trash back to where they were, while they are still there (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimTrashList` | `skim/trash.json`, and whether each file is still in the Trash (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimHealth` | the Mac's thermal state, Low Power Mode, memory pressure and Lumina's own memory footprint (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimMasks` | one frame the Skim Viewer drew from its own video, sent as a JPEG: the subject, people, objects and background in it (Vision, on the Mac; held in memory for the call, nothing kept) (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimFollow` | one frame at a time of a clip the Skim Viewer drew from its own video, sent as a JPEG, with the kind and box of the shape chosen at the start: Vision's object tracker and the shapes in the frame, on the Mac; the tracker's last box is held in memory until the page ends the follow, a newer one replaces it, or two minutes pass; nothing is written (Debug builds with `LUMINA_PAGE=skim` only) | — |
+| `skimMatte` | the matte just written, opened again to check it is a movie of the frames asked for | one new `<clip> matte.mov` (a black-and-white H.264 movie of the followed outlines the page sends) in the folder Export saves into (the workshop's folder Skim was let into, else the Save to folder; never a card), never over a file that is there (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportPlace` | `skim/export.json` (the Save to folder's bookmark) and whether Final Cut Pro is installed; the open shoot's folder path, for the .fcpxml (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimExportChoose` | — | the folder panel after the user's click; the folder picked is kept as a security-scoped bookmark in `skim/export.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimExportAsk` | — | removes `skim/export.json`, so each save asks with the save panel (Debug builds with `LUMINA_PAGE=skim` only) |
@@ -245,7 +250,7 @@ Not checked by the script; keep it current by hand.
 | Container `skim/exports.json` (Debug builds' Skim only) | each file Export saved: its path, size and date, the clips it holds with their marks, a bookmark to find it again, at most 500 | Forget in Export's Saved files; the files themselves stay |
 | Container `skim/places.json` (Debug builds' Skim only) | bookmarks of the drives and folders the user gave Lumina access to in Export, at most 24 | Remove access in Export's tree |
 | A folder Lumina has access to (Debug builds' Skim only) | new empty folders made with New folder in Export's workshop | the user, in Finder |
-| Folder chosen under Export ▸ Save to, or picked in the save panel (Debug builds' Skim only) | new `.fcpxml` and cut-list `.txt` files, never over one that is there | the user, in Finder |
+| Folder chosen under Export ▸ Save to, or picked in the save panel (Debug builds' Skim only) | new `.fcpxml` and cut-list `.txt` files, and Follow's `<clip> matte.mov` files (Save to folder only), never over one that is there | the user, in Finder |
 | Container `skim/trash.json` (Debug builds' Skim only) | where each clip Skim moved to the Trash came from and where it went, for Put back | Put back, and dropped from the list once a file is no longer in the Trash |
 | Opened Skim folder (Debug builds' Skim only) | nothing written; cut clips and their sidecars moved to the system Trash after two clicks | the user, from the Trash (Put Back) |
 | Container `exports/` | one journal per export | after recovery |

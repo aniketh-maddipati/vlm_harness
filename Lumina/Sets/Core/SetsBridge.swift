@@ -39,6 +39,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     let ingest = SetsIngest()
     /// How alike two photos' previews are, for the page's retake stacks (`lumina.near`).
     private(set) lazy var near = SetsNear(ingest: ingest)
+    /// The selections found in a photo's preview, for Edit's automatic masks (`lumina.masks`).
+    private(set) lazy var masks = SetsMasks(ingest: ingest)
     /// Sensor dust across the frames the page names (`lumina.dust`).
     private(set) lazy var dust = SetsDust(ingest: ingest)
     private var pendingSource: URL?
@@ -150,6 +152,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             c.onStats = { [weak self] stats in self?.push("__lumina.editStats(\(Self.json(stats)))") }
             c.onPresented = { [weak self] seq in self?.push("__lumina.editPresented(\(seq))") }
             c.onDecoderFallback = { [weak self] rel, from, to in self?.onEvent?("raw \(from) failed for \(rel): using raw \(to)") }
+            // A look's `mask:` tokens and `showMask` draw the photo's masks: the page's own finding
+            // (`lumina.masks`, cached), else found on the embedded preview the canvas was given.
+            c.findMasks = { [weak self] rel, pv, done in
+                guard let self else { done(nil); return }
+                let p = pv.map { SetsIngest.Preview(rel: rel, offset: $0.offset, length: $0.length, orientation: $0.orientation) }
+                let masks = self.masks
+                Task { done(await masks.masks(rel: rel, preview: p)) }
+            }
             canvas = c
             onEvent?("canvas: \(c.path.rawValue)")
         } catch {
@@ -465,6 +475,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // preview can't be measured; the page then keeps its own rule.
             guard let a = Self.ingestPreview(body["a"]), let b = Self.ingestPreview(body["b"]), let d = await near.distance(a, b) else { return (NSNull(), nil) }
             return (d, nil)
+        case "masks":
+            // The subject, people, objects and background Vision finds in a photo's preview
+            // (Prompt 28): each with its kind, score, box, share of the photo and outline. Null when
+            // the preview can't be read; an empty list when there is nothing to select.
+            guard let p = Self.ingestPreview(body["preview"]), let found = await masks.masks(p) else { return (NSNull(), nil) }
+            return (found.map(\.dictionary), nil)
         case "dust":
             // Sensor dust across a shoot: the spots in each group of frames (by stored size) and,
             // turned upright, on each photo. Previews only, never a RAW decode; nothing is written.
@@ -583,6 +599,15 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "canvasLoupe":
             canvas?.loupe(on: body["on"] as? Bool ?? false, roi: roi(body["roi"]))
             return (true, nil)
+        case "canvasMask":
+            // `lumina.edit.showMask(id | null)` (DESIGN-ASKS Prompt 28 §3): the canvas draws that mask's
+            // outline over the photo, a hairline with a faint tint inside, in its own coordinates
+            // (crop, turn, zoom). Null or a missing id hides it. An id that is not one LookMasks names
+            // (a-z, 0-9, -; at most 64) is refused. False when nothing can draw it (the image path).
+            let id = body["id"] as? String
+            if let id, !Look.Local.isID(Substring(id)) { return (false, nil) }
+            guard let c = canvas else { return (false, nil) }
+            return (c.showMask(id), nil)
         case "canvasStats":
             var out = canvas?.snapshot() ?? ["path": "image"]
             out["facts"] = editFacts()
@@ -678,6 +703,39 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "skimHealth":
             // Skim's pacing: heat, Low Power Mode, memory pressure, this app's footprint (SkimHealth).
             return (SkimHealth.shared.read(slowdown: (body["slowdown"] as? NSNumber)?.doubleValue ?? 1), nil)
+        case "skimMasks":
+            // The selections in the frame the Skim Viewer is on (SetsMasks, Vision on the Mac): a JPEG the page drew
+            // from its own <video>, in and out of memory. Nothing is kept.
+            let frame = body["frame"] as? String
+            guard let found = await Task.detached(priority: .userInitiated, operation: { SetsMasks.masks(frame: frame) }).value else { return (NSNull(), nil) }
+            return (found.map(\.dictionary), nil)
+        case "skimFollow":
+            // Follow: one chosen shape followed through a clip (SkimFollower, Vision's object tracker on the Mac), one frame
+            // the page drew from its own <video> at a time, in and out of memory. `end` lets the follow go; nothing is kept.
+            guard let id = body["id"] as? String, !id.isEmpty, id.utf8.count <= 64 else { return (NSNull(), nil) }
+            if (body["end"] as? Bool) == true { SkimFollower.shared.end(id); return (true, nil) }
+            let frame = body["frame"] as? String, start = SkimFollow.start(kind: body["kind"], box: body["box"])
+            if body["kind"] != nil || body["box"] != nil, start == nil { return (NSNull(), nil) }
+            guard let step = await Task.detached(priority: .userInitiated, operation: { SkimFollower.shared.step(id: id, frame: frame, start: start) }).value else { return (NSNull(), nil) }
+            return (step.json, nil)
+        case "skimMatte":
+            // A followed shape as a black-and-white movie for Final Cut (SkimMatte), written as a new file into the folder the
+            // workshop names (one Skim was let into), else the Save to folder; never a card, never over a file, never the clip.
+            guard let req = SkimMatte.request(body) else { return (["ok": false, "why": "Nothing to save."], nil) }
+            let into: URL, scoped: Bool
+            if let d = body["dir"] as? String, !d.isEmpty {
+                guard skimGranted(d) else { return (["ok": false, "why": "Lumina has no access to that folder. Give it access in Export first."], nil) }
+                into = URL(fileURLWithPath: d, isDirectory: true); scoped = false
+            } else if let dir = skimExportFolder() {
+                into = dir; scoped = dir.startAccessingSecurityScopedResource()
+            } else {
+                return (["ok": false, "why": "Choose a Save to folder in Export first: the matte goes next to the .fcpxml."], nil)
+            }
+            defer { if scoped { into.stopAccessingSecurityScopedResource() } }
+            if SetsFileOps.isCard(into) { return (["ok": false, "why": Self.skimCardRefusal], nil) }
+            let saved = await Task.detached(priority: .userInitiated) { await SkimMatte.write(req, into: into) }.value
+            if saved.ok { skimSaved.insert(saved.path); onEvent?("skim matte saved \(saved.path)") }
+            return (saved.json, nil)
         case "skimExportPlace":
             // Export ▸ Save to: the folder Skim saves its Final Cut file and cut list into (none: ask each time), and the
             // folder the open shoot was read from, so the .fcpxml points Final Cut at the clips where they are.
@@ -1237,7 +1295,15 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 guard let src = resolve(rel) else { return ["aborted": true, "say": "export stopped · can't find \(rel)"] }
                 let px = SetsNumber.exportEdge(l["px"])
                 let decoder = LookRawPolicy.version(for: .export, body: (l["model"] as? String).flatMap { header.bodies[$0] }, pinned: header.decoderVersion)
-                items.append(.look(name: name, source: src, look: l["look"] as? String ?? "", px: px, decoder: decoder))
+                let look = l["look"] as? String ?? ""
+                // A look with `mask:` tokens renders through the photo's masks: the ones the canvas and
+                // the page used (cached), else found now on the embedded preview plumbing names
+                // (`preview`). Without either the export renders the look without them, as the preview would.
+                var found: [LookMasks.Found] = []
+                if let parsed = try? Look.parse(look), !parsed.locals.isEmpty {
+                    found = await masks.masks(rel: rel, preview: Self.ingestPreview(l["preview"])) ?? []
+                }
+                items.append(.look(name: name, source: src, look: look, px: px, decoder: decoder, masks: found))
             } else {
                 // Not an item v5 has: nothing is written and no folder is asked for.
                 onEvent?("writeInto \(label): an item that is neither a look render nor sidecar bytes, nothing written")
@@ -1536,6 +1602,8 @@ enum SetsWebView {
         let conf = WKWebViewConfiguration()
         conf.websiteDataStore = .nonPersistent()
         let scheme = SetsSchemeHandler(pageRoot: pageRoot, vendorRoot: vendorRoot, standInPhotos: standInPhotos, ingest: bridge?.ingest)
+        // The image path renders a look's `mask:` tokens through the same masks the canvas and export use.
+        scheme.masks = bridge?.masks
         conf.setURLSchemeHandler(scheme, forURLScheme: SetsSchemeHandler.scheme)
         let ucc = conf.userContentController
         // First, in every frame: no WebRTC (SetsOffline).
