@@ -85,6 +85,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     let shoots: SetsShootStore
     private(set) var ready = false
     var onEvent: ((String) -> Void)?
+    /// The page shows an error in place of its screen (its text), or no longer does (nil): `pageError`.
+    var onPageError: ((String?) -> Void)?
     /// The recent-shoots list changed (File ▸ Open Recent).
     var onShootsChanged: (() -> Void)?
     /// The Edit canvas (addendum §2): native pixels over the page's canvas rect, or the image
@@ -402,6 +404,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             closeShoot()
             webView?.evaluateJavaScript("window.__lumina && __lumina.card(\(cards.current != nil), \(cards.current.map(cardJSON) ?? "null"))", completionHandler: nil)
             onEvent?("ready")
+            return (true, nil)
+        case "pageError":
+            let text = (body["message"] as? String).map { String($0.prefix(300)) }
+            onPageError?(text?.isEmpty == false ? text : nil)
             return (true, nil)
         case "cullCard":
             return (await cullCard(), nil)
