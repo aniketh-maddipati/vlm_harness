@@ -107,6 +107,24 @@ const reloaded = page.waitForEvent('load', { timeout: 10000 }).then(() => true, 
 await page.locator('[data-lumina="stale-go"]').click();
 check(await reloaded, 'Refresh reloads the page');
 
+// Photos and Video in one site: the switch beside the wordmark goes to skim.html (the Skim page, same content
+// policy) and back. Photos is the side on screen here.
+await page.locator('[data-lumina="stale-later"]').click().catch(() => {});
+await page.keyboard.press('Escape');
+await page.evaluate(() => window.luminaCommand && window.luminaCommand('stepOpen'));
+await page.waitForTimeout(400);
+check(await page.locator('[data-lumina="side-photos"]').getAttribute('aria-selected') === 'true', 'the Photos / Video switch is beside the wordmark, on Photos');
+await page.locator('[data-lumina="side-video"]').click();
+await page.waitForURL(/\/skim\.html$/, { timeout: 10000 }).then(() => check(true, 'Video opens the Skim page'), () => check(false, 'Video opens the Skim page', page.url()));
+await page.waitForFunction(() => /Open clips/.test(document.body.innerText), null, { timeout: 30000 })
+  .then(() => check(true, 'and it draws'), (e) => check(false, 'and it draws', String(e).split('\n')[0]));
+check(await page.locator('[data-lumina="side-video"]').getAttribute('aria-selected') === 'true', 'with Video selected');
+check(await page.locator('meta[http-equiv="Content-Security-Policy"]').count() === 1, 'under the same content policy');
+check((await page.evaluate(() => window.__refused)).length === 0, 'which refuses nothing Skim needs', JSON.stringify(await page.evaluate(() => window.__refused)));
+await page.locator('[data-lumina="side-photos"]').click();
+await page.waitForFunction(() => /Folder or card|SONY-A7M4/.test(document.body.innerText), null, { timeout: 30000 })
+  .then(() => check(new URL(page.url()).pathname === '/', 'Photos goes back to the Sets page'), () => check(false, 'Photos goes back to the Sets page', page.url()));
+
 check(errors.length === 0, 'no page error', errors.slice(0, 5).join('\n      '));
 check(missing.length === 0, 'every file it asks for is there', missing.slice(0, 5).join('\n      '));
 check(outside.length === 0, 'nothing asked of another host', outside.slice(0, 5).join('\n      '));

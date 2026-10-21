@@ -151,6 +151,14 @@ it; either way the most recent shoot opens again. A branch is built from its wor
 work included; one `dev.sh` at a time (a second is refused, exit 75). It is not what ships: Edit latency, the
 sandbox and the release settings are judged on the Release app or the probe.
 
+**Photos and Video in one window (Debug builds and the Stills web preview).** Both pages carry a Photos / Video
+switch beside the wordmark, shown only when the host sets `window.luminaSwitch` (Release sets none, so it shows
+no switch and no Skim). A Debug build injects every script (plumbing and Skim's host each do nothing on the other
+page) and the switch, or View ▸ Photos / Video, loads the other page in the same window
+(`SetsWindowController.switchPage`, bridge op `switchPage`): Pick's shoot is closed and saved first and reopens on
+the way back; Skim's clips, marks and view come back as ⌘R's reload brings them. The Stills preview builds
+`skim.html` beside its `index.html`, under the same content policy (`build-skim-preview.py --beside-stills`).
+
 **Skim, the video step (branch `video/skim-mvp`, Debug only).** `bash Scripts/dev-skim.sh --watch` keeps a
 second dev app, "Lumina Skim" (bundle id `com.lumina.app.skim`, its own container, build folder and lock), beside
 "Lumina Dev". It shows `Lumina Skim v3.dc.html` instead of Pick (`SetsPage`, `LUMINA_PAGE=skim`): no plumbing, no

@@ -245,27 +245,81 @@ nonisolated enum StandInPhoto {
     }
 }
 
-/// Which design page the window shows. The app ships Pick (`Lumina Sets v11`, with Edit inside it).
-/// Skim, the video step, is shown only by a Debug build that asks for it with `LUMINA_PAGE=skim`
-/// (Scripts/dev-skim.sh, its own "Lumina Skim" dev app); Release and the probe always show Pick.
+/// Which design page the window shows. The app ships Pick (`Lumina Sets v12`, with Edit inside it).
+/// Skim, the video step, is shown only by Debug builds; Release and the probe always show Pick.
+/// A Debug build holds both in one window: the pages' Photos / Video switch beside the wordmark, and the
+/// View menu, go from one to the other (`SetsWindowController.switchPage`). `LUMINA_PAGE=skim`
+/// (Scripts/dev-skim.sh, its own "Lumina Skim" dev app) starts on Video.
 /// Skim has no plumbing yet: no `window.__lumina`, no Edit canvas, no card watcher.
 nonisolated enum SetsPage: String, Sendable {
     case pick, skim
 
+    #if DEBUG
+    /// The side the window was switched to; nil until the first switch.
+    nonisolated(unsafe) private static var chosen: SetsPage?
+    /// The hot build (Scripts/dev.sh, `LUMINA_HOT=1`) relaunches after a Swift change on the side it was on.
+    private static let keptSide = "luminaDevSide"
+    private static var hot: Bool { ProcessInfo.processInfo.environment["LUMINA_HOT"] == "1" }
+    #endif
+
     static var current: SetsPage {
         #if DEBUG
+        if let page = chosen { return page }
+        if hot, let side = UserDefaults.standard.string(forKey: keptSide), let page = SetsPage(side: side) { return page }
         if ProcessInfo.processInfo.environment["LUMINA_PAGE"] == "skim" { return .skim }
         #endif
         return .pick
     }
+
+    /// Whether this build holds both pages and can switch between them (Debug only, as Skim is).
+    static var switchable: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    /// The pages' names for the two sides (`window.luminaSwitch.go('photos' | 'video')`).
+    init?(side: String) {
+        switch side {
+        case "photos": self = .pick
+        case "video": self = .skim
+        default: return nil
+        }
+    }
+
+    var side: String { self == .skim ? "video" : "photos" }
+
+    /// Called on the main thread only, by the window's switch.
+    static func choose(_ page: SetsPage) {
+        #if DEBUG
+        chosen = page
+        if hot { UserDefaults.standard.set(page.side, forKey: keptSide) }
+        #endif
+    }
+
+    /// The pages' Photos / Video switch (Debug builds): `window.luminaSwitch`, set before either page runs.
+    /// The pages show the switch only when it is there, so Release shows none.
+    static let switchScript = #"""
+    (() => {
+      const video = /Lumina Skim /.test(decodeURIComponent(location.pathname));
+      window.luminaSwitch = {
+        current: video ? 'video' : 'photos',
+        go: (to) => window.webkit.messageHandlers.lumina.postMessage({ op: 'switchPage', to: String(to) })
+      };
+    })();
+    """#
 
     var file: String { self == .skim ? SetsSchemeHandler.skimPageFile : SetsSchemeHandler.pageFile }
 
     /// Skim's host: the page's `lumina.video` calls, set before the page runs. `storeAll` and `storeSet`
     /// keep its saved shoots in the app's container (`skimStore` / `skimSave`, SkimStore), so marks survive
     /// a quit; `cover*` keep its saved covers and first measures there too (`skimCover*`, SkimCovers); `health` reads heat and memory (`skimHealth`, SkimHealth) to pace the page's reading; `export*` save Export's files where the user chose and `openInFinalCut` hands a saved .fcpxml to Final Cut (`skimExport*`, SkimExport); mark, preview and handoff have nothing native behind them yet.
+    /// With both pages in one window it is injected for both, and does nothing on Pick.
     static let skimHostScript = #"""
     (() => {
+      if (!/Lumina Skim /.test(decodeURIComponent(location.pathname))) return;
       const post = (op, a) => window.webkit.messageHandlers.lumina.postMessage(Object.assign({ op }, a || {}));
       window.lumina = window.lumina || {};
       window.lumina.video = Object.assign(window.lumina.video || {}, {

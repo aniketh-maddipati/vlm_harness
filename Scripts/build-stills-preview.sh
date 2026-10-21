@@ -4,10 +4,11 @@
 #
 #   bash Scripts/build-stills-preview.sh [out-dir]     default: dist/site-stills
 #
-# The page files are copied unchanged, except index.html: the Sets page with two lines added. One points
-# support.js at the React copies in vendor/ beside it; the other is the app's own content policy
-# (SetsOffline.swift) with this site in place of lumina:, so the page can load and reach nothing but its
-# own files. Babel is left out: neither page has JSX, and a page that asked for it would be refused, loudly.
+# The page files are copied unchanged, except index.html: the Sets page with three lines added. One points
+# support.js at the React copies in vendor/ beside it; one is the app's own content policy (SetsOffline.swift)
+# with this site in place of lumina:, so the page can load and reach nothing but its own files; one is the
+# Photos / Video switch beside the wordmark. Video is skim.html beside it: the Skim page as one file
+# (Scripts/build-skim-preview.py), under the same policy, so one site holds both. Babel is left out: neither page has JSX, and a page that asked for it would be refused, loudly.
 # Photos are read in the viewer's browser. Builds only: it starts no server and uploads nothing.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -31,6 +32,8 @@ csp = ("default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; sty
 open(os.path.join(os.path.dirname(out), 'csp.txt'), 'w').write(csp + '\n')
 head = '<meta http-equiv="Content-Security-Policy" content="%s">\n' % csp
 head += '<script>window.luminaPreview = true; window.luminaBuild = %s; window.__resources = %s;</script>\n' % (json.dumps(build), json.dumps(res))
+# Photos and Video in one site (the switch beside the wordmark): Video is skim.html beside this page.
+head += "<script>window.luminaSwitch = {current: 'photos', go: function (to) { if (to === 'video') location.href = 'skim.html'; }};</script>\n"
 i = page.index('<script'); page = page[:i] + head + page[i:]
 # Which build this is, small in the corner, so a stale tab can be told from the newest page (same hash as version.txt).
 stamp = ('<div data-lumina="build" style="position:fixed;right:8px;top:2px;z-index:2147483647;font:10px/1.2 ui-monospace,Menlo,monospace;'
@@ -73,5 +76,7 @@ j = page.rfind('</body>'); page = (page[:j] + stamp + page[j:]) if j >= 0 else p
 # Whole or not at all: a browser reloading mid-build never reads half a page.
 open(out + '.part', 'w', encoding='utf-8').write(page); os.replace(out + '.part', out)
 PY
+# Video: the Skim page as one file beside it (Scripts/build-skim-preview.py), under the same content policy.
+LUMINA_BUILD="$BUILD" python3 "$ROOT/Scripts/build-skim-preview.py" "$SITE/skim.html" --beside-stills "$SITE/csp.txt" >/dev/null
 echo "$BUILD $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$SITE/version.txt"
 echo "$SITE  ($(cat "$SITE/version.txt"))"
