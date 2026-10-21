@@ -28,6 +28,19 @@ for (const size of [[1440, 900], [1920, 1080], [900, 700]]) {
   ok(s.large, size + ': pinching in past one per row opens the photo', s);
   // the photo it opened is the one the grid was on
   ok(s.cur === s0.cur, size + ': opened on the current photo', [s0.cur, s.cur]);
+  // a slow pinch out zooms the photo out but stays in the large view
+  await page.evaluate(() => __l().gesture('magnify', { delta: -0.1 })); await page.waitForTimeout(400);
+  await page.evaluate(() => __l().gesture('magnify', { delta: -0.1 })); await page.waitForTimeout(400);
+  s = await st();
+  ok(s.large, size + ': a slow pinch out stays on the photo', s);
+  await page.evaluate(() => __l().setState({ zl: 1, zx: 0, zy: 0, zoom: false })); await page.waitForTimeout(100);
+  // a quick pinch out goes back to the grid
+  await page.evaluate(() => { const l = __l(); l.gesture('magnify', { delta: -0.15 }); l.gesture('magnify', { delta: -0.12 }); l.gesture('magnify', { delta: -0.12 }); }); await page.waitForTimeout(150);
+  s = await st();
+  ok(!s.large && s.tsz === s.max, size + ': a quick pinch out goes back to the grid at one per row', s);
+  await page.evaluate(() => __l().gesture('magnify', { delta: 0.12 })); await page.waitForTimeout(150);
+  s = await st();
+  ok(s.large, size + ': and pinching in again opens it', s);
   await page.evaluate(() => __l().setState({ large: false, zoom: false })); await page.waitForTimeout(150);
   s = await st();
   ok(!s.large && s.tsz === s.max, size + ': back in the grid at one per row', s);
