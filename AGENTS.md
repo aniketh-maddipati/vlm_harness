@@ -74,7 +74,7 @@ something it doesn't list):
 
 # Linux too: the real page in headless Chromium with plumbing.js and a Node stand-in for SetsBridge
 node Tests/web/plumbing-harness.mjs          # contract, native read, sessions, sidecars, card, access
-node Tests/web/grid-zoom.mjs                 # Cull grid zoom: finer steps up to one photo per row, a pinch past it opens the photo
+node Tests/web/grid-zoom.mjs                 # Cull grid zoom: finer steps up to one photo per row, a pinch past it opens the photo, 0 / Reset zoom
 python3 Scripts/trust_check.py               # docs/release/TRUST.md's inventory against the code (CI: design handoff)
 node Tests/web/parity.mjs                    # screens-* in prototype vs app parity mode, every snapshot diffed
 node Tests/web/stills-preview.mjs             # the Stills web preview (Scripts/build-stills-preview.sh → lumina-still.pages.dev) built and opened: draws, Edit mounts, no other host, its content policy refuses nothing; main deploys it (.github/workflows/previews.yml)

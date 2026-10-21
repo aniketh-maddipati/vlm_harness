@@ -57,6 +57,24 @@ for (const size of [[1440, 900], [1920, 1080], [900, 700]]) {
   await page.keyboard.press('Minus'); await page.waitForTimeout(80);
   s = await st();
   ok(!s.one && s.per >= 2 && s.tsz === s.max - 1, size + ': − steps back to two or more per row', s);
+  // 0 and the Reset zoom button take the grid back to the size it started at; 0 takes the large view back to Fit
+  ok(await page.locator('[data-lumina="zoom-reset"]').isVisible(), size + ': zoomed in, the grid shows Reset zoom', s);
+  await page.locator('[data-lumina="zoom-reset"]').click(); await page.waitForTimeout(150);
+  s = await st();
+  ok(s.tsz === s0.tsz && !(await page.locator('[data-lumina="zoom-reset"]').count()), size + ': Reset zoom goes back to the starting size and hides', s);
+  await page.evaluate(() => __l().setState({ tsz: 9 })); await page.waitForTimeout(100);
+  await page.keyboard.press('Digit0'); await page.waitForTimeout(150);
+  s = await st();
+  ok(s.tsz === s0.tsz, size + ': 0 does the same', s);
+  await page.evaluate(() => { const l = __l(); l.setState({ large: true }); }); await page.waitForTimeout(300);
+  await page.evaluate(() => { const l = __l(); for (let i = 0; i < 5; i++) l.gesture('magnify', { delta: 0.15 }); }); await page.waitForTimeout(200);
+  const zIn = await page.evaluate(() => __l().state.zl);
+  const cols = await page.evaluate(() => { const c = document.querySelector('[data-lumina="large-check"]'); return c ? getComputedStyle(c).opacity : null; });
+  ok(cols === null || cols === '1', size + ': zoomed in, the photo info stays on screen', { zIn, cols });
+  await page.keyboard.press('Digit0'); await page.waitForTimeout(300);
+  const zl = await page.evaluate(() => [__l().state.zl, __l().state.zoom, __l().state.large]);
+  ok(zIn > 1.2 && zl[0] === 1 && !zl[1] && zl[2], size + ': 0 in the large view goes back to Fit', { zIn, zl });
+  await page.evaluate(() => __l().setState({ large: false, zoom: false })); await page.waitForTimeout(100);
   ok(!errors.length, size + ': no page errors', errors);
   await ctx.close();
 }
