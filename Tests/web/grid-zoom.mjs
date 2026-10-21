@@ -22,6 +22,8 @@ for (const size of [[1440, 900], [1920, 1080], [900, 700]]) {
   for (let i = 0; i < 40 && !s.large; i++) { await pinch(); s = await st(); if (!s.large) seen.push([s.tsz, s.TW, s.per]); }
   const pers = seen.map(x => x[2]);
   ok(pers.every((p, i) => i === 0 || p <= pers[i - 1]), size + ': each pinch in shows as many or fewer per row', seen);
+  const atMax = seen.filter(x => x[0] === s.max).length;
+  ok(atMax >= 3, size + ': at one per row it takes more pinching before the photo opens', atMax);
   const last = seen[seen.length - 1];
   ok(last && last[2] === 1 && last[0] === s.max, size + ': the last grid step is one per row', last);
   ok(seen.filter(x => x[2] > 1).length >= 4, size + ': several steps before one per row', seen.length);
@@ -40,7 +42,10 @@ for (const size of [[1440, 900], [1920, 1080], [900, 700]]) {
   ok(!s.large && s.tsz === s.max, size + ': a quick pinch out goes back to the grid at one per row', s);
   await page.evaluate(() => __l().gesture('magnify', { delta: 0.12 })); await page.waitForTimeout(150);
   s = await st();
-  ok(s.large, size + ': and pinching in again opens it', s);
+  ok(!s.large, size + ': one small pinch in at one per row stays in the grid', s);
+  await page.waitForTimeout(600);
+  for (let i = 0; i < 6 && !s.large; i++) { await pinch(); s = await st(); }
+  ok(s.large, size + ': and pinching in further opens it', s);
   await page.evaluate(() => __l().setState({ large: false, zoom: false })); await page.waitForTimeout(150);
   s = await st();
   ok(!s.large && s.tsz === s.max, size + ': back in the grid at one per row', s);
