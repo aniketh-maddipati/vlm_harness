@@ -389,6 +389,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
 
     func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) async -> (Any?, String?) {
         guard let body = message.body as? [String: Any], let op = body["op"] as? String else { return (nil, "bad message") }
+        // Skim's ops answer the Skim page only (the Lumina Skim app, or a Debug build run with LUMINA_PAGE=skim):
+        // the Lumina app's page never calls them, so it has no way to reach them (docs/release/TRUST.md).
+        if op.hasPrefix("skim"), SetsPage.current != .skim { return (nil, "not served") }
         switch op {
         case "ready":
             if let gaps = body["missing"] as? [String], !gaps.isEmpty {
@@ -628,7 +631,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             guard let prefs = body["prefs"] as? [String: Any] else { return (false, nil) }
             return (Self.savePrefs(prefs), nil)
         case "skimStore":
-            // Skim's saved shoots (Debug builds with LUMINA_PAGE=skim): every entry, so the page's
+            // Skim's saved shoots (the Skim page only): every entry, so the page's
             // session store can match what was saved before a quit (SkimStore).
             return (SkimStore(dir: supportDir.appendingPathComponent("skim", isDirectory: true)).all(), nil)
         case "skimSave":

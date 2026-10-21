@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Checks a built Lumina.app against what a release must be, without launching it. Reads only.
+# Checks a built Lumina.app (or Lumina Skim.app, told apart by its bundle id) against what a release
+# must be, without launching it. Reads only.
 #
 #   bash Scripts/release_preflight.sh <Lumina.app> [local|dmg|store] [--notarised] [--strict] [--allow=D2,S4,…]
 #
@@ -86,7 +87,12 @@ ID="$(plist CFBundleIdentifier)"; VER="$(plist CFBundleShortVersionString)"; BUI
 [[ "$MODE" == local || "$ID" != *sandbox-check* ]] || fail "bundle id is the local check's"
 [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && ok "version $VER" || fail "version '$VER' is not x.y.z"
 [[ "$BUILD" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] && ok "build $BUILD" || fail "build '$BUILD' is not a number"
-[[ "$(plist LSApplicationCategoryType)" == public.app-category.photography ]] && ok "category photography" || fail "LSApplicationCategoryType missing"
+# Lumina Skim (Config/Skim.xcconfig) is the video step: its own bundle id and the video category.
+if [[ "$ID" == *.skim || "$ID" == *.skim.* ]]; then KIND=skim; CAT=video; else KIND=lumina; CAT=photography; fi
+[[ "$(plist LSApplicationCategoryType)" == "public.app-category.$CAT" ]] && ok "category $CAT" || fail "LSApplicationCategoryType is not public.app-category.$CAT"
+if [[ "$KIND" == skim ]]; then
+  [[ "$(plist CFBundleDisplayName)" == "Lumina Skim" ]] && ok "named Lumina Skim" || fail "CFBundleDisplayName is not Lumina Skim"
+fi
 [[ -n "$(plist NSHumanReadableCopyright)" ]] && ok "copyright" || fail "NSHumanReadableCopyright is empty"
 [[ "$(plist ITSAppUsesNonExemptEncryption)" == false ]] && ok "export compliance answered (exempt)" || fail "ITSAppUsesNonExemptEncryption is not false"
 MIN="$(plist LSMinimumSystemVersion)"
@@ -115,6 +121,9 @@ for f in "${PAGE_FILES[@]}"; do
   cmp -s "$ROOT/design/handoff/lumina-cull/$f" "$RES/$f" && ok "$f = the design, byte for byte" || fail "$f differs from design/handoff/lumina-cull"
 done
 cmp -s "$ROOT/Lumina/Sets/Web/plumbing.js" "$RES/plumbing.js" && ok "plumbing.js" || fail "plumbing.js differs from Lumina/Sets/Web"
+for f in "Lumina Skim v3.dc.html" lumina-video-data-mvp.js; do
+  cmp -s "$ROOT/design/handoff/lumina-skim/$f" "$RES/$f" && ok "$f = Skim's design, byte for byte" || fail "$f differs from design/handoff/lumina-skim"
+done
 for f in react.production.min.js react-dom.production.min.js; do
   cmp -s "$ROOT/design/handoff/vendor/$f" "$RES/$f" && ok "$f = the pinned vendor file" || fail "$f differs from design/handoff/vendor"
 done

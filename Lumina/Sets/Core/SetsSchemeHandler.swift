@@ -24,9 +24,10 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let pageFile = "Lumina Sets v12.dc.html"
     /// Edit is its own page, which support.js fetches when Sets mounts it (`<dc-import name="Lumina Edit v23">`).
     static let editPageFile = "Lumina Edit v23.dc.html"
-    /// The video step's page (design/handoff/lumina-skim), shown only by a Debug build run with
-    /// `LUMINA_PAGE=skim` (Scripts/dev-skim.sh): `SetsPage`. It reads clips through WebKit's own
-    /// `<video>` from a folder the user picks, with no plumbing yet. support.js is Pick's, byte for byte.
+    /// The video step's page (design/handoff/lumina-skim), shown by the Lumina Skim app (`LUMINA_SKIM_APP`,
+    /// Config/Skim.xcconfig) and by a Debug build run with `LUMINA_PAGE=skim` (Scripts/dev-skim.sh): `SetsPage`.
+    /// It reads clips through WebKit's own `<video>` from a folder the user picks, with no plumbing yet.
+    /// support.js is Pick's, byte for byte.
     static let skimPageFile = "Lumina Skim v3.dc.html"
     static let skimFiles = [skimPageFile, "lumina-video-data-mvp.js"]
     static let vendorFiles = ["react.production.min.js", "react-dom.production.min.js"]
@@ -35,8 +36,11 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     /// `?selftest` (`probe.sh selftest`). The app's Release build does not serve the self-test
     /// (S4): the file stays in the bundle, because the page files ship byte for byte, but the
     /// binary has no name for it, so `?selftest` gets "not served" and the page runs as usual.
+    /// The Lumina Skim app's Release build serves Skim's page and support.js, nothing of Pick's.
     #if DEBUG || LUMINA_TOOLS
     static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js", "lumina-selftest.js"] + skimFiles
+    #elseif LUMINA_SKIM_APP
+    static let pageFiles = skimFiles + ["support.js"]
     #else
     static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js"]
     #endif
@@ -245,19 +249,27 @@ nonisolated enum StandInPhoto {
     }
 }
 
-/// Which design page the window shows. The app ships Pick (`Lumina Sets v11`, with Edit inside it).
-/// Skim, the video step, is shown only by a Debug build that asks for it with `LUMINA_PAGE=skim`
-/// (Scripts/dev-skim.sh, its own "Lumina Skim" dev app); Release and the probe always show Pick.
+/// Which design page the window shows. The Lumina app ships Pick (`Lumina Sets v12`, with Edit inside it).
+/// Skim, the video step, is its own app: a build with `LUMINA_SKIM_APP` (Config/Skim.xcconfig, `LUMINA_APP=skim
+/// bash Scripts/release.sh …`) shows only Skim. A Debug build also shows it when asked with `LUMINA_PAGE=skim`
+/// (Scripts/dev-skim.sh, its own "Lumina Skim" dev app); the Lumina app's Release build and the probe always show Pick.
 /// Skim has no plumbing yet: no `window.__lumina`, no Edit canvas, no card watcher.
 nonisolated enum SetsPage: String, Sendable {
     case pick, skim
 
     static var current: SetsPage {
+        #if LUMINA_SKIM_APP
+        return .skim
+        #else
         #if DEBUG
         if ProcessInfo.processInfo.environment["LUMINA_PAGE"] == "skim" { return .skim }
         #endif
         return .pick
+        #endif
     }
+
+    /// The app's name as people see it (About, the Help menu's report).
+    var appName: String { self == .skim ? "Lumina Skim" : "Lumina" }
 
     var file: String { self == .skim ? SetsSchemeHandler.skimPageFile : SetsSchemeHandler.pageFile }
 

@@ -16,6 +16,8 @@ cat > "$DEST/LuminaBuild.json" <<EOF
   "git_sha": "$GIT_SHA",
   "design_page_sha256": "$(sha "$PAGE")",
   "lumina_core_sha256": "$(sha "$ROOT/design/handoff/lumina-cull/lumina-core-v4.js")",
+  "skim_page_sha256": "$(sha "$ROOT/design/handoff/lumina-skim/Lumina Skim v3.dc.html")",
+  "product": "${PRODUCT_NAME:-}",
   "built_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF

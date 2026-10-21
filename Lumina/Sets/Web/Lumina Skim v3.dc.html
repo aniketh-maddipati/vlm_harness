@@ -362,6 +362,12 @@ body:has([data-view=phone]){background:#111}
               </sc-for>
             </div>
           </div></sc-if>
+          <div data-lumina="report" style="display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap;color:#9A958D;line-height:1.45">
+            <span>Something not right?</span>
+            <button type="button" data-lumina="report-save" onClick="{{ reportSave }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;color:#EFECE6;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Save a report</button>
+            <span>{{ repNote }}</span>
+            <sc-if value="{{ repSaidOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="report-said" role="status" style="flex-basis:100%;color:#A9D18E">{{ repSaid }}</span></sc-if>
+          </div>
         </div>
       </div>
     </sc-if>
@@ -1245,6 +1251,10 @@ class Component extends DCLogic {
     // The Mac app's reload in place (⌘R, a hot build; LOCAL-CHANGES 257): take() hands it the open shoot's marks and view by clip
     // (name and time, as clipKey), the app reloads, reopen(kept) answers the file picker with the same clips and puts them back.
     window.luminaSkimBig = this.bigHost();
+    // Save a report (BETA.md item 5): the page's errors since it opened go in it; luminaSkimReport.save() is the app's Help ▸ Save a Report…
+    this._er = e => this.noteErr(e && e.message, e && e.filename ? String(e.filename).split('/').pop() + ':' + (e.lineno || 0) : ''); window.addEventListener('error', this._er);
+    this._ur = e => this.noteErr('unhandled: ' + (e && e.reason && e.reason.message || (e && e.reason) || '?'), ''); window.addEventListener('unhandledrejection', this._ur);
+    window.luminaSkimReport = {text:() => Component.reportText(this.reportInfo()), save:() => this.reportSave()};
     window.luminaSkimKeep = {take:() => this.keepTake(), reopen:kept => this.keepReopen(kept), offer:kept => this.keepOffer(kept), state:() => this.keepAt || 'idle'};
     // luminaSkimDebug() reports; luminaSkimDebug('panel') also opens the Working memory panel, luminaSkimDebug('off') hides it again, luminaSkimDebug('colour') saves the colour check frames.
     window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); else if (what === 'colour') this.colourCheck(); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
@@ -1269,6 +1279,7 @@ class Component extends DCLogic {
     window.removeEventListener('focus', this._fo); clearInterval(this.plT); clearTimeout(this.exWT);
     window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); window.removeEventListener('dragenter', this.addEnter); window.removeEventListener('dragleave', this.addLeave); window.removeEventListener('dragover', this.addOver); window.removeEventListener('drop', this.addDrop); window.removeEventListener('beforeunload', this._bu); window.removeEventListener('pagehide', this._ph); clearInterval(this._stT); document.removeEventListener('visibilitychange', this._stV); window.removeEventListener('focus', this._stV); this.dropVid();
     clearTimeout(this.propT); clearTimeout(this.flT); clearTimeout(this.pvCvT); this.dockUnmount(); this.touchOff();
+    window.removeEventListener('error', this._er); window.removeEventListener('unhandledrejection', this._ur); clearTimeout(this.repT);
   }
   // Touch. A phone or a tablet has no hover, no keys and no trackpad, so the same actions come from fingers:
   //  - a finger sideways over a tile skims it (as the pointer does across it), over the Viewer's picture scrubs it and,
@@ -5480,6 +5491,61 @@ class Component extends DCLogic {
     a.href = u; a.download = (this.state.ex.event || this.d.shoot.name || 'Lumina').replace(/[\/:]/g, '-') + ' cut clips.txt'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
     this.setState({cutSay:{t:'Saved ' + a.download + ' · ' + this.plural(x.n, 'cut clip')}});
   };
+  // Save a report (BETA.md item 5): one text file of what this page saw, which a tester sends by hand. Nothing is sent
+  // from here. Clip names, counts, timings (the clock's last loads) and the page's errors; no folder paths, no pictures.
+  static reportText(r) {
+    const L = [], row = (k, v) => L.push(k.padEnd(12) + v), pl = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+    L.push('Lumina Skim report', 'Saved ' + r.at, 'This file stays on this computer until you send it. It holds clip names, counts, timings and page errors; no folders, no pictures.', '');
+    row('Build', r.build || 'not stamped'); row('Running in', r.where || ''); row('Browser', r.agent || ''); row('Window', r.window || '');
+    if (r.mac) row('Mac', r.mac);
+    L.push('');
+    const s = r.shoot;
+    if (s) {
+      row('Shoot', [s.name || 'untitled', pl(s.clips, 'clip'), s.size, s.days ? pl(s.days, 'day') : ''].filter(Boolean).join(' · '));
+      row('Marks', s.selected + ' selected · ' + s.maybe + ' maybe · ' + s.cut + ' cut · ' + s.undecided + ' undecided');
+      row('Read', s.covered + ' of ' + pl(s.clips, 'clip') + ' with a cover · ' + s.failed.length + ' didn\u2019t read · ' + s.short + ' cut short · ' + s.skipped + ' skipped');
+      if (s.failed.length) {
+        L.push('', 'Clips that didn\u2019t read');
+        s.failed.slice(0, 200).forEach(f => L.push('  ' + f.name + '  ' + (f.why || 'unreadable') + (f.tries ? ' · tried ' + pl(f.tries, 'time') : '')));
+        if (s.failed.length > 200) L.push('  and ' + (s.failed.length - 200) + ' more');
+      }
+    } else row('Shoot', 'none open');
+    L.push('', 'Last loads (newest first)');
+    if (r.loads && r.loads.length) r.loads.forEach(x => L.push('  ' + JSON.stringify(x))); else L.push('  none');
+    L.push('', 'Errors on this page');
+    if (r.errors && r.errors.length) r.errors.forEach(e => L.push('  ' + e.t + '  ' + e.msg + (e.at ? ' (' + e.at + ')' : ''))); else L.push('  none since the page opened');
+    return L.join('\n') + '\n';
+  }
+  static stamp(d, sep) { const p2 = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + ' ' + p2(d.getHours()) + sep + p2(d.getMinutes()); }
+  noteErr(msg, at) {
+    const L = this.errLog || (this.errLog = []), t = new Date();
+    L.push({t:t.toTimeString().slice(0, 8), msg:String(msg == null ? '?' : msg).slice(0, 300), at:at || ''}); if (L.length > 50) L.shift();
+  }
+  reportInfo() {
+    const d = this.d, st = this.state, now = new Date(), v = window.lumina && window.lumina.video, host = !!(v && v.storeAll);
+    let loads = []; try { loads = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]'); } catch (x) {} if (!Array.isArray(loads)) loads = [];
+    const r = {at:Component.stamp(now, ':') + ' (' + now.toISOString() + ')', build:window.luminaBuild || '', where:host ? 'the Lumina Skim app' : window.luminaPreview ? 'the web preview' : 'a browser',
+      agent:navigator.userAgent, window:window.innerWidth + ' \u00d7 ' + window.innerHeight + ' at ' + (window.devicePixelRatio || 1) + '\u00d7', loads:loads.slice(0, 10), errors:(this.errLog || []).slice(), shoot:null};
+    const h = this.health;
+    if (h && !h.web) r.mac = ['heat ' + (['normal', 'warm', 'hot', 'critical'][h.thermal] || '?'), h.lowPower ? 'Low Power Mode' : '', h.pressure && h.pressure !== 'none' ? 'memory ' + h.pressure : '',
+      h.footprintMB ? 'Lumina ' + Math.round(h.footprintMB) + ' MB' : '', h.memGB ? Math.round(h.memGB) + ' GB memory' : ''].filter(Boolean).join(' · ');
+    if (this.hasShoot()) {
+      const C = d.clips, m = st.marks || {}, f = this.firstIdx(), n = k => C.filter(c => m[c.id] === k).length;
+      const failed = C.filter(c => c.facts && c.facts.state === 'unreliable').map(c => ({name:c.name, why:c.why || '', tries:c.tries || 0}));
+      r.shoot = {name:d.shoot.name || '', clips:C.length, size:this.fmtB(d.shoot.bytes), days:d.shoot.days || 0, selected:n('keep'), maybe:n('maybe'), cut:n('cut'),
+        undecided:C.filter(c => !m[c.id]).length, covered:C.filter(c => c.frames && c.frames[f]).length, failed, short:C.filter(c => c.short).length, skipped:this.skipped || 0};
+    }
+    return r;
+  }
+  reportSave = () => {
+    const text = Component.reportText(this.reportInfo()), name = 'Lumina Skim report ' + Component.stamp(new Date(), '.') + '.txt';
+    const v = window.lumina && window.lumina.video, host = !!(v && v.storeAll);
+    const blob = new Blob([text], {type:'text/plain;charset=utf-8'}), a = document.createElement('a'), u = URL.createObjectURL(blob);
+    a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
+    clearTimeout(this.repT); this.repT = setTimeout(() => this.setState({repSaid:null}), 10000);
+    this.setState({repSaid:host ? 'Choose where to save \u201c' + name + '\u201d, then send it to whoever gave you Lumina Skim.' : 'Saved \u201c' + name + '\u201d to your downloads. Send it to whoever gave you Lumina Skim.'});
+    return name;
+  };
   static CARDS = [['fx5', 'FX5 Sample Pack', 'SONY FX5 · Visual Park, free']];
   // Chromium (Chrome, Comet, Arc, Brave, Edge) has no 10-bit H.264; Safari and the Lumina app (WebKit) play it.
   // Every browser on an iPhone or iPad is WebKit (Chrome there is CriOS, Firefox FxiOS): it plays what Safari plays.
@@ -5568,7 +5634,7 @@ class Component extends DCLogic {
         {t:st.closeConfirm ? 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + '? Click again to close' : 'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open', sub:'Frees ' + this.fmtB(ms.frB) + ' of frames and measurements. Marks are not saved: ' + (Object.keys(st.marks).length ? 'its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' will be lost.' : 'nothing to lose.') + ' ⌘W', subC:st.closeConfirm ? '#FFD27A' : '#B8B3AB', go:this.closeShoot, op:has ? 1 : 0.45, bg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.08)', fg:st.closeConfirm ? '#FFD27A' : '#EFECE6'},
         {t:this.ccFile ? 'Save the colour check' : 'Colour check frames', sub:this.ccSay || 'One picture of the S-Log3 clips at 2, 5 and 8 s, as read and as shown, with the table used. For comparing with Final Cut.', subC:'#B8B3AB', go:this.colourCheck, op:d && d.clips.some(c => c._file && (this.prof(c) || {}).g === 'S-Log3') && !this.ccBusy ? 1 : 0.45, bg:'rgba(239,236,230,0.08)', fg:'#EFECE6'}],
       impOn:!!(st.imp && st.imp.done < st.imp.n), impW:st.imp ? Math.round(st.imp.done / Math.max(1, st.imp.n) * 100) + '%' : '0%',
-      fileRef:this.fileRef, clipRef:this.clipRef, navGrid:this.navGrid, navPrev:this.navPrev, navNext:this.navNext, phoneToggle:this.phoneToggle, ...this.touchVals(), pickFolder:this.pickFolder, filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
+      fileRef:this.fileRef, clipRef:this.clipRef, navGrid:this.navGrid, navPrev:this.navPrev, navNext:this.navNext, phoneToggle:this.phoneToggle, ...this.touchVals(), pickFolder:this.pickFolder, reportSave:this.reportSave, repNote:'a text file of what Lumina saw, for you to send. Nothing is sent from here.', repSaidOn:!!st.repSaid, repSaid:st.repSaid || '', filesIn:this.filesIn, dropOver:this.dropOver, dropLeave:this.dropLeave, dropIn:this.dropIn,
       dropRing:st.dropHot ? '#FFD27A' : 'rgba(239,236,230,0.18)', dropBg:st.dropHot ? 'rgba(255,210,122,0.06)' : '#232220',
       impMsg:st.impMsg || '', impMsgOn:!!st.impMsg, impBusy:!!st.impMsg && st.impMsg === st.impBusyT, busyBarOn:!!st.impMsg && st.impMsg === st.impBusyT && st.step !== 'import',
       ...(b => ({bigAddOn:!!b, bigAddH:b ? b.h : '', bigAddName:b ? b.name : '', bigAddLine:b ? b.line : '', bigAddGoT:b ? b.go : '', bigAddGoOn:!!(b && b.goOn), bigAddPickT:b ? b.pick : '', bigAddPick:this.bigAddPick, bigAddGo:this.bigAddGo, bigAddClose:this.bigAddClose}))(st.bigAdd ? Component.bigSay(st.bigAdd, x => this.fmtB(x)) : null),

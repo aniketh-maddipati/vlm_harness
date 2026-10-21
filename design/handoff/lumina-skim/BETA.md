@@ -6,6 +6,13 @@ Worktree `~/vlm_harness/worktrees/skim-beta`, cut from `video/skim-mvp`. Read TH
 ## Goal
 A Release build of Lumina Skim the friend can download, open without warnings, and that updates itself.
 
+## State (2026-10-21)
+Items 1, 2, 5 and 6 are in the code; none has run on a Mac yet. `LUMINA_APP=skim bash Scripts/release.sh local` builds
+"Lumina Skim.app" (`Config/Skim.xcconfig`, bundle id `com.aniketh.lumina.skim`), `… dmg` signs, notarises (with
+`NOTARY_PROFILE`) and staples `Lumina-Skim-<version>.dmg`, and CI builds the local one with the strict preflight.
+Send report is Open's "Save a report" and Help ▸ Save a Report… (LOCAL-CHANGES 306). Items 3 and 4 (updates and a
+live page) stay out of the private beta: they add network reach to the app.
+
 ## Work, in order
 1. **Release build with its own bundle ID.** Today Skim is Debug only (`LUMINA_PAGE=skim`, SetsPage). Add a Release
    path (scheme or target "Lumina Skim"), separate bundle ID, so it sits beside Lumina.

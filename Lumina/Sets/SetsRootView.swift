@@ -61,7 +61,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         // with no export cut short it is one directory listing.
         let exports = Self.supportDir.appendingPathComponent("exports", isDirectory: true)
         let res = Bundle.main.resourceURL!
-        // Skim (a Debug build with LUMINA_PAGE=skim) has no plumbing yet: the page runs on its own.
+        // Skim (the Lumina Skim app, or a Debug build with LUMINA_PAGE=skim) has no plumbing yet: the page runs on its own.
         let page = SetsPage.current
         let plumbing = page == .pick ? ((try? String(contentsOf: res.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? "") : ""
         Task { @MainActor in
@@ -78,7 +78,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
                                                          standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut],
-                                                         extraScripts: page == .skim ? [SetsPage.skimHostScript] : [], frame: host.bounds)
+                                                         extraScripts: page == .skim ? [SetsPage.skimHostScript, Self.skimBuildScript] : [], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
@@ -106,12 +106,20 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                         keepSkimAcrossRelaunch()
                     }
                 }
-                if page == .skim { keepSkimLast() }
                 #endif
+                if page == .skim { keepSkimLast() }
             } catch {
                 LuminaLog.app.fault("web view setup failed: \(String(describing: error), privacy: .private)")
             }
         }
+    }
+
+    /// The app's version for Skim's report (`window.luminaBuild`, which the web preview gets from its build script).
+    private static var skimBuildScript: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let stamp = "\(SetsPage.current.appName) \(info["CFBundleShortVersionString"] as? String ?? "?") (\(info["CFBundleVersion"] as? String ?? "?"))\(SetsWindowController.isDebug ? " Debug" : "")"
+        let lit = (try? JSONSerialization.data(withJSONObject: [stamp])).flatMap { String(data: $0, encoding: .utf8) } ?? "[\"\"]"
+        return "window.luminaBuild = window.luminaBuild || \(lit)[0];"
     }
 
     // MARK: Menu bar (MENUS.md)
@@ -121,19 +129,23 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         guard name.allSatisfy({ $0.isLetter }) else { return }
         if SetsPage.current == .skim {
             if name == "reload" { reloadSkim(); return }
+            // Help ▸ Save a Report…: the page's own report, saved through the download panel like any of its files.
+            if name == "report" { webView?.evaluateJavaScript("window.luminaSkimReport && luminaSkimReport.save()", completionHandler: nil); return }
             if let js = SetsPage.skimKeyScript(for: name) { webView?.evaluateJavaScript(js, completionHandler: nil) }
             return
         }
         webView?.evaluateJavaScript("window.__lumina && __lumina.command('\(name)')", completionHandler: nil)
     }
 
-    /// ⌘R on Skim: leaves a note in this app's container that the hot build's follower watches
-    /// (`Library/Caches/skim-refresh`: it pulls the shared branch at once, and a newer page then reloads
-    /// again the same way), and reloads the page now, keeping the open shoot (`reloadSkimKeeping`).
+    /// ⌘R on Skim: reloads the page now, keeping the open shoot (`reloadSkimKeeping`). A Debug build also leaves a
+    /// note in this app's container that the hot build's follower watches (`Library/Caches/skim-refresh`: it pulls the
+    /// shared branch at once, and a newer page then reloads again the same way).
     private func reloadSkim() {
+        #if DEBUG
         if let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
             try? Data(ISO8601DateFormatter().string(from: Date()).utf8).write(to: caches.appendingPathComponent("skim-refresh"), options: .atomic)
         }
+        #endif
         LuminaLog.app.notice("skim: reload from the menu")
         reloadSkimKeeping()
     }
@@ -262,10 +274,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        #if DEBUG
         if skimRestoring { skimRestoring = false; raiseSkimCurtain(nil) }
         if SetsPage.current == .skim, skimCurtain == nil, skimLastKept != nil { offerSkimLast(tries: 0) }
-        #endif
         guard SetsPage.current == .skim, skimCurtain != nil else { return }
         guard skimKept != nil, skimURLs != nil else { lowerSkimCurtain(); return }
         reopenSkimShoot(tries: 0)
@@ -294,9 +304,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         skimReopenURLs = urls + skimAddedURLs
     }
 
-    #if DEBUG
-    /// Set at launch when the last run left its shoot behind (`keepSkimAcrossRelaunch`): the first load reopens it.
+    /// Set at launch when the last run left its shoot behind (`keepSkimAcrossRelaunch`, the hot build only): the first load reopens it.
     private var skimRestoring = false
+    #if DEBUG
     private var skimTermSource: DispatchSourceSignal?
     private static var skimKeptFile: URL? {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("skim-kept.json")
@@ -324,6 +334,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         skimNote = "Picked up where you were"
         skimRestoring = true
     }
+    #endif
 
     nonisolated private static func resolveBookmarks(_ marks: [String]) -> [URL] {
         marks.compactMap { b in
@@ -394,6 +405,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         }
     }
 
+    #if DEBUG
     /// SIGTERM: the open shoot to disk, then exit. At most 1.5 s; dev.sh waits 5 s before a kill -9.
     private func saveSkimAndExit() {
         guard let webView, let urls = skimURLs, let file = Self.skimKeptFile else { exit(0) }
@@ -662,7 +674,6 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             // A reload in place answers with the clips that were open, with no panel (reloadSkimKeeping).
             if let urls = skimReopenURLs { skimReopenURLs = nil; bridge.skimOpened(skimURLs ?? urls); completionHandler(urls); return }
             Task { @MainActor in
-                #if DEBUG
                 // Resume on Open's card (LOCAL-CHANGES 288): the last shoot's clips from their bookmarks, no panel.
                 if await skimPageFlag("window.luminaSkimResuming === true ? (window.luminaSkimResuming = false, true) : false"), let last = skimLastURLs {
                     skimURLs = last; skimAddedURLs = skimLastAdded; bridge.skimOpened(last)
@@ -674,7 +685,6 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                     }
                     completionHandler(all); return
                 }
-                #endif
                 // Add clips (the page sets window.luminaSkimAdding just before its click): more clips for the open shoot. The
                 // page is told where they are (window.luminaSkimPicked, set before it gets the files) so the Final Cut file
                 // points at them; the shoot's folder stays as it was.
