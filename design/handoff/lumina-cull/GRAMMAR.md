@@ -44,6 +44,8 @@ Space         hold: large view while held · tap: toggle · a stack opens at its
 Z hold        100% · in a stack the same region on every frame · drag moves it
 time axis     large view and open stacks · capture time per frame · gold: most detail · ≈: estimated
 − +           tile size: small / medium / large, scaled to the window
+⌥− ⌥=         time breaks: coarser / finer rows (3 h · 1 h · 20 min · by scene · 5 min · 2 min · 1 min · 30 s · 10 s) · ⌥0 by scene
+              the − / + chip under the time axis does the same · stacks never split · B / ⇧B still win
 B / ⇧B        split / merge here (row or stack)
 H             hide key bar · ?  all keys
 Tab           move between buttons · ⏎ or Space presses the focused one · esc returns to the grid
@@ -68,6 +70,7 @@ TRACKPAD
 two-finger ↕          scroll
 two-finger ↔          in an open stack or large view: scrub frames
 pinch                 tile size, centred on the cursor
+⌥ pinch, or pinch over the time axis   time breaks: out finer, in coarser
 force click / 3-tap   large view while held
 ⌥ + two-finger ↔      previous / next group
 (no decisions by gesture · rotate and pinch in large view ignored)
