@@ -61,9 +61,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         // with no export cut short it is one directory listing.
         let exports = Self.supportDir.appendingPathComponent("exports", isDirectory: true)
         let res = Bundle.main.resourceURL!
-        // Skim (a Debug build with LUMINA_PAGE=skim) has no plumbing yet: the page runs on its own.
-        let page = SetsPage.current
-        let plumbing = page == .pick ? ((try? String(contentsOf: res.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? "") : ""
+        // Skim (Debug builds) has no plumbing yet: the page runs on its own. A Debug build holds both pages in one
+        // window (`SetsPage.switchable`): every script goes in, and each one does nothing on the other page.
+        let page = SetsPage.current, both = SetsPage.switchable
+        let plumbing = page == .pick || both ? ((try? String(contentsOf: res.appendingPathComponent("plumbing.js"), encoding: .utf8)) ?? "") : ""
         Task { @MainActor in
             let cut = await Task.detached(priority: .userInitiated) { () -> [(folder: String, done: Int, planned: Int, cleaned: Bool)] in
                 SetsExportJournal.recover(in: exports).map { e in
@@ -78,7 +79,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
                                                          standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut],
-                                                         extraScripts: page == .skim ? [SetsPage.skimHostScript] : [], frame: host.bounds)
+                                                         extraScripts: both ? [SetsPage.skimHostScript, SetsPage.switchScript] : page == .skim ? [SetsPage.skimHostScript] : [],
+                                                         frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
@@ -87,31 +89,103 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 host.stretchWebView()
                 webView = wv
                 // The Edit canvas: the one native view over the page (AGENTS.md), above the web view.
-                if page == .pick { bridge.attachCanvas(host: host) }
+                if page == .pick || both { bridge.attachCanvas(host: host) }
+                bridge.onSwitchPage = { [weak self] in self?.switchPage(to: $0) }
+                bridge.onReady = { [weak self] in
+                    // Back on Photos: the shoot that was open when the window went to Video opens again.
+                    guard let self, let id = self.pickReturn else { return }
+                    self.pickReturn = nil
+                    #if DEBUG
+                    // The hot build reopens the most recent shoot on every ready, this one.
+                    if self.hotReload != nil { return }
+                    #endif
+                    DispatchQueue.main.async { MainActor.assumeIsolated { self.reopen(id) } }
+                }
                 wv.load(URLRequest(url: SetsSchemeHandler.pageURL))
                 host.window?.makeFirstResponder(wv)
-                if page == .pick {
-                    bridge.cards.start()
-                    offerEarlierSessions()
-                }
+                if page == .pick || both { bridge.cards.start() }
+                if page == .pick { offerEarlierSessions() }
                 #if DEBUG
                 if SetsHotReload.isOn {
-                    hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: page == .pick ? plumbing : nil) { [weak self] in
+                    hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: page == .pick || both ? plumbing : nil) { [weak self] in
                         guard let self, let last = self.bridge.shoots.index().first else { return }
+                        self.pickReturn = nil
                         self.reopen(last.id)
                     }
-                    // Skim reloads in place: the open shoot comes back after the page does.
-                    if page == .skim {
-                        hotReload?.reloadPage = { [weak self] in self?.reloadSkimKeeping(note: "Updated to the latest") }
+                    // Skim reloads in place: the open shoot comes back after the page does. Pick reloads plainly.
+                    if page == .skim || both {
+                        hotReload?.reloadPage = { [weak self] in
+                            guard let self else { return }
+                            if SetsPage.current == .skim { self.reloadSkimKeeping(note: "Updated to the latest"); return }
+                            self.webView?.load(URLRequest(url: SetsSchemeHandler.pageURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
+                        }
                         keepSkimAcrossRelaunch()
                     }
                 }
-                if page == .skim { keepSkimLast() }
+                if page == .skim || both { keepSkimLast() }
                 #endif
             } catch {
                 LuminaLog.app.fault("web view setup failed: \(String(describing: error), privacy: .private)")
             }
         }
+    }
+
+    // MARK: Photos / Video (Debug builds: both pages in one window)
+
+    /// The Pick shoot that was open when the window went to Video; it opens again on the way back.
+    private var pickReturn: String?
+    /// Skim's open shoot (`luminaSkimKeep.take()`) when the window went to Photos; it comes back on the way back,
+    /// the same clips with no panel, as ⌘R's reload does.
+    private var skimAway: String?
+
+    /// The pages' Photos / Video switch and the View menu: the window loads the other page. What is open on the
+    /// page being left is kept and opens again on the way back: Pick's shoot through its recent (saved first, as
+    /// Close Shoot does), Skim's clips, marks and view through `luminaSkimKeep`.
+    func switchPage(to page: SetsPage) {
+        guard SetsPage.switchable, page != SetsPage.current, let webView else { return }
+        if SetsPage.current == .skim {
+            webView.evaluateJavaScript("window.luminaSkimKeep ? luminaSkimKeep.take() : null") { [weak self] kept, _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    // Clips dropped on the page have no file locations: they can't be handed back.
+                    self.skimAway = (kept as? String).flatMap { self.skimURLs == nil || $0.contains("\"dropped\":true") ? nil : $0 }
+                    self.showPage(page)
+                }
+            }
+            return
+        }
+        let shoot = bridge.shootId
+        webView.evaluateJavaScript("window.__lumina && __lumina.closeShoot()") { [weak self] _, _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.bridge.closeShoot()
+                self.pickReturn = shoot
+                self.showPage(page)
+            }
+        }
+    }
+
+    private func showPage(_ page: SetsPage) {
+        guard let webView else { return }
+        LuminaLog.app.notice("switch: \(page.side, privacy: .public)")
+        bridge.pageLeaving()
+        SetsPage.choose(page)
+        SetsMenuModel.shared.page = page
+        let url = URLRequest(url: SetsSchemeHandler.pageURL)
+        // Back to Video with a shoot to put back: the picture of the page stays over the window until it is back.
+        if page == .skim, let kept = skimAway {
+            skimAway = nil
+            skimKept = kept
+            skimNote = "Back to video"
+            webView.takeSnapshot(with: nil) { [weak self] image, _ in
+                MainActor.assumeIsolated {
+                    self?.raiseSkimCurtain(image)
+                    self?.webView?.load(url)
+                }
+            }
+            return
+        }
+        webView.load(url)
     }
 
     // MARK: Menu bar (MENUS.md)
@@ -313,6 +387,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         skimTermSource = source
         guard let file = Self.skimKeptFile, let data = try? Data(contentsOf: file) else { return }
         try? FileManager.default.removeItem(at: file)
+        // Relaunched on Photos (both pages in one window): Video's shoot is offered on its Open card instead.
+        guard SetsPage.current == .skim else { return }
         guard let saved = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let kept = saved["kept"] as? String,
               let at = saved["at"] as? Double, Date().timeIntervalSince1970 - at < 600, let marks = saved["bookmarks"] as? [String] else { return }
         let urls = Self.resolveBookmarks(marks)
@@ -396,7 +472,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     /// SIGTERM: the open shoot to disk, then exit. At most 1.5 s; dev.sh waits 5 s before a kill -9.
     private func saveSkimAndExit() {
-        guard let webView, let urls = skimURLs, let file = Self.skimKeptFile else { exit(0) }
+        guard SetsPage.current == .skim, let webView, let urls = skimURLs, let file = Self.skimKeptFile else { exit(0) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { exit(0) }
         webView.evaluateJavaScript("window.luminaSkimKeep ? luminaSkimKeep.take() : null") { kept, _ in
             MainActor.assumeIsolated {

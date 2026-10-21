@@ -1,7 +1,8 @@
 name: web previews
 
 # Puts the web previews on Cloudflare Pages from main, so they don't depend on a Mac being awake.
-#   Stills (lumina-still.pages.dev): on every push to main that changes its page, its vendor files or its scripts.
+#   Stills (lumina-still.pages.dev): on every push to main that changes its page, its vendor files or its scripts. It holds
+#   Video too (skim.html, the Photos / Video switch), so a Skim page change redeploys it.
 #   Skim (lumina-skim.pages.dev): only when run by hand with "skim" ticked, while a follower on the Mac
 #   still deploys that address from the shared Skim branch (two deployers would take turns overwriting it).
 # Secrets: CLOUDFLARE_API_TOKEN (Account · Cloudflare Pages · Edit, nothing else) and CLOUDFLARE_ACCOUNT_ID.
@@ -11,8 +12,10 @@ on:
     branches: [main]
     paths:
       - design/handoff/lumina-cull/**
+      - design/handoff/lumina-skim/**
       - design/handoff/vendor/**
       - Scripts/build-stills-preview.sh
+      - Scripts/build-skim-preview.py
       - Scripts/deploy-stills-preview.sh
       - Scripts/page_files.sh
       - .github/workflows/previews.yml

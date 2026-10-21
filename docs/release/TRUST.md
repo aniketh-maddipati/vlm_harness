@@ -118,6 +118,7 @@ Keys in `Config/Lumina-Sets.entitlements` (what ships) and `Config/Lumina.entitl
 | `writeSidecars` | — | `.xmp` beside its RAW in the opened folder, `.lumina-bak` first; with Handoff's Save to, into that folder instead (one Lumina has access to, or one the folder panel names that is not the opened folder or a card), `.lumina-bak` first, read back; the files written are noted in `pick/written.json` in the container |
 | `reveal` | — | — (shows a file in Finder, only inside the opened folders or the last export) |
 | `setPrefs` | — | the page's preferences in the app's defaults |
+| `switchPage` | — | — (Debug builds only: the window loads the other page, Photos or Video; the open shoot is closed first, saved as always) |
 | `skimStore` | Skim's saved shoots, `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) | — |
 | `skimSave` | — | one Skim shoot's marks, name and counts in `skim/store.json` in the container (Debug builds with `LUMINA_PAGE=skim` only) |
 | `skimCoverGet` | Skim's saved covers and first measures for the clips asked for, `skim/covers/` in the container (Debug builds with `LUMINA_PAGE=skim` only) | — |

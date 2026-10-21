@@ -4,6 +4,8 @@
 // bridge, and provides `window.lumina`, the page's data contract. Layout, styles, copy and keys are
 // untouched: plumbing supplies behaviour and data, never UI.
 (() => {
+  // A Debug build holds Skim in the same window (the Photos / Video switch): plumbing is Pick's alone.
+  if (/Lumina Skim /.test(decodeURIComponent(location.pathname))) return;
   const cfg = Object.assign({}, window.__luminaConfig || {});
   const native = (op, args) => window.webkit.messageHandlers.lumina.postMessage(Object.assign({ op }, args || {}));
   // The page's notices (CHANGES-v0.04 A4): its own words for a folder too big to be a shoot, a sidecar

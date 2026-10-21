@@ -3,12 +3,19 @@
 (window.luminaPreview: no sample cards or testing tools, says it is a preview). No network at all.
 
     python3 Scripts/build-skim-preview.py [out.html]     default: dist/Lumina Skim (web preview).html
+    python3 Scripts/build-skim-preview.py out.html --beside-stills csp.txt
+        Video in the Stills site (Scripts/build-stills-preview.sh): the Photos / Video switch beside the wordmark
+        goes back to the Sets page next to it, and the page carries that site's content policy.
 """
 import base64, os, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'design', 'handoff', 'lumina-skim')
 VENDOR = os.path.join(ROOT, 'design', 'handoff', 'vendor')
-out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'dist', 'Lumina Skim (web preview).html')
+args = sys.argv[1:]
+csp = None
+if '--beside-stills' in args:
+    i = args.index('--beside-stills'); csp = open(args[i + 1], encoding='utf-8').read().strip(); del args[i:i + 2]
+out = args[0] if args else os.path.join(ROOT, 'dist', 'Lumina Skim (web preview).html')
 page = open(os.path.join(SRC, 'Lumina Skim v3.dc.html'), encoding='utf-8').read()
 def js(name): return open(os.path.join(SRC, name), encoding='utf-8').read().replace('</script', '<\\/script')
 for tag, name in [('<script src="./support.js"></script>', 'support.js'), ('<script src="./lumina-video-data-mvp.js"></script>', 'lumina-video-data-mvp.js')]:
@@ -21,10 +28,13 @@ def vjs(name): return open(os.path.join(VENDOR, name), encoding='utf-8').read().
 # text, which in one file includes the runtime itself (Safari and any web server allow that fetch; Chrome on file:// does not).
 head = ('<script>window.luminaPreview = true; window.__resources = window.__resources || {};</script>\n<script>\n' + vjs('react.production.min.js') + '\n</script>\n<script>\n'
         + vjs('react-dom.production.min.js') + '\n</script>\n')
+if csp is not None:
+    head = ('<meta http-equiv="Content-Security-Policy" content="%s">\n' % csp
+            + "<script>window.luminaSwitch = {current: 'video', go: function (to) { if (to === 'photos') location.href = './'; }};</script>\n" + head)
 i = page.index('<script'); page = page[:i] + head + page[i:]
 # Which build this is, small in the corner, so a stale tab can be told from the newest page (same hash as version.txt).
 try:
-    build = subprocess.run(['git', '-C', ROOT, 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()
+    build = os.environ.get('LUMINA_BUILD') or subprocess.run(['git', '-C', ROOT, 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()
 except Exception:
     build = ''
 if build:
