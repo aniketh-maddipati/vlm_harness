@@ -106,7 +106,7 @@ button:focus:not(:focus-visible){outline:none}
   input[type=range]{height:44px}
   input[type=text]{height:44px!important;font-size:16px!important}
 }
-/* Phone view (the Phone button, ?phone=1): the page at an iPhone's width in a wide window. The narrow rules below are
+/* Phone view (the Phone button, ?phone=1; off while PHONE_VIEW is false): the page at an iPhone's width in a wide window. The narrow rules below are
    asked of the page's own width, so they hold there as on a phone. */
 [data-screen-label=Skim]{container:skim / inline-size}
 [data-view=phone]{width:390px;max-width:100%;margin:0 auto;box-shadow:0 0 0 1px rgba(239,236,230,0.12),0 0 48px rgba(0,0,0,0.6)}
@@ -177,7 +177,7 @@ body:has([data-view=phone]){background:#111}
       <sc-if value="{{ forgetOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="shoot-forget" onClick="{{ forgetGo }}" title="Deletes this shoot’s marks for good. Clips are not touched." style="text-align:left;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:28px;flex:none;padding:1px 7px;border-radius:5px;background:{{ forgetBg }};color:{{ forgetFg }};cursor:pointer" style-hover="filter:brightness(1.3)" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ forgetT }}</button></sc-if>
     </div>
   <div data-lumina="look-controls" style="flex:0 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;white-space:nowrap">
-    <button type="button" data-lumina="phone-view" aria-pressed="{{ phoneA }}" onClick="{{ phoneToggle }}" title="Phone view: the page at an iPhone’s width (?phone=1)" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:32px;min-width:44px;padding:0 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;background:{{ phoneBg }};color:#EFECE6;font-weight:600" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Phone</button>
+    <sc-if value="{{ phoneViewOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="phone-view" aria-pressed="{{ phoneA }}" onClick="{{ phoneToggle }}" title="Phone view: the page at an iPhone’s width (?phone=1)" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:32px;min-width:44px;padding:0 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;background:{{ phoneBg }};color:#EFECE6;font-weight:600" style-hover="filter:brightness(1.2)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Phone</button></sc-if>
     <button type="button" data-lumina="preview" role="switch" aria-checked="{{ pvA }}" aria-disabled="{{ pvDis }}" onClick="{{ pvToggle }}" title="{{ pvTip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;height:32px;min-width:44px;padding:0 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;cursor:{{ pvCur }};opacity:{{ pvOp }};background:{{ pvBg }};color:#EFECE6;font-weight:600" style-hover="filter:brightness({{ pvHov }})" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Rec.709<span style="position:relative;width:28px;height:16px;border-radius:8px;background:{{ pvTrack }};transition:background 120ms ease-out"><span style="position:absolute;top:2px;left:{{ pvKnob }};width:12px;height:12px;border-radius:50%;background:#EFECE6;transition:left 120ms ease-out"></span></span></button>
   </div>
     <sc-if value="{{ dbgOn }}" hint-placeholder-val="{{ false }}">
@@ -2561,9 +2561,11 @@ class Component extends DCLogic {
   noKeepBack = () => { this.setState({noKeep:false}); this.furl(); };
   noKeepStay = () => this.setState({noKeep:false});
   // Phone view: the page at an iPhone's width inside a wide window (the Mac app, a desktop browser); remembered per browser.
+  // Phone view is off for now: Lumina targets the Mac app and desktop browsers. true brings back the Phone button and ?phone=1.
+  static PHONE_VIEW = false;
   static PHONE_W = 390;
   vwNow(phone) { return phone ? Math.min(window.innerWidth, Component.PHONE_W) : window.innerWidth; }
-  phoneSaved() { try { if (/[?&]phone=1\b/.test(location.search)) return true; return localStorage.getItem('lumina-skimview') === 'phone'; } catch (x) { return false; } }
+  phoneSaved() { if (!Component.PHONE_VIEW) return false; try { if (/[?&]phone=1\b/.test(location.search)) return true; return localStorage.getItem('lumina-skimview') === 'phone'; } catch (x) { return false; } }
   setPhone(on, save = true) { if (save) { try { if (on) localStorage.setItem('lumina-skimview', 'phone'); else localStorage.removeItem('lumina-skimview'); } catch (x) {} } this.setState({phone:on, vw:this.vwNow(on)}); }
   phoneToggle = e => { Component.letGo(e); this.setPhone(!this.state.phone); };
   // Nothing in the shoot to convert: the switch stays as it is (its title says why), so a log clip opened later still gets the preview.
@@ -5491,7 +5493,7 @@ class Component extends DCLogic {
     return {
       webPrevT:'Web preview: your clips are read on ' + dev + '; nothing is uploaded. ' + (mob ? 'Pick any number of clips from ' + (/iPhone/.test(dev) ? 'Photos or Files' : 'your gallery or Files') + '; they are listed by when they were shot.' : 'Use Safari: it plays every Sony format, the same as the Lumina app. Open one shoot at a time and keep each clip\u2019s .XML beside it.'),
       dropT:clipsFirst ? (t ? 'Choose clips' : 'Drop clips') : 'Drop a card, a folder or clips', pickT:clipsFirst ? (/iPhone/.test(dev) ? 'Photos or Files…' : 'Choose clips…') : 'Choose…',
-      navOn:t && st.step === 'skim' && st.lv >= 2, viewName:st.phone ? 'phone' : 'full', phoneA:!!st.phone, phoneBg:st.phone ? '#5B5854' : 'rgba(239,236,230,0.06)', navPrevOp:i > 0 ? 1 : 0.4, navNextOp:i >= 0 && i < flat.length - 1 ? 1 : 0.4};
+      navOn:t && st.step === 'skim' && st.lv >= 2, phoneViewOn:Component.PHONE_VIEW, viewName:st.phone ? 'phone' : 'full', phoneA:!!st.phone, phoneBg:st.phone ? '#5B5854' : 'rgba(239,236,230,0.06)', navPrevOp:i > 0 ? 1 : 0.4, navNextOp:i >= 0 && i < flat.length - 1 ? 1 : 0.4};
   }
   cardList() {
     if (window.luminaPreview) return [];
