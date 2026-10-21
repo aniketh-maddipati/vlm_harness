@@ -94,7 +94,7 @@
     HOOKS.filter(k => typeof window[k] !== 'function').map(k => 'window.' + k));
   // The native read (below) repeats the page's onDir and readOne step for step. When a design sync
   // changes either, the contract check reports it so the repeat gets reviewed; the app keeps working.
-  const ONDIR = 2744738129;
+  const ONDIR = 3089655696;
   const fnv = t => { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
   const readHash = logic => {
     const proto = logic && Object.getPrototypeOf(logic);
