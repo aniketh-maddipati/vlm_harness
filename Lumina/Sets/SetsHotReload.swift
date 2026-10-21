@@ -78,7 +78,7 @@ final class SetsHotReload {
         LuminaLog.app.notice("hot reload: the page files changed")
         bridge?.canvas?.leave()
         if let reloadPage { reloadPage(); return }
-        webView.load(URLRequest(url: SetsSchemeHandler.pageURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
+        webView.reloadPageFresh()
     }
 }
 #endif

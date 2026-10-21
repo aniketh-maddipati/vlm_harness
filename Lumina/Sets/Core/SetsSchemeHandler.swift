@@ -41,6 +41,12 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js"]
     #endif
 
+    /// The page's own files are never kept by WebKit's cache. A reload asks only for the page itself again;
+    /// without this a script beside it could come from the cache of the page before, so a new page ran
+    /// with an old lumina-core-v4.js ("undefined is not an object (evaluating 'T.min')" after the hot build
+    /// added LuminaCore.TIME_DETAIL). They are read from the bundle, so this costs nothing.
+    static let fresh = ["Cache-Control": "no-store"]
+
     /// support.js's CDN URLs → local. Passed to the page as `window.__resources`.
     static let resources: [String: String] = [
         "https://unpkg.com/react@18.3.1/umd/react.production.min.js": "\(scheme)://vendor/react.production.min.js",
@@ -88,10 +94,10 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
             if standInPhotos, path == Self.pageFile || path == Self.editPageFile, let text = String(data: data, encoding: .utf8) {
                 data = Data(text.replacingOccurrences(of: "https://picsum.photos/", with: "\(Self.scheme)://photo/").utf8)
             }
-            respond(task, url, data, mime(path), headers: path.hasSuffix(".html") ? SetsOffline.pageHeaders : [:])
+            respond(task, url, data, mime(path), headers: (path.hasSuffix(".html") ? SetsOffline.pageHeaders : [:]).merging(Self.fresh) { $1 })
         case "vendor":
             guard Self.vendorFiles.contains(path), let data = try? Data(contentsOf: vendorRoot.appendingPathComponent(path)) else { return fail(task) }
-            respond(task, url, data, "text/javascript")
+            respond(task, url, data, "text/javascript", headers: Self.fresh)
         case "photo" where standInPhotos:
             let parts = path.split(separator: "/").map(String.init)      // seed/<seed>/<w>/<h>
             guard parts.count == 4, let w = Int(parts[2]), let h = Int(parts[3]),
@@ -312,6 +318,29 @@ nonisolated enum SetsPage: String, Sendable {
     """#
 
     var file: String { self == .skim ? SetsSchemeHandler.skimPageFile : SetsSchemeHandler.pageFile }
+
+    /// Both pages: tells the window when the page shows an error in place of its screen (the design runtime's
+    /// `.sc-logic-error`, e.g. "Lumina Sets v12: undefined is not an object"), and when it no longer does, so the
+    /// window can offer Reload Page (a button over the page and ⌘R). Reads nothing else and draws nothing.
+    static let errorWatchScript = #"""
+    (() => {
+      let last = '', armed = false;
+      const look = () => {
+        armed = false;
+        const el = document.querySelector('.sc-logic-error');
+        const text = el ? String(el.textContent || 'error').slice(0, 300) : '';
+        if (text === last) return;
+        last = text;
+        try { window.webkit.messageHandlers.lumina.postMessage({ op: 'pageError', message: text }); } catch (_) {}
+      };
+      const start = () => {
+        new MutationObserver(() => { if (!armed) { armed = true; requestAnimationFrame(look); } })
+          .observe(document.documentElement, { childList: true, subtree: true });
+        look();
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
+    })();
+    """#
 
     /// Skim's host: the page's `lumina.video` calls, set before the page runs. `storeAll` and `storeSet`
     /// keep its saved shoots in the app's container (`skimStore` / `skimSave`, SkimStore), so marks survive

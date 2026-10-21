@@ -85,6 +85,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     let shoots: SetsShootStore
     private(set) var ready = false
     var onEvent: ((String) -> Void)?
+    /// The page shows an error in place of its screen (its text), or no longer does (nil): `pageError`.
+    var onPageError: ((String?) -> Void)?
     /// The recent-shoots list changed (File ▸ Open Recent).
     var onShootsChanged: (() -> Void)?
     /// Pick's page said it is ready (after plumbing's contract check), every time it loads.
@@ -418,6 +420,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "switchPage":
             guard SetsPage.switchable, let side = body["to"] as? String, let page = SetsPage(side: side) else { return (false, nil) }
             onSwitchPage?(page)
+            return (true, nil)
+        case "pageError":
+            let text = (body["message"] as? String).map { String($0.prefix(300)) }
+            onPageError?(text?.isEmpty == false ? text : nil)
             return (true, nil)
         case "cullCard":
             return (await cullCard(), nil)
