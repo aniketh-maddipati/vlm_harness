@@ -59,7 +59,31 @@ check(await page.locator('meta[http-equiv="Content-Security-Policy"]').count() =
 // No stills on the site: the page finds out in the background and Open offers a folder, not the sample card.
 await page.waitForFunction(() => /Folder or card/.test(document.body.innerText) && !/SONY-A7M4/.test(document.body.innerText), null, { timeout: 5000 })
   .then(() => check(true, 'without the sample stills Open drops the sample card'), () => check(false, 'without the sample stills Open drops the sample card'));
-check(await page.locator('[data-lumina="no-sample"]').isVisible(), 'and says why');
+// Every visitor's browser is missing them, so the notice saying so is for the developer only (?debug).
+check(await page.locator('[data-lumina="no-sample"]').count() === 0, 'and shows visitors no notice about it');
+await page.goto(origin + '/?debug=1', { waitUntil: 'load' });
+await page.locator('[data-lumina="no-sample"]').waitFor({ state: 'visible', timeout: 5000 })
+  .then(() => check(true, 'with ?debug it says why'), () => check(false, 'with ?debug it says why'));
+
+// Shoots are remembered for the day only: a stamp from another day forgets every shoot's storage, and keeps prefs.
+await page.goto(origin + '/', { waitUntil: 'load' });
+await page.evaluate(() => {
+  localStorage.setItem('lumina-v4-day', '2000-01-01');
+  for (const k of ['lumina-sets-v7', 'lumina-v4-shoot:a|1|x|y', 'lumina-v4-recents', 'lumina-v4-names', 'lumina-v4-seen',
+    'lumina-v4-moves:lumina-sets-v7', 'lumina-edit.sample', 'lumina.edit.v21.state']) localStorage.setItem(k, '{}');
+  for (const k of ['lumina-prefs', 'lumina-v4-handoff', 'lumina-v4-toured', 'lumina.edit.intro.v1']) localStorage.setItem(k, '{}');
+});
+await page.reload({ waitUntil: 'load' });
+await page.waitForFunction(() => /Folder or card/.test(document.body.innerText), null, { timeout: 10000 }).catch(() => {});
+const kept = await page.evaluate(() => Object.keys(localStorage).sort());
+const today = await page.evaluate(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); });
+check(!kept.some((k) => /^(lumina-sets-v|lumina-v4-(shoot|recents|names|seen|moves)\b|lumina-edit\.|lumina\.edit\.v21\.state)/.test(k)), 'a new day forgets every shoot', kept.join(', '));
+check(['lumina-prefs', 'lumina-v4-handoff', 'lumina-v4-toured', 'lumina.edit.intro.v1'].every((k) => kept.includes(k)), 'and keeps prefs and first-run flags', kept.join(', '));
+check(await page.evaluate((t) => localStorage.getItem('lumina-v4-day') === t, today), 'and stamps today');
+await page.evaluate(() => localStorage.setItem('lumina-v4-shoot:b|1|x|y', '{}'));
+await page.reload({ waitUntil: 'load' });
+check(await page.evaluate(() => localStorage.getItem('lumina-v4-shoot:b|1|x|y') === '{}'), 'the same day keeps a shoot');
+
 stills = true;
 await page.reload({ waitUntil: 'load' });
 await page.waitForFunction(() => /SONY-A7M4/.test(document.body.innerText), null, { timeout: 10000 })
