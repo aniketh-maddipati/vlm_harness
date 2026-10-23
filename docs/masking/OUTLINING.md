@@ -105,5 +105,7 @@ into macOS's own protected storage. SAM 2.1 small and EdgeTAM rows follow.
 
 1. B and B2, with the SAM 2.1 speed fix (1.6 fps today).
 2. One PR on the page and the Mac side: click and click again, Esc, the strip's red marks, and the six controls that go.
-3. Drag along the edge: the tracer, then refined by the model.
+3. Drag along the edge: the tracer, then refined by the model. The tracer is in (2026-10-23): a drag on the outline
+   redraws that stretch along the picture's edges, and a drag with no outline draws a new shape by hand. A hand fix
+   holds on its own frame; carrying it through the clip (as a scribble prompt) is next.
 4. A screenshot sheet of each control on a DAVIS clip, then the owner tries it on a T7 clip.

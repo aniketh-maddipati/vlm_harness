@@ -83,7 +83,7 @@ const until = async (p, test) => { for (let k = 0; k < 24; k++) { if (await test
   ok(Math.abs(q[0].points[0].x - 0.3) < 0.02 && Math.abs(q[0].points[0].y - 0.5) < 0.02, 'where it was clicked: ' + JSON.stringify(q[0].points[0]));
   ok(/^f[0-9a-z]+-\d+$/.test(q[0].key) && q[0].key.length <= 64, 'the frame\'s key: ' + q[0].key);
   ok(await pressed(p) === 'pick:true', 'the outline is chosen: ' + await pressed(p));
-  ok(/outlined · click outside to add, inside to take away · esc to undo/.test(await say(p)), 'the line says what a click does: ' + JSON.stringify(await say(p)));
+  ok(/outlined · click outside to add, inside to take away · drag along the edge to redraw it · esc to undo/.test(await say(p)), 'the line says what a click does: ' + JSON.stringify(await say(p)));
   const lit = await p.evaluate(() => { const c = document.querySelector('[data-lumina="viewer-outlines"]'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; });
   ok(lit > 500, 'the outline and the click are drawn: ' + lit + ' pixels');
   // outside: adds (⌥ held, which changes nothing now)
@@ -112,9 +112,51 @@ const until = async (p, test) => { for (let k = 0; k < 24; k++) { if (await test
   await until(p, async () => (await prompts(p)).length === 4 && /outlined/.test(await say(p)));
   q = await prompts(p);
   ok(q.length === 4 && q[3].points.length === 1, 'a click after that starts a new outline: ' + JSON.stringify(q[3] && q[3].points));
+  // drawing by hand: a drag out from the outline's edge and back adds a bump; esc takes it back
+  const pick = () => p.evaluate(() => { const b = [...document.querySelectorAll('[data-ol]')].find(x => x.getAttribute('data-ol') === 'pick'); return b ? b.getAttribute('aria-pressed') : ''; });
+  const drag = async pts => { await p.mouse.move(r.x + r.width * pts[0][0], r.y + r.height * pts[0][1]); await p.mouse.down();
+    for (const q of pts.slice(1)) await p.mouse.move(r.x + r.width * q[0], r.y + r.height * q[1], {steps:8}); await p.mouse.up(); await p.waitForTimeout(300); };
+  const before = await area(), n0 = (await prompts(p)).length;
+  // the disc around (0.6, 0.4) has radius 0.12: its right edge is near x = 0.6 + 0.12 * 9/16
+  const ex = 0.6 + 0.12 * 9 / 16;
+  await drag([[ex, 0.36], [ex + 0.12, 0.3], [ex + 0.16, 0.4], [ex + 0.12, 0.5], [ex, 0.44]]);
+  const bump = await area();
+  ok(bump > before * 1.15, 'a drag out from the edge and back adds to the outline: ' + before + ' → ' + bump);
+  ok((await prompts(p)).length === n0, 'drawing asks nothing of the Mac');
+  ok(await pick() === 'true', 'the outline stays chosen: ' + await pick());
+  await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+  const back = await area();
+  ok(Math.abs(back - before) < before * 0.05, 'esc takes the drag back: ' + bump + ' → ' + back);
+  // into the shape and back takes away
+  await drag([[ex, 0.33], [ex - 0.05, 0.36], [ex - 0.08, 0.4], [ex - 0.05, 0.44], [ex, 0.47]]);
+  const bay = await area();
+  ok(bay !== before, 'a drag in from the edge redraws that stretch: ' + before + ' → ' + bay);
+  await p.keyboard.press('Escape'); await p.waitForTimeout(200); await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+  ok(await pick() === '', 'esc again lets it go');
+  // with nothing outlined, a drag draws a shape of its own
+  await drag([[0.15, 0.2], [0.35, 0.2], [0.35, 0.45], [0.15, 0.45], [0.16, 0.22]]);
+  ok(await pick() === 'true' && await area() > 3000, 'a drag on its own draws a shape: ' + await pick() + ' ' + await area());
+  ok(/outlined/.test(await say(p)), 'and the line says it is outlined: ' + JSON.stringify(await say(p)));
+  await p.screenshot({path:path.join(T, 'drawn.png')});
   ok(errs.length === 0, 'no page errors: ' + errs.join(' | '));
   console.log('screenshot ' + path.join(T, 'prompt.png'));
   await b.close();
+}
+{ // 3. the stretch a drag replaces (the page's own drSplice, on a disc): out and back adds, in and back takes away
+  const src = fs.readFileSync(path.join(ROOT, 'design/handoff/lumina-skim/Lumina Skim v3.dc.html'), 'utf8');
+  const m = /static drSplice\(L, i, j, path\) \{([\s\S]*?)\n  \}\n/.exec(src);
+  ok(!!m, 'drSplice is in the page');
+  if (m) {
+    const splice = new Function('L', 'i', 'j', 'path', m[1]);
+    const area = L => { let s = 0; for (let k = 0; k < L.length; k++) { const p = L[k], q = L[(k + 1) % L.length]; s += p[0] * q[1] - q[0] * p[1]; } return Math.abs(s) / 2; };
+    const D = Array.from({length:24}, (_, i) => [0.5 + 0.1 * Math.cos(i / 24 * 2 * Math.PI), 0.5 + 0.1 * Math.sin(i / 24 * 2 * Math.PI)]);
+    const near = p => D.reduce((b, q, i) => Math.hypot(q[0] - p[0], q[1] - p[1]) < Math.hypot(D[b][0] - p[0], D[b][1] - p[1]) ? i : b, 0);
+    const run = P => area(splice(D, near(P[0]), near(P[P.length - 1]), P));
+    ok(run([[0.6, 0.45], [0.7, 0.5], [0.6, 0.55]]) > area(D) * 1.1, 'out and back adds');
+    ok(run([[0.6, 0.45], [0.55, 0.5], [0.6, 0.55]]) < area(D) * 0.97, 'in and back takes away');
+    ok(Math.abs(run([[0.6, 0.55], [0.55, 0.5], [0.6, 0.45]]) - run([[0.6, 0.45], [0.55, 0.5], [0.6, 0.55]])) < 1e-9, 'either way round');
+    ok(splice(D, 3, 3, [[0.6, 0.53], [0.62, 0.55]]).length === 25, 'a drag that starts and ends at one point keeps the rest');
+  }
 }
 console.log(fails ? fails + ' failed' : 'all ok');
 process.exit(fails ? 1 : 0);
