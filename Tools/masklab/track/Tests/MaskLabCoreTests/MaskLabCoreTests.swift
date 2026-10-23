@@ -23,6 +23,14 @@ final class MaskLabCoreTests: XCTestCase {
         XCTAssertEqual(o.start, 0)
     }
 
+    func testTheOracleNeedsLabels() throws {
+        let base = ["c.mov", "--box", "0.1,0.1,0.2,0.2", "--tracker", "vision-oracle", "--out", "o"]
+        XCTAssertThrowsError(try Options.parse(base))
+        let o = try Options.parse(base + ["--labels", "/l/c"])
+        XCTAssertEqual(o.tracker, .visionOracle)
+        XCTAssertEqual(o.labels, "/l/c")
+    }
+
     func testRefusesBadArguments() {
         let base = ["c.mp4", "--tracker", "vision-box", "--out", "o"]
         XCTAssertThrowsError(try Options.parse(base))                                  // no prompt

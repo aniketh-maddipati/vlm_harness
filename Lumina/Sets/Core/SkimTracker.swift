@@ -95,6 +95,10 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         }
     }
 
+    /// Every followed frame of the track `id` so far, in the order followed, with its cues (the mask lab reads these to
+    /// score the strip; the page polls instead). Nil: no such track.
+    func tracked(_ id: String) -> [SkimFollow.Tracked]? { lock.withLock { jobs[id]?.frames } }
+
     /// The followed frames of a finished track, in time order, as the matte takes them. Nil while it runs, or when there
     /// is no such track.
     func samples(_ id: String) -> [SkimFollow.Sample]? {
@@ -177,7 +181,7 @@ nonisolated final class SkimTracker: @unchecked Sendable {
     /// One frame of one direction: the trail's step, the shape found again by its feature print when it has been lost
     /// a while, and how sure the frame is.
     private func follow(_ w: Way, image: CGImage, t: Double, found: [LookMasks.Found], first: Bool, print: VNFeaturePrintObservation?) -> SkimFollow.Tracked {
-        var (step, figure) = w.trail.step(image, found: found, first: first)
+        var (step, figure, agree, rivals) = w.trail.step(image, found: found, first: first)
         var refound = false
         if step.shape == nil, SkimFollow.boxed(w.trail.kind) {
             w.lost += 1
@@ -191,15 +195,17 @@ nonisolated final class SkimTracker: @unchecked Sendable {
                 if let id = SkimFollow.refound(w.trail.kind, among: c), let s = found.first(where: { $0.id == id }) {
                     w.trail.place(s)
                     step = SkimFollow.Step(box: s.box, held: true, shape: s)
-                    refound = true; figure = nil
+                    refound = true; figure = nil; agree = nil
                 }
             }
         }
         if step.shape != nil { refound = refound || w.wasLost; w.lost = 0 }
         let sure = SkimFollow.sureness(tracker: figure, found: step.shape != nil, area: step.shape?.area, last: w.area, refound: refound)
+        let cues = SkimFollow.Cues(tracker: figure, agree: agree, area: step.shape?.area, last: w.area, refound: refound,
+                                   score: step.shape?.score, rivals: rivals, lost: w.lost)
         w.wasLost = step.shape == nil
         if let a = step.shape?.area { w.area = a }
-        return SkimFollow.Tracked(t: t, step: step, sure: sure)
+        return SkimFollow.Tracked(t: t, step: step, sure: sure, cues: cues)
     }
 
     /// Reads the clip's frames from `from` to `to` seconds at `size`, each handed to `each` with its time; `each`

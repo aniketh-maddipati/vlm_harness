@@ -25,6 +25,7 @@ func run(_ o: Options) async throws {
     case .visionBox: tracker = VisionBoxTracker()
     case .visionInstance: tracker = VisionInstanceTracker()
     case .sam2: tracker = try await SAM2Tracker(modelDir: URL(fileURLWithPath: o.model!, isDirectory: true))
+    case .visionOracle: tracker = VisionOracleTracker(labels: o.labels!, start: o.start)
     }
 
     var index = 0

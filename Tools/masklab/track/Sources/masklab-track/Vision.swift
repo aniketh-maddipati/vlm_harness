@@ -1,6 +1,8 @@
 #if canImport(Vision) && canImport(AVFoundation)
+import CoreGraphics
 import CoreVideo
 import Foundation
+import ImageIO
 import MaskLabCore
 import Vision
 
@@ -139,6 +141,45 @@ final class VisionInstanceTracker: FrameTracker {
         let m = try fg.mask(id, width: w, height: h)
         if !m.isEmpty { self.reference = m }
         return m
+    }
+}
+/// vision-oracle: not a tracker. On each frame with a hand label, the foreground instance with the highest IoU with
+/// that label; a frame without a label is written empty (score.py scores labelled frames only). The ceiling for any
+/// tracker that picks one of Vision's instances: when it is low, Vision's masks are the limit, not the tracking.
+final class VisionOracleTracker: FrameTracker {
+    private let labels: URL
+    private var index: Int
+    var confidence: Double? { nil }
+
+    init(labels: String, start: Int) {
+        self.labels = URL(fileURLWithPath: labels, isDirectory: true)
+        index = start
+    }
+
+    func first(_ frame: CVPixelBuffer, prompt: Prompt) throws -> Mask { try pick(frame) }
+
+    func next(_ frame: CVPixelBuffer) throws -> Mask { index += 1; return try pick(frame) }
+
+    private func pick(_ frame: CVPixelBuffer) throws -> Mask {
+        let (w, h) = frameSize(frame)
+        guard let label = label(index), let fg = try Foreground.of(frame),
+              let id = Pick.byPrevious(fg.map, previous: label, minimum: 0.0001) else { return Mask(width: w, height: h) }
+        return try fg.mask(id, width: w, height: h)
+    }
+
+    /// The label for frame `n` (`120.png` or `000120.png`), white (≥ 128) on the object.
+    private func label(_ n: Int) -> Mask? {
+        for name in [frameName(n), "\(n).png"] {
+            let url = labels.appendingPathComponent(name)
+            guard let src = CGImageSourceCreateWithURL(url as CFURL, nil), let img = CGImageSourceCreateImageAtIndex(src, 0, nil),
+                  let cx = CGContext(data: nil, width: img.width, height: img.height, bitsPerComponent: 8, bytesPerRow: img.width,
+                                     space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { continue }
+            cx.draw(img, in: CGRect(x: 0, y: 0, width: img.width, height: img.height))
+            guard let data = cx.data else { continue }
+            let px = Array(UnsafeBufferPointer(start: data.assumingMemoryBound(to: UInt8.self), count: img.width * img.height))
+            return Mask(width: img.width, height: img.height, pixels: px.map { $0 >= 128 ? 255 : 0 })
+        }
+        return nil
     }
 }
 #endif

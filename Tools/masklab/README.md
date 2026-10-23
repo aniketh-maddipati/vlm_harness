@@ -120,6 +120,10 @@ Tools/masklab/track/.build/release/masklab-track /Volumes/T7/yvid-a7siii-C001.mp
 - **`vision-instance`**: no tracker. Each frame takes the foreground instance with the highest IoU
   with the last non-empty mask; the start frame takes the instance the prompt picks (the one under
   the point, or the one with the highest IoU with the box).
+- **`vision-oracle`**: not a tracker. On each labelled frame it takes the foreground instance with the highest IoU
+  with the hand label (`--labels <clip's labels folder>`; the runner passes `labels/<clip>`). It is the most any
+  tracker that picks one of Vision's instances can score, so a low score here means Vision's masks are the limit,
+  not the tracking. Frames without a label are written empty.
 - **`sam2-coreml`** (experimental): only with `--model <dir>`, a folder holding Apple's Core ML
   conversion of SAM 2.1 (Hugging Face `apple/coreml-sam2.1-*`; nothing is downloaded by this tool
   or its script; put the files there yourself). Without `--model` it stops and says so. The code
@@ -145,6 +149,20 @@ checks its arguments and says it needs macOS).
 
 **Status:** the AVFoundation / Vision / Core ML code has not been compiled or run yet; it was
 written on Linux. The first Mac run is also its first build.
+
+## The app's own track (`skim/`, `masklab-skim`)
+
+`MASKLAB_TRACKERS="vision-box vision-instance skim"` adds the track Skim's Viewer runs (**Follow through the clip**,
+`SkimTracker`), built with `swiftc` from the app's own files (`LookMasks`, `SetsMasks`, `SkimFollow`, `SkimFollower`,
+`SkimTracker`; `skim/Stub.swift` stands in for the reader and the matte's file name). It takes masklab-track's
+arguments and writes the same masks and `timing.json`. The start frame's shape is chosen the way the page chooses it:
+Vision's shape that the box overlaps most, or the smallest one under the point, with its kind. Masks are the followed
+outlines rastered at `SkimFollow.proxyEdge` (720). `timing.json` also has `sure` (frames per state), `sure_frames` (each
+frame's state, from the start frame) and `refind`.
+
+`score.py` reports each clip's share of frames the app calls sure (`sure` column), the IoU of the labelled frames in
+each state (`iou_by_sure` in `report.json`, and the run's line under the table), and a line per run with J, F, J&F,
+fps and the sure share. The strip can be trusted when "sure" frames score high and "shaky" and "lost" ones low.
 
 ## Sky (`sky/`, `masklab-sky`)
 

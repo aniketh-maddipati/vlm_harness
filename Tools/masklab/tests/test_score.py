@@ -111,6 +111,41 @@ class ScoreTests(unittest.TestCase):
         self.assertAlmostEqual(c["iou"], 3 / 7)
         self.assertEqual(c["last10"], 0.0)
 
+    def test_the_skim_strip_is_scored_against_the_truth(self):
+        # The app's track: exact while sure (0-29), off the object while it says shaky (30-44), empty while lost.
+        folder = os.path.join(self.root, "skim", "clip")
+        states = []
+        for n in range(N):
+            if n < 30:
+                write(folder, n, disc(*centre(n))); states.append("sure")
+            elif n < 45:
+                write(folder, n, disc(*centre(n + 20))); states.append("shaky")
+            else:
+                write(folder, n, np.zeros((H, W), bool)); states.append("lost")
+        with open(os.path.join(folder, "timing.json"), "w") as f:
+            json.dump({"tracker": "skim", "start_frame": 0, "frames": N, "total_ms": N * 20.0, "per_frame_ms": [],
+                       "sure_frames": states}, f)
+        report = score.score_runs([os.path.join(self.root, "skim")], self.labels)
+        c = report["runs"][0]["clips"]["clip"]
+        self.assertAlmostEqual(c["sure_share"], 0.5)
+        by = c["iou_by_sure"]
+        self.assertEqual({k: v["n"] for k, v in by.items()}, {"sure": 3, "shaky": 2, "lost": 2})
+        self.assertAlmostEqual(by["sure"]["iou"], 1.0)
+        self.assertEqual(by["lost"]["iou"], 0.0)
+        self.assertLess(by["shaky"]["iou"], 0.2)
+        s = report["runs"][0]["summary"]
+        self.assertAlmostEqual(s["sure_share"], 0.5)
+        self.assertEqual(s["iou_by_sure"]["sure"]["n"], 3)
+        self.assertIn("IoU when lost 0.000 (2)", score.table(report))
+
+    def test_summary_is_the_mean_over_clips(self):
+        run = self.run_dir("exact", lambda n: disc(*centre(n)))
+        s = score.score_runs([run], self.labels)["runs"][0]["summary"]
+        self.assertEqual(s["clips"], 1)
+        self.assertAlmostEqual(s["iou"], 1.0)
+        self.assertAlmostEqual(s["jf"], (s["iou"] + s["bf"]) / 2)
+        self.assertIsNone(s["sure_share"])
+
     def test_run_at_another_size_is_resampled(self):
         folder = os.path.join(self.root, "half", "clip")
         for n in range(N):

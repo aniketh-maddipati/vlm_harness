@@ -37,11 +37,12 @@ nonisolated final class SkimFollower: @unchecked Sendable {
 
         /// The next frame and the shapes Vision found in it. `first`: the frame the trail starts on (the box is not
         /// tracked into it). The tracker's own figure comes back with the step (nil for the sky and the background, and
-        /// on the first frame).
-        func step(_ image: CGImage, found: [LookMasks.Found], first: Bool) -> (step: SkimFollow.Step, tracker: Double?) {
+        /// on the first frame), with how well the tracker's box and the shape put on it agree (their IoU; nil when
+        /// either is missing) and how many shapes overlap the tracker's box enough to be taken (`SkimFollow.overlap`).
+        func step(_ image: CGImage, found: [LookMasks.Found], first: Bool) -> (step: SkimFollow.Step, tracker: Double?, agree: Double?, rivals: Int) {
             guard SkimFollow.boxed(kind) else {
                 let s = SkimFollow.match(kind: kind, box: nil, in: found)
-                return (SkimFollow.Step(box: s?.box, held: s != nil, shape: s), nil)
+                return (SkimFollow.Step(box: s?.box, held: s != nil, shape: s), nil, nil, s == nil ? 0 : 1)
             }
             var tracked = first, figure: Double?
             if !first, let last {
@@ -55,9 +56,13 @@ nonisolated final class SkimFollower: @unchecked Sendable {
             }
             // The shape on the box puts the box back on the shape: a new start for the tracker, from what Vision found.
             let s = SkimFollow.match(kind: kind, box: box, in: found)
+            let agree = (figure != nil && tracked) ? zip2(box, s?.box).map { SkimFollow.iou($0, $1) } : nil
+            let rivals = box.map { b in found.filter { SkimFollow.boxed($0.kind) && SkimFollow.iou($0.box, b) >= SkimFollow.overlap }.count } ?? 0
             if let s { place(s) }
-            return (SkimFollow.Step(box: box, held: tracked || s != nil, shape: s), figure)
+            return (SkimFollow.Step(box: box, held: tracked || s != nil, shape: s), figure, agree, rivals)
         }
+
+        private func zip2<A, B>(_ a: A?, _ b: B?) -> (A, B)? { if let a, let b { (a, b) } else { nil } }
 
         /// The tracker started again on `shape` (the shape on the box, or one found again after it was lost). A fresh
         /// handler with it: each observation handed to the tracker is a tracker of its own, and Vision allows only a few

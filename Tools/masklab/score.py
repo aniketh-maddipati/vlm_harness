@@ -232,6 +232,18 @@ def score_clip(run_dir, label_dir, tolerance=3.0, still_iou=0.95, still_gap=30):
         out["work_ms_p95"] = percentile(work, 95)
         out["device"] = timing.get("device")
         out["tracker"] = timing.get("tracker")
+        # The app's own track (masklab-skim) says how sure it is of each frame: the share it calls sure, and how well
+        # the frames in each state really hold the shape, which is whether the strip under the scrub bar can be trusted.
+        states = timing.get("sure_frames")
+        if states:
+            out["sure_share"] = sum(1 for s in states if s == "sure") / len(states)
+            start = int(timing.get("start_frame", 0))
+            by = {}
+            for p in per_frame:
+                k = p["frame"] - start
+                if 0 <= k < len(states):
+                    by.setdefault(states[k], []).append(p["iou"])
+            out["iou_by_sure"] = {s: {"n": len(v), "iou": float(np.mean(v))} for s, v in sorted(by.items())}
     else:
         out.update(fps=None, work_ms_median=None, work_ms_p95=None)
     return out
@@ -256,8 +268,28 @@ def score_runs(runs, labels=None, tolerance=3.0, still_iou=0.95, still_gap=30):
         for clip, folder in clip_dirs(run).items():
             label_dir = os.path.join(labels, clip) if labels else None
             entry["clips"][clip] = score_clip(folder, label_dir, tolerance, still_iou, still_gap)
+        entry["summary"] = summary(entry)
         report["runs"].append(entry)
     return report
+
+
+def summary(run):
+    """A run's means over its clips: IoU (J), boundary F, J&F, and the share of frames the app calls sure."""
+    clips = list(run["clips"].values())
+    def mean(k):
+        v = [c[k] for c in clips if c.get(k) is not None]
+        return float(np.mean(v)) if v else None
+    j, f = mean("iou"), mean("bf")
+    out = {"clips": len(clips), "iou": j, "bf": f, "jf": (j + f) / 2 if j is not None and f is not None else None,
+           "fps": mean("fps"), "sure_share": mean("sure_share")}
+    pooled = {}
+    for c in clips:
+        for s, v in (c.get("iou_by_sure") or {}).items():
+            pooled.setdefault(s, []).append((v["n"], v["iou"]))
+    if pooled:
+        out["iou_by_sure"] = {s: {"n": sum(n for n, _ in v), "iou": sum(n * i for n, i in v) / max(1, sum(n for n, _ in v))}
+                              for s, v in sorted(pooled.items())}
+    return out
 
 
 def fmt(v, spec):
@@ -265,7 +297,7 @@ def fmt(v, spec):
 
 
 def table(report):
-    head = f"{'run':<16} {'clip':<22} {'lab':>4} {'IoU':>6} {'Δ/100f':>7} {'last10':>6} {'BF':>6} {'flick':>6} {'flickAll':>8} {'fps':>6} {'empty':>5}"
+    head = f"{'run':<16} {'clip':<22} {'lab':>4} {'IoU':>6} {'Δ/100f':>7} {'last10':>6} {'BF':>6} {'flick':>6} {'flickAll':>8} {'fps':>6} {'empty':>5} {'sure':>5}"
     lines = [head, "-" * len(head)]
     for run in report["runs"]:
         for clip, c in run["clips"].items():
@@ -273,7 +305,16 @@ def table(report):
                 f"{run['run'][:16]:<16} {clip[:22]:<22} {c['labelled']:>4} {fmt(c['iou'], '.3f'):>6} "
                 f"{fmt(c['slope100'], '+.3f'):>7} {fmt(c['last10'], '.3f'):>6} {fmt(c['bf'], '.3f'):>6} "
                 f"{fmt(c['flicker'], '.3f'):>6} {fmt(c['flicker_all'], '.3f'):>8} {fmt(c['fps'], '.1f'):>6} "
-                f"{c['empty']:>5}")
+                f"{c['empty']:>5} {fmt(c.get('sure_share'), '.0%'):>5}")
+    for run in report["runs"]:
+        s = run.get("summary") or summary(run)
+        line = (f"{run['run'][:16]}: {s['clips']} clips, J {fmt(s['iou'], '.3f')}, F {fmt(s['bf'], '.3f')}, "
+                f"J&F {fmt(s['jf'], '.3f')}, {fmt(s['fps'], '.1f')} fps")
+        if s.get("sure_share") is not None:
+            line += f", sure {fmt(s['sure_share'], '.0%')}"
+        if s.get("iou_by_sure"):
+            line += "; IoU when " + ", ".join(f"{k} {v['iou']:.3f} ({v['n']})" for k, v in s["iou_by_sure"].items())
+        lines.append(line)
     return "\n".join(lines)
 
 
