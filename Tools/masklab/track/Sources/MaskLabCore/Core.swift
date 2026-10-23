@@ -13,6 +13,9 @@ public enum Tracker: String, CaseIterable, Sendable {
     case visionBox = "vision-box"
     case visionInstance = "vision-instance"
     case sam2 = "sam2-coreml"
+    /// Not a tracker: on each frame the foreground instance that best matches the hand label. The most any tracker
+    /// that picks one of Vision's instances could score, so a low number here is the masks, not the tracking.
+    case visionOracle = "vision-oracle"
 }
 
 public struct Point: Equatable, Codable, Sendable {
@@ -73,15 +76,19 @@ public struct Options: Equatable, Sendable {
     public var maxFrames: Int?
     /// Also write every Nth proxy frame as a PNG under `out/frames/`, to label on.
     public var saveFramesEvery: Int?
+    /// vision-oracle: the clip's labels folder (`<frame>.png`).
+    public var labels: String?
 
     public static let usage = """
     masklab-track: one mask tracker on one clip (Tools/masklab/README.md)
 
       masklab-track <clip> --start <frame> (--box x,y,w,h | --point x,y) --tracker <name> --out <dir>
-                    [--proxy 720] [--model <dir>] [--frames <n>] [--save-frames <n>]
+                    [--proxy 720] [--model <dir>] [--labels <dir>] [--frames <n>] [--save-frames <n>]
 
       --box / --point   the prompt on the start frame, normalized 0…1, origin top left
       --tracker         vision-box | vision-instance | sam2-coreml (experimental, needs --model)
+                        | vision-oracle (the best instance per labelled frame, needs --labels)
+      --labels          the clip's labels folder (<frame>.png), for vision-oracle
       --proxy           long edge the frames are decoded at (AVAssetReader scales); never upscales
       --frames          stop after this many frames (default: to the end)
       --save-frames     also write every Nth proxy frame to <out>/frames/ (for labelling)
@@ -92,7 +99,7 @@ public struct Options: Equatable, Sendable {
 
     public static func parse(_ argv: [String]) throws -> Options {
         var clip: String?, start = 0, prompt: Prompt?, proxy = 720, tracker: Tracker?, model: String?, out: String?
-        var maxFrames: Int?, saveEvery: Int?
+        var maxFrames: Int?, saveEvery: Int?, labels: String?
         var i = 0
         func value(_ name: String) throws -> String {
             guard i + 1 < argv.count else { throw UsageError("\(name) needs a value") }
@@ -131,6 +138,7 @@ public struct Options: Equatable, Sendable {
                 }
                 tracker = t
             case "--model": model = try value(a)
+            case "--labels": labels = try value(a)
             case "--out": out = try value(a)
             case "--frames": maxFrames = try int(a, try value(a), min: 1)
             case "--save-frames": saveEvery = try int(a, try value(a), min: 1)
@@ -149,8 +157,11 @@ public struct Options: Equatable, Sendable {
         if tracker == .sam2, model == nil {
             throw UsageError("sam2-coreml needs --model <dir>: a folder with the image encoder, prompt encoder and mask decoder .mlpackage / .mlmodelc (see Tools/masklab/README.md). Nothing is downloaded.")
         }
+        if tracker == .visionOracle, labels == nil {
+            throw UsageError("vision-oracle needs --labels <dir>: the clip's hand labels, one <frame>.png each")
+        }
         return Options(clip: clip, start: start, prompt: prompt, proxy: proxy, tracker: tracker, model: model,
-                       out: out, maxFrames: maxFrames, saveFramesEvery: saveEvery)
+                       out: out, maxFrames: maxFrames, saveFramesEvery: saveEvery, labels: labels)
     }
 }
 

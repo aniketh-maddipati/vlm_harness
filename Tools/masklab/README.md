@@ -120,6 +120,10 @@ Tools/masklab/track/.build/release/masklab-track /Volumes/T7/yvid-a7siii-C001.mp
 - **`vision-instance`**: no tracker. Each frame takes the foreground instance with the highest IoU
   with the last non-empty mask; the start frame takes the instance the prompt picks (the one under
   the point, or the one with the highest IoU with the box).
+- **`vision-oracle`**: not a tracker. On each labelled frame it takes the foreground instance with the highest IoU
+  with the hand label (`--labels <clip's labels folder>`; the runner passes `labels/<clip>`). It is the most any
+  tracker that picks one of Vision's instances can score, so a low score here means Vision's masks are the limit,
+  not the tracking. Frames without a label are written empty.
 - **`sam2-coreml`** (experimental): only with `--model <dir>`, a folder holding Apple's Core ML
   conversion of SAM 2.1 (Hugging Face `apple/coreml-sam2.1-*`; nothing is downloaded by this tool
   or its script; put the files there yourself). Without `--model` it stops and says so. The code

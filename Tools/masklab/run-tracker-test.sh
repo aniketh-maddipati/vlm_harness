@@ -101,6 +101,7 @@ for tracker in $TRACKERS; do
     [ "${MASKLAB_PROXY:-}" ] && args+=(--proxy "$MASKLAB_PROXY")
     [ "$frames" != "-" ] && args+=(--frames "$frames")
     [ "$tracker" = sam2-coreml ] && args+=(--model "${MASKLAB_SAM2_MODEL:-}")
+    [ "$tracker" = vision-oracle ] && args+=(--labels "$EVID/labels/$stem")
     [ "$first" = 1 ] && [ "${MASKLAB_SAVE_FRAMES:-}" ] && args+=(--save-frames "$MASKLAB_SAVE_FRAMES")
     echo "+ masklab-track ${args[*]}" >>"$LOG"
     # A failed clip is reported and the run goes on to the next; nothing is retried.
