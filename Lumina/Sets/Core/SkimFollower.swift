@@ -15,12 +15,58 @@ nonisolated final class SkimFollower: @unchecked Sendable {
     static let shared = SkimFollower()
 
     private final class Follow {
-        let kind: LookMasks.Kind
-        var handler = VNSequenceRequestHandler()
-        var last: VNDetectedObjectObservation?
-        var box: LookMasks.Box?
+        let trail: Trail
         var used = Date()
-        init(kind: LookMasks.Kind) { self.kind = kind }
+        init(_ trail: Trail) { self.trail = trail }
+    }
+
+    /// One shape followed frame by frame: Vision's tracker on its box, put back each frame on the shape Vision finds
+    /// there (`SkimFollow.match`), so the box does not drift off the thing it follows. The page's Follow (`step`) and
+    /// the Mac's own track (`SkimTracker`) both go frame by frame through one of these. Not thread-safe: one caller.
+    nonisolated final class Trail {
+        let kind: LookMasks.Kind
+        private var handler = VNSequenceRequestHandler()
+        private var last: VNDetectedObjectObservation?
+        private(set) var box: LookMasks.Box?
+
+        /// A trail of the shape of `kind` chosen at `box` (fractions from the top left) in the frame it starts on.
+        init(kind: LookMasks.Kind, box: LookMasks.Box) {
+            self.kind = kind
+            if SkimFollow.boxed(kind) { self.box = box; last = VNDetectedObjectObservation(boundingBox: SkimFollower.rect(SkimFollow.flipped(box))) }
+        }
+
+        /// The next frame and the shapes Vision found in it. `first`: the frame the trail starts on (the box is not
+        /// tracked into it). The tracker's own figure comes back with the step (nil for the sky and the background, and
+        /// on the first frame).
+        func step(_ image: CGImage, found: [LookMasks.Found], first: Bool) -> (step: SkimFollow.Step, tracker: Double?) {
+            guard SkimFollow.boxed(kind) else {
+                let s = SkimFollow.match(kind: kind, box: nil, in: found)
+                return (SkimFollow.Step(box: s?.box, held: s != nil, shape: s), nil)
+            }
+            var tracked = first, figure: Double?
+            if !first, let last {
+                let req = VNTrackObjectRequest(detectedObjectObservation: last)
+                req.trackingLevel = .accurate
+                if (try? handler.perform([req], on: image)) != nil, let o = req.results?.first as? VNDetectedObjectObservation {
+                    self.last = o
+                    figure = Double(o.confidence)
+                    if Double(o.confidence) >= SkimFollow.hold { tracked = true; box = SkimFollow.flipped(SkimFollower.box(o.boundingBox)) }
+                }
+            }
+            // The shape on the box puts the box back on the shape: a new start for the tracker, from what Vision found.
+            let s = SkimFollow.match(kind: kind, box: box, in: found)
+            if let s { place(s) }
+            return (SkimFollow.Step(box: box, held: tracked || s != nil, shape: s), figure)
+        }
+
+        /// The tracker started again on `shape` (the shape on the box, or one found again after it was lost). A fresh
+        /// handler with it: each observation handed to the tracker is a tracker of its own, and Vision allows only a few
+        /// at once; the old handler takes its tracker with it.
+        func place(_ shape: LookMasks.Found) {
+            box = shape.box
+            last = VNDetectedObjectObservation(boundingBox: SkimFollower.rect(SkimFollow.flipped(shape.box)))
+            handler = VNSequenceRequestHandler()
+        }
     }
 
     private let lock = NSLock()
@@ -42,42 +88,18 @@ nonisolated final class SkimFollower: @unchecked Sendable {
         if let start {
             follows.removeValue(forKey: id)
             while follows.count >= SkimFollow.open, let oldest = follows.min(by: { $0.value.used < $1.value.used })?.key { follows.removeValue(forKey: oldest) }
-            f = Follow(kind: start.kind)
-            if SkimFollow.boxed(start.kind) { f.box = start.box; f.last = VNDetectedObjectObservation(boundingBox: Self.rect(SkimFollow.flipped(start.box))) }
+            f = Follow(Trail(kind: start.kind, box: start.box))
             follows[id] = f
         } else {
             guard let had = follows[id] else { return nil }
             f = had
         }
         f.used = now
-        let found = SetsMasks.masks(image) ?? []
-        guard SkimFollow.boxed(f.kind) else {
-            let s = SkimFollow.match(kind: f.kind, box: nil, in: found)
-            return SkimFollow.Step(box: s?.box, held: s != nil, shape: s)
-        }
-        var tracked = start != nil
-        if start == nil, let last = f.last {
-            let req = VNTrackObjectRequest(detectedObjectObservation: last)
-            req.trackingLevel = .accurate
-            if (try? f.handler.perform([req], on: image)) != nil, let o = req.results?.first as? VNDetectedObjectObservation {
-                f.last = o
-                if Double(o.confidence) >= SkimFollow.hold { tracked = true; f.box = SkimFollow.flipped(Self.box(o.boundingBox)) }
-            }
-        }
-        // The shape on the box puts the box back on the shape: a new start for the tracker, from what Vision found.
-        let s = SkimFollow.match(kind: f.kind, box: f.box, in: found)
-        // A fresh handler with it: each observation handed to the tracker is a tracker of its own, and Vision allows only
-        // a few at once; the old handler takes its tracker with it.
-        if let s {
-            f.box = s.box
-            f.last = VNDetectedObjectObservation(boundingBox: Self.rect(SkimFollow.flipped(s.box)))
-            f.handler = VNSequenceRequestHandler()
-        }
-        return SkimFollow.Step(box: f.box, held: tracked || s != nil, shape: s)
+        return f.trail.step(image, found: SetsMasks.masks(image) ?? [], first: start != nil).step
     }
 
-    private static func rect(_ b: LookMasks.Box) -> CGRect { CGRect(x: b.x, y: b.y, width: b.w, height: b.h) }
-    private static func box(_ r: CGRect) -> LookMasks.Box {
+    static func rect(_ b: LookMasks.Box) -> CGRect { CGRect(x: b.x, y: b.y, width: b.w, height: b.h) }
+    static func box(_ r: CGRect) -> LookMasks.Box {
         let x = min(1, max(0, Double(r.minX))), y = min(1, max(0, Double(r.minY)))
         return LookMasks.Box(x: x, y: y, w: min(1 - x, max(0, Double(r.width))), h: min(1 - y, max(0, Double(r.height))))
     }

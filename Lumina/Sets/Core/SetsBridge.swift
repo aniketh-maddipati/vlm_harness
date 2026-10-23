@@ -718,10 +718,54 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             if body["kind"] != nil || body["box"] != nil, start == nil { return (NSNull(), nil) }
             guard let step = await Task.detached(priority: .userInitiated, operation: { SkimFollower.shared.step(id: id, frame: frame, start: start) }).value else { return (NSNull(), nil) }
             return (step.json, nil)
+        case "skimTrack":
+            // Track: one chosen shape followed through every frame of a clip in the opened folder (SkimTracker: the Mac
+            // reads the clip at a proxy, Vision's tracker and shapes, in the background). In memory only; nothing written.
+            guard let id = SkimFollow.trackID(body["id"]) else { return (false, nil) }
+            if (body["end"] as? Bool) == true { SkimTracker.shared.end(id); return (true, nil) }
+            guard let root = lastOpened, let rel = body["path"] as? String, rel.utf8.count <= 4096, let url = SkimTrash.resolve(root: root, rel: rel),
+                  let start = SkimFollow.start(kind: body["kind"], box: body["box"]), let t0 = SkimFollow.time(body["t"]) else { return (false, nil) }
+            // A fix: the stretch `from … to` of the track `patch` followed again from the shape chosen at `t`.
+            var fix: (into: String, from: Double, to: Double)?
+            if body["patch"] != nil {
+                guard let into = SkimFollow.trackID(body["patch"]), let a = SkimFollow.time(body["from"]), let b = SkimFollow.time(body["to"]), a <= t0, t0 <= b else { return (false, nil) }
+                fix = (into, a, b)
+            }
+            SkimTracker.shared.start(id: id, url: url, kind: start.kind, box: start.box, t0: t0, fix: fix)
+            return (true, nil)
+        case "skimTrackPoll":
+            // How a track is going, and its followed frames from `from` (SkimTracker.poll).
+            guard let id = SkimFollow.trackID(body["id"]) else { return (NSNull(), nil) }
+            let from = (body["from"] as? NSNumber).map { $0.doubleValue.isFinite ? Int(max(0, min(1e9, $0.doubleValue))) : 0 } ?? 0
+            return (SkimTracker.shared.poll(id, from: from) ?? NSNull(), nil)
+        case "skimRemove":
+            // Remove: the shape of a finished track taken out of its clip (in the opened folder) as a patch for Final Cut
+            // (SkimPatch: the clip's own frames where the shape is not, still camera only), written as a new file into the
+            // folder the workshop names, else the Save to folder; never a card, never over a file, never the clip.
+            guard let id = SkimFollow.trackID(body["track"]), let tracked = SkimTracker.shared.samples(id) else { return (["ok": false, "why": "The track is not there any more. Follow the shape again."], nil) }
+            guard let root = lastOpened, let rel = body["path"] as? String, rel.utf8.count <= 4096, let clip = SkimTrash.resolve(root: root, rel: rel),
+                  let req = SkimPatch.request(body, tracked: tracked) else { return (["ok": false, "why": "Nothing to remove."], nil) }
+            let into: URL, scoped: Bool
+            if let d = body["dir"] as? String, !d.isEmpty {
+                guard skimGranted(d) else { return (["ok": false, "why": "Lumina has no access to that folder. Give it access in Export first."], nil) }
+                into = URL(fileURLWithPath: d, isDirectory: true); scoped = false
+            } else if let dir = skimExportFolder() {
+                into = dir; scoped = dir.startAccessingSecurityScopedResource()
+            } else {
+                return (["ok": false, "why": "Choose a Save to folder in Export first: the patch goes next to the .fcpxml."], nil)
+            }
+            defer { if scoped { into.stopAccessingSecurityScopedResource() } }
+            if SetsFileOps.isCard(into) { return (["ok": false, "why": Self.skimCardRefusal], nil) }
+            let saved = await Task.detached(priority: .userInitiated) { await SkimPatch.write(req, clip: clip, into: into) }.value
+            if saved.ok { skimSaved.insert(saved.path); onEvent?("skim patch saved \(saved.path)") }
+            return (saved.json, nil)
         case "skimMatte":
             // A followed shape as a black-and-white movie for Final Cut (SkimMatte), written as a new file into the folder the
             // workshop names (one Skim was let into), else the Save to folder; never a card, never over a file, never the clip.
-            guard let req = SkimMatte.request(body) else { return (["ok": false, "why": "Nothing to save."], nil) }
+            // From the Mac's own track when the page names one (every frame), else the followed frames the page sends.
+            let tracked = SkimFollow.trackID(body["track"]).flatMap { SkimTracker.shared.samples($0) }
+            if body["track"] != nil, tracked == nil { return (["ok": false, "why": "The track is not there any more. Follow the shape again."], nil) }
+            guard let req = SkimMatte.request(body, tracked: tracked) else { return (["ok": false, "why": "Nothing to save."], nil) }
             let into: URL, scoped: Bool
             if let d = body["dir"] as? String, !d.isEmpty {
                 guard skimGranted(d) else { return (["ok": false, "why": "Lumina has no access to that folder. Give it access in Export first."], nil) }

@@ -164,7 +164,9 @@ final class SetsBridgeOpsTests: XCTestCase {
         "writeInto": ["label", "files"], "readSidecars": ["root", "files"], "writeSidecars": ["root", "files"], "reveal": ["path"],
         "setPrefs": ["prefs"], "checkAccess": [], "reopenDenied": [], "reopenCurrent": [],
         "skimMasks": ["frame"], "skimFollow": ["id", "frame", "kind", "box", "end"],
-        "skimMatte": ["name", "w", "h", "frames", "fd", "samples", "dir"],
+        "skimMatte": ["name", "w", "h", "frames", "fd", "samples", "dir", "track", "grow", "soft"],
+        "skimTrack": ["id", "path", "kind", "box", "t", "end", "patch", "from", "to"], "skimTrackPoll": ["id", "from"],
+        "skimRemove": ["name", "path", "frames", "fd", "track", "dir", "grow", "soft"],
         // Handoff's file view (Prompt 27, `SetsBridgeFilesTests` for what each does when it may).
         "filesPlaces": [], "filesDirList": ["path"], "filesPlaceAdd": ["at"], "filesPlaceRemove": ["path"], "filesDirMake": ["parent", "name"],
         "filesSaveToChoose": [], "filesSaveToAsk": [], "filesSaveToSet": ["path"], "filesReveal": ["paths"], "filesSavedCheck": ["list"],
@@ -189,8 +191,13 @@ final class SetsBridgeOpsTests: XCTestCase {
             "canvasLayout": ["x": 100, "y": 50, "w": 400, "h": 300, "visible": true, "dpr": 2, "holes": [["x": 120, "y": 60, "w": 50, "h": 20]]],
             // a matte that would be written but for the field under test (no Save to folder here, so none is)
             "skimMatte": ["name": "C0001.MP4", "w": 64, "h": 36, "frames": 2, "fd": [1, 24], "samples": [["t": 0, "outline": [] as [Any]]]],
+            // a track that would start but for the field under test (on a file that is no clip, so it reads nothing)
+            "skimTrack": ["kind": "person", "box": [0.1, 0.1, 0.3, 0.5], "t": 0],
         ]
         for (op, fields) in Self.fields.sorted(by: { $0.key < $1.key }) {
+            // The skimTrack rows start real tracks (under the shoot id and every hostile id that is still a valid one);
+            // let them go, so skimTrackPoll is asked only about tracks never started.
+            if op == "skimTrackPoll" { SkimTracker.shared.end(id); for case let (_, s as String) in values() { SkimTracker.shared.end(s) } }
             // Missing everything, and the op alone with a wrong-typed op name next to it.
             for body in [["op": op], ["op": op, "op2": NSNull()]] as [[String: Any]] {
                 _ = await call(b, body); calls += 1
@@ -244,6 +251,12 @@ final class SetsBridgeOpsTests: XCTestCase {
             return r != nil && !(r is NSNull) ? "found selections in a frame that is not a JPEG" : nil
         case ("skimFollow", _):
             return r != nil && !(r is NSNull) && !(field == "end" && truthy) ? "followed a frame that is not a JPEG" : nil
+        case ("skimTrack", "path"), ("skimTrack", "kind"), ("skimTrack", "box"):
+            return truthy ? "started a track on a hostile \(field)" : nil
+        case ("skimTrackPoll", _):
+            return r != nil && !(r is NSNull) ? "answered for a track never started" : nil
+        case ("skimRemove", _):
+            return ((r as? [String: Any])?["ok"] as? Bool) == true ? "wrote a patch" : nil
         case ("skimMatte", _):
             return ((r as? [String: Any])?["ok"] as? Bool) == true ? "wrote a matte" : nil
         case ("canvasEnter", "rel"):

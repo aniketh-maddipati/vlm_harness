@@ -763,8 +763,9 @@ body:has([data-view=phone]){background:#111}
                   <sc-for list="{{ ticks }}" as="tk" hint-placeholder-count="8"><div style="position:absolute;top:3px;left:{{ tk.l }};width:1px;height:8px;background:rgba(239,236,230,0.3)"></div></sc-for>
                   <div style="position:absolute;top:0;left:{{ it.ph }};width:2px;height:14px;margin-left:-1px;border-radius:1px;background:#EFECE6"></div>
                 </div>
+                <sc-if value="{{ it.stripOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="follow-strip" title="{{ it.stripTip }}" style="position:relative;height:5px;margin-top:-4px;border-radius:2px;overflow:hidden;background:rgba(239,236,230,0.06)"><sc-for list="{{ it.strip }}" as="sg" hint-placeholder-count="3"><button type="button" tabindex="-1" data-sure="{{ sg.sure }}" data-t="{{ sg.t }}" aria-label="{{ sg.tip }}" onClick="{{ folSeg }}" style="box-sizing:border-box;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:absolute;top:0;bottom:0;left:{{ sg.l }};width:{{ sg.w }};background:{{ sg.bg }};cursor:{{ sg.cur }}"></button></sc-for></div></sc-if>
                 <div style="display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden;color:#9A958D"><span style="color:{{ it.nameC }}">{{ it.name }}</span><span style="color:{{ it.subC }}">{{ it.sub }}</span></div>
-                <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="viewer-selections" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:30px"><span style="color:#9A958D;margin-right:4px">{{ it.olSay }}</span><sc-for list="{{ it.olChips }}" as="oc" hint-placeholder-count="2"><button type="button" data-ol="{{ oc.id }}" aria-pressed="{{ oc.on }}" title="{{ oc.l }} · choose / let go" onClick="{{ olChip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:{{ oc.bg }};color:{{ oc.fg }};box-shadow:inset 0 0 0 1px {{ oc.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ oc.l }}</button></sc-for><sc-if value="{{ it.folOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="follow" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:6px"><sc-if value="{{ it.folGoOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-go" title="Follow the chosen shape through the whole clip, from this frame" onClick="{{ folGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Follow through the clip</button></sc-if><sc-if value="{{ it.folStopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-stop" title="Stop following" onClick="{{ folStop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop</button></sc-if><sc-if value="{{ it.folSaveOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-matte" title="Save the followed shape as a black-and-white movie for Final Cut, next to the .fcpxml" onClick="{{ folMatte }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Save matte</button></sc-if><sc-if value="{{ it.folDropOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-drop" title="Let the followed shape go" onClick="{{ folDrop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Let go</button></sc-if><span data-lumina="follow-say" style="color:#9A958D">{{ it.folSay }}</span></span></sc-if></div></sc-if>
+                <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="viewer-selections" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:30px"><span style="color:#9A958D;margin-right:4px">{{ it.olSay }}</span><sc-for list="{{ it.olChips }}" as="oc" hint-placeholder-count="2"><button type="button" data-ol="{{ oc.id }}" aria-pressed="{{ oc.on }}" title="{{ oc.l }} · choose / let go" onClick="{{ olChip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:{{ oc.bg }};color:{{ oc.fg }};box-shadow:inset 0 0 0 1px {{ oc.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ oc.l }}</button></sc-for><sc-if value="{{ it.folOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="follow" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:6px"><sc-if value="{{ it.folGoOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-go" title="Follow the chosen shape through the whole clip, from this frame" onClick="{{ folGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Follow through the clip</button></sc-if><sc-if value="{{ it.folStopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-stop" title="Stop following" onClick="{{ folStop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop</button></sc-if><sc-if value="{{ it.folSaveOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-matte" title="Save the followed shape as a black-and-white movie for Final Cut, next to the .fcpxml" onClick="{{ folMatte }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Save matte</button></sc-if><sc-if value="{{ it.folFixOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-fix" title="Follow the chosen shape again from this frame, through the stretch that is worth a look" onClick="{{ folFix }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Fix this stretch</button></sc-if><sc-if value="{{ it.folRemoveOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-remove" title="Take the shape out of the clip, filled with the scene from the clip's own frames where it isn't (still camera only), as a layer for Final Cut next to the .fcpxml" onClick="{{ folRemove }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Remove from the clip</button></sc-if><sc-if value="{{ it.folDropOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-drop" title="Let the followed shape go" onClick="{{ folDrop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Let go</button></sc-if><span data-lumina="follow-say" style="color:#9A958D">{{ it.folSay }}</span></span></sc-if></div></sc-if>
               </div>
             </sc-for>
           </div>
@@ -1441,34 +1442,82 @@ class Component extends DCLogic {
     const f = this.olFor(), list = Array.isArray(f) ? f : [], sel = this.olSel(), vw = (v && v.videoWidth) || 16, vh = (v && v.videoHeight) || 9;
     const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1, w = Math.max(2, Math.round((cv.clientWidth || 320) * dpr * Math.max(1, st.zc || 1))), h = Math.max(2, Math.round(w * vh / vw));
     const fr = this.folOf(this.byId && this.byId[st.cur]), at = fr && fr.samples.length ? Component.folAt(fr.samples, this.vidWant || 0) : null;
-    const key = this.olKey() + '|' + (Array.isArray(f) ? f.length : String(f)) + '|' + sel.join(',') + '|' + w + 'x' + h + '|' + (at ? at.t + ':' + fr.samples.length : '');
+    const ed = this.olEdgeOf(st.cur), hov = this.olHov && !sel.includes(this.olHov) ? list.find(s => s.id === this.olHov) : null;
+    const key = this.olKey() + '|' + (Array.isArray(f) ? f.length : String(f)) + '|' + sel.join(',') + '|' + w + 'x' + h + '|' + (at ? at.t + ':' + fr.samples.length : '') + '|' + (hov ? hov.id : '') + '|' + ed.grow + ',' + ed.soft;
     if (key === this.olPainted) return; this.olPainted = key;
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     const x = cv.getContext('2d'); x.clearRect(0, 0, w, h); x.lineJoin = 'round';
     for (const s of list) {
       const on = sel.includes(s.id); if (s.kind === 'background' && !on) continue;   // the rest of the frame is outlined once chosen
       const p = new Path2D(); for (const L of s.outline || []) { L.forEach(([a, b], i) => i ? p.lineTo(a * w, b * h) : p.moveTo(a * w, b * h)); p.closePath(); }
-      if (on) { x.fillStyle = 'rgba(255,210,122,0.26)'; x.fill(p, 'evenodd'); }
-      x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 2.5 : 1.5) * dpr; x.strokeStyle = 'rgba(22,21,20,0.6)'; x.stroke(p);
-      x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 1.5 : 1) * dpr; x.strokeStyle = on ? '#FFD27A' : 'rgba(239,236,230,0.9)'; x.stroke(p);
+      if (on) this.olFill(x, p, w, h, ed);
+      const hv = hov && hov.id === s.id;
+      x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 2.5 : hv ? 3 : 1.5) * dpr; x.strokeStyle = 'rgba(22,21,20,0.6)'; x.stroke(p);
+      x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 1.5 : hv ? 2 : 1) * dpr; x.strokeStyle = on ? '#FFD27A' : hv ? '#FFFFFF' : 'rgba(239,236,230,0.9)'; x.stroke(p);
+    }
+    // the shape under the pointer, named
+    if (hov && hov.box) {
+      const name = Component.olName(hov), fs = 13 * dpr; x.setLineDash([]); x.font = '600 ' + fs + 'px -apple-system,system-ui,sans-serif';
+      const tw = x.measureText(name).width, bx = Math.max(4 * dpr, Math.min(w - tw - 16 * dpr, hov.box[0] * w)), by = Math.max(4 * dpr, hov.box[1] * h - fs - 14 * dpr);
+      x.fillStyle = 'rgba(22,21,20,0.86)'; x.fillRect(bx, by, tw + 12 * dpr, fs + 8 * dpr); x.fillStyle = '#EFECE6'; x.fillText(name, bx + 6 * dpr, by + fs + 1 * dpr);
     }
     // the followed shape where it was at the nearest followed frame, over the rest
     if (at && at.outline) {
       const p = new Path2D(); for (const L of at.outline) { L.forEach(([a, b], i) => i ? p.lineTo(a * w, b * h) : p.moveTo(a * w, b * h)); p.closePath(); }
-      x.setLineDash([]); x.fillStyle = 'rgba(255,210,122,0.18)'; x.fill(p, 'evenodd'); x.lineWidth = 3 * dpr; x.strokeStyle = 'rgba(22,21,20,0.6)'; x.stroke(p); x.lineWidth = 2 * dpr; x.strokeStyle = '#FFD27A'; x.stroke(p);
+      x.setLineDash([]); this.olFill(x, p, w, h, ed, 0.7); x.lineWidth = 3 * dpr; x.strokeStyle = 'rgba(22,21,20,0.6)'; x.stroke(p); x.lineWidth = 2 * dpr; x.strokeStyle = '#FFD27A'; x.stroke(p);
     }
+  }
+  // A chosen shape's tint, with the draft's edge: grown or shrunk by a stroke as wide as twice the move, softened by a blur.
+  olFill(x, p, w, h, ed, a) {
+    const L = Math.max(w, h), g = (ed && ed.grow || 0) * L, sf = (ed && ed.soft || 0) * L;
+    if (!g && !sf) { x.fillStyle = 'rgba(255,210,122,' + (0.26 * (a || 1)).toFixed(3) + ')'; x.fill(p, 'evenodd'); return; }
+    const o = this.olOff || (this.olOff = document.createElement('canvas')); if (o.width !== w || o.height !== h) { o.width = w; o.height = h; }
+    const k = o.getContext('2d'); k.clearRect(0, 0, w, h); k.globalCompositeOperation = 'source-over'; k.setLineDash([]); k.lineJoin = 'round'; k.fillStyle = k.strokeStyle = '#FFD27A'; k.fill(p, 'evenodd');
+    if (g) { k.lineWidth = Math.abs(g) * 2; if (g < 0) k.globalCompositeOperation = 'destination-out'; k.stroke(p); k.globalCompositeOperation = 'source-over'; }
+    x.save(); x.globalAlpha = 0.26 * (a || 1); if (sf) x.filter = 'blur(' + (sf / 2).toFixed(1) + 'px)'; x.drawImage(o, 0, 0); x.restore();
   }
   olPick(e) {
     const cv = this.olCv, v = this.vidEl, f = this.olFor(); if (!cv || !v || !Array.isArray(f)) return;
     const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY), s = p && Component.olHit(f, p.x, p.y);
-    if (s) this.olChoose(s.id);
+    if (s) this.olChoose(s.id, e.altKey ? 'out' : e.shiftKey ? 'add' : 'only');
   }
-  olChoose(id) { const st = this.state, now = this.olSel(), next = now.includes(id) ? now.filter(x => x !== id) : now.concat(id); this.setState({olSel:{...(st.olSel || {}), [st.cur]:next}}); }
+  // A click chooses the shape alone (a draft: nothing is followed until ⏎), ⇧-click adds it, ⌥-click takes it away;
+  // a chip turns its shape on and off.
+  olChoose(id, how) {
+    const st = this.state, now = this.olSel(), next = Component.olNext(now, id, how);
+    this.setState({olSel:{...(st.olSel || {}), [st.cur]:next}});
+  }
+  static olNext(now, id, how) {
+    const has = (now || []).includes(id);
+    return how === 'only' ? (has && now.length === 1 ? [] : [id]) : how === 'add' ? (has ? now : now.concat(id)) : how === 'out' ? now.filter(x => x !== id) : has ? now.filter(x => x !== id) : now.concat(id);
+  }
+  // The shape under the pointer, outlined and named on the picture (outlines on).
+  olHover(e) {
+    const cv = this.olCv, v = this.vidEl, f = this.olFor(); if (!cv || !v || !Array.isArray(f)) return;
+    const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY), s = p && Component.olHit(f, p.x, p.y), id = s && s.kind !== 'background' ? s.id : null;
+    if (id !== this.olHov) { this.olHov = id; this.olPaint(); }
+  }
+  // The draft's edge: grown (or shrunk) and softened by scroll and ⇧-scroll on the picture, fractions of the long edge
+  // (SkimFollow.edge, the same limits); the matte takes it.
+  olEdgeOf(id) { return (this.olEdge && this.olEdge.get(id)) || {grow:0, soft:0}; }
+  static olEdgeBy(e, dy, soft) {
+    const st = Math.round(-dy / 40) / 1000 || (dy < 0 ? 0.001 : -0.001), c = v => Math.round(Math.max(-0.05, Math.min(0.05, v)) * 1000) / 1000;
+    return soft ? {grow:e.grow, soft:Math.max(0, c(e.soft + st))} : {grow:c(e.grow + st), soft:e.soft};
+  }
+  olWheel(e) {
+    const st = this.state, m = this.olEdge || (this.olEdge = new Map()), d = e.shiftKey && Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    m.set(st.cur, Component.olEdgeBy(this.olEdgeOf(st.cur), d, e.shiftKey)); this.olPaint(); this.setState(x => ({tick:(x.tick || 0) + 1}));
+  }
+  static olEdgeSay(e, long) { const px = v => Math.round(v * (long || 1920)); return !e || (!e.grow && !e.soft) ? '' : 'edge ' + (e.grow > 0 ? '+' : e.grow < 0 ? '−' : '') + Math.abs(px(e.grow)) + ' px' + (e.soft ? ' · soft ' + px(e.soft) + ' px' : ''); }
+  // ⏎ follows the draft (one shape chosen); esc lets the draft go.
+  olDraft() { const st = this.state, c = this.byId && this.byId[st.cur], r = this.folOf(c); return st.lv >= 2 && !!st.ol && this.olSel().length === 1 && !!this.folApi() && !(r && (r.state === 'run' || r.fixing)); }
+  olDrop() { const st = this.state; if (this.olEdge) this.olEdge.delete(st.cur); this.setState({olSel:{...(st.olSel || {}), [st.cur]:[]}}); }
   olChip = e => { const id = e.currentTarget.getAttribute('data-ol'); if (id) this.olChoose(id); };
   olVals(c) {
     const st = this.state, on = !!st.ol && st.lv >= 2 && !!this.olApi() && !!c._file && !this.vidNew; if (!on) return {olOn:false};
     const f = this.olFor(), list = Array.isArray(f) ? f : [], sel = this.olSel();
-    return {olOn:true, olSay:Component.olSay(f, list.filter(s => sel.includes(s.id)).length), ...this.folVals(c, list.filter(s => sel.includes(s.id)).length),
+    const n = list.filter(s => sel.includes(s.id)).length, es = n ? Component.olEdgeSay(this.olEdgeOf(st.cur), Math.max(c.w || 0, c.h || 0)) : '';
+    return {olOn:true, olSay:Component.olSay(f, n) + (n === 1 && this.olDraft() && !this.folOf(c) ? ' · ⏎ to follow, esc to let go' : '') + (es ? ' · ' + es : ''), ...this.folVals(c, list.filter(s => sel.includes(s.id)).length),
       olChips:list.map(s => { const ch = sel.includes(s.id); return {id:s.id, l:Component.olName(s), on:ch, bg:ch ? '#FFD27A' : 'transparent', fg:ch ? '#1E1D1B' : '#EFECE6', ring:ch ? '#FFD27A' : 'rgba(239,236,230,0.3)'}; })};
   }
   // Where a click lands in the frame, 0 … 1 of its width and height, for a picture drawn object-fit: cover in the box r.
@@ -1496,7 +1545,8 @@ class Component extends DCLogic {
   // finds its outline there (lumina.video.follow). Exposure, clipping and sharpness are then measured inside the shape,
   // as the clip's own facts are measured on the whole frame. Save matte writes it as a black-and-white movie the length
   // of the clip into the Save to folder (lumina.video.matte); the next .fcpxml lists it beside its clip. Nothing is kept
-  // but the matte's path: the followed outlines last until the page is closed.
+  // but the matte's path: the followed outlines last until the page is closed. With the app's track (folTrack), the Mac
+  // reads every frame itself instead, and the matte is made from that track.
   folApi() { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.follow && v.matte ? v : null; }
   folOf(c) { return c && this.fol ? this.fol.get(c.id) || null : null; }
   folGo = () => {
@@ -1506,7 +1556,7 @@ class Component extends DCLogic {
     this.folRun(c, s, Math.max(0, Math.min(c.dur || 0, this.vidWant || 0)), api);
   };
   folStop = () => { const c = this.byId && this.byId[this.state.cur], r = this.folOf(c); if (r && r.state === 'run') r.tok.stop = true; };
-  folDrop = () => { const c = this.byId && this.byId[this.state.cur], r = this.folOf(c); if (!r || r.state === 'run') return; this.fol.delete(c.id); this.olPainted = null; this.olPaint(); this.setState(s => ({tick:(s.tick || 0) + 1})); };
+  folDrop = () => { const c = this.byId && this.byId[this.state.cur], r = this.folOf(c), api = this.folApi(); if (!r || r.state === 'run') return; if (r.track && api && api.trackEnd) { try { api.trackEnd(r.track); } catch (e) {} } this.fol.delete(c.id); this.olPainted = null; this.olPaint(); this.setState(s => ({tick:(s.tick || 0) + 1})); };
   // the times followed from t0: forward to the end, then back from t0 to the start, `step` apart
   static folTimes(t0, dur, step) {
     const end = Math.max(0, (dur || 0) - 0.02), fwd = [], back = [], st = step > 0 ? step : 0.125; t0 = Math.max(0, Math.min(end, t0 || 0));
@@ -1546,6 +1596,7 @@ class Component extends DCLogic {
     const b64 = cv => new Promise(r => cv.toBlob(r, 'image/jpeg', 0.85)).then(b => b ? new Promise((r, j) => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).replace(/^data:[^,]*,/, '')); fr.onerror = j; fr.readAsDataURL(b); }) : '');
     let last = 0; const tell = () => { const now = Date.now(); if (now - last > 250) { last = now; this.setState(x => ({tick:(x.tick || 0) + 1})); } };
     try {
+      if (api.track && api.trackPoll && c.path) { URL.revokeObjectURL(url); await this.folTrack(c, s, t0, api, rec, tell); rec.state = 'done'; throw 'tracked'; }
       v.src = url; await wait('loadedmetadata', 10000);
       const vw = v.videoWidth, vh = v.videoHeight; if (!vw || !vh) throw 'no video';
       const sc = Math.min(1, 1024 / Math.max(vw, vh)), big = document.createElement('canvas'); big.width = Math.max(2, Math.round(vw * sc)); big.height = Math.max(2, Math.round(vh * sc));
@@ -1570,11 +1621,90 @@ class Component extends DCLogic {
         }
       }
       rec.samples.sort((a, b) => a.t - b.t); rec.inside = Component.folInside(px, total); rec.state = 'done';
-    } catch (x) { rec.state = x === 'stopped' ? 'stopped' : 'failed'; rec.why = x === 'stopped' ? '' : x === 'refused' ? 'the Mac couldn’t read this frame' : 'the clip couldn’t be read'; }
+    } catch (x) { if (x !== 'tracked') { rec.state = x === 'stopped' ? 'stopped' : 'failed'; rec.why = x === 'stopped' ? '' : x === 'refused' ? 'the Mac couldn’t read this frame' : x && x.why ? x.why : 'the clip couldn’t be read'; } }
     ids.forEach(id => { try { api.followEnd(id); } catch (e) {} });
     URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {}
+    if (rec.track && rec.state !== 'done') { try { api.trackEnd(rec.track); } catch (e) {} rec.track = null; }
     if (rec.state === 'stopped' && this.folOf(c) === rec) this.fol.delete(c.id);
     this.olPainted = null; this.olPaint(); this.setState(x => ({tick:(x.tick || 0) + 1}));
+  }
+  // The Mac's own track (lumina.video.track): the Mac reads the clip itself and follows the shape through every frame,
+  // forward from t0 then back to the start, finding it again by its look when it was hidden (SkimTracker). The page
+  // only fetches the followed frames as they come (each with how sure it is) and the strip of sure, shaky and lost
+  // stretches. The track stays on the Mac for the matte until Let go.
+  async folTrack(c, s, t0, api, rec, tell) {
+    const id = String(c.id).slice(0, 40) + '|' + Date.now(); rec.track = id;
+    if (!(await api.track(id, c.path, {kind:s.kind, box:s.box}, t0))) throw 'refused';
+    let from = 0;
+    for (let k = 0; k < 200000; k++) {
+      if (rec.tok.stop || this.folOf(c) !== rec) throw 'stopped';
+      const r = await api.trackPoll(id, from); if (!r || typeof r !== 'object') throw 'lost';
+      const fs = Array.isArray(r.frames) ? r.frames : [];
+      for (const f of fs) rec.samples.push({t:f.t, box:f.box || null, outline:f.outline || null, held:!!f.held, sure:f.sure || 'lost'});
+      from = (r.from || 0) + fs.length; rec.done = Math.max(0, Math.min(1, r.done || 0)); if (Array.isArray(r.strip)) rec.strip = r.strip; tell();
+      if (r.state !== 'run' && from >= (r.n || 0)) { if (r.state === 'failed') throw {why:r.why || 'the clip couldn’t be read'}; if (r.state === 'stopped') throw 'stopped'; break; }
+      if (!fs.length) await new Promise(res => setTimeout(res, 300));
+    }
+    rec.samples.sort((a, b) => a.t - b.t); rec.inside = Component.folSeen(rec.samples);
+  }
+  // The strip under the scrub bar: the followed frames as stretches, sure (faint), shaky (amber, worth a look) and lost
+  // (red), each a share of the clip. A click on a shaky or lost one goes to its start; { and } go to the one before and after.
+  static folStrip(samples, dur) {
+    const S = (samples || []).filter(x => x && x.sure && typeof x.t === 'number').slice().sort((a, b) => a.t - b.t), out = []; if (!S.length || !(dur > 0)) return out;
+    for (let i = 0; i < S.length; i++) { const x = S[i], l = out[out.length - 1]; if (l && l.sure === x.sure) l.t1 = x.t; else out.push({sure:x.sure, t0:x.t, t1:x.t}); }
+    return out.map((r, i) => { const a = i ? (out[i - 1].t1 + r.t0) / 2 : 0, b = i < out.length - 1 ? (r.t1 + out[i + 1].t0) / 2 : dur;
+      return {sure:r.sure, t0:r.t0, t1:r.t1, l:(a / dur * 100).toFixed(2) + '%', w:(Math.max(0, b - a) / dur * 100).toFixed(2) + '%', bg:r.sure === 'lost' ? '#FF8A7A' : r.sure === 'shaky' ? '#FFD27A' : 'rgba(169,209,142,0.32)', cur:r.sure === 'sure' ? 'default' : 'pointer', t:r.t0.toFixed(3), tip:r.sure === 'sure' ? 'sure' : r.sure === 'shaky' ? 'worth a look: go there' : 'lost: go there'}; });
+  }
+  folStripVals(c) {
+    const r = this.folOf(c); if (!r || !r.track || r.state !== 'done' || !c.dur) return {stripOn:false};
+    const st = Component.folStrip(r.samples, c.dur), n = st.filter(x => x.sure !== 'sure').length;
+    return {stripOn:st.length > 0, strip:st, stripTip:n ? n + (n === 1 ? ' stretch' : ' stretches') + ' worth a look · { } to go to them' : 'every frame sure'};
+  }
+  folSeek(t) { const c = this.byId && this.byId[this.state.cur]; if (!c || !c.dur) return; this.setState({fx:Math.max(0, Math.min(7, t / c.dur * 8 - 0.5))}); }
+  folSeg = e => { const el = e.currentTarget; if (el.getAttribute('data-sure') === 'sure') return; e.stopPropagation(); this.folSeek(+el.getAttribute('data-t') + 0.001); };
+  // the start of the next (d 1) or last (d −1) stretch worth a look from the frame on show; false when there is none
+  folJump(d) {
+    const c = this.byId && this.byId[this.state.cur], r = this.folOf(c); if (!r || !r.track || r.state !== 'done' || !c.dur) return false;
+    const now = this.skimF(c) * c.dur, eps = c.dur / 32, st = Component.folStrip(r.samples, c.dur).filter(x => x.sure !== 'sure');
+    const to = d > 0 ? st.find(x => x.t0 > now + eps) : st.slice().reverse().find(x => x.t0 < now - eps); if (!to) return false;
+    this.folSeek(to.t0 + 0.001); return true;
+  }
+  // The stretch a fix re-tracks (SkimFollow.fixSpan): from the end of the last sure stretch before t to the start of the next.
+  static folSpan(t, strip, dur) {
+    const S = strip || [], sure = S.filter(x => x.sure === 'sure');
+    const from = Math.max(0, ...sure.filter(x => x.t1 < t).map(x => x.t1)), to = Math.min(dur, ...sure.filter(x => x.t0 > t).map(x => x.t0));
+    return {from:Math.min(from, t), to:Math.max(t, to)};
+  }
+  // A fix: the shape chosen again on a shaky or lost frame is followed from there through its stretch on the Mac
+  // (lumina.video.track with a patch); the Mac puts that stretch in the track, and the page puts it in its copy.
+  folFix = async () => {
+    const st = this.state, c = this.byId && this.byId[st.cur], r = this.folOf(c), api = this.folApi(), f = this.olFor(), sel = this.olSel();
+    if (!c || !r || !r.track || r.state !== 'done' || r.fixing || !api || !api.track || !Array.isArray(f) || sel.length !== 1) return;
+    const s = f.find(x => x.id === sel[0]); if (!s) return;
+    const t = Math.max(0, Math.min(c.dur || 0, this.vidWant || 0)), span = Component.folSpan(t, Component.folStrip(r.samples, c.dur), c.dur), id = String(c.id).slice(0, 40) + '|fix|' + Date.now();
+    r.fixing = {from:span.from, to:span.to, done:0}; r.why = ''; this.setState(x => ({tick:(x.tick || 0) + 1}));
+    const got = [];
+    try {
+      if (!(await api.track(id, c.path, {kind:s.kind, box:s.box}, t, {patch:r.track, from:span.from, to:span.to}))) throw 'refused';
+      let from = 0;
+      for (let k = 0; k < 100000; k++) {
+        if (this.folOf(c) !== r) throw 'stopped';
+        const q = await api.trackPoll(id, from); if (!q || typeof q !== 'object') throw 'lost';
+        const fs = Array.isArray(q.frames) ? q.frames : []; for (const x of fs) got.push({t:x.t, box:x.box || null, outline:x.outline || null, held:!!x.held, sure:x.sure || 'lost'});
+        from = (q.from || 0) + fs.length; r.fixing.done = Math.max(0, Math.min(1, q.done || 0)); this.setState(x => ({tick:(x.tick || 0) + 1}));
+        if (q.state !== 'run' && from >= (q.n || 0)) { if (q.state !== 'done') throw 'failed'; break; }
+        if (!fs.length) await new Promise(res => setTimeout(res, 300));
+      }
+      r.samples = Component.folMerged(r.samples, got, span.from, span.to); r.inside = Component.folSeen(r.samples); r.matte = null;
+    } catch (x) { if (x !== 'stopped') r.why = 'not fixed: the Mac couldn’t follow it there'; }
+    try { api.trackEnd(id); } catch (e) {}
+    r.fixing = null; this.olPainted = null; this.olPaint(); this.setState(x => ({tick:(x.tick || 0) + 1}));
+  };
+  static folMerged(base, patch, from, to) { const inn = x => x.t >= from - 1e-6 && x.t <= to + 1e-6; return (base || []).filter(x => !inn(x)).concat((patch || []).filter(inn)).sort((a, b) => a.t - b.t); }
+  // How much of the clip the tracked shape is in, and how much of that is worth a look (shaky): percentages, or null.
+  static folSeen(samples) {
+    const S = samples || [], n = S.length, inn = S.filter(x => x.outline && x.outline.length).length; if (!n || !inn) return null;
+    return {seen:Math.round(inn / n * 100), shaky:Math.round(S.filter(x => x.sure === 'shaky').length / n * 100)};
   }
   // Final Cut's frame lengths (buildX keeps its own copy, so it runs on its own), the clip's length in its frames as the
   // .fcpxml counts them, and the matte's size (SkimFollow.matteSize; buildX works it out the same way)
@@ -1587,9 +1717,24 @@ class Component extends DCLogic {
     const c = this.byId && this.byId[this.state.cur], r = this.folOf(c), api = this.folApi(); if (!c || !r || r.state !== 'done' || r.saving || !api) return;
     const {fd, nf} = Component.clipFd(c, this.d && this.d.shoot.rate);
     r.saving = true; r.why = ''; this.setState(x => ({tick:(x.tick || 0) + 1}));
-    let o = null; try { o = await api.matte({name:c.name, w:c.w, h:c.h, frames:nf, fd, samples:r.samples.map(x => ({t:x.t, outline:x.outline || []})), dir:this.exDir('fcp')}); } catch (e) {}
+    let o = null; try { o = await api.matte(Object.assign({name:c.name, w:c.w, h:c.h, frames:nf, fd, dir:this.exDir('fcp'), grow:this.olEdgeOf(c.id).grow, soft:this.olEdgeOf(c.id).soft}, r.track ? {track:r.track} : {samples:r.samples.map(x => ({t:x.t, outline:x.outline || []}))})); } catch (e) {}
     r.saving = false;
     if (o && o.ok) { r.matte = {path:o.path, name:o.name}; const m = {...this.mattes(), [c.id]:{path:o.path, name:o.name, shape:r.shape.name}}; this.matteM = m; this.persist(this.matteKey(), JSON.stringify(m)); }
+    else r.why = (o && o.why) || 'The app did not answer.';
+    this.setState(x => ({tick:(x.tick || 0) + 1}));
+  };
+  // Remove (with the app's track): the shape taken out of the clip as a patch for Final Cut (lumina.video.remove,
+  // SkimPatch): the clip's own frames where the shape is not fill it, for a still camera only; the Mac says why when it
+  // can't. The patch goes into the Save to folder, and the next .fcpxml connects it above its clip.
+  patchKey(d) { return 'lumina-skim:patches:' + this.storeKey(d || this.d).replace(/^lumina-skim:/, ''); }
+  patches() { const d = this.d; if (!d) return {}; const k = this.patchKey(d); if (this.patchK !== k) { this.patchK = k; let m = null; try { m = JSON.parse(localStorage.getItem(k) || 'null'); } catch (x) {} this.patchM = m && typeof m === 'object' ? m : {}; } return this.patchM; }
+  folRemove = async () => {
+    const c = this.byId && this.byId[this.state.cur], r = this.folOf(c), api = this.folApi(); if (!c || !r || !r.track || r.state !== 'done' || r.removing || !api || !api.remove) return;
+    const {fd, nf} = Component.clipFd(c, this.d && this.d.shoot.rate), e = this.olEdgeOf(c.id);
+    r.removing = true; r.why = ''; this.setState(x => ({tick:(x.tick || 0) + 1}));
+    let o = null; try { o = await api.remove({name:c.name, path:c.path, frames:nf, fd, track:r.track, dir:this.exDir('fcp'), grow:e.grow, soft:e.soft}); } catch (x) {}
+    r.removing = false;
+    if (o && o.ok) { const nm = o.name || String(o.path).split('/').pop(); r.patch = {path:o.path, name:nm}; const m = {...this.patches(), [c.id]:{path:o.path, name:nm, shape:r.shape.name}}; this.patchM = m; this.persist(this.patchKey(), JSON.stringify(m)); }
     else r.why = (o && o.why) || 'The app did not answer.';
     this.setState(x => ({tick:(x.tick || 0) + 1}));
   };
@@ -1597,10 +1742,14 @@ class Component extends DCLogic {
   folVals(c, chosen) {
     const r = this.folOf(c), m = this.mattes()[c.id], api = this.folApi(); if (!api) return {folOn:false};
     const can = !r || r.state !== 'run', pc = v => Math.round(v * 100) + '%';
-    return {folOn:true, folGoOn:can && chosen === 1, folStopOn:!!r && r.state === 'run', folSaveOn:!!r && r.state === 'done' && !r.saving, folDropOn:!!r && r.state !== 'run',
+    const here = r && r.track && r.state === 'done' && !r.fixing && api.track ? Component.folAt(r.samples, this.vidWant || 0) : null;
+    if (r && r.removing) return {folOn:true, folGoOn:false, folStopOn:false, folSaveOn:false, folDropOn:false, folFixOn:false, folRemoveOn:false, folSay:'removing ' + r.shape.name + ' · rebuilding the scene from the clip’s own frames…'};
+    if (r && r.fixing) return {folOn:true, folGoOn:false, folStopOn:false, folSaveOn:false, folDropOn:false, folFixOn:false, folSay:'following ' + r.shape.name + ' again through ' + this.tc(r.fixing.from) + '–' + this.tc(r.fixing.to) + ' · ' + pc(r.fixing.done)};
+    const p = this.patches()[c.id];
+    return {folOn:true, folRemoveOn:!!r && !!r.track && r.state === 'done' && !r.saving && !!api.remove && !r.patch, folFixOn:!!here && here.sure && here.sure !== 'sure' && chosen === 1, folGoOn:can && chosen === 1 && !(here && here.sure && here.sure !== 'sure'), folStopOn:!!r && r.state === 'run', folSaveOn:!!r && r.state === 'done' && !r.saving, folDropOn:!!r && r.state !== 'run',
       folSay:r ? r.state === 'run' ? 'following ' + r.shape.name + ' · ' + pc(r.done) : r.state === 'failed' ? 'not followed: ' + r.why
-        : r.saving ? 'saving the matte…' : r.why ? r.why : r.matte ? 'matte saved · ' + r.matte.name + ' · in the next .fcpxml' : r.shape.name + ' followed' + (r.inside ? ' · in ' + r.inside.seen + '% of the clip' : ' · not found in the clip')
-        : m ? 'matte saved · ' + m.name : ''};
+        : r.saving ? 'saving the matte…' : r.why ? r.why : r.patch ? 'removed · ' + r.patch.name + ' · in the next .fcpxml, over its clip' : r.matte ? 'matte saved · ' + r.matte.name + ' · in the next .fcpxml' : r.shape.name + ' followed' + (r.track ? ' · every frame' : '') + (r.inside ? ' · in ' + r.inside.seen + '% of the clip' + (r.inside.shaky ? ' · ' + r.inside.shaky + '% worth a look' : '') : ' · not found in the clip')
+        : m ? 'matte saved · ' + m.name : p ? 'removed · ' + p.name : ''};
   }
   // Only the profiles the preview converts (S-Log3, S-Log2, HLG) change with the switch; a clip that is already
   // Rec.709, or whose profile is some other name or not known, is shown as it is, switch on or off.
@@ -2377,6 +2526,7 @@ class Component extends DCLogic {
     const st = this.state;
     if (st.noKeep) return this.setState({noKeep:false});
     if (st.progOn) return this.progShut();
+    if (st.lv >= 2 && st.ol && this.olSel().length) { const r = this.folOf(this.byId && this.byId[st.cur]); if (!(r && (r.state === 'run' || r.fixing))) return this.olDrop(); }
     if (st.lv >= 2 && st.zc > 1.01) return this.setState({zc:1});
     if (st.prop) { clearTimeout(this.propT); this.propFn = null; return this.setState({prop:null}); }
     if (this.dockFoc()) return this.dockLeave();
@@ -2440,6 +2590,7 @@ class Component extends DCLogic {
     if (this.dockKey(e)) return;
     if (this.mk[kl] && !e.altKey) { e.preventDefault(); if (e.repeat) return; this.heldAt = e.timeStamp; this.heldTapped = false; return this.setState({held:this.mk[kl]}); }
     if (k === ' ' && !st.held && !(this.isCtl(t) && this.tabFocus)) { e.preventDefault(); if (!e.repeat) this.spaceDown(e); return; }
+    if (k === 'Enter' && !st.held && !e.shiftKey && !e.altKey && !(this.isCtl(t) && this.tabFocus) && this.olDraft()) { e.preventDefault(); return this.folGo(); }
     if (k === 'Enter' || k === ' ') {
       if (st.held) { e.preventDefault(); return this.decide(); }
       // ⏎ goes in and comes back out, as a double-click does: the canvas opens the clip large, the Viewer goes back to
@@ -2464,6 +2615,7 @@ class Component extends DCLogic {
         if (e.shiftKey && st.lv >= 2) return this.takeStep(d);
         return this.move(d);
       }
+      case '{': case '}': if (st.lv >= 2 && this.folJump(k === '}' ? 1 : -1)) e.preventDefault(); return;
       case '[': if (this.cvGrid()) return; return this.chapJump(-1);
       case ']': if (this.cvGrid()) return; return this.chapJump(1);
       case 'v': case 'V': return this.pvToggle();
@@ -2531,6 +2683,8 @@ class Component extends DCLogic {
     if (e.ctrlKey) { e.preventDefault(); return this.zoomBy(-e.deltaY * 0.01, e); }
     // Over the strip above the Viewer a scroll or a swipe either way moves the strip a frame at a time (tsGo's paging, finer).
     if (st.lv >= 2 && e.target && e.target.closest && e.target.closest('[data-lumina="furled-takes"]')) { e.preventDefault(); return this.tsWheel(e); }
+    // Over the picture with a shape chosen (outlines on): scroll grows or shrinks its edge, ⇧-scroll softens it.
+    if (st.lv >= 2 && st.ol && !e.ctrlKey && this.olSel().length) { const pic = e.target && e.target.closest && e.target.closest('[data-pic]'); if (pic && pic.getAttribute('data-clip') === st.cur) { e.preventDefault(); return this.olWheel(e); } }
     if (st.lv >= 2 && Component.zoomHeld(st.zc) && !e.ctrlKey) { const pic = e.target && e.target.closest && e.target.closest('[data-pic]'); if (pic && pic.getAttribute('data-clip') === st.cur && Math.abs(e.deltaY) >= Math.abs(e.deltaX)) { e.preventDefault(); return this.panBy(e.deltaX, e.deltaY, pic); } }
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5) {
       e.preventDefault();
@@ -2622,12 +2776,13 @@ class Component extends DCLogic {
   scrubMove = e => { const r = e.currentTarget.getBoundingClientRect(); this.setState({fx:Math.max(0, Math.min(7, (e.clientX - r.left) / r.width * 7))}); };
   picF(e) { const r = e.currentTarget.firstElementChild.getBoundingClientRect(); return Math.max(0, Math.min(0.999, (e.clientX - r.left) / Math.max(1, r.width))); }
   picMove = e => { const id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e), h = this.state.hv;
+    if (this.olHold(id)) this.olHover(e);
     if (!Component.pointerScrubs(this.state.zc, id === this.state.cur) || this.olHold(id)) { if (h && h.id === id) this.setState({hv:null, ...this.pinHv()}); return; }
     if (!h || h.id !== id || Math.abs(h.f - f) > 0.002) this.setState({hv:{id, f}}); };
   // Zoomed: a drag on the picture moves it. The frame stays.
   picDown = e => { const st = this.state, id = e.currentTarget.getAttribute('data-clip'); if (e.button || st.held || Component.pointerScrubs(st.zc, id === st.cur)) return;
     const r = e.currentTarget.firstElementChild.getBoundingClientRect(); e.preventDefault(); this.panS = {x:e.clientX, y:e.clientY, zo:st.zo, w:r.width, h:r.height, moved:false}; };
-  picLeave = () => { if (this.state.hv) this.setState({hv:null}); };
+  picLeave = () => { if (this.olHov) { this.olHov = null; this.olPaint(); } if (this.state.hv) this.setState({hv:null}); };
   picClick = e => {
     const st = this.state, id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e);
     if (st.held) { this.heldTapped = true; this.doMark([id], st.held); return; }
@@ -2868,7 +3023,7 @@ class Component extends DCLogic {
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, tsGo:this.tsGo, tsBack:false, tsFwd:false, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static', lv2Rows:'auto', topCol:'1', picRow:'2', infoCol:'1', infoRow:'3',
       wClick:this.wClick, 
-      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef, olCvRef:this.olCvRef, olChip:this.olChip, olClick:this.olClick, folGo:this.folGo, folStop:this.folStop, folMatte:this.folMatte, folDrop:this.folDrop,
+      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef, olCvRef:this.olCvRef, olChip:this.olChip, olClick:this.olClick, folGo:this.folGo, folStop:this.folStop, folMatte:this.folMatte, folDrop:this.folDrop, folFix:this.folFix, folSeg:this.folSeg, folRemove:this.folRemove,
       grid42:true,
       boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
       undoN:st.undo.length, redoN:st.redo.length, undoC:st.undo.length ? '#EFECE6' : '#6E6A64', redoC:st.redo.length ? '#EFECE6' : '#6E6A64',
@@ -3006,7 +3161,7 @@ class Component extends DCLogic {
         if (f.prov) facts.unshift({k:'measured', v:this.fromN(f.n || 1) + ' of ' + f.of + ' · more as you watch', c:'#9A958D'});
       }
       // inside the followed shape (Follow): the same measures on its pixels only, across the clip
-      { const fr = this.folOf(c), I = fr && fr.state === 'done' ? fr.inside : null; if (fr && fr.state === 'done') facts.push({k:'shape', v:I ? fr.shape.name + ' · ' + (I.ev > 0 ? '+' : I.ev < 0 ? '−' : '') + Math.abs(I.ev).toFixed(1) + ' stops · ' + (I.sharp < 0.35 ? 'soft' : 'sharp') + ' ' + I.sharp.toFixed(2) + ' lowest · clipped ' + this.pct(I.clip) + ' · crushed ' + this.pct(I.crush) + ' · in ' + I.seen + '% of the clip' : fr.shape.name + ' · not in the clip'}); }
+      { const fr = this.folOf(c), I = fr && fr.state === 'done' ? fr.inside : null; if (fr && fr.state === 'done') facts.push({k:'shape', v:I && I.ev == null ? fr.shape.name + ' · in ' + I.seen + '% of the clip' + (I.shaky ? ' · ' + I.shaky + '% worth a look' : ' · every frame sure') : I ? fr.shape.name + ' · ' + (I.ev > 0 ? '+' : I.ev < 0 ? '−' : '') + Math.abs(I.ev).toFixed(1) + ' stops · ' + (I.sharp < 0.35 ? 'soft' : 'sharp') + ' ' + I.sharp.toFixed(2) + ' lowest · clipped ' + this.pct(I.clip) + ' · crushed ' + this.pct(I.crush) + ' · in ' + I.seen + '% of the clip' : fr.shape.name + ' · not in the clip'}); }
       facts.push({k:'rate', v:(c.fps ? c.fps + 'p' : 'unknown') + dsx('rate')});
       facts.push({k:'duration', v:this.fmtDur(c.dur)});
       facts.push({k:'size', v:this.fmtB(c.bytes)});
@@ -3052,7 +3207,7 @@ class Component extends DCLogic {
           edge:g2 ? 'inset 0 0 0 3px ' + MK[g2] + '99' : mm ? 'inset 0 0 0 ' + (isC ? 3 : 2) + 'px ' + MK[mm] : 'none', markOn:!!mm && !g2, mark:this.W(mm), markC:mm ? MK[mm] : '', ghost:!!g2, ghostT:this.W(g2), ghostC:g2 ? MK[g2] : '',
           name:cc.name.replace(/\.\w+$/, ''), nameC:isC ? '#EFECE6' : '#B8B3AB', barVis:isC ? 'visible' : 'hidden', ph:(ff * 100).toFixed(2) + '%',
           sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' + (say ? ' · ' + say : '') : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—') + (say ? ' · ' + say : ''), subC:isC ? '#B8B3AB' : '#9A958D',
-          ...(isC ? this.olVals(cc) : {olOn:false})};
+          ...(isC ? this.olVals(cc) : {olOn:false}), ...(isC ? this.folStripVals(cc) : {stripOn:false})};
       });
       const cw = Math.max(0, x - fit.gap), more = list.length - k, before = s0, after = list.length - s0 - k;
       const span = gq ? gq.title : '', extra = (before ? '‹ ' + before + ' more · ' : '') + (after ? after + ' more ›' : '');
@@ -5360,7 +5515,7 @@ class Component extends DCLogic {
   buildX() {
     const st = this.state, d = this.d, ex = st.ex; if (!d) return {n:0, text:''};
     let fp = 0; d.clips.forEach(c => { const t = [c.dur, c.nf, c.fd, c.fps, c.w, c.h, c.ltc, c.path, c.profile && c.profile.gamma, c.profile && c.profile.primaries, c.ach, c.arate, c.facts && c.facts.state, c.facts && String(c.facts.idx), c.facts && String(c.facts.sharpF), c.facts && c.facts.bump].join('|'); for (let i = 0; i < t.length; i++) fp = (fp * 31 + t.charCodeAt(i)) | 0; });
-    const bk = [d, d.clips.length, fp, st.marks, JSON.stringify(ex), this.SC, this.G, JSON.stringify(this.exHost || null), JSON.stringify(this.mattes ? this.mattes() : null)], bm = this.bxM;
+    const bk = [d, d.clips.length, fp, st.marks, JSON.stringify(ex), this.SC, this.G, JSON.stringify(this.exHost || null), JSON.stringify(this.mattes ? this.mattes() : null), JSON.stringify(this.patches ? this.patches() : null)], bm = this.bxM;
     if (bm && bm.k.every((v, i) => v === bk[i])) return bm.x;
     const bx = (() => {
     const xe = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -5369,7 +5524,7 @@ class Component extends DCLogic {
     // a keyword collection per scene. Commas would split a keyword in two there, so they go.
     const kwT = t => String(t || '').replace(/[,\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim(), kwM = kwT(ex.kw == null ? 'maybe' : ex.kw), scOf = {}, kws = new Set();
     if (ex.scenes) (this.SC || this.G || []).forEach((g, i) => g.clips.forEach(c => { scOf[c.id] = kwT('Scene ' + (i + 1) + (g.title ? ' · ' + g.title : '')); }));
-    const clips = d.clips.filter(inc), FD = {24:[1001, 24000], 25:[100, 2500], 30:[1001, 30000], 50:[100, 5000], 60:[1001, 60000], 100:[100, 10000], 120:[1001, 120000]}, MT = (this.mattes && this.mattes()) || {};
+    const clips = d.clips.filter(inc), FD = {24:[1001, 24000], 25:[100, 2500], 30:[1001, 30000], 50:[100, 5000], 60:[1001, 60000], 100:[100, 10000], 120:[1001, 120000]}, MT = (this.mattes && this.mattes()) || {}, PT = (this.patches && this.patches()) || {};
     const fmts = {}, fl = []; let fi = 1;
     // Final Cut's own name for a standard size and rate ("FFVideoFormat3840x2160p2398"): a project's timeline needs one, an
     // unnamed format there is "an unexpected value" on import (2026-10-15). Other sizes and rates stay unnamed, as clips accept.
@@ -5403,10 +5558,10 @@ class Component extends DCLogic {
       (F.sharpF || []).forEach((v, j) => { if (v < 0.35 && F.idx[j] != null) out.push({k:at(F.idx[j]), t:'soft · sharpness ' + v.toFixed(2)}); });
       if (F.bump != null && F.idx[F.bump] != null) out.push({k:at(F.idx[F.bump]), t:'bump · brightness jumps'});
       const seen = new Set(); return out.sort((a, b) => a.k - b.k).filter(m => !seen.has(m.k + m.t) && seen.add(m.k + m.t)).map(m => '        <marker start="' + (base + m.k) * f.n + '/' + f.dd + 's" duration="' + f.n + '/' + f.dd + 's" value="' + xe(m.t) + '"/>'); };
-    const al = [], cl = [], sq = []; let mts = false;
+    const al = [], cl = [], sq = []; let mts = false, pts = false;
     clips.forEach((c, i) => {
       const f = fmt(c), du = rt(c, f), s0 = t0(c, f), nm = xe(c.name.replace(/\.\w+$/, '')), m = st.marks[c.id];
-      sq.push({c, i, f, nm, s0, m, nf:c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01))});
+      sq.push({c, i, f, nm, s0, m, nf:c.nf || Math.max(1, Math.floor((c.dur || 1) * f.dd / f.n + 0.01)), pt:PT[c.id] && PT[c.id].path ? 'p' + (i + 1) : null});
       al.push('    <asset id="a' + (i + 1) + '" name="' + nm + '" start="' + s0 + '" duration="' + du + '" hasVideo="1"' + aud(c) + ' format="' + f.id + '"' + lut(c) + '>', '      <media-rep kind="original-media" src="' + xe(src(c)) + '"/>', '    </asset>');
       const kw = []; if (m === 'maybe' && kwM) kw.push(kwM); if (scOf[c.id] && kw.indexOf(scOf[c.id]) < 0) kw.push(scOf[c.id]); kw.forEach(k => kws.add(k));
       // Final Cut's own ratings: selected clips are favorites, cut ones rejected (hidden by Final Cut's Hide Rejected), the rest unrated
@@ -5425,6 +5580,14 @@ class Component extends DCLogic {
         cl.push('      <asset-clip ref="m' + (i + 1) + '" name="' + mn + '" duration="' + du + '" format="' + mf.id + '" tcFormat="NDF">', '        <keyword start="0s" duration="' + du + '" value="matte"/>', '      </asset-clip>');
         kws.add('matte'); mts = true;
       }
+      // the shape removed (Remove), a patch the clip's size and length with alpha: in the event with the keyword "patch", and in
+      // the sorted timeline connected above its clip, so the shape is gone there and turning the patch off brings it back
+      const pt = PT[c.id]; if (pt && pt.path) {
+        const pn = xe(c.name.replace(/\.\w+$/, '') + ' patch' + (pt.shape ? ' · ' + pt.shape : ''));
+        al.push('    <asset id="p' + (i + 1) + '" name="' + pn + '" start="0s" duration="' + du + '" hasVideo="1" hasAudio="0" format="' + f.id + '">', '      <media-rep kind="original-media" src="' + xe('file://' + String(pt.path).split('/').map(encodeURIComponent).join('/')) + '"/>', '    </asset>');
+        cl.push('      <asset-clip ref="p' + (i + 1) + '" name="' + pn + '" duration="' + du + '" format="' + f.id + '" tcFormat="NDF">', '        <keyword start="0s" duration="' + du + '" value="patch"/>', '      </asset-clip>');
+        kws.add('patch'); pts = true;
+      }
     });
     // A "Skim" folder in the event's browser (round 2, fcpxml item 3): a keyword collection per scene (with Scenes on), and smart
     // collections for Selected (favorites), Maybe (the maybe keyword) and Cut (rejected), each only when the file can fill it.
@@ -5436,6 +5599,7 @@ class Component extends DCLogic {
       if (ex.rate !== false && sq.some(x => x.m === 'cut')) co.push('        <smart-collection name="' + xe(Wd('cut')) + '" match="all">', '          <match-ratings value="rejected"/>', '        </smart-collection>');
       scK.forEach(k => co.push('        <keyword-collection name="' + xe(k) + '"/>'));
       if (mts) co.push('        <keyword-collection name="matte"/>');
+      if (pts) co.push('        <keyword-collection name="patch"/>');
       if (co.length) { co.unshift('      <collection-folder name="Skim">'); co.push('      </collection-folder>'); }
     }
     const pj = [];
@@ -5449,8 +5613,11 @@ class Component extends DCLogic {
       let at = 0, last = -1;
       order.forEach(x => {
         const k = Math.max(1, Math.floor(x.nf * x.f.n * S.dd / (x.f.dd * S.n))), du = k * S.n + '/' + S.dd + 's';
-        pj.push('            <asset-clip ref="a' + (x.i + 1) + '" offset="' + (at ? at * S.n + '/' + S.dd + 's' : '0s') + '" name="' + x.nm + '"' + (x.s0 !== '0s' ? ' start="' + x.s0 + '"' : '') + ' duration="' + du + '" format="' + x.f.id + '" tcFormat="NDF"' + (x.p === last ? '/>' : '>'));
-        if (x.p !== last) { const mk = x.m || 'und'; pj.push('              <marker start="' + x.s0 + '" duration="' + x.f.n + '/' + x.f.dd + 's" value="' + xe(NM[mk] + ' · ' + n[x.p] + (n[x.p] === 1 ? ' clip' : ' clips')) + '"/>', '            </asset-clip>'); last = x.p; }
+        const open = x.p !== last || !!x.pt;
+        pj.push('            <asset-clip ref="a' + (x.i + 1) + '" offset="' + (at ? at * S.n + '/' + S.dd + 's' : '0s') + '" name="' + x.nm + '"' + (x.s0 !== '0s' ? ' start="' + x.s0 + '"' : '') + ' duration="' + du + '" format="' + x.f.id + '" tcFormat="NDF"' + (open ? '>' : '/>'));
+        if (x.pt) pj.push('              <asset-clip ref="' + x.pt + '" lane="1" offset="' + x.s0 + '" name="' + x.nm + ' patch" duration="' + du + '" format="' + x.f.id + '" tcFormat="NDF"/>');
+        if (x.p !== last) { const mk = x.m || 'und'; pj.push('              <marker start="' + x.s0 + '" duration="' + x.f.n + '/' + x.f.dd + 's" value="' + xe(NM[mk] + ' · ' + n[x.p] + (n[x.p] === 1 ? ' clip' : ' clips')) + '"/>'); last = x.p; }
+        if (open) pj.push('            </asset-clip>');
         at += k;
       });
       pj.unshift('      <project name="' + xe((ex.event || d.shoot.name) + ' · sorted') + '">', '        <sequence format="' + S.id + '" duration="' + (at * S.n) + '/' + S.dd + 's" tcStart="0s" tcFormat="NDF">', '          <spine>');

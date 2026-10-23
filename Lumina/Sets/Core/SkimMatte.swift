@@ -7,7 +7,8 @@ import Foundation
 /// the clip. In Final Cut it is the mask of an effect (Image Mask, or a Luma Keyer on a connected copy). Written as a
 /// new file in the folder Export saves into, never over one, next to the .fcpxml and never on a card; the clip itself
 /// is never touched. Each frame of the matte is made from the followed frames on either side of it
-/// (`SkimFollow.around`), each outline rasterised once (`LookMasks.raster`) and the two mixed by time.
+/// (`SkimFollow.matteFrame`), each outline rasterised once (`LookMasks.raster`) and the two mixed by time; when every
+/// frame was followed (the Mac's own track, `SkimTracker`), from the one nearest alone, never mixed.
 nonisolated enum SkimMatte {
     /// What the page asks for: the clip's name and size, its length in frames and the length of one, and the
     /// followed frames.
@@ -18,17 +19,22 @@ nonisolated enum SkimMatte {
         var frames: Int
         var frameLength: (n: Int, d: Int)
         var samples: [SkimFollow.Sample]
+        /// The edge grown (or shrunk) and softened, fractions of the long edge (`SkimFollow.edge`).
+        var grow = 0.0
+        var soft = 0.0
     }
 
     /// The feather of the matte's edge, as a fraction of its long edge.
     static let feather = 0.003
 
-    static func request(_ body: [String: Any]) -> Request? {
+    /// `tracked`: the followed frames of the Mac's own track the page names (`track`), in place of the page's `samples`.
+    static func request(_ body: [String: Any], tracked: [SkimFollow.Sample]? = nil) -> Request? {
         guard let clip = body["name"] as? String, let name = SkimFollow.matteName(clip: clip),
               let w = (body["w"] as? NSNumber)?.intValue, let h = (body["h"] as? NSNumber)?.intValue, let size = SkimFollow.matteSize(width: w, height: h),
               let n = (body["frames"] as? NSNumber)?.intValue, n > 0, n <= SkimFollow.maxFrames,
-              let fd = SkimFollow.frameLength(body["fd"]), let s = SkimFollow.samples(body["samples"]) else { return nil }
-        return Request(name: name, width: size.width, height: size.height, frames: n, frameLength: fd, samples: s)
+              let fd = SkimFollow.frameLength(body["fd"]), let s = tracked ?? SkimFollow.samples(body["samples"]), !s.isEmpty else { return nil }
+        let e = SkimFollow.edge(grow: body["grow"], soft: body["soft"])
+        return Request(name: name, width: size.width, height: size.height, frames: n, frameLength: fd, samples: s, grow: e.grow, soft: e.soft)
     }
 
     /// Writes the matte into `dir` under the first free name, then opens it again: a file that does not open as a
@@ -76,14 +82,15 @@ nonisolated enum SkimMatte {
         var planes: [Int: LookMasks.Plane] = [:]
         func plane(_ i: Int) -> LookMasks.Plane {
             if let p = planes[i] { return p }
-            let p = LookMasks.raster(r.samples[i].outline, width: r.width, height: r.height, samples: 2, feather: feather)
+            let long = Double(max(r.width, r.height))
+            let p = SkimFollow.edged(LookMasks.raster(r.samples[i].outline, width: r.width, height: r.height, samples: 2, feather: feather),
+                                     grow: Int((r.grow * long).rounded()), soft: Int((r.soft * long).rounded()))
             planes[i] = p
             return p
         }
-        let step = Double(r.frameLength.n) / Double(r.frameLength.d)
         for k in 0..<r.frames {
-            // the middle of the frame, in the clip's time
-            guard let a = SkimFollow.around((Double(k) + 0.5) * step, in: r.samples) else { throw Failed.frame }
+            // the followed frames around this one (the nearest alone when every frame was followed)
+            guard let a = SkimFollow.matteFrame(k, frameLength: r.frameLength, in: r.samples) else { throw Failed.frame }
             planes = planes.filter { $0.key == a.before || $0.key == a.after }
             let p0 = plane(a.before), p1 = plane(a.after), wt = Float(a.weight)
             while !input.isReadyForMoreMediaData {
