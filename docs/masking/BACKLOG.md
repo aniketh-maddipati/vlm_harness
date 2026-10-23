@@ -26,9 +26,9 @@ Until then the order follows the owner's request of 2026-10-23 and what PR #308 
 
 | PR | What | Waiting on |
 |---|---|---|
-| #258 | Outlines, Follow, Final Cut matte, mask lab | owner review |
-| #308 (on #258) | every-frame tracking, sure/shaky/lost strip, choose gestures, clean-plate Remove | Mac run on T7 clips, Final Cut patch check (V7) |
 | #298 | dust removal for stills | merged 2026-10-23 |
+| #258 | Outlines, Follow, Final Cut matte, mask lab | main merged in; merges when CI's Mac build is green (owner approved 2026-10-23) |
+| #308 (on #258) | every-frame tracking, sure/shaky/lost strip, choose gestures, clean-plate Remove | Mac build in F1, run on T7 clips, Final Cut patch check (V7, owner) |
 
 ## Backlog
 
@@ -51,6 +51,22 @@ Until then the order follows the owner's request of 2026-10-23 and what PR #308 
 - **F4. `skim-sure` in the mask lab.** Run `SkimTracker` / `SkimFollow` headlessly over a clip, the
   way the app runs them, and report the share of frames sure / shaky / lost plus fps, next to IoU.
   This is the "done" number for every tracking item below.
+
+### Reference implementations (the yardstick)
+
+Every number the app's own masks and heals report is put next to a known-good implementation run on
+the same frames. These run on the Mac for testing only and never ship in the app; their licences
+allow research use, and no code from them enters `Lumina/`.
+
+| Job | Reference | Why this one |
+|---|---|---|
+| Video masks and tracking | SAM 2.1 video predictor (`facebookresearch/sam2`, hiera_large and hiera_small, PyTorch on MPS) | the state of the art on DAVIS / MOSE / SA-V. Gives J&F on the public sets and pseudo-labels on unlabelled T7 clips |
+| Light tracker (fallback) | EdgeTAM (`facebookresearch/EdgeTAM`) | the on-device SAM 2 variant the app would actually ship as the fallback |
+| Video inpainting (moving shots) | ProPainter (`sczhou/ProPainter`) | flow-guided propagation plus a transformer. The quality bar for flow fill and per-frame LaMa |
+| Frame and still inpainting | LaMa (big-lama) and MI-GAN through IOPaint | the two candidates for the app's Core ML inpainter |
+| Clean plate (tripod) | the temporal median in `SkimPlate`, checked against ProPainter on the same clip | no model, so the clip's grain is kept |
+
+They are set up in a venv inside the T7 sparse bundle (F1), with every cache there too.
 
 ### Skim: masks and tracking
 
@@ -91,7 +107,17 @@ Until then the order follows the owner's request of 2026-10-23 and what PR #308 
 
 ### Round 1 (proposed 2026-10-23)
 
-F1, F2, F4, then item 1 (#308 measured on the T7 clips) and item 2's clean plate. F3 is drafted,
-but nothing is downloaded until the dataset list is confirmed. Waiting on the owner: the five
-notes, the Mac staying awake with the T7 plugged in, the go-ahead to delete the old mask lab copy
-after it's moved, and the Final Cut check once the patch is rendered.
+Approved by the owner on 2026-10-23 ("i allow everything"), including the downloads, the move of
+the mask lab data and the merges this work depends on. Depth-first on masking and healing:
+
+1. F1, the Mac build of #308 in the T7 test copy.
+2. F2, the mask lab data moved to the T7.
+3. The reference implementations set up (SAM 2.1, ProPainter, LaMa and MI-GAN through IOPaint).
+4. F3, the datasets: DAVIS 2017 first, then YouTube-VOS 2019 valid, MOSE valid and LVOS val.
+5. Reference numbers: SAM 2.1 J&F on DAVIS 2017 val; vision-box and vision-instance scored on DAVIS
+   and against SAM 2.1 pseudo-labels on the T7 clips; ProPainter and LaMa on three DAVIS removals.
+6. F4 and item 1: #308's own tracker scored the same way (share of frames sure, fps), with
+   `refind` tuned.
+
+Waiting on the owner: the Mac staying awake with the T7 plugged in, and the Final Cut check once
+the clean-plate patch is rendered (item 2).
