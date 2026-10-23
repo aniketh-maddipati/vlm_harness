@@ -297,11 +297,35 @@ nonisolated enum SkimFollow {
         c.filter { refindable(kind, as: $0.kind) && $0.distance.isFinite && $0.distance <= refind }.min { $0.distance < $1.distance }?.id
     }
 
+    /// What a followed frame's sureness is judged from, kept so the mask lab can check the judgement against the truth:
+    /// the tracker's figure (nil: no tracker, the first frame, or found again), the IoU of the tracker's box with the
+    /// shape put on it, the shape's area and the last frame's, whether it was found again by its feature print, Vision's
+    /// score for the shape, how many shapes overlapped the tracker's box (more than one: look-alikes or a crowd), and
+    /// how many frames in a row it had been lost.
+    struct Cues: Equatable, Sendable {
+        var tracker: Double?
+        var agree: Double?
+        var area: Double?
+        var last: Double?
+        var refound: Bool
+        var score: Double?
+        var rivals: Int
+        var lost: Int
+
+        var json: [String: Any] {
+            func r(_ v: Double?) -> Any { v.map { ($0 * 10_000).rounded() / 10_000 } ?? NSNull() }
+            return ["tracker": r(tracker), "agree": r(agree), "area": r(area), "last": r(last), "refound": refound,
+                    "score": r(score), "rivals": rivals, "lost": lost]
+        }
+    }
+
     /// One frame of the Mac's track as the page gets it: its time, the box, whether it is held, how sure, and the outline.
     struct Tracked: Equatable, Sendable {
         var t: Double
         var step: Step
         var sure: Sure
+        /// What the sureness was judged from (the Mac's own track only; not sent to the page).
+        var cues: Cues? = nil
         var area: Double? { step.shape?.area }
 
         var json: [String: Any] {

@@ -13,8 +13,8 @@ import VideoToolbox
 //   masklab-skim <clip> --start N (--box x,y,w,h | --point x,y) [--frames N] --out DIR
 //
 // The same arguments and the same output as masklab-track: DIR/000123.png (8-bit, 255 = in, at SkimFollow's proxy
-// size) and DIR/timing.json, which also has `sure` (frames per state) and `sure_frames` (each written frame's state),
-// for score.py. The start frame is chosen as the page chooses it: the shape Vision finds there that the box or point
+// size) and DIR/timing.json, which also has `sure` (frames per state), `sure_frames` (each written frame's state) and
+// `cues_frames` (what each state was judged from, `SkimFollow.Cues`), for score.py and the calibration fit. The start frame is chosen as the page chooses it: the shape Vision finds there that the box or point
 // picks, by its kind and box. Frame numbers count from the clip's first frame, as ffmpeg's `n` does.
 
 /// A value handed back from a task to the waiting main thread (written once, read after the wait).
@@ -138,34 +138,35 @@ func main() throws {
     let started = Date()
     let id = "masklab"
     SkimTracker.shared.start(id: id, url: url, kind: kind, box: box, t0: t0)
-    var got: [[String: Any]] = [], state = "run", why = ""
+    var state = "run", why = "", got: [SkimFollow.Tracked] = []
     while true {
-        guard let p = SkimTracker.shared.poll(id, from: got.count) else { throw Usage(description: "the track went away") }
-        got += p["frames"] as? [[String: Any]] ?? []
+        guard let p = SkimTracker.shared.poll(id, from: Int.max) else { throw Usage(description: "the track went away") }
         state = p["state"] as? String ?? "failed"; why = p["why"] as? String ?? ""
+        got = SkimTracker.shared.tracked(id) ?? []
         // Forward frames come first: once the last one asked for is in, the rest is not needed.
-        if o.start == 0 || o.frames != nil, let t = got.last?["t"] as? Double, t >= pts[last] - 1e-4 { SkimTracker.shared.end(id); break }
+        if o.start == 0 || o.frames != nil, let t = got.last?.t, t >= pts[last] - 1e-4 { break }
         if state != "run" { break }
-        if (p["frames"] as? [[String: Any]])?.isEmpty ?? true { Thread.sleep(forTimeInterval: 0.05) }
+        Thread.sleep(forTimeInterval: 0.05)
     }
+    SkimTracker.shared.end(id)
     let totalMs = Date().timeIntervalSince(started) * 1000
     guard state != "failed" else { throw Usage(description: "\(url.lastPathComponent): the track failed: \(why)") }
 
     // Each followed frame to its frame number by its time, then a mask per frame from start to last.
-    var byFrame: [Int: [String: Any]] = [:]
+    var byFrame: [Int: SkimFollow.Tracked] = [:]
     for f in got {
-        guard let t = f["t"] as? Double else { continue }
         var lo = 0, hi = pts.count - 1
-        while lo < hi { let m = (lo + hi) / 2; if pts[m] < t - 1e-4 { lo = m + 1 } else { hi = m } }
-        let n = lo > 0 && abs(pts[lo - 1] - t) < abs(pts[lo] - t) ? lo - 1 : lo
+        while lo < hi { let m = (lo + hi) / 2; if pts[m] < f.t - 1e-4 { lo = m + 1 } else { hi = m } }
+        let n = lo > 0 && abs(pts[lo - 1] - f.t) < abs(pts[lo] - f.t) ? lo - 1 : lo
         if n >= o.start && n <= last { byFrame[n] = f }
     }
-    var counts = ["sure": 0, "shaky": 0, "lost": 0, "missing": 0], states: [String] = [], lost: [Int] = []
+    var counts = ["sure": 0, "shaky": 0, "lost": 0, "missing": 0], states: [String] = [], lost: [Int] = [], cues: [Any] = []
     for n in o.start...last {
         let f = byFrame[n]
-        let s = f?["sure"] as? String ?? "missing"
+        let s = f?.sure.rawValue ?? "missing"
         counts[s, default: 0] += 1; states.append(s)
-        let outline = (f?["outline"] as? [[[Double]]] ?? []).map { $0.compactMap { $0.count == 2 ? LookMasks.Point(x: $0[0], y: $0[1]) : nil } }
+        cues.append(f?.cues?.json ?? NSNull())
+        let outline = f?.step.shape?.outline ?? []
         let plane = LookMasks.raster(outline, width: size.width, height: size.height)
         if outline.isEmpty { lost.append(n) }
         try png(plane, to: out.appendingPathComponent(String(format: "%06d.png", n)))
@@ -181,7 +182,7 @@ func main() throws {
         "tracker": "skim", "clip": url.deletingPathExtension().lastPathComponent, "start_frame": o.start, "frames": frames,
         "total_ms": totalMs, "per_frame_ms": [Double](), "lost": lost, "proxy": [size.width, size.height],
         "source": [Int(natural.width), Int(natural.height)], "chosen": ["kind": kind.rawValue, "picked": pick != nil],
-        "sure": counts, "sure_frames": states, "refind": SkimFollow.refind,
+        "sure": counts, "sure_frames": states, "cues_frames": cues, "refind": SkimFollow.refind,
         "device": ["model": machine, "os": ProcessInfo.processInfo.operatingSystemVersionString,
                    "cores": ProcessInfo.processInfo.activeProcessorCount,
                    "memory_gb": Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824],

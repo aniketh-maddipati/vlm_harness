@@ -66,6 +66,23 @@ the numbers down by tag, not just by set.
 E1 and E2 need nothing installed. E3's SAM 2.1 / EdgeTAM rows and E4 need the PyTorch installs (the owner runs the
 commands; Claude Code's safety check won't install outside code).
 
+## Results so far
+
+**E1 on DAVIS 2017 val (61 objects):** the ceiling for anything that picks one of Vision's instances is **J&F 0.497**
+(vision-oracle). vision-instance is at it (0.498), and skim is 0.06 below it (0.436). Of the 15 objects skim scores worst
+on, 13 have an oracle under 0.3: Vision never makes a mask for that object. It merges the people in lab-coat and
+shooting, the fish in gold-fish, the pigs, and a rider with their bike. Of skim's "sure" frames, half (1,698) are frames
+where no Vision instance fits (skim 0.25, oracle 0.24). On the other half (1,682), skim scores 0.73 against an oracle of
+0.82.
+
+What it changes:
+- The 0.75 target can't be reached with Vision's masks on any frame selection. The mask has to come from a SAM-class
+  model (EdgeTAM / SAM 2.1) wherever Vision's mask doesn't fit the object, not only where the track is lost. E4
+  becomes "Vision tracks the box; the model makes the mask when Vision's doesn't fit", with the model run on every
+  frame as the upper line.
+- For E2, "sure" also needs the mask to fit: an area and shape consistent with the start frame, and one shape on the
+  tracker's box (`rivals`), not just a stable pick from frame to frame.
+
 ## Order
 
 1. E1 on DAVIS (running).
