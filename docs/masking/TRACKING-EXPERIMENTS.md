@@ -106,3 +106,13 @@ What it changes:
 | | after | 20.9 | | | | 23 % (lost 1,094) | |
 
 +11 % fps on DAVIS and +22 % on the small subject, with accuracy unchanged (J&F −0.001). C0054 doesn't move: decoding 4K is the limit there. Per object the crop helps and hurts in about equal measure (mbike-trick_1 +0.05, india_1 −0.09: in a crowd the window's instances merge neighbours; sheet 05). The share of frames on the window vs the full path isn't logged by masklab-skim yet. Runs: `masklab-davis/runs/20261023-131116` (before), `…-132132` (after); `masklab/runs/20261023-131742`, `…-132726`.
+
+## Known issues
+
+- **SetsIngestTests is load-sensitive on the Mac (2026-10-23).** At 071b22b, LuminaLogicTests run while the mask lab
+  sweep and the SAM 2.1 reference were busy on the same T7 failed 6 asserts, all in SetsIngestTests: bytes read off the
+  "card" (662,144 vs 530,000 expected in `testAPreviewThatStartsInsideTheHeadIsNotReadFromTheCardTwice`, 2,259 vs 1,506
+  in `testPreviewIsReadByByteRangeAndTurnedUpright`, 57,718 vs 28,859 "no second read off the card" in
+  `testThumbCoversTheLargestRetinaTileUprightAndIsNeverUpscaled`). The same class run alone right after: 12/12 pass.
+  Nothing in SetsIngest changed since the last green run (582/0 at 4e2f09a). The tests stay as they are (not skipped,
+  not loosened); the cause, a second read when the reader is slow under load, is open.
