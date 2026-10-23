@@ -40,7 +40,6 @@ The modifiers keep their current meaning, with points instead of whole shapes:
 | ⌘Z | takes back the last point, box or stroke |
 | ⏎ | follows it through the clip, as today |
 | Esc | drops the draft |
-
 | T, then move along an edge | the tracer (below) |
 
 ### The tracer, for fine corrections
