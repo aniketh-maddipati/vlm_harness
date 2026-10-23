@@ -24,6 +24,8 @@ nonisolated final class LookBases: @unchecked Sendable {
         let width: Int             // the canvas, device px
         let height: Int
         let nr: Int?
+        /// 0 without `dust:1`, else the dust registry's generation (new spots, a new base).
+        let dust: Int
 
         init(rel: String, decoder: Int?, look: Look, canvas: CGSize) {
             self.rel = rel
@@ -34,9 +36,10 @@ nonisolated final class LookBases: @unchecked Sendable {
             width = max(1, Int(canvas.width.rounded()))
             height = max(1, Int(canvas.height.rounded()))
             nr = look.nr.map { Int($0.rounded()) }
+            dust = look.dust ? LookDust.Registry.shared.generation : 0
         }
 
-        var description: String { "\(rel)|d\(decoder ?? 0)|\(crop)|r\(rotation)\(rot == 0 ? "" : "|q\(rot)")|\(width)x\(height)|nr\(nr ?? -1)" }
+        var description: String { "\(rel)|d\(decoder ?? 0)|\(crop)|r\(rotation)\(rot == 0 ? "" : "|q\(rot)")|\(width)x\(height)|nr\(nr ?? -1)\(dust == 0 ? "" : "|dust\(dust)")" }
     }
 
     /// The embedded JPEG's byte range, the stand-in when the RAW can't be developed.
@@ -180,7 +183,7 @@ nonisolated final class LookBases: @unchecked Sendable {
         var why: String?
         do {
             if previewOnly { throw LookPipeline.Failure("the embedded JPEG was asked for") }
-            dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipeline.rules, decoderVersion: key.decoder, nr: look.nr)
+            dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipeline.rules, decoderVersion: key.decoder, nr: look.nr, dust: look.dust)
         } catch {
             guard let p = preview else { lock.withLock { _stats.failed += 1 }; throw error }
             source = "jpeg"

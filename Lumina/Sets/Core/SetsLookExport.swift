@@ -64,7 +64,7 @@ nonisolated enum SetsLookExport {
 
     private static func encode(_ pipe: LookPipeline, _ look: Look, url: URL, px: Int?, format: String, decoder: Int?, masks: [LookMasks.Found]? = nil) throws -> Data {
         // The developed image is the whole upright photo, as the image path's: its masks fill it.
-        let dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipe.rules, decoderVersion: decoder, nr: look.nr)
+        let dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipe.rules, decoderVersion: decoder, nr: look.nr, dust: look.dust)
             .withMasks(masks, key: LookPipeline.PhotoMasks.key(rel: url.path, masks ?? []))
         // Core Image carries the source's metadata (GPS, serials) through to the encoder: cleared
         // here, so the file holds only what withMetadata writes.

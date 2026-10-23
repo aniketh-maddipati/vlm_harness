@@ -220,4 +220,44 @@ final class LookDustTests: XCTestCase {
         XCTAssertEqual(s.upright(orientation: 8).x, 0.2, accuracy: 1e-12); XCTAssertEqual(s.upright(orientation: 8).y, 0.9, accuracy: 1e-12)
         XCTAssertEqual(s.upright(orientation: 6).r, s.r)
     }
+
+    func testDevelopPatchUndoesTheShadow() {
+        // A 20 % shadow 40 px across in a 1000 × 600 frame, near the top-left.
+        let s = LookDust.Spot(x: 0.1, y: 0.2, r: 0.02, depth: 0.2, hits: 5, frames: 6)
+        let p = try! XCTUnwrap(LookDust.patch(s, width: 1000, height: 600))
+        XCTAssertEqual(Double(p.x0 + p.width / 2), 100, accuracy: 1.5); XCTAssertEqual(Double(p.y0 + p.height / 2), 120, accuracy: 1.5)
+        let at = { (x: Int, y: Int) in p.gain[(y - p.y0) * p.width + (x - p.x0)] }
+        XCTAssertEqual(Double(at(100, 120)), 1 / 0.8, accuracy: 0.01, "the centre is lifted by what the dust took")
+        XCTAssertEqual(Double(at(p.x0, p.y0 + p.height / 2)), 1, accuracy: 0.01, "the box's edge is untouched")
+        // Shadow times gain is flat: the spot is gone.
+        for x in p.x0..<(p.x0 + p.width) {
+            let dx = Double(x) + 0.5 - 100, dy = 0.5, sigma = 0.02 * 1000 / 2.5
+            let shadow = 1 - 0.2 * exp(-(dx * dx + dy * dy) / (2 * sigma * sigma))
+            XCTAssertEqual(shadow * Double(at(x, 120)), 1, accuracy: 1e-4)
+        }
+    }
+
+    func testDevelopPatchStopsAtTheFrameAndTheDeepest() {
+        let corner = LookDust.Spot(x: 0, y: 1, r: 0.02, depth: 0.95, hits: 5, frames: 6)
+        let p = try! XCTUnwrap(LookDust.patch(corner, width: 500, height: 400))
+        XCTAssertEqual(p.x0, 0); XCTAssertEqual(p.y0 + p.height, 400)
+        XCTAssertLessThanOrEqual(Double(p.gain.max() ?? 0), 1 / (1 - LookDust.maxDevelopDepth) + 1e-4, "too deep to lift: capped")
+        XCTAssertNil(LookDust.patch(LookDust.Spot(x: 3, y: 3, r: 0.01, depth: 0.2, hits: 1, frames: 1), width: 500, height: 400), "off the frame")
+        XCTAssertNil(LookDust.patch(LookDust.Spot(x: 0.5, y: 0.5, r: 0.01, depth: 0, hits: 1, frames: 1), width: 500, height: 400))
+    }
+
+    func testRegistryStampFollowsTheSpots() {
+        let reg = LookDust.Registry(), a = URL(fileURLWithPath: "/a.ARW")
+        XCTAssertEqual(reg.stamp(for: a), 0)
+        let s = LookDust.Spot(x: 0.1, y: 0.2, r: 0.01, depth: 0.1, hits: 5, frames: 6)
+        reg.set([s], for: a)
+        let one = reg.stamp(for: a)
+        XCTAssertNotEqual(one, 0); XCTAssertEqual(reg.spots(for: URL(fileURLWithPath: "/x/../a.ARW")), [s], "the same file however it is spelt")
+        let gen = reg.generation
+        var moved = s; moved.x = 0.3
+        reg.set([moved], for: a)
+        XCTAssertNotEqual(reg.stamp(for: a), one); XCTAssertGreaterThan(reg.generation, gen)
+        reg.set([], for: a)
+        XCTAssertEqual(reg.stamp(for: a), 0)
+    }
 }

@@ -596,6 +596,24 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertNil(LookPipeline.shadingGain(s, amount: 1, extent: .infinite))
     }
 
+    /// Dust in the RAW stage's linear light: each spot's gain lands on its place in the frame as
+    /// stored (a spot near the top stays near the top: Core Image's y runs up), and only there.
+    func testDustGainLiftsTheSpotInPlace() throws {
+        let spot = LookDust.Spot(x: 0.25, y: 0.25, r: 0.03, depth: 0.2, hits: 9, frames: 10)
+        let grey = pipe.flat(LookMath.RGB(r: 0.5, g: 0.5, b: 0.5), size: 1).image.clampedToExtent().cropped(to: CGRect(x: 0, y: 0, width: 600, height: 400))
+        let f = LookShadingFilter(shading: nil, amount: 0, dust: [spot])
+        f.inputImage = grey
+        let out = try XCTUnwrap(f.outputImage)
+        XCTAssertEqual(out.extent, grey.extent)
+        XCTAssertEqual(pipe.pixel(out, x: 150, y: 300).g, 0.5 / 0.8, accuracy: 0.01, "the centre, 100 px down from the top")
+        XCTAssertEqual(pipe.pixel(out, x: 150, y: 100).g, 0.5, accuracy: 1e-3, "the same place from the bottom is untouched")
+        XCTAssertEqual(pipe.pixel(out, x: 450, y: 300).g, 0.5, accuracy: 1e-3)
+        XCTAssertTrue(LookPipeline.dustGain([], extent: grey.extent).isEmpty)
+        let none = LookShadingFilter(shading: nil, amount: 0)
+        none.inputImage = grey
+        XCTAssertEqual(pipe.pixel(try XCTUnwrap(none.outputImage), x: 150, y: 300).g, 0.5, accuracy: 1e-3, "no spots, no lens: the frame as it was")
+    }
+
     /// The canvas holds the neighbours' builds while someone waits on it (a drag, the loupe, the
     /// current photo not yet on screen): a paused prefetch starts nothing until released.
     func testPausedPrefetchStartsNothingUntilReleased() throws {
