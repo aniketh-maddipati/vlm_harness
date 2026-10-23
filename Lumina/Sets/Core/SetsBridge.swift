@@ -740,9 +740,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "skimPrompt":
             // Click to outline: the thing under the page's clicks on one frame it drew from its own <video>, as one shape
             // (SkimPrompt). Clicks on the same `key` add to the outline already made; one outline is held in memory.
-            guard let key = SkimFollow.trackID(body["key"]), let points = SkimFollow.promptPoints(body["points"]),
+            // A brush `stroke` over the thing seeds the outline in place of the first click.
+            let stroke = body["stroke"].flatMap { $0 is NSNull ? nil : $0 }.map(SkimFollow.promptStroke)
+            if let stroke, stroke == nil { return (NSNull(), nil) }
+            guard let key = SkimFollow.trackID(body["key"]), let points = SkimFollow.promptPoints(body["points"], seeded: stroke != nil),
                   let frame = body["frame"] as? String, !frame.isEmpty else { return (NSNull(), nil) }
-            guard let found = await SkimPrompt.outline(key: key, frame: frame, points: points) else { return (NSNull(), nil) }
+            guard let found = await SkimPrompt.outline(key: key, frame: frame, points: points, stroke: stroke ?? nil) else { return (NSNull(), nil) }
             return (found.dictionary, nil)
         case "skimFollow":
             // Follow: one chosen shape followed through a clip (SkimFollower, Vision's object tracker on the Mac), one frame

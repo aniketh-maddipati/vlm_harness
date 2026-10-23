@@ -34,9 +34,9 @@ async function open(ready) {
     window.lumina = {video:{
       masks:frame => { window.__masks++; return new Promise(r => setTimeout(() => r(/^\/9j\//.test(frame) ? shapes : null), 20)); },
       promptReady:() => Promise.resolve(ready),
-      prompt:(key, frame, points) => {
-        window.__prompts.push({key, jpeg:/^\/9j\//.test(frame) && frame.length > 2000, points:points.map(p => ({x:+p.x.toFixed(3), y:+p.y.toFixed(3), in:p.in}))});
-        const c = points[0], r = Math.max(0.05, 0.12 + 0.06 * (points.filter(p => p.in).length - 1) - 0.04 * points.filter(p => !p.in).length);
+      prompt:(key, frame, points, stroke) => {
+        window.__prompts.push({key, jpeg:/^\/9j\//.test(frame) && frame.length > 2000, points:points.map(p => ({x:+p.x.toFixed(3), y:+p.y.toFixed(3), in:p.in})), stroke:stroke ? stroke.length : 0});
+        const c = points[0] || (stroke && stroke[Math.floor(stroke.length / 2)]), r = Math.max(0.05, 0.12 + 0.06 * (points.filter(p => p.in).length - 1) - 0.04 * points.filter(p => !p.in).length);
         return new Promise(res => setTimeout(() => res({id:'pick', kind:'object', score:1, area:Math.PI * r * r * 9 / 16, box:[c.x - r * 9 / 16, c.y - r, r * 9 / 8, 2 * r], outline:disc(c.x, c.y, r)}), 30));
       }}};
   }, [SHAPES, ready]);
@@ -70,7 +70,7 @@ const until = async (p, test) => { for (let k = 0; k < 24; k++) { if (await test
   const {b, p, errs} = await open('download');
   await p.keyboard.press('o');
   await until(p, async () => /click the thing/.test(await say(p)));
-  ok(/click the thing you mean/.test(await say(p)), 'the line says to click: ' + JSON.stringify(await say(p)));
+  ok(/click or brush over the thing you mean/.test(await say(p)), 'the line says to click: ' + JSON.stringify(await say(p)));
   await until(p, async () => /q:subject/.test(await pressed(p)));
   ok(await pressed(p) === 'q:subject:false q:background:false', 'one-tap chips from Vision\'s shapes, nothing chosen: ' + JSON.stringify(await pressed(p)));
   const r = await (await p.$('[data-lumina="viewer-outlines"]')).boundingBox();
@@ -107,7 +107,7 @@ const until = async (p, test) => { for (let k = 0; k < 24; k++) { if (await test
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   ok(await pressed(p) === 'q:subject:false q:background:false', 'esc at the first click lets it go: ' + JSON.stringify(await pressed(p)));
-  ok(/click the thing you mean/.test(await say(p)), 'and the line says to click again: ' + JSON.stringify(await say(p)));
+  ok(/click or brush over the thing you mean/.test(await say(p)), 'and the line says to click again: ' + JSON.stringify(await say(p)));
   await at(0.6, 0.4);
   await until(p, async () => (await prompts(p)).length === 4 && /outlined/.test(await say(p)));
   q = await prompts(p);
@@ -126,13 +126,13 @@ const until = async (p, test) => { for (let k = 0; k < 24; k++) { if (await test
   const pick = () => p.evaluate(() => { const b = [...document.querySelectorAll('[data-ol]')].find(x => x.getAttribute('data-ol') === 'pick'); return b ? b.getAttribute('aria-pressed') : ''; });
   const drag = async pts => { await p.mouse.move(r.x + r.width * pts[0][0], r.y + r.height * pts[0][1]); await p.mouse.down();
     for (const q of pts.slice(1)) await p.mouse.move(r.x + r.width * q[0], r.y + r.height * q[1], {steps:8}); await p.mouse.up(); await p.waitForTimeout(300); };
-  const before = await area(), n0 = (await prompts(p)).length;
+  const before = await area(), nb = (await prompts(p)).length;
   // the disc around (0.6, 0.4) has radius 0.12: its right edge is near x = 0.6 + 0.12 * 9/16
   const ex = 0.6 + 0.12 * 9 / 16;
   await drag([[ex, 0.36], [ex + 0.12, 0.3], [ex + 0.16, 0.4], [ex + 0.12, 0.5], [ex, 0.44]]);
   const bump = await area();
   ok(bump > before * 1.15, 'a drag out from the edge and back adds to the outline: ' + before + ' → ' + bump);
-  ok((await prompts(p)).length === n0, 'drawing asks nothing of the Mac');
+  ok((await prompts(p)).length === nb, 'drawing asks nothing of the Mac');
   ok(await pick() === 'true', 'the outline stays chosen: ' + await pick());
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   const back = await area();
@@ -148,6 +148,19 @@ const until = async (p, test) => { for (let k = 0; k < 24; k++) { if (await test
   ok(await pick() === 'true' && await area() > 3000, 'a drag on its own draws a shape: ' + await pick() + ' ' + await area());
   ok(/outlined/.test(await say(p)), 'and the line says it is outlined: ' + JSON.stringify(await say(p)));
   await p.screenshot({path:path.join(T, 'drawn.png')});
+  // with nothing outlined, a stroke that doesn't come back round is a brush over the thing: the model outlines it
+  await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+  const nbr = (await prompts(p)).length;
+  await drag([[0.6, 0.3], [0.68, 0.36], [0.76, 0.32], [0.84, 0.38]]);
+  await until(p, async () => (await prompts(p)).length === nbr + 1 && /outlined/.test(await say(p)));
+  let bq = (await prompts(p))[nbr];
+  ok(bq && bq.stroke >= 2 && bq.points.length === 0 && await pick() === 'true', 'a brush stroke outlines what it went over: ' + JSON.stringify(bq));
+  // a click inside then takes away, sent with the same stroke
+  await p.mouse.click(r.x + r.width * 0.72, r.y + r.height * 0.34);
+  await until(p, async () => (await prompts(p)).length === nbr + 2);
+  bq = (await prompts(p))[nbr + 1];
+  ok(bq && bq.stroke >= 2 && bq.points.length === 1 && bq.points[0].in === false, 'a click after the stroke takes away, with the stroke: ' + JSON.stringify(bq));
+  await p.screenshot({path:path.join(T, 'brushed.png')});
   ok(errs.length === 0, 'no page errors: ' + errs.join(' | '));
   console.log('screenshot ' + path.join(T, 'prompt.png'));
   await b.close();

@@ -1442,15 +1442,15 @@ class Component extends DCLogic {
   // The frame's name for the Mac (at most 64 characters): the same frame and clicks so far add to the outline there.
   static prKey(k) { let h = 2166136261; for (let i = 0; i < k.length; i++) { h ^= k.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return 'f' + h.toString(36) + '-' + k.length; }
   // A click on the frame: the first starts the outline, a later one outside it adds and inside it takes away.
-  static prNext(pts, shape, x, y) { const inside = !!(shape && Component.olInside(shape.outline, x, y)); return (pts || []).concat({x, y, in:!(pts && pts.length) || !inside}); }
+  static prNext(pts, shape, x, y, seeded) { const inside = !!(shape && Component.olInside(shape.outline, x, y)); return (pts || []).concat({x, y, in:(!seeded && !(pts && pts.length)) || !inside}); }
   prClick(p) {
     const st = this.state, api = this.prApi(), k = this.olKey(), j = this.olJpg; if (!api || !k || !j || j.k !== k || p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return;
     let pr = this.olPr; if (!pr || pr.k !== k) pr = this.olPr = {k, pts:[], hist:[]};
-    if (pr.pts.length >= 32) return;
-    const pts = Component.prNext(pr.pts, pr.hist[pr.hist.length - 1], p.x, p.y), seq = this.prSeq = (this.prSeq || 0) + 1;
+    if (pr.pts.length >= 12) return;   // Vision takes 13 points on one outline
+    const pts = Component.prNext(pr.pts, pr.hist[pr.hist.length - 1], p.x, p.y, !!pr.stroke), seq = this.prSeq = (this.prSeq || 0) + 1;
     this.prBusy = this.prState === 'download' && !pr.hist.length ? 'getting the outliner ready (the first time only)…' : 'outlining…'; this.prWhy = '';
     this.setState(x => ({tick:(x.tick || 0) + 1}));
-    Promise.resolve().then(() => api.prompt(Component.prKey(k), j.b64, pts)).then(f => f, () => null).then(f => {
+    Promise.resolve().then(() => api.prompt(Component.prKey(k), j.b64, pts, pr.stroke)).then(f => f, () => null).then(f => {
       if (seq !== this.prSeq || this.olPr !== pr) return;
       this.prBusy = '';
       if (!f || !Array.isArray(f.outline) || !f.outline.length) { this.prWhy = 'nothing to outline there'; return this.setState(x => ({tick:(x.tick || 0) + 1})); }
@@ -1525,6 +1525,26 @@ class Component extends DCLogic {
     return len(i, j) <= len(j, i) ? path.concat(arc(j, i).slice(1, -1)) : arc(i, j).slice(1, -1).concat(path.slice().reverse());
   }
   // A shape the page draws as Vision's: box, area (fractions of the frame) and outline.
+  // With no outline yet, a drag that ends back where it began (a loop drawn round the thing) is a shape by hand; any
+  // other is a brush stroke over the thing (Lightroom's Brush select), which the model outlines.
+  static drOpen(raw) {
+    if (!raw || raw.length < 2) return false; let len = 0; for (let i = 1; i < raw.length; i++) len += Math.hypot(raw[i][0] - raw[i - 1][0], raw[i][1] - raw[i - 1][1]);
+    const a = raw[0], b = raw[raw.length - 1]; return !(Math.hypot(a[0] - b[0], a[1] - b[1]) < Math.max(0.03, 0.12 * len) && len > 0.15);
+  }
+  static drThin(raw, n) { if (raw.length <= n) return raw.map(([x, y]) => ({x:Math.round(x * 1e4) / 1e4, y:Math.round(y * 1e4) / 1e4})); const out = []; for (let i = 0; i < n; i++) { const [x, y] = raw[Math.round(i * (raw.length - 1) / (n - 1))]; out.push({x:Math.round(x * 1e4) / 1e4, y:Math.round(y * 1e4) / 1e4}); } return out; }
+  prBrush(k, stroke) {
+    const api = this.prApi(), j = this.olJpg; if (!api || !j || j.k !== k) { this.olPainted = null; this.olPaint(); return; }
+    const pr = this.olPr = {k, pts:[], hist:[], stroke}, seq = this.prSeq = (this.prSeq || 0) + 1;
+    this.prBusy = this.prState === 'download' ? 'getting the outliner ready (the first time only)…' : 'outlining…'; this.prWhy = ''; this.olPainted = null; this.olPaint();
+    this.setState(x => ({tick:(x.tick || 0) + 1}));
+    Promise.resolve().then(() => api.prompt(Component.prKey(k), j.b64, [], stroke)).then(f => f, () => null).then(f => {
+      if (seq !== this.prSeq || this.olPr !== pr) return;
+      this.prBusy = '';
+      if (!f || !Array.isArray(f.outline) || !f.outline.length) { this.olPr = null; this.prWhy = 'nothing to outline there'; return this.setState(x => ({tick:(x.tick || 0) + 1})); }
+      if (this.prState === 'download') this.prState = 'ready';
+      pr.hist.push({...f, n:0}); this.prShow(pr, f);
+    });
+  }
   static drShape(loops) {
     let x0 = 1, y0 = 1, x1 = 0, y1 = 0, a = 0;
     for (const L of loops) { let s = 0; for (let k = 0; k < L.length; k++) { const p = L[k], q = L[(k + 1) % L.length]; s += p[0] * q[1] - q[0] * p[1]; if (p[0] < x0) x0 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[0] > x1) x1 = p[0]; if (p[1] > y1) y1 = p[1]; } a += Math.abs(s) / 2; }
@@ -1535,7 +1555,7 @@ class Component extends DCLogic {
     const W = j.cv.width, H = j.cv.height, p0 = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY); if (!p0) return false;
     if (!this.drG || this.drG.k !== k) { try { this.drG = {k, w:W, h:H, g:Component.drGrad(j.cv.getContext('2d').getImageData(0, 0, W, H).data, W, H)}; } catch (x) { return false; } }
     const G = this.drG, a = Component.drSnap(G.g, W, H, [p0.x * W, p0.y * H], 4);
-    this.drS = {k, x:e.clientX, y:e.clientY, moved:false, anchor:a, done:[a], live:[], travel:0, last:[p0.x * W, p0.y * H]};
+    this.drS = {k, x:e.clientX, y:e.clientY, moved:false, anchor:a, done:[a], live:[], travel:0, last:[p0.x * W, p0.y * H], raw:[[p0.x, p0.y]]};
     return true;
   }
   drMove(e) {
@@ -1543,6 +1563,7 @@ class Component extends DCLogic {
     if (!s.moved && Math.hypot(e.clientX - s.x, e.clientY - s.y) < 5) return; s.moved = true;
     const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY); if (!p) return;
     const q = [Math.max(0, Math.min(G.w - 1, p.x * G.w)), Math.max(0, Math.min(G.h - 1, p.y * G.h))];
+    if (s.raw.length < 2048) s.raw.push([q[0] / G.w, q[1] / G.h]);
     s.travel += Math.hypot(q[0] - s.last[0], q[1] - s.last[1]); s.last = q;
     const b = Component.drSnap(G.g, G.w, G.h, q, 4);
     s.live = Component.drWire(G.g, G.w, G.h, s.anchor, b, 12);
@@ -1561,7 +1582,8 @@ class Component extends DCLogic {
       loops = cur.outline.slice();
       if (a && b && a.li === b.li) loops[a.li] = Component.drSplice(cur.outline[a.li], a.vi, b.vi, path);
       else loops.push(path);   // ends on two different loops: kept as a shape of its own
-    } else loops = [path];
+    } else if (Component.drOpen(s.raw)) return this.prBrush(s.k, Component.drThin(s.raw, 256)), true;   // a stroke over the thing: the model outlines it
+    else loops = [path];
     let pr = this.olPr; if (!pr || pr.k !== s.k) pr = this.olPr = {k:s.k, pts:[], hist:[]};
     const f = Component.drShape(loops); pr.hist.push({...f, n:pr.pts.length, hand:true}); this.prShow(pr, f);
     return true;
@@ -1635,6 +1657,8 @@ class Component extends DCLogic {
     if (ds && ds.moved && dg && ds.k === this.olKey()) {
       const line = (pts, dash) => { if (pts.length < 2) return; const q = new Path2D(); pts.forEach(([a, b], i) => i ? q.lineTo(a / dg.w * w, b / dg.h * h) : q.moveTo(a / dg.w * w, b / dg.h * h));
         x.setLineDash(dash ? [4 * dpr, 3 * dpr] : []); x.lineWidth = 3.5 * dpr; x.strokeStyle = 'rgba(22,21,20,0.7)'; x.stroke(q); x.lineWidth = 1.8 * dpr; x.strokeStyle = '#FFFFFF'; x.stroke(q); };
+      if (!pick && ds.raw && ds.raw.length > 1) { const q = new Path2D(); ds.raw.forEach(([a, b], i) => i ? q.lineTo(a * w, b * h) : q.moveTo(a * w, b * h));
+        x.setLineDash([]); x.lineCap = 'round'; x.lineJoin = 'round'; x.lineWidth = 0.02 * Math.max(w, h); x.strokeStyle = 'rgba(255,210,122,0.35)'; x.stroke(q); }
       line(ds.done, false); line(ds.live, true);
     }
     // the followed shape where it was at the nearest followed frame, over the rest
@@ -1739,7 +1763,7 @@ class Component extends DCLogic {
     if (busy) return busy;
     if (quick) return (n > 1 && quick.startsWith('Person') ? 'People' : quick) + ' chosen · click the picture to outline something else instead' + (draft ? ' · ⏎ to follow' : '') + ' · esc to let go';
     const tail = n ? ' · click outside to add, inside to take away · drag along the edge to redraw it' + (draft ? ' · ⏎ to follow' : '') + ' · esc to undo' : '';
-    return (why ? why + ' · ' : '') + (n ? 'outlined' + tail : 'click the thing you mean');
+    return (why ? why + ' · ' : '') + (n ? 'outlined' + tail : 'click or brush over the thing you mean');
   }
   static olSay(f, n) { return f === undefined || f === 'wait' ? 'reading this frame…' : f === null ? 'this frame couldn’t be read' : !f.length ? 'nothing to choose in this frame' : n ? n + ' chosen' : 'click a shape to choose it'; }
   // Follow (with the app): the one shape chosen, followed through the whole clip from the frame on show, forward to the

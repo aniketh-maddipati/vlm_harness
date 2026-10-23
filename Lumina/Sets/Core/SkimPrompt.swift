@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreVideo
 import Foundation
 import Vision
 
@@ -23,10 +24,32 @@ nonisolated enum SkimPrompt {
 
     /// The outline for `points` on `frame` (a base64 JPEG the page drew from its own video), as one shape the page
     /// chooses like Vision's own (`LookMasks.Found`, id "pick"); nil when the frame or the clicks are not ones, or the
-    /// model can't run. `key` names the frame: clicks on the same key add to the outline already made.
-    static func outline(key: String, frame: Any?, points: [SkimFollow.PromptPoint]) async -> LookMasks.Found? {
+    /// model can't run. `key` names the frame: clicks on the same key add to the outline already made. `stroke`: a
+    /// brush stroke over the thing (SkimFollow.promptStroke) seeds the outline in place of the first click.
+    static func outline(key: String, frame: Any?, points: [SkimFollow.PromptPoint], stroke: [LookMasks.Point]? = nil) async -> LookMasks.Found? {
         guard #available(macOS 27.0, *) else { return nil }
-        return await Session.shared.outline(key: key, frame: frame, points: points)
+        return await Session.shared.outline(key: key, frame: frame, points: points, stroke: stroke)
+    }
+
+    /// The stroke as Vision's scribble seed: one byte a pixel, 255 under the stroke and 0 elsewhere, from the top left
+    /// (measured: a stroke flipped upside down outlines nothing), at half the frame's size (Vision scales it).
+    static func scribble(_ stroke: [LookMasks.Point], width: Int, height: Int) -> CVPixelBuffer? {
+        let w = max(2, width / 2), h = max(2, height / 2)
+        var buf: CVPixelBuffer?
+        guard CVPixelBufferCreate(nil, w, h, kCVPixelFormatType_OneComponent8, [kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()] as CFDictionary, &buf) == kCVReturnSuccess,
+              let buf else { return nil }
+        CVPixelBufferLockBaseAddress(buf, [])
+        defer { CVPixelBufferUnlockBaseAddress(buf, []) }
+        guard let base = CVPixelBufferGetBaseAddress(buf),
+              let cg = CGContext(data: base, width: w, height: h, bitsPerComponent: 8, bytesPerRow: CVPixelBufferGetBytesPerRow(buf),
+                                 space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return nil }
+        cg.setFillColor(gray: 0, alpha: 1); cg.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        // A bitmap's first row is its top; its drawing space runs up from the bottom.
+        let pts = stroke.map { CGPoint(x: $0.x * Double(w), y: (1 - $0.y) * Double(h)) }
+        cg.setStrokeColor(gray: 1, alpha: 1); cg.setLineWidth(max(1, SkimFollow.strokeWidth * Double(max(w, h))))
+        cg.setLineCap(.round); cg.setLineJoin(.round)
+        cg.addLines(between: pts); cg.strokePath()
+        return buf
     }
 
     /// While following a shape outlined by clicks (SkimTracker): the thing in `box` (fractions from the top left) of
@@ -59,6 +82,7 @@ nonisolated enum SkimPrompt {
         private var key: String?
         private var image: CGImage?
         private var points: [SkimFollow.PromptPoint] = []
+        private var stroke: [LookMasks.Point]?
         private var request: GenerateIterativeSegmentationRequest?
         private var used = Date.distantPast
         /// How long an outline is held with no click.
@@ -74,32 +98,39 @@ nonisolated enum SkimPrompt {
             String(describing: await r.assetStatus).split(separator: "(").first.map(String.init) ?? ""
         }
 
-        func outline(key k: String, frame: Any?, points p: [SkimFollow.PromptPoint]) async -> LookMasks.Found? {
+        func outline(key k: String, frame: Any?, points p: [SkimFollow.PromptPoint], stroke st: [LookMasks.Point]? = nil) async -> LookMasks.Found? {
             if Date().timeIntervalSince(used) > Self.idle { drop() }
             used = Date()
-            // The same frame and the clicks so far and more: only the new clicks go to the request.
-            if k == key, let request, let image, let added = SkimFollow.promptAdded(points, p) {
+            // The same frame, stroke and clicks so far and more: only the new clicks go to the request.
+            if k == key, st == stroke, let request, let image, let added = SkimFollow.promptAdded(points, p, seeded: st != nil) {
                 do {
                     for q in added { try q.include ? request.addIncludedPoint(Self.vision(q)) : request.addExcludedPoint(Self.vision(q)) }
                     points = p
                     return try await Self.found(request, image)
                 } catch { drop(); return nil }
             }
-            // Else start again from the first click, on this frame.
+            // Else start again from the stroke or the first click, on this frame.
             drop()
-            guard let first = p.first, let cg = SetsMasks.image(frame: frame) else { return nil }
-            let r = GenerateIterativeSegmentationRequest(seedPoint: Self.vision(first))
+            guard let cg = SetsMasks.image(frame: frame) else { return nil }
+            let r: GenerateIterativeSegmentationRequest, rest: ArraySlice<SkimFollow.PromptPoint>
+            if let st {
+                guard let buf = SkimPrompt.scribble(st, width: cg.width, height: cg.height) else { return nil }
+                r = GenerateIterativeSegmentationRequest(seedScribbleBuffer: CVReadOnlyPixelBuffer(unsafeBuffer: buf)); rest = p[...]
+            } else {
+                guard let first = p.first else { return nil }
+                r = GenerateIterativeSegmentationRequest(seedPoint: Self.vision(first)); rest = p.dropFirst()
+            }
             r.qualityLevel = .balanced
             do {
                 if await Self.assets(r) != "ready" { try await r.downloadAssets() }
-                for q in p.dropFirst() { try q.include ? r.addIncludedPoint(Self.vision(q)) : r.addExcludedPoint(Self.vision(q)) }
+                for q in rest { try q.include ? r.addIncludedPoint(Self.vision(q)) : r.addExcludedPoint(Self.vision(q)) }
                 let f = try await Self.found(r, cg)
-                key = k; image = cg; points = p; request = r
+                key = k; image = cg; points = p; stroke = st; request = r
                 return f
             } catch { return nil }
         }
 
-        private func drop() { key = nil; image = nil; points = []; request = nil }
+        private func drop() { key = nil; image = nil; points = []; stroke = nil; request = nil }
 
         /// Vision's points are from the bottom left; the page's from the top left.
         private static func vision(_ q: SkimFollow.PromptPoint) -> NormalizedPoint { NormalizedPoint(x: q.x, y: 1 - q.y) }

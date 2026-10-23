@@ -297,6 +297,20 @@ final class SkimFollowTests: XCTestCase {
         XCTAssertNil(SkimFollow.promptPoints(Array(repeating: ["x": 0.5, "y": 0.5], count: SkimFollow.promptMax + 1)))
     }
 
+    func testABrushStrokeThePageMaySendSeedsTheOutline() {
+        XCTAssertEqual(SkimFollow.promptStroke([["x": 0.1, "y": 0.2], ["x": 0.3, "y": 0.4]]), [.init(x: 0.1, y: 0.2), .init(x: 0.3, y: 0.4)])
+        XCTAssertNil(SkimFollow.promptStroke([["x": 0.1, "y": 0.2]]), "a dot is a click, not a stroke")
+        XCTAssertNil(SkimFollow.promptStroke([["x": 0.1, "y": 0.2], ["x": 1.1, "y": 0.4]]), "outside the frame")
+        XCTAssertNil(SkimFollow.promptStroke(Array(repeating: ["x": 0.5, "y": 0.5], count: SkimFollow.strokeMax + 1)))
+        XCTAssertNil(SkimFollow.promptStroke("stroke"))
+        // With a stroke, no click is needed, and the first one may take away.
+        XCTAssertEqual(SkimFollow.promptPoints([] as [Any], seeded: true), [])
+        XCTAssertEqual(SkimFollow.promptPoints([["x": 0.5, "y": 0.5, "in": false]], seeded: true), [.init(x: 0.5, y: 0.5, include: false)])
+        let a = SkimFollow.PromptPoint(x: 0.5, y: 0.5, include: false)
+        XCTAssertEqual(SkimFollow.promptAdded([], [a], seeded: true), [a], "the first click after a stroke adds to it")
+        XCTAssertNil(SkimFollow.promptAdded([], [a]), "without a stroke there is nothing to add to")
+    }
+
     func testAClickAddsToTheOutlineAndAnUndoStartsAgain() {
         let a = SkimFollow.PromptPoint(x: 0.5, y: 0.5, include: true), b = SkimFollow.PromptPoint(x: 0.7, y: 0.5, include: false)
         let c = SkimFollow.PromptPoint(x: 0.1, y: 0.1, include: true)

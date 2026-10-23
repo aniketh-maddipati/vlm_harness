@@ -414,7 +414,7 @@ nonisolated enum SetsPage: String, Sendable {
         openInFinalCut: (path) => post('skimOpenInFinalCut', { path: String(path) }),
         masks: (frame) => post('skimMasks', { frame: typeof frame === 'string' ? frame : '' }),
         promptReady: () => post('skimPromptReady'),
-        prompt: (key, frame, points) => post('skimPrompt', { key: String(key), frame: typeof frame === 'string' ? frame : '', points: (points || []).map(p => ({ x: Number(p.x), y: Number(p.y), in: !!p.in })) }),
+        prompt: (key, frame, points, stroke) => post('skimPrompt', { key: String(key), frame: typeof frame === 'string' ? frame : '', points: (points || []).map(p => ({ x: Number(p.x), y: Number(p.y), in: !!p.in })), ...(Array.isArray(stroke) ? { stroke: stroke.map(p => ({ x: Number(p.x), y: Number(p.y) })) } : {}) }),
         follow: (id, frame, start) => post('skimFollow', Object.assign({ id: String(id), frame: typeof frame === 'string' ? frame : '' }, start ? { kind: String(start.kind), box: start.box } : {})),
         followEnd: (id) => post('skimFollow', { id: String(id), end: true }),
         matte: (m) => post('skimMatte', m && typeof m === 'object' ? Object.assign({ name: String(m.name), w: Number(m.w), h: Number(m.h), frames: Number(m.frames), fd: m.fd, dir: m.dir ? String(m.dir) : '', grow: Number(m.grow) || 0, soft: Number(m.soft) || 0 }, m.track ? { track: String(m.track) } : { samples: m.samples }) : {}),

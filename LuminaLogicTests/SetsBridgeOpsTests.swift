@@ -163,7 +163,7 @@ final class SetsBridgeOpsTests: XCTestCase {
         "saveSession": ["id", "json", "summary"], "recents": [], "reopen": ["id"], "workingFiles": ["id"], "removeShoot": ["id"],
         "writeInto": ["label", "files"], "readSidecars": ["root", "files"], "writeSidecars": ["root", "files"], "reveal": ["path"],
         "setPrefs": ["prefs"], "checkAccess": [], "reopenDenied": [], "reopenCurrent": [],
-        "skimMasks": ["frame"], "skimPromptReady": [], "skimPrompt": ["key", "frame", "points"], "skimFollow": ["id", "frame", "kind", "box", "end"],
+        "skimMasks": ["frame"], "skimPromptReady": [], "skimPrompt": ["key", "frame", "points", "stroke"], "skimFollow": ["id", "frame", "kind", "box", "end"],
         "skimMatte": ["name", "w", "h", "frames", "fd", "samples", "dir", "track", "grow", "soft"],
         "skimTrack": ["id", "path", "kind", "box", "t", "end", "patch", "from", "to", "prompted"], "skimTrackPoll": ["id", "from"],
         "skimRemove": ["name", "path", "frames", "fd", "track", "dir", "grow", "soft"],

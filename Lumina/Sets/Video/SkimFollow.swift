@@ -436,19 +436,39 @@ nonisolated enum SkimFollow {
         return true
     }
 
-    /// The most clicks one outline takes; past that the page starts again.
-    static let promptMax = 32
+    /// A brush stroke over the thing meant (Lightroom's Brush select): the cursor's path, fractions from the top left,
+    /// drawn `strokeWidth` of the frame's long edge wide as the model's seed. On DAVIS's merged objects a stroke
+    /// outlines better than a click: 0.92 IoU against 0.86 (OUTLINING.md, the scribble row).
+    static let strokeMax = 512
+    static let strokeWidth = 0.02
 
-    /// The clicks as the page sends them, oldest first: `[{x, y, in}]`, at least one, at most `promptMax`, each inside
-    /// the frame. The first one starts the outline, so it always adds. Nil for anything else.
-    static func promptPoints(_ any: Any?) -> [PromptPoint]? {
-        guard let a = any as? [Any], !a.isEmpty, a.count <= promptMax else { return nil }
+    /// The stroke as the page sends it, `[{x, y}]`: 2 to `strokeMax` points inside the frame. Nil for anything else.
+    static func promptStroke(_ any: Any?) -> [Point]? {
+        guard let a = any as? [Any], a.count >= 2, a.count <= strokeMax else { return nil }
+        var out: [Point] = []
+        for e in a {
+            guard let d = e as? [String: Any], let x = (d["x"] as? NSNumber)?.doubleValue, let y = (d["y"] as? NSNumber)?.doubleValue,
+                  x.isFinite, y.isFinite, (0...1).contains(x), (0...1).contains(y) else { return nil }
+            out.append(Point(x: x, y: y))
+        }
+        return out
+    }
+
+    /// The most clicks one outline takes; past that the page starts again.
+    /// (Vision takes at most 13 points on one request seeded with a point or a stroke.)
+    static let promptMax = 12
+
+    /// The clicks as the page sends them, oldest first: `[{x, y, in}]`, at most `promptMax`, each inside the frame.
+    /// Without a brush stroke there is at least one, and the first starts the outline, so it always adds; `seeded`
+    /// (a stroke started it) allows none, and each click adds or takes away as it says. Nil for anything else.
+    static func promptPoints(_ any: Any?, seeded: Bool = false) -> [PromptPoint]? {
+        guard let a = any as? [Any], seeded || !a.isEmpty, a.count <= promptMax else { return nil }
         var out: [PromptPoint] = []
         for e in a {
             guard let d = e as? [String: Any], let x = (d["x"] as? NSNumber)?.doubleValue, let y = (d["y"] as? NSNumber)?.doubleValue,
                   x.isFinite, y.isFinite, (0...1).contains(x), (0...1).contains(y) else { return nil }
             let include = (d["in"] as? Bool) ?? true
-            out.append(PromptPoint(x: x, y: y, include: out.isEmpty ? true : include))
+            out.append(PromptPoint(x: x, y: y, include: out.isEmpty && !seeded ? true : include))
         }
         return out
     }
@@ -456,8 +476,8 @@ nonisolated enum SkimFollow {
     /// The clicks to add to the outline already made from `old` to reach `new`: the new ones at the end when `new` only
     /// adds to `old` (the model keeps the frame's encoding, so a click costs milliseconds), nil when `new` is not `old`
     /// and more (an undo, or another frame), which starts again from `new`'s first click.
-    static func promptAdded(_ old: [PromptPoint], _ new: [PromptPoint]) -> [PromptPoint]? {
-        guard !old.isEmpty, new.count >= old.count, Array(new.prefix(old.count)) == old else { return nil }
+    static func promptAdded(_ old: [PromptPoint], _ new: [PromptPoint], seeded: Bool = false) -> [PromptPoint]? {
+        guard seeded || !old.isEmpty, new.count >= old.count, Array(new.prefix(old.count)) == old else { return nil }
         return Array(new.dropFirst(old.count))
     }
 }
