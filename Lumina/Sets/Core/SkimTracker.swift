@@ -45,8 +45,11 @@ nonisolated final class SkimTracker: @unchecked Sendable {
     /// Starts following `kind` chosen at `box` (fractions from the top left) on the frame at `t0` seconds of the clip
     /// at `url`; any track by that id is stopped and let go first. With `fix`, only the stretch `from … to` is followed
     /// and, once done, takes the place of that stretch in the track `into` (a fix counts against no limit and goes with
-    /// its track).
-    func start(id: String, url: URL, kind: LookMasks.Kind, box: LookMasks.Box, t0: Double, fix: (into: String, from: Double, to: Double)? = nil) {
+    /// its track). `prompted`: the shape was outlined by clicks (SkimPrompt), so each frame's outline comes from the
+    /// prompted segmenter with the box followed so far as its prompt, not from Vision's own shapes, which may merge it
+    /// with its neighbours again.
+    func start(id: String, url: URL, kind: LookMasks.Kind, box: LookMasks.Box, t0: Double, fix: (into: String, from: Double, to: Double)? = nil,
+               prompted: Bool = false) {
         let job = Job(id: id)
         job.into = fix?.into
         job.span = fix.map { (max(0, $0.from), max($0.from, $0.to)) }
@@ -59,7 +62,7 @@ nonisolated final class SkimTracker: @unchecked Sendable {
             jobs[id] = job
         }
         Task.detached(priority: .utility) { [self] in
-            do { try await run(job, url: url, kind: kind, box: box, t0: t0) } catch {
+            do { try await run(job, url: url, kind: kind, box: box, t0: t0, prompted: prompted) } catch {
                 lock.withLock { if job.state == "run" { job.state = "failed"; job.why = (error as? Failed)?.why ?? "the clip couldn’t be read" } }
             }
             lock.withLock {
@@ -132,10 +135,12 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         /// Frames looked at through the window since the last whole frame (`SkimFollow.fullEvery` forces a whole one),
         /// and whether the tracker wavered on the last frame (the next is looked at whole).
         var sinceFull = SkimFollow.fullEvery, wavered = false
-        init(_ t: SkimFollower.Trail) { trail = t }
+        /// The shape was outlined by clicks: its outline comes from the prompted segmenter on each frame.
+        let prompted: Bool
+        init(_ t: SkimFollower.Trail, prompted: Bool = false) { trail = t; self.prompted = prompted }
     }
 
-    private func run(_ j: Job, url: URL, kind: LookMasks.Kind, box: LookMasks.Box, t0: Double) async throws {
+    private func run(_ j: Job, url: URL, kind: LookMasks.Kind, box: LookMasks.Box, t0: Double, prompted: Bool) async throws {
         let asset = AVURLAsset(url: url)
         guard let track = try await asset.loadTracks(withMediaType: .video).first else { throw Failed(why: "the clip has no picture") }
         let natural = try await track.load(.naturalSize), length = try await asset.load(.duration).seconds
@@ -152,7 +157,7 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         var startBox = box
 
         // Forward from the frame it was chosen on.
-        let fwd = Way(SkimFollower.Trail(kind: kind, box: box))
+        let fwd = Way(SkimFollower.Trail(kind: kind, box: box), prompted: prompted)
         var first = true
         try read(track: track, asset: asset, size: size, from: start, to: span.to) { t, image in
             if self.stopped(j) { return false }
@@ -168,7 +173,7 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         guard !stopped(j) else { return }
 
         // Back to the start, a second at a time, each stretch from its end to its start.
-        let back = Way(SkimFollower.Trail(kind: kind, box: startBox))
+        let back = Way(SkimFollower.Trail(kind: kind, box: startBox), prompted: prompted)
         for c0 in SkimFollow.backChunks(from: start, chunk: 1) where c0.to > span.from {
             let c = (from: max(c0.from, span.from), to: c0.to)
             var frames: [(t: Double, image: CGImage)] = []
@@ -189,6 +194,11 @@ nonisolated final class SkimTracker: @unchecked Sendable {
     /// frames, while the shape is lost, after the tracker wavered, for the sky and the background, and when the shape
     /// runs into the window's edge.
     private func shapes(_ w: Way, _ image: CGImage) -> [LookMasks.Found] {
+        // Outlined by clicks: the prompted segmenter, prompted with the box followed so far a little grown. Lost, it
+        // falls back to Vision's shapes, which the feature print can find it among again.
+        if w.prompted, w.lost == 0, let box = w.trail.box, let s = SkimPrompt.outlineSync(image, box: SkimFollow.grown(box, by: SkimFollow.promptGrow)) {
+            return [s]
+        }
         if SkimFollow.boxed(w.trail.kind), w.lost == 0, !w.wavered, w.sinceFull < SkimFollow.fullEvery,
            let box = w.trail.box, let window = SkimFollow.window(around: box),
            let near = SetsMasks.near(image, window: window) {

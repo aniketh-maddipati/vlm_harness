@@ -10,7 +10,11 @@ import VideoToolbox
 // a clip without the app, so the mask lab scores it next to the other trackers, and so the sure / shaky / lost strip
 // can be checked against the truth: how well a frame the app calls "sure" really holds the shape.
 //
-//   masklab-skim <clip> --start N (--box x,y,w,h | --point x,y) [--frames N] --out DIR
+//   masklab-skim <clip> --start N (--box x,y,w,h | --point x,y) [--frames N] [--prompted] --out DIR
+//
+// --prompted: the start is outlined by Vision's prompted segmenter (SkimPrompt, macOS 27) on the box, or on a box
+// around the point, as a click outlines it in the app, and the track keeps outlining it with the followed box as the
+// prompt (SkimTracker's `prompted`).
 //
 // The same arguments and the same output as masklab-track: DIR/000123.png (8-bit, 255 = in, at SkimFollow's proxy
 // size) and DIR/timing.json, which also has `sure` (frames per state), `sure_frames` (each written frame's state) and
@@ -22,8 +26,8 @@ final class Holder<T>: @unchecked Sendable { var value: T? }
 
 struct Usage: Error, CustomStringConvertible { var description: String }
 
-func parse(_ a: [String]) throws -> (clip: String, start: Int, box: LookMasks.Box?, point: LookMasks.Point?, frames: Int?, out: String) {
-    var clip: String?, start = 0, box: LookMasks.Box?, point: LookMasks.Point?, frames: Int?, out: String?
+func parse(_ a: [String]) throws -> (clip: String, start: Int, box: LookMasks.Box?, point: LookMasks.Point?, frames: Int?, out: String, prompted: Bool) {
+    var clip: String?, start = 0, box: LookMasks.Box?, point: LookMasks.Point?, frames: Int?, out: String?, prompted = false
     var i = 0
     func next() throws -> String { i += 1; guard i < a.count else { throw Usage(description: "\(a[i - 1]) needs a value") }; return a[i] }
     func nums(_ s: String, _ n: Int) throws -> [Double] {
@@ -38,6 +42,7 @@ func parse(_ a: [String]) throws -> (clip: String, start: Int, box: LookMasks.Bo
         case "--box": let v = try nums(try next(), 4); box = LookMasks.Box(x: v[0], y: v[1], w: v[2], h: v[3])
         case "--point": let v = try nums(try next(), 2); point = LookMasks.Point(x: v[0], y: v[1])
         case "--out": out = try next()
+        case "--prompted": prompted = true
         case "--tracker", "--proxy", "--model", "--save-frames": _ = try next()     // masklab-track's, not used here
         default:
             guard clip == nil, !a[i].hasPrefix("--") else { throw Usage(description: "unknown argument \(a[i])") }
@@ -48,7 +53,7 @@ func parse(_ a: [String]) throws -> (clip: String, start: Int, box: LookMasks.Bo
     guard let clip, let out, box != nil || point != nil else {
         throw Usage(description: "usage: masklab-skim <clip> --start N (--box x,y,w,h | --point x,y) [--frames N] --out DIR")
     }
-    return (clip, start, box, point, frames, out)
+    return (clip, start, box, point, frames, out, prompted)
 }
 
 /// Every frame's presentation time, in order, from the compressed samples (nothing decoded).
@@ -133,12 +138,17 @@ func main() throws {
     } else {
         pick = found.map { ($0, iou($0.box, o.box!)) }.filter { $0.1 >= 0.05 }.max { $0.1 < $1.1 }?.0
     }
-    let kind = pick?.kind ?? .object, box = pick?.box ?? o.box ?? LookMasks.Box(x: o.point!.x - 0.05, y: o.point!.y - 0.05, w: 0.1, h: 0.1)
+    var kind = pick?.kind ?? .object, box = pick?.box ?? o.box ?? LookMasks.Box(x: o.point!.x - 0.05, y: o.point!.y - 0.05, w: 0.1, h: 0.1)
+    if o.prompted {
+        let seed = o.box ?? LookMasks.Box(x: max(0, o.point!.x - 0.05), y: max(0, o.point!.y - 0.05), w: 0.1, h: 0.1)
+        guard let s = SkimPrompt.outlineSync(first, box: seed) else { throw Usage(description: "--prompted: the prompted segmenter found nothing (macOS 27, model downloaded?)") }
+        kind = s.kind; box = s.box
+    }
 
     let started = Date()
     let id = "masklab"
     SkimTracker.logsLook = true
-    SkimTracker.shared.start(id: id, url: url, kind: kind, box: box, t0: t0)
+    SkimTracker.shared.start(id: id, url: url, kind: kind, box: box, t0: t0, prompted: o.prompted)
     var state = "run", why = "", got: [SkimFollow.Tracked] = []
     while true {
         guard let p = SkimTracker.shared.poll(id, from: Int.max) else { throw Usage(description: "the track went away") }

@@ -29,6 +29,29 @@ nonisolated enum SkimPrompt {
         return await Session.shared.outline(key: key, frame: frame, points: points)
     }
 
+    /// While following a shape outlined by clicks (SkimTracker): the thing in `box` (fractions from the top left) of
+    /// `image`, prompted by the box alone, as one shape; nil before macOS 27 or when nothing is there. Blocks its
+    /// thread (the track's own, in the background) for the request, about 150 ms.
+    static func outlineSync(_ image: CGImage, box: LookMasks.Box) -> LookMasks.Found? {
+        guard #available(macOS 27.0, *) else { return nil }
+        let done = DispatchSemaphore(value: 0), held = Held(image)
+        Task.detached(priority: .utility) {
+            let r = GenerateIterativeSegmentationRequest(seedBox: NormalizedRect(x: box.x, y: 1 - box.y - box.h, width: box.w, height: box.h))
+            r.qualityLevel = .balanced
+            held.out = try? await Session.found(r, held.image)
+            done.signal()
+        }
+        done.wait()
+        return held.out
+    }
+
+    /// The frame handed to the request's task and its answer handed back (written once, read after the wait).
+    private final class Held: @unchecked Sendable {
+        let image: CGImage
+        var out: LookMasks.Found?
+        init(_ image: CGImage) { self.image = image }
+    }
+
     @available(macOS 27.0, *)
     actor Session {
         static let shared = Session()
@@ -82,7 +105,7 @@ nonisolated enum SkimPrompt {
         private static func vision(_ q: SkimFollow.PromptPoint) -> NormalizedPoint { NormalizedPoint(x: q.x, y: 1 - q.y) }
 
         /// The request's mask on `image`, at the frame's size, its edge snapped to the frame's own edges, as one shape.
-        private static func found(_ r: GenerateIterativeSegmentationRequest, _ image: CGImage) async throws -> LookMasks.Found? {
+        static func found(_ r: GenerateIterativeSegmentationRequest, _ image: CGImage) async throws -> LookMasks.Found? {
             guard let obs = try await r.perform(on: image), var mask = SetsMasks.luminance(try obs.cgImage) else { return nil }
             let w = image.width, h = image.height
             if mask.width != w || mask.height != h { mask = LookMasks.resized(mask, width: w, height: h) }

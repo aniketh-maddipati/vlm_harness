@@ -306,4 +306,12 @@ final class SkimFollowTests: XCTestCase {
         XCTAssertNil(SkimFollow.promptAdded([a, b], [a, c]), "a different click starts again")
         XCTAssertNil(SkimFollow.promptAdded([], [a]), "nothing yet: start")
     }
+
+    func testTheFollowedBoxIsGrownToPromptTheNextFrame() {
+        let g = SkimFollow.grown(LookMasks.Box(x: 0.4, y: 0.4, w: 0.2, h: 0.1), by: 0.15)
+        XCTAssertEqual(g.x, 0.37, accuracy: 1e-9); XCTAssertEqual(g.y, 0.385, accuracy: 1e-9)
+        XCTAssertEqual(g.w, 0.26, accuracy: 1e-9); XCTAssertEqual(g.h, 0.13, accuracy: 1e-9)
+        let edge = SkimFollow.grown(LookMasks.Box(x: 0, y: 0.9, w: 0.5, h: 0.1), by: 0.15)
+        XCTAssertEqual(edge.x, 0); XCTAssertEqual(edge.y + edge.h, 1, accuracy: 1e-9, "kept inside the frame")
+    }
 }

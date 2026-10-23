@@ -766,7 +766,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 guard let into = SkimFollow.trackID(body["patch"]), let a = SkimFollow.time(body["from"]), let b = SkimFollow.time(body["to"]), a <= t0, t0 <= b else { return (false, nil) }
                 fix = (into, a, b)
             }
-            SkimTracker.shared.start(id: id, url: url, kind: start.kind, box: start.box, t0: t0, fix: fix)
+            SkimTracker.shared.start(id: id, url: url, kind: start.kind, box: start.box, t0: t0, fix: fix, prompted: (body["prompted"] as? Bool) == true)
             return (true, nil)
         case "skimTrackPoll":
             // How a track is going, and its followed frames from `from` (SkimTracker.poll).

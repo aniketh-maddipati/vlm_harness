@@ -411,6 +411,17 @@ nonisolated enum SkimFollow {
         var include: Bool
     }
 
+    /// How much the followed box is grown on each side (a share of its own size) to prompt the next frame's outline,
+    /// so a shape that moved a little since is still inside it.
+    static let promptGrow = 0.15
+
+    /// `b` grown by `f` of its width and height on each side, kept inside the frame.
+    static func grown(_ b: Box, by f: Double) -> Box {
+        let x0 = max(0, b.x - b.w * f), y0 = max(0, b.y - b.h * f)
+        let x1 = min(1, b.x + b.w * (1 + f)), y1 = min(1, b.y + b.h * (1 + f))
+        return Box(x: x0, y: y0, w: max(0, x1 - x0), h: max(0, y1 - y0))
+    }
+
     /// The most clicks one outline takes; past that the page starts again.
     static let promptMax = 32
 
