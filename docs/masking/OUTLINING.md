@@ -3,6 +3,17 @@
 Owner's asks (2026-10-23): "can we improve the flexibility and accuracy of outlining", "more trackpad control of
 outlining", "to make fine corrections, need a tracer guiding as we are outlining". This is part of the tracking objective (TRACKING-EXPERIMENTS.md): the same fix serves both.
 
+## The yardstick
+
+Owner (2026-10-23): "the idea is that lumina does masking and healing as easy as lr mobile but for videos". Each
+step is measured by taps and time to a good result as well as accuracy. Next, in order:
+
+1. One-tap masks: Subject, Sky, People, Background, as Lightroom Mobile's Select buttons (Vision finds them already).
+2. Brush to select or remove: one stroke over the thing, handed to the model as a scribble prompt
+   (`init(seedScribbleBuffer:)`), then followed and, for Remove, patched.
+3. Following starts by itself after the tap.
+4. Remove on a moving camera (the parked healing work).
+
 ## Why outlining is stuck today
 
 A click in the Viewer picks one of Vision's ready-made shapes (`olPick`: click = only this shape, ⇧-click adds a
