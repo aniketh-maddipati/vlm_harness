@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lumina — Still and Skim</title>
+  <meta name="description" content="Still sorts a shoot, then edits here or hands the ratings to Lightroom. Skim sorts clips across devices in Rec.709 and hands Final Cut the clips you want. Nothing is uploaded.">
+  <meta name="theme-color" content="#1E1D1B">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23FFD27A'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Georgia,serif' font-size='18' fill='%231E1D1B'%3EL%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#top">Skip to content</a>
+
+  <header class="bar">
+    <a class="brand" href="#top">
+      <span class="word">Lumina</span>
+      <span class="beta">Beta 0.01</span>
+    </a>
+    <nav class="steps" aria-label="Stills and Skim">
+      <span class="steps-pill" aria-hidden="true"></span>
+      <a href="#still">Stills</a>
+      <a href="#skim">Skim</a>
+    </nav>
+    <a class="btn bar-cta" href="#get"><kbd>⏎</kbd> Get the beta</a>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">Photos and clips, on your Mac</p>
+        <h1>Decide the shoot before the coffee is cold.</h1>
+        <p class="lede">Open a folder. Keep what you want with one key. The files stay where they are, and nothing is uploaded.</p>
+        <div class="ways">
+          <a class="way" href="#still">
+            <span class="way-name">Stills</span>
+            <span class="way-line">Sort your shoot. Find what to keep, set a frame aside, and take another look. Edit directly, or hand off to Adobe Lightroom.</span>
+          </a>
+          <a class="way" href="#skim">
+            <span class="way-name">Skim</span>
+            <span class="way-line">Sort your clips across devices, in Rec.709. Find what to delete early, and hand Final Cut the clips you actually want.</span>
+          </a>
+        </div>
+        <div class="cta-row">
+          <a class="btn" href="#get"><kbd>⏎</kbd> Get the beta</a>
+        </div>
+        <p class="fine">Mac app: Apple silicon, macOS 15 or later · Web page: the browser you already have · No account</p>
+
+        <figure class="frame">
+          <img src="../docs/screenshots/large-view.jpg" width="1440" height="900" alt="Lumina Still, large view of a lake, with the camera and exposure on the left and a measured detail score on the right.">
+        </figure>
+
+        <div class="promises">
+          <article class="promise">
+            <h3>Starts while it reads</h3>
+            <p>The preview already inside the file is enough to decide. The first rows come up while the rest of the folder is still being read.</p>
+          </article>
+          <article class="promise">
+            <h3>A burst stays together</h3>
+            <p>Shots taken in quick succession are one unit. Open it, compare the frames, and keep the one you want.</p>
+          </article>
+          <article class="promise">
+            <h3>Keys do the work</h3>
+            <p>⏎ keeps. R sets a frame aside. Arrows move. Every decision is one undo.</p>
+          </article>
+          <article class="promise">
+            <h3>The files stay put</h3>
+            <p>A rating is a small file next to the photo. A clip is never rewritten. Nothing is deleted.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="still">
+      <div class="wrap">
+        <p class="kicker">Still</p>
+        <h2>Sort your shoot. Keep, set aside, look again.</h2>
+        <p class="prose">Quickly find what to keep, set a frame aside, and take another look. Edit directly here, or hand the ratings off to Adobe Lightroom. Drag a card or a folder onto the window, or press ⌘O. A memory card is read-only: Lumina never writes to it.</p>
+        <div class="open-grid" role="group" aria-label="The Open screen">
+          <div class="tile tile-card">
+            <span class="label">Card</span>
+            <div class="line">A card is in. Read the previews and start.</div>
+            <div class="sub">Read-only. Files stay on the card.</div>
+            <div class="mini-btn"><kbd>⏎</kbd> Read the card</div>
+          </div>
+          <div class="tile tile-folder">
+            <span class="label">Folder or card</span>
+            <div class="folder-row">
+              <span class="cmd">⌘O</span>
+              <span class="line">Open…</span>
+            </div>
+          </div>
+        </div>
+        <p class="where">Still reads ARW and DNG. JPEG and HEIC are not read yet. <span>Files stay where they are.</span></p>
+        <p class="prose">The shoot is laid out in time. Soft frames and blown highlights are flagged. Your place and your decisions are kept with the shoot. Close the app and you are on the same frame.</p>
+        <ul class="keys">
+          <li><kbd>⏎</kbd> Keep, next</li>
+          <li><kbd>R</kbd> Set aside, next</li>
+          <li><kbd>←</kbd><kbd>→</kbd> Move</li>
+          <li><kbd>Q</kbd> Undo</li>
+          <li><kbd>Space</kbd> Large view</li>
+        </ul>
+        <figure class="frame">
+          <img src="../docs/screenshots/pick-kept.jpg" width="1440" height="900" alt="Lumina Still: a shoot in time, kept frames outlined in gold, picks collected along the bottom." loading="lazy">
+        </figure>
+      </div>
+    </section>
+
+    <section class="block" id="edit">
+      <div class="wrap">
+        <p class="kicker">Still · Edit</p>
+        <h2>The keepers, on the Mac’s GPU.</h2>
+        <p class="prose">Exposure, white balance, contrast and the rest of the look, on the photos you kept. Move a slider and the picture updates in the window. Or skip this and open the folder in Adobe Lightroom. The handoff is the rating, written beside the file. The look stays in Lumina.</p>
+        <figure class="frame">
+          <img src="../docs/screenshots/edit.jpg" width="1440" height="789" alt="Lumina Edit: a mountain lake on the canvas, with temperature, exposure and contrast on the right." loading="lazy">
+        </figure>
+      </div>
+    </section>
+
+    <section class="block" id="save">
+      <div class="wrap">
+        <p class="kicker">Still · Save</p>
+        <h2>A rating next to the file. Nothing deleted.</h2>
+        <p class="prose">Save writes one <span class="serif">.xmp</span> sidecar per photo that made a pass, with a standard rating. Photos you set aside get nothing written. Before a sidecar is replaced, Lumina keeps a backup copy. Export copies the raw files or JPEGs, and checks every copy.</p>
+        <ul class="guarantees">
+          <li><strong>Originals stay put</strong> Lumina never changes the raw file, and it never writes to the card.</li>
+          <li><strong>A backup first</strong> Replacing a sidecar leaves a <span class="serif">.lumina-bak</span> beside it.</li>
+          <li><strong>Copies are checked</strong> An export is a copy, verified against the file it came from.</li>
+        </ul>
+        <figure class="frame">
+          <img src="../docs/screenshots/save.jpg" width="1440" height="900" alt="Lumina Save: four keepers out of 161, and a gold button to write their sidecars." loading="lazy">
+        </figure>
+      </div>
+    </section>
+
+    <section class="block" id="skim">
+      <div class="wrap">
+        <p class="kicker">Skim</p>
+        <h2>Sort your clips. Find what to delete early.</h2>
+        <p class="prose">On your phone, in the browser, or on the Mac. Log clips are shown in Rec.709. Mark selected, maybe, or cut, and see how much the cuts weigh. The handoff to Final Cut Pro is the clips you actually want. The clip file is never changed. Cut is the mark. You delete the file yourself.</p>
+        <ul class="keys">
+          <li><kbd>K</kbd> Selected</li>
+          <li><kbd>M</kbd> Maybe</li>
+          <li><kbd>C</kbd> Cut</li>
+        </ul>
+        <figure class="frame">
+          <img src="../docs/screenshots/skim-viewer.jpg" width="1440" height="900" alt="Lumina Skim: a clip playing, with selected, maybe and cut marks and the size those cut clips would free." loading="lazy">
+        </figure>
+      </div>
+    </section>
+
+    <section class="block" id="files">
+      <div class="wrap">
+        <p class="kicker">What gets written</p>
+        <h2>A sidecar for Lightroom. A pointer file for Final Cut.</h2>
+        <p class="prose">Neither file is a copy of the picture or the clip. Lightroom reads a rating beside the photo. Final Cut reads a list of the clips, still in the folder you opened, and whether each one was selected, a maybe, or cut.</p>
+
+        <div class="pair">
+          <div>
+            <p class="file-label">frame.xmp · Still, for Lightroom</p>
+            <p class="prose">One small file, same name as the photo. The rating, and a keyword for the pass. The look you dialled in Edit is not in here.</p>
+            <pre class="xml"><code><span class="tg">&lt;x:xmpmeta</span> <span class="at">xmlns:x</span>=<span class="st">"adobe:ns:meta/"</span><span class="tg">&gt;</span>
+ <span class="tg">&lt;rdf:RDF</span> <span class="at">xmlns:rdf</span>=<span class="st">"http://www.w3.org/1999/02/22-rdf-syntax-ns#"</span><span class="tg">&gt;</span>
+  <span class="tg">&lt;rdf:Description</span> <span class="at">rdf:about</span>=<span class="st">""</span>
+    <span class="at">xmlns:xmp</span>=<span class="st">"http://ns.adobe.com/xap/1.0/"</span>
+    <span class="at">xmp:Rating</span>=<span class="st">"3"</span><span class="tg">&gt;</span>
+   <span class="tg">&lt;dc:subject&gt;</span>
+    <span class="tg">&lt;rdf:Bag&gt;</span>
+     <span class="tg">&lt;rdf:li&gt;</span>Lumina pass 1<span class="tg">&lt;/rdf:li&gt;</span>
+    <span class="tg">&lt;/rdf:Bag&gt;</span>
+   <span class="tg">&lt;/dc:subject&gt;</span>
+  <span class="tg">&lt;/rdf:Description&gt;</span>
+ <span class="tg">&lt;/rdf:RDF&gt;</span>
+<span class="tg">&lt;/x:xmpmeta&gt;</span></code></pre>
+          </div>
+          <div>
+            <p class="file-label">thursday.fcpxml · Skim, for Final Cut Pro</p>
+            <p class="prose">The handoff. Final Cut’s own XML, version 1.10, for the clips you kept. <span class="serif">copy assets</span> is 0, so Final Cut does not copy them into the library. A selected clip is a favorite. A maybe carries the keyword “maybe”.</p>
+            <pre class="xml"><code><span class="tg">&lt;fcpxml</span> <span class="at">version</span>=<span class="st">"1.10"</span><span class="tg">&gt;</span>
+ <span class="tg">&lt;import-options&gt;</span>
+  <span class="tg">&lt;option</span> <span class="at">key</span>=<span class="st">"copy assets"</span> <span class="at">value</span>=<span class="st">"0"</span><span class="tg">/&gt;</span>
+ <span class="tg">&lt;/import-options&gt;</span>
+ <span class="tg">&lt;resources&gt;</span>
+  <span class="tg">&lt;asset</span> <span class="at">id</span>=<span class="st">"a1"</span> <span class="at">name</span>=<span class="st">"C0001"</span> <span class="at">format</span>=<span class="st">"r1"</span><span class="tg">&gt;</span>
+   <span class="tg">&lt;media-rep</span> <span class="at">kind</span>=<span class="st">"original-media"</span>
+    <span class="at">src</span>=<span class="st">"file:///Volumes/CARD/CLIP/C0001.MP4"</span><span class="tg">/&gt;</span>
+  <span class="tg">&lt;/asset&gt;</span>
+ <span class="tg">&lt;/resources&gt;</span>
+ <span class="tg">&lt;library&gt;</span>
+  <span class="tg">&lt;event</span> <span class="at">name</span>=<span class="st">"Thursday"</span><span class="tg">&gt;</span>
+   <span class="tg">&lt;asset-clip</span> <span class="at">ref</span>=<span class="st">"a1"</span> <span class="at">name</span>=<span class="st">"C0001"</span><span class="tg">&gt;</span>
+    <span class="tg">&lt;rating</span> <span class="at">value</span>=<span class="st">"favorite"</span><span class="tg">/&gt;</span>
+   <span class="tg">&lt;/asset-clip&gt;</span>
+  <span class="tg">&lt;/event&gt;</span>
+ <span class="tg">&lt;/library&gt;</span>
+<span class="tg">&lt;/fcpxml&gt;</span></code></pre>
+          </div>
+        </div>
+
+        <div class="shots">
+          <figure class="frame">
+            <img src="../docs/screenshots/skim-export.jpg" width="1440" height="900" alt="Skim Export: the Final Cut file and a text list of cut clips, saved to the browser’s download folder." loading="lazy">
+          </figure>
+          <figure class="frame">
+            <img src="../design/handoff/lumina-skim/screenshots/06-memory-panel.png" width="924" height="540" alt="Skim’s working memory panel: clips read from the card and not copied, frames made in this tab, and marks saved in this browser." loading="lazy">
+          </figure>
+          <figure class="frame">
+            <img src="../docs/screenshots/edit.jpg" width="1440" height="789" alt="The Edit canvas: the photo and the light sliders." loading="lazy">
+          </figure>
+        </div>
+
+        <h2 class="subhead">A public folder, if you want to try it.</h2>
+        <p class="prose">These are other people’s files, with their own terms. Lumina does not host them. Download a folder, then open it. Nothing in that folder is uploaded.</p>
+        <div class="ways">
+          <article class="way" style="cursor:default">
+            <span class="way-name">Stills</span>
+            <span class="way-line"><a href="https://raw.pixls.us/data-unique/">raw.pixls.us, the public-domain set</a>. Many cameras, CC0. Still reads the ARW and DNG files in it. The other raw types in that set are not read yet.</span>
+            <span class="way-line"><a href="https://hdrplusdata.org/dataset.html">HDR+ bursts</a>. Phone DNG, one folder per burst, CC-BY-SA. The curated subset is about 37 GB. The people in it are real. Cite the set if you pass it on.</span>
+          </article>
+          <article class="way" style="cursor:default">
+            <span class="way-name">Skim</span>
+            <span class="way-line"><a href="https://peach.blender.org/download/">Big Buck Bunny</a> and <a href="https://durian.blender.org/download/">Sintel</a>, from the Blender Foundation, CC-BY. Each is one film, not a camera card. Download an MP4 and drop it on Skim. Credit the Blender Foundation.</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="private">
+      <div class="wrap">
+        <p class="kicker">The files</p>
+        <h2>We care about this. They stay with you.</h2>
+        <div class="priv">
+          <article>
+            <h3>Nothing is uploaded</h3>
+            <p>The web page reads the folder in that tab. The Mac app reads the folder you pick. Neither one sends the photos or the clips anywhere.</p>
+          </article>
+          <article>
+            <h3>No account</h3>
+            <p>There is no sign-in, no analytics of our own, and no advertising. Marks on the web stay in the browser. Marks in the app stay in the app’s folder on the Mac.</p>
+          </article>
+          <article>
+            <h3>The card is read-only</h3>
+            <p>Lumina does not write to a memory card, and it does not delete a file. A cut clip is a mark. Emptying space is a separate step you take yourself.</p>
+          </article>
+        </div>
+        <p class="note">If macOS is set to share crash reports with app developers, Apple may send an anonymous one. That switch belongs to macOS, not to Lumina.</p>
+      </div>
+    </section>
+
+    <section class="block" id="faq">
+      <div class="wrap">
+        <h2>FAQ</h2>
+        <div class="faq-list">
+          <details class="faq">
+            <summary>What does it read today?</summary>
+            <p>Still reads ARW and DNG, from a folder or a card. JPEG and HEIC are not read yet. Skim reads MP4, MOV and MXF. A clip plays when Safari, or the Mac app, can decode it. Files stay where they are.</p>
+          </details>
+          <details class="faq">
+            <summary>Does it have to be a Sony?</summary>
+            <p>No. ARW is the Sony raw file, and it is the one Still has been used with most. A DNG from another camera is read the same way. Skim does not care which camera made the clip.</p>
+          </details>
+          <details class="faq">
+            <summary>What is different about the web page and the Mac app?</summary>
+            <p>The web page runs in the browser. It reads the files in that tab, makes its frames there, and keeps your marks there. A file it saves goes to the browser’s download folder. It cannot write next to the original, and it cannot delete anything.</p>
+            <p>The Mac app is the same screens in their own window. You pick the folder. It writes the .xmp next to the photo, keeps a .lumina-bak before replacing one, and checks a copy against the original. Edit is drawn by the Mac’s GPU. The app makes no network connection.</p>
+          </details>
+          <details class="faq">
+            <summary>Safari, Chrome, or Firefox?</summary>
+            <p>Safari is the browser Skim is tried in. It plays the 10-bit camera formats, including 10-bit H.264. Chrome plays 8-bit H.264 and 10-bit HEVC, and does not play 10-bit H.264. Firefox has not been the browser this is tried in, and it has the same hole for 10-bit H.264.</p>
+            <p>On an iPhone or iPad, Chrome and Firefox are WebKit, so they play what Safari plays. The Mac app uses WebKit too, the same engine as Safari.</p>
+          </details>
+          <details class="faq">
+            <summary>Where do the Lightroom ratings go?</summary>
+            <p>Save writes a .xmp file next to each photo, with the same name. Lightroom and anything else that reads XMP sidecars pick the rating up from there. Photos you set aside get no file. The raw file is not changed.</p>
+          </details>
+          <details class="faq">
+            <summary>What does Final Cut receive?</summary>
+            <p>An .fcpxml file. It points at the clips where they already are, and carries the marks: favorite for selected, the keyword “maybe” for a maybe, rejected for a cut. Final Cut is told not to copy the media. Import it with File → Import → XML.</p>
+          </details>
+          <details class="faq">
+            <summary>Why can’t I save on the card?</summary>
+            <p>Lumina never writes to a memory card. Copy the shoot to the Mac first, then save there.</p>
+          </details>
+          <details class="faq">
+            <summary>What happens to photos and clips I don’t keep?</summary>
+            <p>Nothing is written and nothing is deleted. A later pass can look at only what you kept, and you can go back to the whole shoot. In Skim, cut means “not wanted.” The file stays until you move it yourself.</p>
+          </details>
+          <details class="faq">
+            <summary>What does the Mac app need?</summary>
+            <p>A Mac with Apple silicon, and macOS 15 or later. The web page needs a current Safari for the camera codecs above. Chrome is fine for 8-bit clips and for Still.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="get">
+      <div class="wrap">
+        <p class="kicker">Beta 0.01</p>
+        <h2>Write, and I’ll send the beta.</h2>
+        <p class="prose">Lumina is a Mac app, and a web page for trying the screens. It isn’t on the App Store yet. Tell me the Mac model, the macOS version, and whether you want Still, Skim, or both.</p>
+        <div class="cta-row">
+          <a class="btn" href="mailto:anikethcov@gmail.com?subject=Lumina%20beta"><kbd>⏎</kbd> anikethcov@gmail.com</a>
+          <a class="btn btn-quiet" href="https://x.com/aniketh745" target="_blank" rel="noopener">DM @aniketh745</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <span class="word">Lumina</span>
+    <span>Still sorts the shoot. Skim sorts the clips.</span>
+    <span class="dot">·</span>
+    <a href="#private">Privacy</a>
+    <span class="dot">·</span>
+    <a href="mailto:anikethcov@gmail.com">anikethcov@gmail.com</a>
+    <span class="dot">·</span>
+    <a href="https://x.com/aniketh745" target="_blank" rel="noopener">@aniketh745</a>
+  </footer>
+
+  <div class="keybar" aria-hidden="true">
+    <div class="keyset on" data-keys="still">
+      <span><kbd>⏎</kbd> keeps</span>
+      <span><kbd>R</kbd> sets aside</span>
+      <span><kbd>←</kbd><kbd>→</kbd> moves</span>
+      <span><kbd>Q</kbd> undoes</span>
+      <span><kbd>Space</kbd> looks closer</span>
+    </div>
+    <div class="keyset" data-keys="edit">
+      <span>The look renders on this Mac. The rating is what gets saved.</span>
+    </div>
+    <div class="keyset" data-keys="save">
+      <span><kbd>⌘⏎</kbd> save</span>
+      <span>Originals stay put. The .xmp is written beside the photo.</span>
+    </div>
+    <div class="keyset" data-keys="skim">
+      <span><kbd>K</kbd> selected</span>
+      <span><kbd>M</kbd> maybe</span>
+      <span><kbd>C</kbd> cut</span>
+      <span>The clip file is not changed.</span>
+    </div>
+    <div class="keyset" data-keys="quiet">
+      <span>The files stay with you. Nothing is uploaded.</span>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var steps = document.querySelectorAll(".steps a");
+      var pill = document.querySelector(".steps-pill");
+      var sets = document.querySelectorAll(".keyset");
+      var order = ["still", "skim"];
+      var ticking = false;
+      var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      function stepFor(id) {
+        if (id === "still" || id === "edit" || id === "save") return "still";
+        if (id === "skim") return "skim";
+        return "";
+      }
+
+      function keysFor(id) {
+        if (id === "edit") return "edit";
+        if (id === "save" || id === "files") return "save";
+        if (id === "skim") return "skim";
+        if (id === "private" || id === "faq" || id === "get") return "quiet";
+        return "still";
+      }
+
+      function placePill(name) {
+        if (!pill) return;
+        var index = order.indexOf(name);
+        if (index < 0) {
+          pill.style.opacity = "0";
+          return;
+        }
+        var col = steps[index] ? steps[index].offsetWidth : 120;
+        pill.style.width = col + "px";
+        pill.style.opacity = "1";
+        pill.style.transform = "translateX(" + (index * col) + "px)";
+      }
+
+      function render() {
+        ticking = false;
+        var bar = document.querySelector(".bar");
+        var mark = window.scrollY + (bar ? bar.offsetHeight : 52) + 24;
+        var id = "top";
+        document.querySelectorAll("main section[id]").forEach(function (section) {
+          if (section.offsetTop <= mark) id = section.id;
+        });
+        var name = stepFor(id);
+        steps.forEach(function (link) {
+          if (link.getAttribute("href") === "#" + name) link.setAttribute("aria-current", "true");
+          else link.removeAttribute("aria-current");
+        });
+        placePill(name);
+        var keys = keysFor(id);
+        sets.forEach(function (set) {
+          set.classList.toggle("on", set.getAttribute("data-keys") === keys);
+        });
+      }
+
+      function onScroll() {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(render);
+      }
+
+      document.addEventListener("click", function (event) {
+        var link = event.target.closest("a[href^='#']");
+        if (!link) return;
+        var id = link.getAttribute("href").slice(1);
+        var target = document.getElementById(id);
+        if (!target) return;
+        event.preventDefault();
+        var bar = document.querySelector(".bar").offsetHeight;
+        var top = target.getBoundingClientRect().top + window.scrollY - bar - 16;
+        window.scrollTo({ top: Math.max(0, top), behavior: reduce ? "auto" : "smooth" });
+        history.pushState(null, "", "#" + id);
+      });
+
+      render();
+      document.addEventListener("scroll", onScroll, { passive: true });
+      window.addEventListener("resize", onScroll);
+
+      var veil = document.createElement("div");
+      var big = document.createElement("img");
+      veil.className = "enlarge";
+      veil.hidden = true;
+      veil.setAttribute("role", "dialog");
+      veil.setAttribute("aria-modal", "true");
+      veil.setAttribute("aria-label", "Enlarged screenshot");
+      veil.appendChild(big);
+      document.body.appendChild(veil);
+
+      function closeShot() {
+        veil.hidden = true;
+        big.removeAttribute("src");
+        document.body.classList.remove("enlarged");
+      }
+
+      document.addEventListener("dblclick", function (event) {
+        var shot = event.target.closest(".frame img");
+        if (!shot) return;
+        big.src = shot.currentSrc || shot.src;
+        big.alt = shot.alt || "";
+        veil.hidden = false;
+        document.body.classList.add("enlarged");
+      });
+
+      veil.addEventListener("click", closeShot);
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && !veil.hidden) closeShot();
+      });
+    })();
+  </script>
+</body>
+</html>
