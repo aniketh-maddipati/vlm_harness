@@ -126,6 +126,9 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         let trail: SkimFollower.Trail
         var lost = 0, wasLost = false
         var area: Double?
+        /// Frames looked at through the window since the last whole frame (`SkimFollow.fullEvery` forces a whole one),
+        /// and whether the tracker wavered on the last frame (the next is looked at whole).
+        var sinceFull = SkimFollow.fullEvery, wavered = false
         init(_ t: SkimFollower.Trail) { trail = t }
     }
 
@@ -150,7 +153,7 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         var first = true
         try read(track: track, asset: asset, size: size, from: start, to: span.to) { t, image in
             if self.stopped(j) { return false }
-            let found = SetsMasks.masks(image) ?? []
+            let found = self.shapes(fwd, image)
             let f = self.follow(fwd, image: image, t: t, found: found, first: first, print: print)
             if first {
                 if let s = f.step.shape { startBox = s.box }
@@ -172,10 +175,25 @@ nonisolated final class SkimTracker: @unchecked Sendable {
             }
             for (t, image) in frames.reversed() {
                 guard !stopped(j) else { return }
-                let found = SetsMasks.masks(image) ?? []
+                let found = shapes(back, image)
                 guard add(follow(back, image: image, t: t, found: found, first: false, print: print), to: j) else { return }
             }
         }
+    }
+
+    /// The shapes in a frame for one direction of the track: through the window around the followed box
+    /// (`SkimFollow.window`, `SetsMasks.near`), or the whole frame on the first frame, every `SkimFollow.fullEvery`
+    /// frames, while the shape is lost, after the tracker wavered, for the sky and the background, and when the shape
+    /// runs into the window's edge.
+    private func shapes(_ w: Way, _ image: CGImage) -> [LookMasks.Found] {
+        if SkimFollow.boxed(w.trail.kind), w.lost == 0, !w.wavered, w.sinceFull < SkimFollow.fullEvery,
+           let box = w.trail.box, let window = SkimFollow.window(around: box),
+           let near = SetsMasks.near(image, window: window) {
+            let m = SkimFollow.match(kind: w.trail.kind, box: box, in: near)
+            if let m, !SkimFollow.cut(m.box, by: window) { w.sinceFull += 1; return near }
+        }
+        w.sinceFull = 0
+        return SetsMasks.masks(image) ?? []
     }
 
     /// One frame of one direction: the trail's step, the shape found again by its feature print when it has been lost
@@ -204,6 +222,7 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         let cues = SkimFollow.Cues(tracker: figure, agree: agree, area: step.shape?.area, last: w.area, refound: refound,
                                    score: step.shape?.score, rivals: rivals, lost: w.lost)
         w.wasLost = step.shape == nil
+        w.wavered = (figure ?? 1) < SkimFollow.steady
         if let a = step.shape?.area { w.area = a }
         return SkimFollow.Tracked(t: t, step: step, sure: sure, cues: cues)
     }

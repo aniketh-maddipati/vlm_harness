@@ -12,6 +12,36 @@ final class SkimFollowTests: XCTestCase {
                         outline: [[P(x: b.x, y: b.y), P(x: b.x + b.w, y: b.y), P(x: b.x + b.w, y: b.y + b.h), P(x: b.x, y: b.y + b.h)]])
     }
 
+    func testTheWindowIsAroundTheBoxAndInsideTheFrame() throws {
+        // three times the box, around its centre
+        let w = try XCTUnwrap(SkimFollow.window(around: Box(x: 0.4, y: 0.4, w: 0.1, h: 0.1)))
+        XCTAssertEqual(w.w, 0.3, accuracy: 1e-9); XCTAssertEqual(w.x, 0.3, accuracy: 1e-9); XCTAssertEqual(w.y, 0.3, accuracy: 1e-9)
+        // a small box still gets the smallest window; one at the corner is moved inside the frame
+        let c = try XCTUnwrap(SkimFollow.window(around: Box(x: 0.97, y: 0, w: 0.02, h: 0.02)))
+        XCTAssertEqual(c.w, SkimFollow.windowMin, accuracy: 1e-9)
+        XCTAssertEqual(c.x + c.w, 1, accuracy: 1e-9); XCTAssertEqual(c.y, 0, accuracy: 1e-9)
+        // a big shape is looked at in the whole frame; so is an empty box
+        XCTAssertNil(SkimFollow.window(around: Box(x: 0.2, y: 0.2, w: 0.4, h: 0.5)))
+        XCTAssertNil(SkimFollow.window(around: Box(x: 0.2, y: 0.2, w: 0, h: 0.5)))
+    }
+
+    func testAShapeFoundInTheWindowIsPlacedInTheFrame() {
+        let win = Box(x: 0.5, y: 0.25, w: 0.4, h: 0.5)
+        let f = SkimFollow.placed(shape("person-1", .person, Box(x: 0.25, y: 0.5, w: 0.5, h: 0.5)), in: win)
+        XCTAssertEqual(f.box.x, 0.6, accuracy: 1e-9); XCTAssertEqual(f.box.y, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(f.box.w, 0.2, accuracy: 1e-9); XCTAssertEqual(f.box.h, 0.25, accuracy: 1e-9)
+        XCTAssertEqual(f.area, 0.25 * 0.2, accuracy: 1e-9)
+        XCTAssertEqual(f.outline[0][2].x, 0.8, accuracy: 1e-9); XCTAssertEqual(f.outline[0][2].y, 0.75, accuracy: 1e-9)
+    }
+
+    func testAShapeCutByTheWindowMeansTheWholeFrame() {
+        let win = Box(x: 0.3, y: 0, w: 0.4, h: 0.4)
+        XCTAssertFalse(SkimFollow.cut(Box(x: 0.4, y: 0.1, w: 0.1, h: 0.1), by: win))
+        XCTAssertTrue(SkimFollow.cut(Box(x: 0.3, y: 0.1, w: 0.1, h: 0.1), by: win))     // the window's left edge
+        XCTAssertTrue(SkimFollow.cut(Box(x: 0.4, y: 0.1, w: 0.1, h: 0.3), by: win))     // its bottom edge
+        XCTAssertFalse(SkimFollow.cut(Box(x: 0.4, y: 0, w: 0.1, h: 0.1), by: win))      // the frame's own top edge
+    }
+
     func testOverlap() {
         let a = Box(x: 0, y: 0, w: 0.5, h: 0.5)
         XCTAssertEqual(SkimFollow.iou(a, a), 1, accuracy: 1e-9)
