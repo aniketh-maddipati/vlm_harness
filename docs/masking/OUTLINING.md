@@ -1,7 +1,7 @@
 # Outlining: flexible, accurate, by trackpad
 
 Owner's asks (2026-10-23): "can we improve the flexibility and accuracy of outlining", "more trackpad control of
-outlining". This is part of the tracking objective (TRACKING-EXPERIMENTS.md): the same fix serves both.
+outlining", "to make fine corrections, need a tracer guiding as we are outlining". This is part of the tracking objective (TRACKING-EXPERIMENTS.md): the same fix serves both.
 
 ## Why outlining is stuck today
 
@@ -41,6 +41,25 @@ The modifiers keep their current meaning, with points instead of whole shapes:
 | ⏎ | follows it through the clip, as today |
 | Esc | drops the draft |
 
+| T, then move along an edge | the tracer (below) |
+
+### The tracer, for fine corrections
+
+A magnetic trace in the style of intelligent scissors (live wire). With T held or toggled, the line follows the cursor
+but snaps to the strongest nearby edge in the frame. The path from the last anchor to the cursor is shown live, before
+it's committed:
+
+- The cost of each pixel comes from the frame's own edges: gradient strength, and the edge direction against the path's
+  direction, on the 720 proxy and only in a band around the cursor. A shortest path from the last anchor to the cursor
+  (Dijkstra) runs on each move, which is fast at that size.
+- A click drops an anchor. The path also drops one on its own after the cursor has stayed on the same edge for a
+  while, as Photoshop's magnetic lasso does. ⌘Z takes back the last anchor, and Esc drops the trace.
+- Started on the current outline and ended back on it, the trace replaces just that stretch of the outline: the fine
+  correction. A closed trace on its own becomes a new shape.
+- The traced stretch is then handed to the model as a scribble along the edge, with an included point inside and an
+  excluded point outside, so the mask beyond the stretch stays consistent. The edge snap runs on the result.
+- Pinch zoom works mid-trace, so a hair-width edge can be traced at 400%.
+
 Not recommended: a two-finger swipe to step through candidate masks or frames, since two-finger horizontal moves
 already pan and scrub, and would fight. Candidates, if a model offers several, go on Tab.
 
@@ -62,5 +81,6 @@ The edge snap (`LookMasks.guided`) stays on top of whichever mask comes back.
 
 1. B and B2, with the SAM 2.1 speed fix (1.6 fps today).
 2. The page and the Mac side for click, ⇧ / ⌥ points and box, behind the current outline mode.
-3. Scribble with pressure, pan, ⌘Z.
-4. A screenshot sheet of each control on a DAVIS clip, then the owner tries it on a T7 clip.
+3. The tracer: live wire on the page, the stretch replaced in the outline, then refined by the model.
+4. Scribble with pressure, pan, ⌘Z.
+5. A screenshot sheet of each control on a DAVIS clip, then the owner tries it on a T7 clip.
