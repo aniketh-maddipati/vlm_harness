@@ -11,7 +11,8 @@
 # Environment:
 #   LUMINA_VIDEO_DIR      clips folder, its top level only (default /Volumes/T7: the seven yvid-a7siii-C00*.mp4)
 #   MASKLAB_EVIDENCE      evidence folder (default ~/LuminaEvidence/masklab)
-#   MASKLAB_TRACKERS      default "vision-box vision-instance"
+#   MASKLAB_TRACKERS      default "vision-box vision-instance"; add "skim" for the app's own track (SkimTracker,
+#                         built from the app's files with swiftc; its timing.json also has the sure / shaky / lost strip)
 #   MASKLAB_SAM2_MODEL    a SAM 2.1 Core ML folder: adds sam2-coreml (experimental); nothing is downloaded
 #   MASKLAB_PROXY         decode long edge (720)
 #   MASKLAB_FRAMES        frames per clip at most (default: each prompt's "frames", else the whole clip)
@@ -44,6 +45,15 @@ if [ -n "${MASKLAB_BIN:-}" ]; then
 else
   swift build -c release --package-path "$HERE/track"
   BIN="$HERE/track/.build/release/masklab-track"
+fi
+
+# `skim`: the app's own track (SkimTracker, #308), built with swiftc from the app's files (Tools/masklab/skim).
+SKIM_BIN=""
+if [[ " $TRACKERS " == *" skim "* ]]; then
+  mkdir -p "$EVID/build"; SKIM_BIN="$EVID/build/masklab-skim"
+  swiftc -O -swift-version 5 -o "$SKIM_BIN" "$ROOT/Lumina/Sets/Look/LookMasks.swift" "$ROOT/Lumina/Sets/Core/SetsMasks.swift" \
+    "$ROOT/Lumina/Sets/Video/SkimFollow.swift" "$ROOT/Lumina/Sets/Core/SkimFollower.swift" "$ROOT/Lumina/Sets/Core/SkimTracker.swift" \
+    "$HERE/skim/Stub.swift" "$HERE/skim/main.swift"
 fi
 
 RUN="$EVID/runs/$(date +%Y%m%d-%H%M%S)"
@@ -94,7 +104,8 @@ for tracker in $TRACKERS; do
     [ "$first" = 1 ] && [ "${MASKLAB_SAVE_FRAMES:-}" ] && args+=(--save-frames "$MASKLAB_SAVE_FRAMES")
     echo "+ masklab-track ${args[*]}" >>"$LOG"
     # A failed clip is reported and the run goes on to the next; nothing is retried.
-    if ! "$BIN" "${args[@]}" 2>&1 | tee -a "$LOG"; then
+    tool="$BIN"; [ "$tracker" = skim ] && tool="$SKIM_BIN"
+    if ! "$tool" "${args[@]}" 2>&1 | tee -a "$LOG"; then
       echo "masklab: $tracker on $stem failed (see $LOG)" | tee -a "$LOG"; failed=$((failed + 1))
     fi
   done <<<"$JOBS"

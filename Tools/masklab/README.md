@@ -146,6 +146,20 @@ checks its arguments and says it needs macOS).
 **Status:** the AVFoundation / Vision / Core ML code has not been compiled or run yet; it was
 written on Linux. The first Mac run is also its first build.
 
+## The app's own track (`skim/`, `masklab-skim`)
+
+`MASKLAB_TRACKERS="vision-box vision-instance skim"` adds the track Skim's Viewer runs (**Follow through the clip**,
+`SkimTracker`), built with `swiftc` from the app's own files (`LookMasks`, `SetsMasks`, `SkimFollow`, `SkimFollower`,
+`SkimTracker`; `skim/Stub.swift` stands in for the reader and the matte's file name). It takes masklab-track's
+arguments and writes the same masks and `timing.json`. The start frame's shape is chosen the way the page chooses it:
+Vision's shape that the box overlaps most, or the smallest one under the point, with its kind. Masks are the followed
+outlines rastered at `SkimFollow.proxyEdge` (720). `timing.json` also has `sure` (frames per state), `sure_frames` (each
+frame's state, from the start frame) and `refind`.
+
+`score.py` reports each clip's share of frames the app calls sure (`sure` column), the IoU of the labelled frames in
+each state (`iou_by_sure` in `report.json`, and the run's line under the table), and a line per run with J, F, J&F,
+fps and the sure share. The strip can be trusted when "sure" frames score high and "shaky" and "lost" ones low.
+
 ## Sky (`sky/`, `masklab-sky`)
 
 The app's sky mask on stills, for checking it on real photos: `bash Tools/masklab/sky/run-sky-test.sh [folder]` (default
