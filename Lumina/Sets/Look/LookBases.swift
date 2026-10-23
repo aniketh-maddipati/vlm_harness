@@ -68,6 +68,20 @@ nonisolated final class LookBases: @unchecked Sendable {
         /// Why the embedded JPEG stands in: the RAW develop's error. Nil for a developed RAW, an
         /// image file, and a stand-in that was asked for (`previewOnly`).
         var why: String? = nil
+        /// Where a point of the upright photo (fractions from its top left, before crop and turn)
+        /// lands in `base` (Core Image pixels): the crop, straighten, turn and scale baked in.
+        /// The photo's masks are placed with it (`LookPipeline.PhotoMasks`). Nil: `base` is the
+        /// whole photo, upright (an entry made elsewhere, as the tests' `adopt`).
+        var photo: CGAffineTransform? = nil
+
+        /// The photo → `base` transform, or → `small` (`base` scaled by the same factor its
+        /// Lanczos pass used).
+        func toPhoto(small: Bool) -> CGAffineTransform {
+            let t = photo ?? LookPipeline.frameTransform(CGRect(origin: .zero, size: baseSize))
+            guard small, baseSize.width > 0 else { return t }
+            let k = smallSize.width / baseSize.width
+            return t.concatenating(CGAffineTransform(scaleX: k, y: k))
+        }
     }
 
     struct Stats: Codable, Equatable, Sendable {
@@ -180,11 +194,18 @@ nonisolated final class LookBases: @unchecked Sendable {
         }
         let photoSize = Self.croppedSize(native ?? dev.extent.size, look.crop, rot: look.rot)
         // Crop, straighten and the quarter turn are baked in; the look runs with crop: false on top.
-        var img = LookPipeline.atOrigin(pipeline.geometry(dev.image, look.crop, rot: look.rot))
+        // `photo` follows the picture through each step: where the upright photo lands in the base.
+        let g = pipeline.geometryPlaced(dev.image, look.crop, rot: look.rot)
+        let placed = LookPipeline.atOriginPlaced(g.image, after: LookPipeline.frameTransform(dev.extent).concatenating(g.transform))
+        var img = placed.image
+        var photo = placed.transform
         // A JPEG stand-in or a RAW larger than needed (a crop that fits by height): scale to the canvas.
         let e = img.extent
         let s = min(canvas.width / max(1, e.width), canvas.height / max(1, e.height))
-        if s < 0.999 { img = LookPipeline.scaled(img, longEdge: Int((max(e.width, e.height) * s).rounded(.down))) }
+        if s < 0.999 {
+            img = LookPipeline.scaled(img, longEdge: Int((max(e.width, e.height) * s).rounded(.down)))
+            photo = photo.concatenating(LookPipeline.mapping(from: e, to: img.extent))
+        }
         // Whole pixels only: a fractional extent would leave a half-covered row along one edge.
         let baseRect = CGRect(x: 0, y: 0, width: max(1, img.extent.width.rounded(.down)), height: max(1, img.extent.height.rounded(.down)))
         img = img.cropped(to: baseRect)
@@ -193,7 +214,7 @@ nonisolated final class LookBases: @unchecked Sendable {
         let (base, small, textures, bytes) = try rasterise(img, baseRect, smallImg, smallRect)
         let entry = Entry(base: base, small: small, asShot: dev.asShot, anchor: dev.anchor, style: dev.style, baseSize: baseRect.size, smallSize: smallRect.size, photoSize: photoSize,
                           bytes: bytes, source: source, decoder: source == "raw" ? key.decoder : nil, developMs: Date().timeIntervalSince(t0) * 1000,
-                          onGPU: !textures.isEmpty, textures: textures, why: why)
+                          onGPU: !textures.isEmpty, textures: textures, why: why, photo: photo)
         lock.withLock {
             _stats.built += 1
             _stats.lastBuildMs = entry.developMs

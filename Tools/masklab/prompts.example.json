@@ -1,0 +1,5 @@
+{
+  "_about": "Copy to ~/LuminaEvidence/masklab/prompts.json. One entry per clip, keyed by the clip's file name without extension. start: the frame the object is selected on (0 = the clip's first frame). box: [x, y, w, h] or point: [x, y], normalized 0..1 with the origin at the top left of the frame. frames (optional): stop after this many frames. Keys starting with _ are ignored.",
+  "yvid-a7siii-C001": {"start": 0, "box": [0.40, 0.25, 0.20, 0.55]},
+  "yvid-a7siii-C002": {"start": 48, "point": [0.52, 0.48], "frames": 600}
+}

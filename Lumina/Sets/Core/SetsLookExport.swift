@@ -40,27 +40,32 @@ nonisolated enum SetsLookExport {
 
     /// With the decoder version to use (`nil` = Core Image's default; the caller resolves the
     /// shoot's pin per body) and the outcome. A failure with `decoder` set falls back one version.
-    static func render(raw url: URL, look: String, px: Int?, format: String, decoder: Int?, timeout: TimeInterval = LookRawPolicy.exportTimeout) throws -> (Data, Outcome) {
+    /// `masks`: the photo's automatic masks for the look's `mask:` tokens (the finding the preview
+    /// used, so the export renders what the canvas showed); empty renders without them.
+    static func render(raw url: URL, look: String, px: Int?, format: String, decoder: Int?, masks: [LookMasks.Found] = [], timeout: TimeInterval = LookRawPolicy.exportTimeout) throws -> (Data, Outcome) {
         let pipe = try pipeline()
         let parsed = try Look.parse(look)
         var outcome = Outcome(decoder: LookPipeline.isRAW(url) ? decoder : nil)
+        let found = masks.isEmpty || parsed.locals.isEmpty ? nil : masks
         let t0 = Date()
         do {
-            let data = try timed(timeout, decoder != nil) { try encode(pipe, parsed, url: url, px: px, format: format, decoder: decoder) }
+            let data = try timed(timeout, decoder != nil) { try encode(pipe, parsed, url: url, px: px, format: format, decoder: decoder, masks: found) }
             outcome.ms = Date().timeIntervalSince(t0) * 1000
             return (data, outcome)
         } catch {
             guard let v = decoder, let prev = LookRawPolicy.fallback(after: v, supported: LookPipeline.supportedDecoderVersions(url: url)) else { throw error }
             LuminaLog.export.error("RAW decoder \(v, privacy: .public) failed for \(url.lastPathComponent, privacy: .private) (\(String(describing: error), privacy: .private)); rendering again with \(prev, privacy: .public)")
-            let data = try encode(pipe, parsed, url: url, px: px, format: format, decoder: prev)
+            let data = try encode(pipe, parsed, url: url, px: px, format: format, decoder: prev, masks: found)
             outcome.decoder = prev; outcome.fellBackFrom = v; outcome.reason = "\(error)"
             outcome.ms = Date().timeIntervalSince(t0) * 1000
             return (data, outcome)
         }
     }
 
-    private static func encode(_ pipe: LookPipeline, _ look: Look, url: URL, px: Int?, format: String, decoder: Int?) throws -> Data {
+    private static func encode(_ pipe: LookPipeline, _ look: Look, url: URL, px: Int?, format: String, decoder: Int?, masks: [LookMasks.Found]? = nil) throws -> Data {
+        // The developed image is the whole upright photo, as the image path's: its masks fill it.
         let dev = try LookPipeline.developAny(url: url, longEdge: px, rules: pipe.rules, decoderVersion: decoder, nr: look.nr, dust: look.dust)
+            .withMasks(masks, key: LookPipeline.PhotoMasks.key(rel: url.path, masks ?? []))
         // Core Image carries the source's metadata (GPS, serials) through to the encoder: cleared
         // here, so the file holds only what withMetadata writes.
         let img = pipe.apply(look, to: dev).settingProperties([:])

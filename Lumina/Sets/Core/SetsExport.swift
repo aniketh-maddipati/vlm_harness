@@ -11,15 +11,17 @@ nonisolated struct SetsExportJob {
         /// The Edit step's look string rendered through LookPipeline (SetsLookExport). `px` nil =
         /// full size; the format follows the name's extension (jpg, tif, png). `decoder` is the
         /// RAW decoder version the shoot pins for this body (RAW 9 §2, §7), nil for Core Image's default.
-        case look(name: String, source: URL, look: String, px: Int?, decoder: Int? = nil)
+        /// `masks`: the photo's automatic masks, which the look's `mask:` tokens blend through
+        /// (`SetsMasks`, the finding the page drew from); empty renders the look without them.
+        case look(name: String, source: URL, look: String, px: Int?, decoder: Int? = nil, masks: [LookMasks.Found] = [])
 
         var name: String {
-            switch self { case .bytes(let n, _), .copy(let n, _), .look(let n, _, _, _, _): return n }
+            switch self { case .bytes(let n, _), .copy(let n, _), .look(let n, _, _, _, _, _): return n }
         }
 
         /// The original a copy or render is made from.
         var source: URL? {
-            switch self { case .bytes: return nil; case .copy(_, let s), .look(_, let s, _, _, _): return s }
+            switch self { case .bytes: return nil; case .copy(_, let s), .look(_, let s, _, _, _, _): return s }
         }
     }
 
@@ -96,7 +98,7 @@ nonisolated struct SetsExportJob {
             switch item {
             case .bytes(_, let d): return sum + Int64(d.count)
             case .copy(_, let src): return sum + Int64((try? src.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
-            case .look(let name, _, _, _, _): return sum + ((name as NSString).pathExtension.lowercased().hasPrefix("tif") ? 160 << 20 : 12 << 20)
+            case .look(let name, _, _, _, _, _): return sum + ((name as NSString).pathExtension.lowercased().hasPrefix("tif") ? 160 << 20 : 12 << 20)
             }
         }
     }
@@ -165,8 +167,8 @@ nonisolated struct SetsExportJob {
                     if try SetsFileOps.write(data, to: dst).backedUp { r.bak += 1 }
                 case .copy(_, let src):
                     if case .renamed = try SetsFileOps.copyVerified(src, to: dst) { r.renamed += 1 }
-                case .look(let name, let src, let look, let px, let decoder):
-                    let (data, outcome) = try SetsLookExport.render(raw: src, look: look, px: px, format: (name as NSString).pathExtension, decoder: decoder)
+                case .look(let name, let src, let look, let px, let decoder, let masks):
+                    let (data, outcome) = try SetsLookExport.render(raw: src, look: look, px: px, format: (name as NSString).pathExtension, decoder: decoder, masks: masks)
                     r.decoders.append(outcome.label)
                     r.renderMs.append(outcome.ms)
                     if outcome.fellBackFrom != nil { r.fallbacks.append(src.lastPathComponent) }

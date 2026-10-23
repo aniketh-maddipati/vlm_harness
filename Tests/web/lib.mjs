@@ -147,7 +147,7 @@ export class Bridge {
   constructor(parent) {
     this.parent = parent; this.roots = {}; this.pending = null; this.calls = []; this.sessions = {}; this.index = []; this.prefs = null; this.revealed = []; this.gone = new Set(); this.denied = null;
     // The Edit canvas (no Metal here: the image path). What SetsBridge answers, and the renders lumina://render served.
-    this.canvas = { path: 'image', entered: [], layouts: [], looks: [], drags: [], zooms: [], zoomRests: [], loupes: [], statsCalls: 0, resets: 0, updates: 0 };
+    this.canvas = { path: 'image', entered: [], layouts: [], looks: [], drags: [], zooms: [], zoomRests: [], loupes: [], masks: [], statsCalls: 0, resets: 0, updates: 0 };
     this.header = { canvas: 'image', raw9: false, raw9Present: false, decoder: 8, newest: 8, offerUpdate: false, slowed: false, bodies: { 'ILCE-7M4': { supported: [7, 8], raw9: false, fastest: 8, developMs: { 7: 30, 8: 20 } } } };
     this.renders = []; this.renderDelayMs = 0; this.renderJpeg = null; this.renderSeq = {};
   }
@@ -194,6 +194,8 @@ export class Bridge {
       case 'canvasDrag': this.canvas.drags.push(msg.start); return true;
       case 'canvasZoom': this.canvas.zooms.push(msg.roi || null); this.canvas.zoomRests.push(!!msg.rest); return true;
       case 'canvasLoupe': this.canvas.loupes.push(msg); return true;
+      // SetsBridge canvasMask (Prompt 28 §3): the canvas draws the mask's outline; true only on the native path.
+      case 'canvasMask': this.canvas.masks.push(msg.id === undefined ? 'missing' : msg.id); return this.canvas.path === 'native';
       case 'canvasStats': this.canvas.statsCalls++; if (msg.reset) this.canvas.resets++; return { path: this.canvas.path, facts: this.header, latencyMs: [], schedule: {}, bases: {}, tiles: {} };
       case 'writeInto': {
         // The Edit step's JPEGs (label 'jpeg'): what SetsBridge.writeInto answers after SetsExportJob ran the look items.
@@ -209,6 +211,16 @@ export class Bridge {
         (this.nears = this.nears || []).push({ a: msg.a, b: msg.b });
         const okP = q => q && q.p && +q.o > 0 && +q.l > 0 && this.resolve(q.p) && !this.gone.has(q.p.split('/')[0]);
         return okP(msg.a) && okP(msg.b) ? (msg.a.p === msg.b.p ? 0 : 0.25) : null;
+      }
+      // SetsMasks: the selections found in a photo's preview, null when it can't be read. Here: a
+      // subject and the background for any readable preview.
+      case 'masks': {
+        (this.maskAsks = this.maskAsks || []).push(msg.preview);
+        const q = msg.preview;
+        if (!(q && q.p && +q.o > 0 && +q.l > 0 && this.resolve(q.p) && !this.gone.has(q.p.split('/')[0]))) return null;
+        const sq = [[0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75]];
+        return [{ id: 'subject', kind: 'subject', score: 0.9, box: [0.25, 0.25, 0.5, 0.5], area: 0.25, outline: [sq] },
+                { id: 'background', kind: 'background', score: 0.9, box: [0, 0, 1, 1], area: 0.75, outline: [[[0, 0], [1, 0], [1, 1], [0, 1]], sq.slice().reverse()] }];
       }
       case 'ingestStats': return { workers: 4, inFlight: 0, maxInFlight: 4, heads: 0, previews: 0, largestRead: 0, opensAfterGone: 0, failures: 0, gone: [...this.gone] };
       case 'setPrefs': this.prefs = msg.prefs; return true;
