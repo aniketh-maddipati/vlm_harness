@@ -15,6 +15,18 @@ eq('B splits a row',sum(LC.buildShoot(fx.split.input,fx.split.cutsRow)),fx.split
 eq('⇧B merges rows',sum(LC.buildShoot(fx.split.input,fx.split.cutsJoin)),fx.split.expectJoin);
 eq('burst then singles stays one row',sum(LC.buildShoot(fx.afterBurst.input,{})),fx.afterBurst.expect);
 eq('drop onto a row header moves photos',sum(LC.buildShoot(fx.moves.input,fx.moves.to)),fx.moves.expectTo);
+{ // time detail: finer levels only add breaks, coarser only remove them, stacks never split, B still wins
+  const mk=(sec,i)=>({path:'D/A'+(1000+i)+'.ARW',name:'A'+(1000+i)+'.ARW',date:'2024:05:01 '+String(10+Math.floor(sec/3600)).padStart(2,'0')+':'+String(Math.floor(sec%3600/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'),focus:50,clip:0});
+  const secs=[0,1,2,40,100,400,401,1500,5000,5001,5002,9000], L=secs.map(mk), rows=d=>d.M.map(m=>m.fr.length), stk=d=>Object.values(d.G).filter(g=>g.kind==='burst').map(g=>g.frames.length);
+  const lv={}; for(let n=-3;n<=5;n++) lv[n]=LC.buildShoot(L,{},{detail:n});
+  eq('time detail: 0 matches no option',rows(lv[0]),rows(LC.buildShoot(L,{})));
+  let mono=true; for(let n=-3;n<5;n++) if(lv[n].M.length>lv[n+1].M.length) mono=false; eq('time detail: rows grow as detail grows',mono,true);
+  eq('time detail: 10 s breaks',rows(lv[5]),[3,1,1,2,1,3,1]);
+  eq('time detail: 3 h is one row',rows(lv[-3]),[12]);
+  eq('time detail: bursts never split',[stk(lv[5]),stk(lv[-3])],[stk(lv[0]),stk(lv[0])]);
+  eq('time detail: seconds under a minute',lv[5].M[1].time,'10:00:40');
+  eq('time detail: B split survives coarse',rows(LC.buildShoot(L,{f4:'row'},{detail:-3})),[4,8]);
+  eq('time detail: out of range clamps',rows(LC.buildShoot(L,{},{detail:99})),rows(lv[5])); }
 eq('drop between rows makes a row',sum(LC.buildShoot(fx.moves.input,fx.moves.newAfter)),fx.moves.expectNew);
 eq('dragged boundary says you moved this',sum(LC.buildShoot(fx.moves.input,fx.moves.moved)),fx.moves.expectMoved);
 eq('drop onto a stack merges',kinds(LC.buildShoot(fx.stacks.input,fx.stackMerge.cuts)),fx.stackMerge.expect);

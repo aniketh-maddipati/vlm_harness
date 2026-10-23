@@ -115,7 +115,12 @@ function parseLook(s){ const o={}; if(!s) return o; let ratio=null; String(s).tr
 // (Sony SequenceImageNumber runs when present; else gap ≤ 2 s and dHash distance ≤ 6; dHash ≥ 28 always splits;
 // no dHash: gap ≤ 1 s), brackets (ReleaseMode2 2/3, or 3+ frames spanning −/+ EV), cuts[id]=true|false stack override,
 // flags (soft / blown / shake), ranks, suggested keeps, navigation nodes.
-function buildShoot(list,cuts){ const light=h=>h<11?'morning':h<15?'midday':h<18?'afternoon':'evening';
+// Time detail (opt.detail, -3 … 5): 0 = rows by scene (rowScore). Above 0 a gap at least as long as the level's also
+// starts a row (5 min … 10 s; bursts sit ≤ 2 s apart, so stacks never split); below 0 only such a gap does (20 min … 3 h).
+// B / ⇧B overrides still win. Levels under a minute show seconds in the row time.
+const TIME_DETAIL={min:-3,max:5,gap:{'-3':10800,'-2':3600,'-1':1200,1:300,2:120,3:60,4:30,5:10}};
+function gapTxt(gap){ return gap>=5400?Math.round(gap/3600)+' h gap':gap>=60?Math.round(gap/60)+' min gap':Math.round(gap)+' s gap'; }
+function buildShoot(list,cuts,opt){ const td=Math.max(TIME_DETAIL.min,Math.min(TIME_DETAIL.max,Math.round(+((opt&&opt.detail)||0))||0)), tdG=TIME_DETAIL.gap[td]||0, tdSec=td>0&&tdG<60; const light=h=>h<11?'morning':h<15?'midday':h<18?'afternoon':'evening';
     const ts=p=>{ const m=/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/.exec(p.date||''); return m?Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]):0; };
     const fno=p=>{ const m=/(\d+)(?!.*\d)/.exec(p.name||p.path||''); return m?+m[1]:0; };
     // v0.04 (Prompt 3 A4): a photo without a capture time sits right after the photo with the nearest lower file number
@@ -123,7 +128,7 @@ function buildShoot(list,cuts){ const light=h=>h<11?'morning':h<15?'midday':h<18
     const P=P0.sort((a,b)=>a.t-b.t||String(a.serial||'').localeCompare(String(b.serial||''))||fno(a)-fno(b)||String(a.path).localeCompare(String(b.path)));
     const fs=P.map(p=>p.focus).slice().sort((a,b)=>a-b), pct=v=>{ let lo=0,hi=fs.length; while(lo<hi){ const m=(lo+hi)>>1; if(fs[m]<v) lo=m+1; else hi=m; } return Math.round(100*lo/Math.max(1,fs.length-1)); };
     const byId={}, G={}, M=[]; let cur=null, n=0;
-    const gaps=[]; let lastD=null; P.forEach((q,idx)=>{ const prev=P[idx-1], pd=q._nt?null:lastD, gap=pd?(q.t-pd.t)/1000:prev?0:1e9; let rs=!prev?null:q._nt?{start:false}:pd?rowScore(pd,q,gap,gaps):{start:false}; if(pd&&gap>2) gaps.push(gap); if(!q._nt) lastD=q; const rc=cuts['f'+n]; if(rs&&(rc==='row'||rc==='moved')) rs={start:true,reason:rc==='moved'?'you moved this':'you split here'}; else if(rs&&rc==='join') rs={start:false}; if(!cur||rs.start){ const d=new Date(q.t), hh=d.getUTCHours(); cur={hh,time:String(hh).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'),fr:[],reason:rs?rs.reason:''}; M.push(cur); }
+    const gaps=[]; let lastD=null; P.forEach((q,idx)=>{ const prev=P[idx-1], pd=q._nt?null:lastD, gap=pd?(q.t-pd.t)/1000:prev?0:1e9; let rs=!prev?null:q._nt?{start:false}:pd?rowScore(pd,q,gap,gaps):{start:false}; if(rs&&pd&&tdG){ if(gap>=tdG) rs={start:true,reason:gapTxt(gap)}; else if(td<0) rs={start:false}; } if(pd&&gap>2) gaps.push(gap); if(!q._nt) lastD=q; const rc=cuts['f'+n]; if(rs&&(rc==='row'||rc==='moved')) rs={start:true,reason:rc==='moved'?'you moved this':'you split here'}; else if(rs&&rc==='join') rs={start:false}; if(!cur||rs.start){ const d=new Date(q.t), hh=d.getUTCHours(); cur={hh,time:String(hh).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')+(tdSec?':'+String(d.getUTCSeconds()).padStart(2,'0'):''),fr:[],reason:rs?rs.reason:''}; M.push(cur); }
       const id='f'+n, hh=new Date(q.t).getUTCHours(), fl=q.fl||0, shake=!!(q.exp&&fl&&q.exp>2/fl);
       const d2=new Date(q.t), p2=x=>String(x).padStart(2,'0');
       const p={exp:q.exp??null,iso:q.iso??null,model:q.model||null,make:q.make||null,wbK:q.wbK??null,wbTint:q.wbTint??null,fnum:q.fnum||null,pw:q.w||null,ph:q.h||null,bytes:q.bytes||null,seqLen:q.seqLength??null,evc:q.ev??null,sec:q._nt?'':p2(d2.getUTCHours())+':'+p2(d2.getUTCMinutes())+':'+p2(d2.getUTCSeconds()),date10:d2.getUTCFullYear()+'-'+p2(d2.getUTCMonth()+1)+'-'+p2(d2.getUTCDate()),dark:!q.nopv&&q.lum!=null&&q.lum<0.08,nopv:!!q.nopv,path:q.path,lens:q.lens||null,serial:q.serial||null,program:q.program??null,wb:q.wb??null,flash:q.flash??null,dhash:q.dhash||null,hist:q.hist||null,id,n,jpg:!!q.jpg,mi:M.length-1,fileObj:q.fileObj,xpath:q.xpath,xmp:q.xmp||null,lrEd:!!q.lrEd,portrait:!!q.portrait,src:q.src,lg:q.lg,zsrc:q.lg,ev:0,time:cur.time,hh,light:light(hh),h:q.lum,sharp:pct(q.focus),focus:q.focus,spot:q.spot??null,style:q.style||null,fx:q.focusLoc?Math.round(q.focusLoc.x*100):50,fy:q.focusLoc?Math.round(q.focusLoc.y*100):50,subj:q.focusLoc||null,seq:q.seqImage??null,rm2:q.releaseMode2??null,unread:!!q.unread,notime:!!q._nt,start:!prev||cur.fr.length===0||!!(q._nt||q.unread||prev._nt||prev.unread)||(()=>{ const sq=q.seqImage, ps=prev.seqImage; const h=prev.dhash&&q.dhash?ham(prev.dhash,q.dhash):null; if(h!=null&&h>=28) return true; if(sq!=null&&ps!=null) return !(sq===ps+1&&gap<=2); if(h!=null) return !(gap<=2&&h<=6); return gap>1; })(),bk:false,evs:q.ev,seed:0,sug:null,bl:0,clip:+q.clip.toFixed(1),blown:false,lowpv:!!q.lowpv,shake,ss:q.exp?(q.exp>=1?q.exp.toFixed(1)+'s':'1/'+Math.round(1/q.exp)):'',fl:fl?Math.round(fl):0,file:q.name};
@@ -211,7 +216,7 @@ function ham(a,b){ let d=0; for(let i=0;i<a.length&&i<b.length;i++){ let x=parse
 // separate moments (gaps ≤ 2 s inside bursts are left out), never below 10 s, so a pause after a burst doesn't split the row.
 function rowScore(a,b,gap,gaps){ const recent=gaps.slice(-10).slice().sort((x,y)=>x-y), med=recent.length?Math.max(10,recent[Math.floor(recent.length/2)]):30;
   const lensCh=!!(a.lens&&b.lens&&a.lens!==b.lens), flCh=!!(a.fl&&b.fl&&Math.max(a.fl,b.fl)/Math.min(a.fl,b.fl)>=1.5), flTxt=a.fl&&b.fl&&Math.round(a.fl)!==Math.round(b.fl)?Math.round(a.fl)+' → '+Math.round(b.fl)+' mm':'lens change';
-  const parts=[[Math.min(1.2,(gap/med)/10),gap>=5400?Math.round(gap/3600)+' h gap':gap>=60?Math.round(gap/60)+' min gap':Math.round(gap)+' s gap'],
+  const parts=[[Math.min(1.2,(gap/med)/10),gapTxt(gap)],
     [lensCh?0.6:flCh?0.5:0,flTxt],
     [a.portrait!=null&&b.portrait!=null&&!!a.portrait!==!!b.portrait?0.9:0,a.portrait?'portrait → landscape':'landscape → portrait'],
     [a.program!=null&&b.program!=null&&a.program!==b.program?0.3:0,'exposure mode change'],
@@ -238,6 +243,6 @@ function phoneOf(m){ const mk=(m&&m.make||'').trim(), md=(m&&m.model||'').trim()
   const ph=(/^(apple|google|xiaomi|redmi|poco|oneplus|oppo|vivo|realme|huawei|honor|motorola|nothing|fairphone|zte|nubia|tecno|infinix|hmd)\b/i.test(mk))||/^samsung/i.test(mk)&&!/^(NX|WB|EX|ST|PL|ES)\d/i.test(md)||/^sony/i.test(mk)&&/^(XQ-|SO-|Xperia)/i.test(md)||/^asus/i.test(mk)&&/^(ASUS_|ROG|Zenfone)/i.test(md)||/\b(iPhone|iPad|Pixel)\b/i.test(md);
   if(!ph) return null; const short=/^apple|^google/i.test(mk)||md.toLowerCase().startsWith(mk.toLowerCase())?md:(mk.charAt(0).toUpperCase()+mk.slice(1).toLowerCase()+' '+md);
   let zoom=''; if(m.fl35){ const r=m.fl35/24, Z=[0.5,1,2,3,5,10]; let best=Z[0]; Z.forEach(z=>{ if(Math.abs(Math.log(r/z))<Math.abs(Math.log(r/best))) best=z; }); zoom=best+'×'; } return {short,zoom}; }
-const LuminaCore={phoneOf,ham,peakOf,rowScore,sweep,undoSweep,rowDone,paint,jpegTiff,editFilter,parseHead,assemblePreview,measure,crc32,zip,mergeXmp,freshXmp,retouchXmp,hasDevelop,buildShoot,exportPlan,lookString,parseLook};
+const LuminaCore={TIME_DETAIL,phoneOf,ham,peakOf,rowScore,sweep,undoSweep,rowDone,paint,jpegTiff,editFilter,parseHead,assemblePreview,measure,crc32,zip,mergeXmp,freshXmp,retouchXmp,hasDevelop,buildShoot,exportPlan,lookString,parseLook};
 g.LuminaCore=LuminaCore; if(typeof module!=='undefined'&&module.exports) module.exports=LuminaCore;
 })(typeof window!=='undefined'?window:globalThis);
