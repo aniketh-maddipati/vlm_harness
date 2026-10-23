@@ -52,7 +52,12 @@ struct LuminaCommands: Commands {
             Button("Close Shoot") { SetsMenuModel.closeShoot() }.keyboardShortcut("w", modifiers: .command)
             Button("Save") { send("save") }.keyboardShortcut(.return, modifiers: .command)
             // ⌘R is Show in Finder on Pick; on Skim (the dev app) it reloads the page, after the latest shared branch.
-            Button(SetsPage.current == .skim ? "Reload Page" : "Show in Finder") { send(SetsPage.current == .skim ? "reload" : "finder") }.keyboardShortcut("r", modifiers: .command)
+            // While the page shows an error, ⌘R reloads it on either page (SetsWindowController.pageError).
+            if menu.pageError {
+                Button("Reload Page") { SetsMenuModel.reloadPage() }.keyboardShortcut("r", modifiers: .command)
+            } else {
+                Button(SetsPage.current == .skim ? "Reload Page" : "Show in Finder") { send(SetsPage.current == .skim ? "reload" : "finder") }.keyboardShortcut("r", modifiers: .command)
+            }
             // ⌥⌘R: Handoff's file view shows the row selected there in Finder (Prompt 27); on the other steps, the same as ⌘R.
             if SetsPage.current != .skim {
                 Button("Show Selection in Finder") { send("finderSel") }.keyboardShortcut("r", modifiers: [.command, .option])
@@ -110,11 +115,14 @@ final class SetsMenuModel: ObservableObject {
 
     static let shared = SetsMenuModel()
     @Published var recents: [Recent] = []
+    /// The page shows an error in place of its screen: ⌘R reloads it.
+    @Published var pageError = false
     weak var controller: SetsWindowController?
 
     static func command(_ name: String) { shared.controller?.command(name) }
     static func reopen(_ id: String) { shared.controller?.reopen(id) }
     static func closeShoot() { shared.controller?.closeShoot() }
+    static func reloadPage() { shared.controller?.reloadPage() }
     static func removeWorkingFiles() { shared.controller?.confirmRemoveWorkingFiles() }
     /// Z is a hold key in the page (100% while held): the menu toggles it on and off instead.
     static func zoom() { shared.controller?.toggleZoom() }

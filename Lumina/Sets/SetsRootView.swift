@@ -53,6 +53,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         bridge = SetsBridge(chooser: self, supportDir: Self.supportDir)
         SetsMenuModel.shared.controller = self
         bridge.onShootsChanged = { [weak self] in self?.refreshRecents() }
+        bridge.onPageError = { [weak self] text in self?.pageError(text) }
         refreshRecents()
         // An export cut short last time (crash, kill, power): clear its temp files, keep its journal.
         // The destination is reached through the journal's bookmark (the panel's grant died with
@@ -78,7 +79,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             do {
                 let (wv, _) = try await SetsWebView.make(pageRoot: res, vendorRoot: res, plumbing: plumbing, bridge: bridge,
                                                          standInPhotos: true, config: ["debug": Self.isDebug, "prefs": SetsBridge.prefs.map { $0 as Any } ?? NSNull(), "cutShort": cut],
-                                                         extraScripts: page == .skim ? [SetsPage.skimHostScript] : [], frame: host.bounds)
+                                                         extraScripts: (page == .skim ? [SetsPage.skimHostScript] : []) + [SetsPage.errorWatchScript], frame: host.bounds)
                 wv.autoresizingMask = [.width, .height]
                 wv.uiDelegate = self
                 wv.navigationDelegate = self
@@ -112,6 +113,55 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 LuminaLog.app.fault("web view setup failed: \(String(describing: error), privacy: .private)")
             }
         }
+    }
+
+    // MARK: The page's error screen
+
+    /// The bar over the page while it shows an error: what went wrong, and Reload Page.
+    private var errorBar: NSView?
+
+    /// The page shows an error in place of its screen (`text`), or no longer does (nil). A build that broke the
+    /// page, or files from different builds, must not leave the window stuck: Reload Page is offered, here and as ⌘R.
+    func pageError(_ text: String?) {
+        SetsMenuModel.shared.pageError = text != nil
+        errorBar?.removeFromSuperview()
+        errorBar = nil
+        guard let text, let webView, let host = webView.superview else { return }
+        LuminaLog.app.error("page error: \(text, privacy: .private)")
+        let label = NSTextField(labelWithString: text)
+        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.textColor = .white
+        label.lineBreakMode = .byTruncatingTail
+        let button = NSButton(title: "Reload Page  ⌘R", target: self, action: #selector(reloadPageClicked))
+        button.bezelStyle = .rounded
+        button.keyEquivalent = ""
+        let stack = NSStackView(views: [label, button])
+        stack.orientation = .horizontal
+        stack.spacing = 12
+        stack.edgeInsets = NSEdgeInsets(top: 6, left: 14, bottom: 6, right: 8)
+        stack.wantsLayer = true
+        stack.layer?.backgroundColor = NSColor(calibratedRed: 0.55, green: 0.16, blue: 0.14, alpha: 0.95).cgColor
+        stack.layer?.cornerRadius = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(stack, positioned: .above, relativeTo: nil)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: host.centerXAnchor),
+            stack.topAnchor.constraint(equalTo: host.topAnchor, constant: 34),
+            stack.widthAnchor.constraint(lessThanOrEqualTo: host.widthAnchor, constant: -32),
+        ])
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        errorBar = stack
+    }
+
+    @objc private func reloadPageClicked() { reloadPage() }
+
+    /// Reload Page (the error bar and ⌘R while it shows): the page and every file it loads, read again.
+    /// Skim keeps its open clips (`reloadSkim`); Pick's decisions are saved as always and the shoot is on Open Recent.
+    func reloadPage() {
+        pageError(nil)
+        if SetsPage.current == .skim { command("reload"); return }
+        bridge.canvas?.leave()
+        webView?.reloadPageFresh()
     }
 
     // MARK: Menu bar (MENUS.md)
@@ -184,7 +234,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 webView.takeSnapshot(with: nil) { image, _ in
                     MainActor.assumeIsolated {
                         self.raiseSkimCurtain(image)
-                        webView.load(URLRequest(url: SetsSchemeHandler.pageURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
+                        webView.reloadPageFresh()
                     }
                 }
             }
@@ -870,6 +920,15 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         } else {
             DispatchQueue.main.async { answered(alert.runModal()) }
         }
+    }
+}
+
+extension WKWebView {
+    /// The Lumina page again, and every file it loads read again too, not only the page itself
+    /// (`reloadFromOrigin`): a new page must never run with a script left over from the page before.
+    func reloadPageFresh() {
+        if url == SetsSchemeHandler.pageURL { reloadFromOrigin(); return }
+        load(URLRequest(url: SetsSchemeHandler.pageURL, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData))
     }
 }
 
