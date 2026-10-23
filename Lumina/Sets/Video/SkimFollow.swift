@@ -428,7 +428,7 @@ nonisolated enum SkimFollow {
 
     /// Whether the prompted segmenter's outline on a frame is the shape followed so far: not a jump in area from the
     /// last frame's (more than `jump` either way, as when it spreads across a pig walking in front), and not grown past
-    /// `promptCap` times the clicked outline. When it isn't, the frame is shaky and the outline is not followed.
+    /// `promptCap` times the clicked outline. When it isn't, the frame is marked shaky.
     static func promptHolds(area: Double, last: Double?, start: Double?) -> Bool {
         guard area > 0 else { return false }
         if let last, last > 0, max(area / last, last / area) > jump { return false }

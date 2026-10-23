@@ -139,6 +139,8 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         let prompted: Bool
         /// The area of the first outline the prompted segmenter gave (the clicked shape), for `SkimFollow.promptHolds`.
         var startArea: Double?
+        /// This frame's prompted outline jumped or ran away: followed, but shaky.
+        var promptJumped = false
         init(_ t: SkimFollower.Trail, prompted: Bool = false) { trail = t; self.prompted = prompted }
     }
 
@@ -198,11 +200,13 @@ nonisolated final class SkimTracker: @unchecked Sendable {
     /// runs into the window's edge.
     private func shapes(_ w: Way, _ image: CGImage) -> [LookMasks.Found] {
         // Outlined by clicks: the prompted segmenter, prompted with the box followed so far a little grown. An outline
-        // that jumps or runs away (SkimFollow.promptHolds) is not followed: the frame is shaky and the tracker holds the
-        // box. Lost a while, it falls back to Vision's shapes, which the feature print can find it among again.
+        // that jumps or runs away (SkimFollow.promptHolds) is still followed, but its frame is marked shaky, so the strip
+        // shows where to look. (Dropping those frames cost J&F .61 → .46 on DAVIS val.) Lost a while, it falls back to
+        // Vision's shapes, which the feature print can find it among again.
+        w.promptJumped = false
         if w.prompted, w.lost < SkimFollow.lostFor, let box = w.trail.box {
             guard let s = SkimPrompt.outlineSync(image, box: SkimFollow.grown(box, by: SkimFollow.promptGrow)) else { return [] }
-            guard SkimFollow.promptHolds(area: s.area, last: w.area, start: w.startArea) else { return [] }
+            w.promptJumped = !SkimFollow.promptHolds(area: s.area, last: w.area, start: w.startArea)
             if w.startArea == nil { w.startArea = s.area }
             return [s]
         }
@@ -238,7 +242,8 @@ nonisolated final class SkimTracker: @unchecked Sendable {
             }
         }
         if step.shape != nil { refound = refound || w.wasLost; w.lost = 0 }
-        let sure = SkimFollow.sureness(tracker: figure, found: step.shape != nil, area: step.shape?.area, last: w.area, refound: refound)
+        var sure = SkimFollow.sureness(tracker: figure, found: step.shape != nil, area: step.shape?.area, last: w.area, refound: refound)
+        if w.promptJumped, sure == .sure { sure = .shaky }
         let cues = SkimFollow.Cues(tracker: figure, agree: agree, area: step.shape?.area, last: w.area, refound: refound,
                                    score: step.shape?.score, rivals: rivals, lost: w.lost,
                                    look: Self.logsLook ? Self.look(image, shape: step.shape, first: first, print: print) : nil)
