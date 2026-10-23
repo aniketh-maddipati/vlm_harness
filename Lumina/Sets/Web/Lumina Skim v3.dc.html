@@ -1496,7 +1496,8 @@ class Component extends DCLogic {
   // finds its outline there (lumina.video.follow). Exposure, clipping and sharpness are then measured inside the shape,
   // as the clip's own facts are measured on the whole frame. Save matte writes it as a black-and-white movie the length
   // of the clip into the Save to folder (lumina.video.matte); the next .fcpxml lists it beside its clip. Nothing is kept
-  // but the matte's path: the followed outlines last until the page is closed.
+  // but the matte's path: the followed outlines last until the page is closed. With the app's track (folTrack), the Mac
+  // reads every frame itself instead, and the matte is made from that track.
   folApi() { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.follow && v.matte ? v : null; }
   folOf(c) { return c && this.fol ? this.fol.get(c.id) || null : null; }
   folGo = () => {
@@ -1506,7 +1507,7 @@ class Component extends DCLogic {
     this.folRun(c, s, Math.max(0, Math.min(c.dur || 0, this.vidWant || 0)), api);
   };
   folStop = () => { const c = this.byId && this.byId[this.state.cur], r = this.folOf(c); if (r && r.state === 'run') r.tok.stop = true; };
-  folDrop = () => { const c = this.byId && this.byId[this.state.cur], r = this.folOf(c); if (!r || r.state === 'run') return; this.fol.delete(c.id); this.olPainted = null; this.olPaint(); this.setState(s => ({tick:(s.tick || 0) + 1})); };
+  folDrop = () => { const c = this.byId && this.byId[this.state.cur], r = this.folOf(c), api = this.folApi(); if (!r || r.state === 'run') return; if (r.track && api && api.trackEnd) { try { api.trackEnd(r.track); } catch (e) {} } this.fol.delete(c.id); this.olPainted = null; this.olPaint(); this.setState(s => ({tick:(s.tick || 0) + 1})); };
   // the times followed from t0: forward to the end, then back from t0 to the start, `step` apart
   static folTimes(t0, dur, step) {
     const end = Math.max(0, (dur || 0) - 0.02), fwd = [], back = [], st = step > 0 ? step : 0.125; t0 = Math.max(0, Math.min(end, t0 || 0));
@@ -1546,6 +1547,7 @@ class Component extends DCLogic {
     const b64 = cv => new Promise(r => cv.toBlob(r, 'image/jpeg', 0.85)).then(b => b ? new Promise((r, j) => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).replace(/^data:[^,]*,/, '')); fr.onerror = j; fr.readAsDataURL(b); }) : '');
     let last = 0; const tell = () => { const now = Date.now(); if (now - last > 250) { last = now; this.setState(x => ({tick:(x.tick || 0) + 1})); } };
     try {
+      if (api.track && api.trackPoll && c.path) { URL.revokeObjectURL(url); await this.folTrack(c, s, t0, api, rec, tell); rec.state = 'done'; throw 'tracked'; }
       v.src = url; await wait('loadedmetadata', 10000);
       const vw = v.videoWidth, vh = v.videoHeight; if (!vw || !vh) throw 'no video';
       const sc = Math.min(1, 1024 / Math.max(vw, vh)), big = document.createElement('canvas'); big.width = Math.max(2, Math.round(vw * sc)); big.height = Math.max(2, Math.round(vh * sc));
@@ -1570,11 +1572,36 @@ class Component extends DCLogic {
         }
       }
       rec.samples.sort((a, b) => a.t - b.t); rec.inside = Component.folInside(px, total); rec.state = 'done';
-    } catch (x) { rec.state = x === 'stopped' ? 'stopped' : 'failed'; rec.why = x === 'stopped' ? '' : x === 'refused' ? 'the Mac couldn’t read this frame' : 'the clip couldn’t be read'; }
+    } catch (x) { if (x !== 'tracked') { rec.state = x === 'stopped' ? 'stopped' : 'failed'; rec.why = x === 'stopped' ? '' : x === 'refused' ? 'the Mac couldn’t read this frame' : x && x.why ? x.why : 'the clip couldn’t be read'; } }
     ids.forEach(id => { try { api.followEnd(id); } catch (e) {} });
     URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {}
+    if (rec.track && rec.state !== 'done') { try { api.trackEnd(rec.track); } catch (e) {} rec.track = null; }
     if (rec.state === 'stopped' && this.folOf(c) === rec) this.fol.delete(c.id);
     this.olPainted = null; this.olPaint(); this.setState(x => ({tick:(x.tick || 0) + 1}));
+  }
+  // The Mac's own track (lumina.video.track): the Mac reads the clip itself and follows the shape through every frame,
+  // forward from t0 then back to the start, finding it again by its look when it was hidden (SkimTracker). The page
+  // only fetches the followed frames as they come (each with how sure it is) and the strip of sure, shaky and lost
+  // stretches. The track stays on the Mac for the matte until Let go.
+  async folTrack(c, s, t0, api, rec, tell) {
+    const id = String(c.id).slice(0, 40) + '|' + Date.now(); rec.track = id;
+    if (!(await api.track(id, c.path, {kind:s.kind, box:s.box}, t0))) throw 'refused';
+    let from = 0;
+    for (let k = 0; k < 200000; k++) {
+      if (rec.tok.stop || this.folOf(c) !== rec) throw 'stopped';
+      const r = await api.trackPoll(id, from); if (!r || typeof r !== 'object') throw 'lost';
+      const fs = Array.isArray(r.frames) ? r.frames : [];
+      for (const f of fs) rec.samples.push({t:f.t, box:f.box || null, outline:f.outline || null, held:!!f.held, sure:f.sure || 'lost'});
+      from = (r.from || 0) + fs.length; rec.done = Math.max(0, Math.min(1, r.done || 0)); if (Array.isArray(r.strip)) rec.strip = r.strip; tell();
+      if (r.state !== 'run' && from >= (r.n || 0)) { if (r.state === 'failed') throw {why:r.why || 'the clip couldn’t be read'}; if (r.state === 'stopped') throw 'stopped'; break; }
+      if (!fs.length) await new Promise(res => setTimeout(res, 300));
+    }
+    rec.samples.sort((a, b) => a.t - b.t); rec.inside = Component.folSeen(rec.samples);
+  }
+  // How much of the clip the tracked shape is in, and how much of that is worth a look (shaky): percentages, or null.
+  static folSeen(samples) {
+    const S = samples || [], n = S.length, inn = S.filter(x => x.outline && x.outline.length).length; if (!n || !inn) return null;
+    return {seen:Math.round(inn / n * 100), shaky:Math.round(S.filter(x => x.sure === 'shaky').length / n * 100)};
   }
   // Final Cut's frame lengths (buildX keeps its own copy, so it runs on its own), the clip's length in its frames as the
   // .fcpxml counts them, and the matte's size (SkimFollow.matteSize; buildX works it out the same way)
@@ -1587,7 +1614,7 @@ class Component extends DCLogic {
     const c = this.byId && this.byId[this.state.cur], r = this.folOf(c), api = this.folApi(); if (!c || !r || r.state !== 'done' || r.saving || !api) return;
     const {fd, nf} = Component.clipFd(c, this.d && this.d.shoot.rate);
     r.saving = true; r.why = ''; this.setState(x => ({tick:(x.tick || 0) + 1}));
-    let o = null; try { o = await api.matte({name:c.name, w:c.w, h:c.h, frames:nf, fd, samples:r.samples.map(x => ({t:x.t, outline:x.outline || []})), dir:this.exDir('fcp')}); } catch (e) {}
+    let o = null; try { o = await api.matte(Object.assign({name:c.name, w:c.w, h:c.h, frames:nf, fd, dir:this.exDir('fcp')}, r.track ? {track:r.track} : {samples:r.samples.map(x => ({t:x.t, outline:x.outline || []}))})); } catch (e) {}
     r.saving = false;
     if (o && o.ok) { r.matte = {path:o.path, name:o.name}; const m = {...this.mattes(), [c.id]:{path:o.path, name:o.name, shape:r.shape.name}}; this.matteM = m; this.persist(this.matteKey(), JSON.stringify(m)); }
     else r.why = (o && o.why) || 'The app did not answer.';
@@ -1599,7 +1626,7 @@ class Component extends DCLogic {
     const can = !r || r.state !== 'run', pc = v => Math.round(v * 100) + '%';
     return {folOn:true, folGoOn:can && chosen === 1, folStopOn:!!r && r.state === 'run', folSaveOn:!!r && r.state === 'done' && !r.saving, folDropOn:!!r && r.state !== 'run',
       folSay:r ? r.state === 'run' ? 'following ' + r.shape.name + ' · ' + pc(r.done) : r.state === 'failed' ? 'not followed: ' + r.why
-        : r.saving ? 'saving the matte…' : r.why ? r.why : r.matte ? 'matte saved · ' + r.matte.name + ' · in the next .fcpxml' : r.shape.name + ' followed' + (r.inside ? ' · in ' + r.inside.seen + '% of the clip' : ' · not found in the clip')
+        : r.saving ? 'saving the matte…' : r.why ? r.why : r.matte ? 'matte saved · ' + r.matte.name + ' · in the next .fcpxml' : r.shape.name + ' followed' + (r.track ? ' · every frame' : '') + (r.inside ? ' · in ' + r.inside.seen + '% of the clip' + (r.inside.shaky ? ' · ' + r.inside.shaky + '% worth a look' : '') : ' · not found in the clip')
         : m ? 'matte saved · ' + m.name : ''};
   }
   // Only the profiles the preview converts (S-Log3, S-Log2, HLG) change with the switch; a clip that is already
@@ -3006,7 +3033,7 @@ class Component extends DCLogic {
         if (f.prov) facts.unshift({k:'measured', v:this.fromN(f.n || 1) + ' of ' + f.of + ' · more as you watch', c:'#9A958D'});
       }
       // inside the followed shape (Follow): the same measures on its pixels only, across the clip
-      { const fr = this.folOf(c), I = fr && fr.state === 'done' ? fr.inside : null; if (fr && fr.state === 'done') facts.push({k:'shape', v:I ? fr.shape.name + ' · ' + (I.ev > 0 ? '+' : I.ev < 0 ? '−' : '') + Math.abs(I.ev).toFixed(1) + ' stops · ' + (I.sharp < 0.35 ? 'soft' : 'sharp') + ' ' + I.sharp.toFixed(2) + ' lowest · clipped ' + this.pct(I.clip) + ' · crushed ' + this.pct(I.crush) + ' · in ' + I.seen + '% of the clip' : fr.shape.name + ' · not in the clip'}); }
+      { const fr = this.folOf(c), I = fr && fr.state === 'done' ? fr.inside : null; if (fr && fr.state === 'done') facts.push({k:'shape', v:I && I.ev == null ? fr.shape.name + ' · in ' + I.seen + '% of the clip' + (I.shaky ? ' · ' + I.shaky + '% worth a look' : ' · every frame sure') : I ? fr.shape.name + ' · ' + (I.ev > 0 ? '+' : I.ev < 0 ? '−' : '') + Math.abs(I.ev).toFixed(1) + ' stops · ' + (I.sharp < 0.35 ? 'soft' : 'sharp') + ' ' + I.sharp.toFixed(2) + ' lowest · clipped ' + this.pct(I.clip) + ' · crushed ' + this.pct(I.crush) + ' · in ' + I.seen + '% of the clip' : fr.shape.name + ' · not in the clip'}); }
       facts.push({k:'rate', v:(c.fps ? c.fps + 'p' : 'unknown') + dsx('rate')});
       facts.push({k:'duration', v:this.fmtDur(c.dur)});
       facts.push({k:'size', v:this.fmtB(c.bytes)});

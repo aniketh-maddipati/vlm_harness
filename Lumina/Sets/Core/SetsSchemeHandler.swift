@@ -318,7 +318,10 @@ nonisolated enum SetsPage: String, Sendable {
         masks: (frame) => post('skimMasks', { frame: typeof frame === 'string' ? frame : '' }),
         follow: (id, frame, start) => post('skimFollow', Object.assign({ id: String(id), frame: typeof frame === 'string' ? frame : '' }, start ? { kind: String(start.kind), box: start.box } : {})),
         followEnd: (id) => post('skimFollow', { id: String(id), end: true }),
-        matte: (m) => post('skimMatte', m && typeof m === 'object' ? { name: String(m.name), w: Number(m.w), h: Number(m.h), frames: Number(m.frames), fd: m.fd, samples: m.samples, dir: m.dir ? String(m.dir) : '' } : {}),
+        matte: (m) => post('skimMatte', m && typeof m === 'object' ? Object.assign({ name: String(m.name), w: Number(m.w), h: Number(m.h), frames: Number(m.frames), fd: m.fd, dir: m.dir ? String(m.dir) : '' }, m.track ? { track: String(m.track) } : { samples: m.samples }) : {}),
+        track: (id, path, start, t) => post('skimTrack', { id: String(id), path: String(path), kind: start ? String(start.kind) : '', box: start ? start.box : null, t: Number(t) || 0 }),
+        trackPoll: (id, from) => post('skimTrackPoll', { id: String(id), from: Number(from) || 0 }),
+        trackEnd: (id) => post('skimTrack', { id: String(id), end: true }),
         mark() {}, preview() {}, handoff() {}
       });
     })();

@@ -121,4 +121,92 @@ final class SkimFollowTests: XCTestCase {
         XCTAssertEqual(SkimFollow.matteName(clip: ""), "matte.mov")
         XCTAssertNil(SkimExport.safeName("C0042 matte.mov"), "the .fcpxml's own save still takes only its own kinds")
     }
+
+    // MARK: The Mac's own track
+
+    func testEveryFrameFollowedMeansNoMixing() throws {
+        // 24 fps, every frame followed at its start: each matte frame is one outline alone
+        let fl = (n: 1, d: 24), s = (0..<48).map { SkimFollow.Sample(t: Double($0) / 24, outline: []) }
+        for k in [0, 1, 7, 23, 46] {
+            let a = try XCTUnwrap(SkimFollow.matteFrame(k, frameLength: fl, in: s))
+            XCTAssertEqual([a.before, a.after], [k, k], "frame \(k)"); XCTAssertEqual(a.weight, 0)
+        }
+        // past the last followed frame: that one
+        XCTAssertEqual(SkimFollow.matteFrame(60, frameLength: fl, in: s).map { [$0.before, $0.after] }, [47, 47])
+        // the page's eight a second are still mixed by time
+        let sparse = [0.0, 0.125, 0.25].map { SkimFollow.Sample(t: $0, outline: []) }
+        let b = try XCTUnwrap(SkimFollow.matteFrame(1, frameLength: fl, in: sparse))
+        XCTAssertEqual([b.before, b.after], [0, 1]); XCTAssertEqual(b.weight, 1.5 / 24 / 0.125, accuracy: 1e-9)
+        XCTAssertNil(SkimFollow.matteFrame(0, frameLength: fl, in: []))
+    }
+
+    func testProxySize() {
+        XCTAssertEqual(SkimFollow.proxySize(width: 3840, height: 2160).map { [$0.width, $0.height] }, [720, 406])
+        XCTAssertEqual(SkimFollow.proxySize(width: 640, height: 360).map { [$0.width, $0.height] }, [640, 360], "never larger than the clip")
+        XCTAssertEqual(SkimFollow.proxySize(width: 2160, height: 3840).map { [$0.width, $0.height] }, [406, 720])
+        XCTAssertNil(SkimFollow.proxySize(width: 0, height: 10))
+    }
+
+    func testGoingBackIsReadASecondAtATime() {
+        let c = SkimFollow.backChunks(from: 2.5, chunk: 1)
+        XCTAssertEqual(c.map(\.from), [1.5, 0.5, 0]); XCTAssertEqual(c.map(\.to), [2.5, 1.5, 0.5])
+        XCTAssertTrue(SkimFollow.backChunks(from: 0, chunk: 1).isEmpty)
+        XCTAssertTrue(SkimFollow.backChunks(from: .nan, chunk: 1).isEmpty)
+        XCTAssertTrue(SkimFollow.backChunks(from: 3, chunk: 0).isEmpty)
+    }
+
+    func testSureness() {
+        typealias F = SkimFollow
+        XCTAssertEqual(F.sureness(tracker: 0.9, found: true, area: 0.1, last: 0.1, refound: false), .sure)
+        XCTAssertEqual(F.sureness(tracker: nil, found: true, area: 0.3, last: 0.3, refound: false), .sure, "the sky has no tracker")
+        XCTAssertEqual(F.sureness(tracker: 0.4, found: true, area: 0.1, last: 0.1, refound: false), .shaky, "the tracker unsure")
+        XCTAssertEqual(F.sureness(tracker: 0.9, found: true, area: 0.2, last: 0.1, refound: false), .shaky, "the area doubled")
+        XCTAssertEqual(F.sureness(tracker: 0.9, found: true, area: 0.05, last: 0.1, refound: false), .shaky, "the area halved")
+        XCTAssertEqual(F.sureness(tracker: 0.9, found: true, area: 0.12, last: 0.1, refound: false), .sure)
+        XCTAssertEqual(F.sureness(tracker: nil, found: true, area: 0.1, last: nil, refound: true), .shaky, "found again")
+        XCTAssertEqual(F.sureness(tracker: 0.8, found: false, area: nil, last: 0.1, refound: false), .shaky, "only the tracker holds it")
+        XCTAssertEqual(F.sureness(tracker: 0.1, found: false, area: nil, last: 0.1, refound: false), .lost)
+        XCTAssertEqual(F.sureness(tracker: nil, found: false, area: nil, last: nil, refound: false), .lost)
+    }
+
+    func testTheStripJoinsEqualFrames() {
+        let s = SkimFollow.strip([(0.0, .sure), (0.04, .sure), (0.12, .lost), (0.08, .shaky), (0.16, .lost), (0.2, .sure)])
+        XCTAssertEqual(s, [.init(t0: 0, t1: 0.04, sure: .sure), .init(t0: 0.08, t1: 0.08, sure: .shaky),
+                           .init(t0: 0.12, t1: 0.16, sure: .lost), .init(t0: 0.2, t1: 0.2, sure: .sure)])
+        XCTAssertEqual(SkimFollow.strip([]), [])
+        XCTAssertEqual(s[2].json["sure"] as? String, "lost")
+    }
+
+    func testALostShapeIsFoundAgainOnlyAsItsKindAndClose() {
+        let c: [(id: String, kind: LookMasks.Kind, distance: Double)] = [("person-1", .person, 0.5), ("person-2", .person, 0.3),
+                                                                         ("object-1", .object, 0.1), ("sky", .sky, 0)]
+        XCTAssertEqual(SkimFollow.refound(.person, among: c), "person-2", "the nearest person, never the object nearer still")
+        XCTAssertEqual(SkimFollow.refound(.object, among: c), "object-1")
+        XCTAssertEqual(SkimFollow.refound(.subject, among: c), "object-1")
+        XCTAssertNil(SkimFollow.refound(.person, among: [("person-1", .person, SkimFollow.refind + 0.01)]), "too far: someone else")
+        XCTAssertNil(SkimFollow.refound(.person, among: [("person-1", .person, .nan)]))
+        XCTAssertNil(SkimFollow.refound(.sky, among: c))
+        XCTAssertTrue(SkimFollow.refindable(.person, as: .subject))
+        XCTAssertFalse(SkimFollow.refindable(.person, as: .background))
+    }
+
+    func testTrackedFrameAnswer() {
+        let shape = self.shape("person-1", .person, Box(x: 0.1, y: 0.2, w: 0.3, h: 0.4))
+        let f = SkimFollow.Tracked(t: 1.234567, step: .init(box: shape.box, held: true, shape: shape), sure: .shaky)
+        XCTAssertEqual(f.json["t"] as? Double, 1.2346)
+        XCTAssertEqual(f.json["sure"] as? String, "shaky")
+        XCTAssertEqual((f.json["outline"] as? [[[Double]]])?.first?.count, 4)
+        XCTAssertNil(f.json["shape"])
+        XCTAssertEqual(f.area ?? 0, 0.12, accuracy: 1e-9)
+        XCTAssertTrue(SkimFollow.Tracked(t: 0, step: .init(box: nil, held: false, shape: nil), sure: .lost).json["outline"] is NSNull)
+    }
+
+    func testWhatThePageMaySendForATrack() {
+        XCTAssertEqual(SkimFollow.trackID("C0001|1"), "C0001|1")
+        XCTAssertNil(SkimFollow.trackID(""))
+        XCTAssertNil(SkimFollow.trackID(String(repeating: "x", count: 65)))
+        XCTAssertNil(SkimFollow.trackID(42))
+        XCTAssertEqual(SkimFollow.time(2.5), 2.5)
+        XCTAssertNil(SkimFollow.time(-1)); XCTAssertNil(SkimFollow.time(Double.nan)); XCTAssertNil(SkimFollow.time("2"))
+    }
 }

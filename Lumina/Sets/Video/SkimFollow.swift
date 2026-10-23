@@ -149,6 +149,140 @@ nonisolated enum SkimFollow {
         return (n, d)
     }
 
+    /// The matte frame `k` (of frames `frameLength` long) is made from: the followed frames around its middle, mixed by
+    /// time (`around`). When the follow has every frame (the Mac's own track, `SkimTracker`), the two around a frame are
+    /// at most a frame and a half apart, and the frame is the one followed frame nearest its start alone: mixing two
+    /// outlines a frame apart is what draws a fast arm as two faint ones.
+    static func matteFrame(_ k: Int, frameLength fl: (n: Int, d: Int), in s: [Sample]) -> (before: Int, after: Int, weight: Double)? {
+        let step = Double(fl.n) / Double(fl.d)
+        guard let a = around((Double(k) + 0.5) * step, in: s) else { return nil }
+        guard a.before != a.after, s[a.after].t - s[a.before].t <= step * 1.5 else { return a }
+        let t = Double(k) * step + step * 0.25
+        let i = abs(s[a.before].t - t) <= abs(s[a.after].t - t) ? a.before : a.after
+        return (i, i, 0)
+    }
+
+    // MARK: The Mac's own track (SkimTracker)
+
+    /// The long edge of the frames the Mac reads a clip at to follow a shape: the mask lab's proxy, where Vision's
+    /// tracker and its instance masks were measured. The matte is drawn from the outline at its own size.
+    static let proxyEdge = 720
+    /// Tracks open at once (a newer one lets the oldest go), how long a finished one is kept for the page and its matte,
+    /// and frames in one at most (two hours at 60p, as the matte).
+    static let tracks = 4
+    static let kept: TimeInterval = 30 * 60
+    static let maxTracked = maxFrames
+    /// Followed frames handed to the page in one answer.
+    static let page = 240
+
+    /// The size a clip `width × height` is read at: its aspect, at most `proxyEdge` on the long edge, never larger
+    /// than the clip, even sides.
+    static func proxySize(width: Int, height: Int) -> (width: Int, height: Int)? {
+        guard width > 0, height > 0, width <= 16_384, height <= 16_384 else { return nil }
+        let s = min(1, Double(proxyEdge) / Double(max(width, height)))
+        func even(_ v: Double) -> Int { max(2, Int((v / 2).rounded()) * 2) }
+        return (even(Double(width) * s), even(Double(height) * s))
+    }
+
+    /// The stretches the clip is read in going back from `t0` to its start (a reader only goes forward): `chunk`
+    /// seconds each, latest first, each from its start to its end. Empty when `t0` is the start.
+    static func backChunks(from t0: Double, chunk: Double) -> [(from: Double, to: Double)] {
+        guard t0 > 0, chunk > 0, t0.isFinite else { return [] }
+        var out: [(from: Double, to: Double)] = [], end = t0
+        while end > 1e-9, out.count < 100_000 {
+            let start = max(0, end - chunk)
+            out.append((start, end)); end = start
+        }
+        return out
+    }
+
+    /// How sure a followed frame is, for the strip under the scrub bar: sure, shaky (worth a look), or lost.
+    enum Sure: String, Sendable { case sure, shaky, lost }
+
+    /// The tracker's figure under which a frame it held is only shaky.
+    static let steady = 0.5
+    /// The shape's area from one followed frame to the next, as a ratio, past which the frame is shaky (a limb lost or
+    /// a second person taken in).
+    static let jump = 1.35
+
+    /// A followed frame's sureness: lost when the shape is not found and the tracker did not hold it; shaky when only
+    /// the tracker held it, when the shape was found again after being lost (`refound`), when the tracker was unsure,
+    /// or when the shape's area jumped; sure otherwise. The sky and the background have no tracker (`tracker` nil).
+    static func sureness(tracker: Double?, found: Bool, area: Double?, last: Double?, refound: Bool) -> Sure {
+        if !found { return (tracker ?? 0) >= hold ? .shaky : .lost }
+        if refound { return .shaky }
+        if let tracker, tracker < steady { return .shaky }
+        if let area, let last, area > 0, last > 0, max(area / last, last / area) > jump { return .shaky }
+        return .sure
+    }
+
+    /// One stretch of the strip: from the first followed frame's time to the last's, all equally sure.
+    struct Run: Equatable, Sendable {
+        var t0: Double, t1: Double, sure: Sure
+        var json: [String: Any] { ["t0": (t0 * 1000).rounded() / 1000, "t1": (t1 * 1000).rounded() / 1000, "sure": sure.rawValue] }
+    }
+
+    /// The strip: followed frames in time order, consecutive equal ones as one stretch.
+    static func strip(_ frames: [(t: Double, sure: Sure)]) -> [Run] {
+        var out: [Run] = []
+        for f in frames.sorted(by: { $0.t < $1.t }) {
+            if let l = out.last, l.sure == f.sure { out[out.count - 1].t1 = f.t } else { out.append(Run(t0: f.t, t1: f.t, sure: f.sure)) }
+        }
+        return out
+    }
+
+    /// The largest distance between the chosen shape's feature print and a shape's in a later frame for that shape to be
+    /// it, found again after it was lost (behind a pillar, out of the frame). To set from the mask lab's V2 run.
+    static let refind = 0.6
+    /// Frames lost before the shapes in a frame are compared to the chosen one (each comparison is a feature print).
+    static let lostFor = 3
+
+    /// The kinds a shape lost as `kind` may be found again as: a person as a person or the subject, an object as an
+    /// object or the subject, the subject as any of them.
+    static func refindable(_ kind: Kind, as other: Kind) -> Bool {
+        switch kind {
+        case .person: return other == .person || other == .subject
+        case .object: return other == .object || other == .subject
+        case .subject: return boxed(other)
+        case .sky, .background: return false
+        }
+    }
+
+    /// The shape found again: of the shapes in a frame and their feature-print distance to the chosen one, the nearest
+    /// of a kind it may be (`refindable`), under `refind`. Nil: none is it.
+    static func refound(_ kind: Kind, among c: [(id: String, kind: Kind, distance: Double)]) -> String? {
+        c.filter { refindable(kind, as: $0.kind) && $0.distance.isFinite && $0.distance <= refind }.min { $0.distance < $1.distance }?.id
+    }
+
+    /// One frame of the Mac's track as the page gets it: its time, the box, whether it is held, how sure, and the outline.
+    struct Tracked: Equatable, Sendable {
+        var t: Double
+        var step: Step
+        var sure: Sure
+        var area: Double? { step.shape?.area }
+
+        var json: [String: Any] {
+            var o = step.json
+            o["t"] = (t * 10_000).rounded() / 10_000
+            o["sure"] = sure.rawValue
+            o["outline"] = step.shape.map { s in s.outline.map { l in l.map { [($0.x * 10_000).rounded() / 10_000, ($0.y * 10_000).rounded() / 10_000] } } } ?? NSNull()
+            o.removeValue(forKey: "shape")
+            return o
+        }
+    }
+
+    /// A track's id as the page sends it: 1 to 64 characters.
+    static func trackID(_ any: Any?) -> String? {
+        guard let s = any as? String, !s.isEmpty, s.utf8.count <= 64 else { return nil }
+        return s
+    }
+
+    /// A time as the page sends it: seconds into the clip, at least 0.
+    static func time(_ any: Any?) -> Double? {
+        guard let v = (any as? NSNumber)?.doubleValue, v.isFinite, v >= 0, v < 1e7 else { return nil }
+        return v
+    }
+
     /// The matte's file name for a clip: the clip's name (without its extension) and " matte.mov", as one plain name.
     static func matteName(clip: String) -> String? {
         let stem = ((clip.split(whereSeparator: { $0 == "/" || $0 == "\\" }).last.map(String.init) ?? "") as NSString).deletingPathExtension

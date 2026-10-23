@@ -10,7 +10,7 @@ import { PAGE, extractMethod, loadBuildX, ctxFromFixture, fixture } from './skim
 
 const src = fs.readFileSync(PAGE, 'utf8');
 const C = { FDS: {24:[1001, 24000], 25:[100, 2500], 30:[1001, 30000], 50:[100, 5000], 60:[1001, 60000], 100:[100, 10000], 120:[1001, 120000]} };
-for (const [name, args] of [['folTimes', 't0, dur, step'], ['folStep', 'dur'], ['folAt', 'samples, t'], ['folInside', 'px, total'], ['clipFd', 'c, rate'], ['matteSize', 'w, h']]) {
+for (const [name, args] of [['folTimes', 't0, dur, step'], ['folStep', 'dur'], ['folAt', 'samples, t'], ['folInside', 'px, total'], ['clipFd', 'c, rate'], ['matteSize', 'w, h'], ['folSeen', 'samples']]) {
   const body = extractMethod(src, name, 'static ' + name + '(' + args + ') {').replace(/^static /, 'function ');
   C[name] = new Function('Component', 'return ' + body)(C);
 }
@@ -44,6 +44,15 @@ test('inside the shape: the clip facts\' own scales, over the frames it was in',
   assert.equal(C.folInside([null], 3), null);
   assert.equal(C.folInside([], 0), null);
   assert.equal(C.folInside([{mean:0.92, hi:0, lo:0, lap:1}], 1).ev, 2.2);
+});
+
+test('a track on the Mac: where the shape is, and how much is worth a look', () => {
+  const S = [{outline:[[0]], sure:'sure'}, {outline:[[0]], sure:'shaky'}, {outline:null, sure:'lost'}, {outline:[[0]], sure:'sure'}];
+  assert.deepEqual(C.folSeen(S), {seen:75, shaky:25});
+  assert.equal(C.folSeen([{outline:null, sure:'lost'}]), null);
+  assert.equal(C.folSeen([]), null);
+  assert.match(src, /api\.trackEnd\(r\.track\)/, 'Let go ends the track');
+  assert.match(src, /r\.track \? \{track:r\.track\}/, 'the matte is made from the track');
 });
 
 test('the matte is the clip\'s length in its frames, at most 1920 on the long edge and even', () => {
