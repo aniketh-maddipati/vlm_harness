@@ -68,6 +68,18 @@ allow research use, and no code from them enters `Lumina/`.
 
 They are set up in a venv inside the T7 sparse bundle (F1), with every cache there too.
 
+What RapidRAW does (read 2026-10-23 at `a82251f`; AGPL, so ideas only):
+- **Masks:** SAM ViT-B (ONNX encoder and decoder) for click masks, U²-Net-p for the subject,
+  a U²-Net sky model, and Depth Anything v2 for depth ranges. Every mask is snapped to the
+  picture's edges with a fast guided filter, which is what `LookMasks` already does.
+- **Inpaint ("fast" remove):** LaMa fp16 on a crop around the mask's box, padded by 1.5× the box
+  (at least 128 px). The crop is scaled to 768 px at most, padded to a multiple of 64, and the
+  result is blended back through the mask's own alpha. Item 8 starts from the same crop rule.
+- **Heal:** a copy from an offset source spot, then a Poisson blend (SOR, ω = 1.6, 400 passes) on
+  the difference along the edge. Stills' dust heals can be compared against it.
+- **Layers:** each remove or heal is a patch kept beside the photo, never baked in. That's the
+  same idea as Skim's patch layer in Final Cut.
+
 ### Skim: masks and tracking
 
 1. **#308 on real clips.** Mac build in F1, then tracking on the T7 clips (`a7m3-day1`, the
