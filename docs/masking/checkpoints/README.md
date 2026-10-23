@@ -10,6 +10,6 @@ owner's footage.
 | 01-davis-vision-skim-oracle.jpg | DAVIS 2017 val: vision-instance, skim, vision-oracle on six objects |
 | 05-window-crop.jpg | DAVIS 2017 val: skim before and after the window crop (#310) on three objects |
 | 06-prompts-on-merged.jpg | DAVIS 2017 val frame 0: Apple's prompted segmenter (one click, click + exclude, box) on objects Vision merges |
-| 08-prompted-follow.jpg | DAVIS 2017 val: skim vs skim-prompted (a clicked outline kept with the prompted segmenter) on three objects |
+| 08-prompted-follow.jpg | DAVIS 2017 val: skim vs skim-prompted (a clicked outline kept with the prompted segmenter) on five objects, with the frame where the outline jumps to a neighbour marked |
 
 Frames: DAVIS 2017, CC BY 4.0 (davischallenge.org).

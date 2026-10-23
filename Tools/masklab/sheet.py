@@ -65,6 +65,7 @@ def main():
     ap.add_argument("--run", action="append", default=[], help="name=path to a tracker's run folder")
     ap.add_argument("--states", action="append", default=[],
                     help="name=states.json (calibrate.py --states-out): that column's strip from the file, not timing.json")
+    ap.add_argument("--at", action="append", default=[], help="obj=f1,f2,…: show these frames of obj (a * after one marks it, e.g. a jump)")
     ap.add_argument("--objects", default="")
     ap.add_argument("--per", type=int, default=6)
     ap.add_argument("--tile", type=int, default=0, help="tile width (default: fits --width)")
@@ -85,6 +86,12 @@ def main():
             lab = os.path.join(a.labels, obj)
             frames = sorted(int(os.path.splitext(f)[0]) for f in os.listdir(lab) if f.endswith(".png"))
             pick = [frames[round(i * (len(frames) - 1) / max(1, a.per - 1))] for i in range(a.per)]
+            marked = set()
+            for spec in a.at:
+                o, _, fs = spec.partition("=")
+                if o == obj:
+                    pick = [int(f.rstrip("*")) for f in fs.split(",")]
+                    marked = {int(f.rstrip("*")) for f in fs.split(",") if f.endswith("*")}
             clip = os.path.join(a.clips, obj + ".mov")
             states = {}
             for spec in a.states:
@@ -105,7 +112,7 @@ def main():
                 img = frame(clip, n, tmp)
                 size = img.size
                 gt = mask(find(lab, n), size)
-                tiles = [(tint(img, gt, GREEN), f"{obj}  f{n}  truth")]
+                tiles = [(tint(img, gt, GREEN), f"{obj}  f{n}  truth" + ("  << JUMP" if n in marked else ""))]
                 for name, path in runs:
                     m = mask(find(os.path.join(path, obj), n), size)
                     v = iou(m, gt)
