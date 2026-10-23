@@ -141,8 +141,9 @@ func main() throws {
     var kind = pick?.kind ?? .object, box = pick?.box ?? o.box ?? LookMasks.Box(x: o.point!.x - 0.05, y: o.point!.y - 0.05, w: 0.1, h: 0.1)
     if o.prompted {
         let seed = o.box ?? LookMasks.Box(x: max(0, o.point!.x - 0.05), y: max(0, o.point!.y - 0.05), w: 0.1, h: 0.1)
-        guard let s = SkimPrompt.outlineSync(first, box: seed) else { throw Usage(description: "--prompted: the prompted segmenter found nothing (macOS 27, model downloaded?)") }
-        kind = s.kind; box = s.box
+        // Nothing found (a speck of a few pixels): start from the box or Vision's shape, as the page does.
+        if let s = SkimPrompt.outlineSync(first, box: seed) { kind = s.kind; box = s.box }
+        else { FileHandle.standardError.write(Data("masklab-skim: --prompted: the prompted segmenter found nothing; starting from the box\n".utf8)) }
     }
 
     let started = Date()
