@@ -314,4 +314,14 @@ final class SkimFollowTests: XCTestCase {
         let edge = SkimFollow.grown(LookMasks.Box(x: 0, y: 0.9, w: 0.5, h: 0.1), by: 0.15)
         XCTAssertEqual(edge.x, 0); XCTAssertEqual(edge.y + edge.h, 1, accuracy: 1e-9, "kept inside the frame")
     }
+
+    func testAFollowedOutlineThatJumpsOrRunsAwayIsNotFollowed() {
+        XCTAssertTrue(SkimFollow.promptHolds(area: 0.05, last: nil, start: nil), "the first frame")
+        XCTAssertTrue(SkimFollow.promptHolds(area: 0.055, last: 0.05, start: 0.05))
+        XCTAssertFalse(SkimFollow.promptHolds(area: 0.09, last: 0.05, start: 0.05), "spread onto the neighbour")
+        XCTAssertFalse(SkimFollow.promptHolds(area: 0.02, last: 0.05, start: 0.05), "split off a part")
+        XCTAssertTrue(SkimFollow.promptHolds(area: 0.095, last: 0.09, start: 0.05), "grows slowly, under the cap")
+        XCTAssertFalse(SkimFollow.promptHolds(area: 0.105, last: 0.1, start: 0.05), "grown past twice the clicked one")
+        XCTAssertFalse(SkimFollow.promptHolds(area: 0, last: 0.05, start: 0.05))
+    }
 }

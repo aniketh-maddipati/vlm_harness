@@ -137,6 +137,8 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         var sinceFull = SkimFollow.fullEvery, wavered = false
         /// The shape was outlined by clicks: its outline comes from the prompted segmenter on each frame.
         let prompted: Bool
+        /// The area of the first outline the prompted segmenter gave (the clicked shape), for `SkimFollow.promptHolds`.
+        var startArea: Double?
         init(_ t: SkimFollower.Trail, prompted: Bool = false) { trail = t; self.prompted = prompted }
     }
 
@@ -174,6 +176,7 @@ nonisolated final class SkimTracker: @unchecked Sendable {
 
         // Back to the start, a second at a time, each stretch from its end to its start.
         let back = Way(SkimFollower.Trail(kind: kind, box: startBox), prompted: prompted)
+        back.startArea = fwd.startArea
         for c0 in SkimFollow.backChunks(from: start, chunk: 1) where c0.to > span.from {
             let c = (from: max(c0.from, span.from), to: c0.to)
             var frames: [(t: Double, image: CGImage)] = []
@@ -194,9 +197,13 @@ nonisolated final class SkimTracker: @unchecked Sendable {
     /// frames, while the shape is lost, after the tracker wavered, for the sky and the background, and when the shape
     /// runs into the window's edge.
     private func shapes(_ w: Way, _ image: CGImage) -> [LookMasks.Found] {
-        // Outlined by clicks: the prompted segmenter, prompted with the box followed so far a little grown. Lost, it
-        // falls back to Vision's shapes, which the feature print can find it among again.
-        if w.prompted, w.lost == 0, let box = w.trail.box, let s = SkimPrompt.outlineSync(image, box: SkimFollow.grown(box, by: SkimFollow.promptGrow)) {
+        // Outlined by clicks: the prompted segmenter, prompted with the box followed so far a little grown. An outline
+        // that jumps or runs away (SkimFollow.promptHolds) is not followed: the frame is shaky and the tracker holds the
+        // box. Lost a while, it falls back to Vision's shapes, which the feature print can find it among again.
+        if w.prompted, w.lost < SkimFollow.lostFor, let box = w.trail.box {
+            guard let s = SkimPrompt.outlineSync(image, box: SkimFollow.grown(box, by: SkimFollow.promptGrow)) else { return [] }
+            guard SkimFollow.promptHolds(area: s.area, last: w.area, start: w.startArea) else { return [] }
+            if w.startArea == nil { w.startArea = s.area }
             return [s]
         }
         if SkimFollow.boxed(w.trail.kind), w.lost == 0, !w.wavered, w.sinceFull < SkimFollow.fullEvery,

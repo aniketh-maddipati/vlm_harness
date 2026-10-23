@@ -422,6 +422,20 @@ nonisolated enum SkimFollow {
         return Box(x: x0, y: y0, w: max(0, x1 - x0), h: max(0, y1 - y0))
     }
 
+    /// How far a followed outline may grow past the one clicked (by area) before it is taken for a runaway: the box
+    /// growing frame by frame until the outline fills the picture (`docs/masking/checkpoints/08`, gold-fish_1).
+    static let promptCap = 2.0
+
+    /// Whether the prompted segmenter's outline on a frame is the shape followed so far: not a jump in area from the
+    /// last frame's (more than `jump` either way, as when it spreads across a pig walking in front), and not grown past
+    /// `promptCap` times the clicked outline. When it isn't, the frame is shaky and the outline is not followed.
+    static func promptHolds(area: Double, last: Double?, start: Double?) -> Bool {
+        guard area > 0 else { return false }
+        if let last, last > 0, max(area / last, last / area) > jump { return false }
+        if let start, start > 0, area > start * promptCap { return false }
+        return true
+    }
+
     /// The most clicks one outline takes; past that the page starts again.
     static let promptMax = 32
 
