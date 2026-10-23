@@ -1444,6 +1444,7 @@ class Component extends DCLogic {
   // A click on the frame: the first starts the outline, a later one outside it adds and inside it takes away.
   static prNext(pts, shape, x, y, seeded) { const inside = !!(shape && Component.olInside(shape.outline, x, y)); return (pts || []).concat({x, y, in:(!seeded && !(pts && pts.length)) || !inside}); }
   prClick(p) {
+    clearTimeout(this.prAutoT);
     const st = this.state, api = this.prApi(), k = this.olKey(), j = this.olJpg; if (!api || !k || !j || j.k !== k || p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return;
     let pr = this.olPr; if (!pr || pr.k !== k) pr = this.olPr = {k, pts:[], hist:[]};
     if (pr.pts.length >= 12) return;   // Vision takes 13 points on one outline
@@ -1551,6 +1552,7 @@ class Component extends DCLogic {
     return {id:'pick', kind:'object', score:1, area:Math.round(a * 1e4) / 1e4, box:[x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0)], outline:loops};
   }
   drStart(e) {
+    clearTimeout(this.prAutoT);
     const k = this.olKey(), j = this.olJpg, cv = this.olCv, v = this.vidEl; if (!k || !j || j.k !== k || !j.cv || !cv || !v) return false;
     const W = j.cv.width, H = j.cv.height, p0 = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY); if (!p0) return false;
     if (!this.drG || this.drG.k !== k) { try { this.drG = {k, w:W, h:H, g:Component.drGrad(j.cv.getContext('2d').getImageData(0, 0, W, H).data, W, H)}; } catch (x) { return false; } }
@@ -1591,8 +1593,16 @@ class Component extends DCLogic {
   prShow(pr, f) {
     const st = this.state, m = this.olMap || (this.olMap = new Map()), now = m.get(pr.k), list = Array.isArray(now) ? now.filter(s => s.id !== 'pick') : [];
     m.set(pr.k, list.concat({...f, id:'pick'})); this.olPainted = null;
-    this.setState({olSel:{...(st.olSel || {}), [st.cur]:['pick']}}, () => this.olPaint());
+    this.setState({olSel:{...(st.olSel || {}), [st.cur]:['pick']}}, () => { this.olPaint(); this.prAutoSoon(); });
   }
+  // Following starts by itself once the outline has been left alone a moment (a click, a stroke or a fix restarts the
+  // wait), the first time on a clip; ⏎ starts it at once. A clip already followed is followed again by ⏎ or Fix.
+  prAutoSoon() {
+    clearTimeout(this.prAutoT); const k = this.olKey(), cur = this.state.cur;
+    this.prAutoT = setTimeout(() => { const c = this.byId && this.byId[this.state.cur];
+      if (this.state.cur === cur && this.olKey() === k && !this.drS && !this.prBusy && this.olDraft() && !this.folOf(c)) this.folGo(); }, Component.prAutoMs);
+  }
+  static prAutoMs = 1200;
   olClick = () => this.olToggle();
   olCvRef = el => { this.olCv = el || null; this.olPainted = null; if (el) { this.olPaint(); this.olSoon(); } };
   // The frame on show: its clip and the time the video was asked for.
@@ -1713,7 +1723,7 @@ class Component extends DCLogic {
   static olEdgeSay(e, long) { const px = v => Math.round(v * (long || 1920)); return !e || (!e.grow && !e.soft) ? '' : 'edge ' + (e.grow > 0 ? '+' : e.grow < 0 ? '−' : '') + Math.abs(px(e.grow)) + ' px' + (e.soft ? ' · soft ' + px(e.soft) + ' px' : ''); }
   // ⏎ follows the draft (one shape chosen); esc lets the draft go.
   olDraft() { const st = this.state, c = this.byId && this.byId[st.cur], r = this.folOf(c); return st.lv >= 2 && !!st.ol && this.olSel().length === 1 && !!this.folApi() && !(r && (r.state === 'run' || r.fixing)); }
-  olDrop() { const st = this.state, m = this.olMap, pk = this.olPr && m && m.get(this.olPr.k); if (Array.isArray(pk)) m.set(this.olPr.k, pk.filter(s => s.id !== 'pick')); if (this.olEdge) this.olEdge.delete(st.cur); this.olPr = null; this.prSeq = (this.prSeq || 0) + 1; this.prBusy = ''; this.prWhy = ''; this.setState({olSel:{...(st.olSel || {}), [st.cur]:[]}}, () => { this.olPainted = null; this.olPaint(); }); }
+  olDrop() { clearTimeout(this.prAutoT); const st = this.state, m = this.olMap, pk = this.olPr && m && m.get(this.olPr.k); if (Array.isArray(pk)) m.set(this.olPr.k, pk.filter(s => s.id !== 'pick')); if (this.olEdge) this.olEdge.delete(st.cur); this.olPr = null; this.prSeq = (this.prSeq || 0) + 1; this.prBusy = ''; this.prWhy = ''; this.setState({olSel:{...(st.olSel || {}), [st.cur]:[]}}, () => { this.olPainted = null; this.olPaint(); }); }
   olChip = e => { const id = e.currentTarget.getAttribute('data-ol'); if (!id) return; if (id.startsWith('q:')) return this.prQuick(id.slice(2)); this.olChoose(id); };
   // One tap, as Lightroom's Select buttons (clicks on): Vision's Subject, Sky, People (every person) or Background chosen
   // in place of the clicked outline; the same chip again lets it go. A click on the frame then outlines by clicks again.
@@ -1729,7 +1739,7 @@ class Component extends DCLogic {
     const st = this.state, f = this.olFor(), ids = Component.prQuickIds(Array.isArray(f) ? f : [], q), now = this.olSel(); if (!ids.length) return;
     const same = ids.length === now.length && ids.every(i => now.includes(i)), m = this.olMap, pk = this.olPr && m && m.get(this.olPr.k);
     if (Array.isArray(pk)) m.set(this.olPr.k, pk.filter(s => s.id !== 'pick')); this.olPr = null; this.prSeq = (this.prSeq || 0) + 1; this.prBusy = ''; this.prWhy = '';
-    this.setState({olSel:{...(st.olSel || {}), [st.cur]:same ? [] : ids}}, () => { this.olPainted = null; this.olPaint(); });
+    this.setState({olSel:{...(st.olSel || {}), [st.cur]:same ? [] : ids}}, () => { this.olPainted = null; this.olPaint(); if (!same && ids.length === 1) this.prAutoSoon(); });
   }
   olVals(c) {
     const st = this.state, on = !!st.ol && st.lv >= 2 && !!this.olApi() && !!c._file && !this.vidNew; if (!on) return {olOn:false};
@@ -1761,8 +1771,8 @@ class Component extends DCLogic {
   static prSay(f, n, busy, why, clicks, draft, quick) {
     if (f === undefined || f === 'wait') return 'reading this frame…'; if (f === null) return 'this frame couldn’t be read';
     if (busy) return busy;
-    if (quick) return (n > 1 && quick.startsWith('Person') ? 'People' : quick) + ' chosen · click the picture to outline something else instead' + (draft ? ' · ⏎ to follow' : '') + ' · esc to let go';
-    const tail = n ? ' · click outside to add, inside to take away · drag along the edge to redraw it' + (draft ? ' · ⏎ to follow' : '') + ' · esc to undo' : '';
+    if (quick) return (n > 1 && quick.startsWith('Person') ? 'People' : quick) + ' chosen · click the picture to outline something else instead' + (draft ? ' · follows in a moment (⏎ now)' : '') + ' · esc to let go';
+    const tail = n ? ' · click outside to add, inside to take away · drag along the edge to redraw it' + (draft ? ' · follows in a moment (⏎ now)' : '') + ' · esc to undo' : '';
     return (why ? why + ' · ' : '') + (n ? 'outlined' + tail : 'click or brush over the thing you mean');
   }
   static olSay(f, n) { return f === undefined || f === 'wait' ? 'reading this frame…' : f === null ? 'this frame couldn’t be read' : !f.length ? 'nothing to choose in this frame' : n ? n + ' chosen' : 'click a shape to choose it'; }
