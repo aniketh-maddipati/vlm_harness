@@ -91,6 +91,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     var onPageError: ((String?) -> Void)?
     /// The recent-shoots list changed (File ▸ Open Recent).
     var onShootsChanged: (() -> Void)?
+    /// Pick's page said it is ready (after plumbing's contract check), every time it loads.
+    var onReady: (() -> Void)?
+    /// The page's Photos / Video switch (`window.luminaSwitch.go`, Debug builds): the window loads the other page.
+    var onSwitchPage: ((SetsPage) -> Void)?
     /// The Edit canvas (addendum §2): native pixels over the page's canvas rect, or the image
     /// fallback path when there is no Metal device. Made by `attachCanvas` once the web view is up.
     private(set) var canvas: LookCanvasController?
@@ -298,6 +302,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// access is stopped.
     func closeShoot() { access.closeShoot() }
 
+    /// The window is about to load the other page (the Photos / Video switch): Pick's page is no longer there to
+    /// be told about cards, and the Edit canvas leaves the screen with it.
+    func pageLeaving() {
+        ready = false
+        canvas?.leave()
+    }
+
     func resolve(_ rel: String) -> URL? { ingest.resolve(rel) }      // no ../ escapes
 
     // MARK: Cards
@@ -417,6 +428,11 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             closeShoot()
             webView?.evaluateJavaScript("window.__lumina && __lumina.card(\(cards.current != nil), \(cards.current.map(cardJSON) ?? "null"))", completionHandler: nil)
             onEvent?("ready")
+            onReady?()
+            return (true, nil)
+        case "switchPage":
+            guard SetsPage.switchable, let side = body["to"] as? String, let page = SetsPage(side: side) else { return (false, nil) }
+            onSwitchPage?(page)
             return (true, nil)
         case "pageError":
             let text = (body["message"] as? String).map { String($0.prefix(300)) }

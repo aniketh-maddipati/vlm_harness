@@ -11,7 +11,7 @@ struct LuminaApp: App {
     var body: some Scene {
         WindowGroup {
             SetsRootView()
-                .frame(minWidth: SetsWindowSize.minimum(for: .current).width, minHeight: SetsWindowSize.minimum(for: .current).height)
+                .frame(minWidth: SetsWindowSize.minimum(for: menu.page).width, minHeight: SetsWindowSize.minimum(for: menu.page).height)
                 .ignoresSafeArea()
         }
         .defaultSize(SetsWindowSize.initial)
@@ -56,10 +56,10 @@ struct LuminaCommands: Commands {
             if menu.pageError {
                 Button("Reload Page") { SetsMenuModel.reloadPage() }.keyboardShortcut("r", modifiers: .command)
             } else {
-                Button(SetsPage.current == .skim ? "Reload Page" : "Show in Finder") { send(SetsPage.current == .skim ? "reload" : "finder") }.keyboardShortcut("r", modifiers: .command)
+                Button(menu.page == .skim ? "Reload Page" : "Show in Finder") { send(menu.page == .skim ? "reload" : "finder") }.keyboardShortcut("r", modifiers: .command)
             }
             // ⌥⌘R: Handoff's file view shows the row selected there in Finder (Prompt 27); on the other steps, the same as ⌘R.
-            if SetsPage.current != .skim {
+            if menu.page != .skim {
                 Button("Show Selection in Finder") { send("finderSel") }.keyboardShortcut("r", modifiers: [.command, .option])
             }
             Divider()
@@ -86,6 +86,15 @@ struct LuminaCommands: Commands {
             Button("Next Unseen  ⇧U") { send("unseen") }
         }
         CommandGroup(before: .toolbar) {
+            // Debug builds hold Photos (Pick) and Video (Skim) in one window, as the switch beside the wordmark does.
+            if SetsPage.switchable {
+                Picker("Show", selection: Binding(get: { menu.page }, set: { SetsMenuModel.switchPage($0) })) {
+                    Text("Photos").tag(SetsPage.pick)
+                    Text("Video").tag(SetsPage.skim)
+                }
+                .pickerStyle(.inline)
+                Divider()
+            }
             Button("Open") { send("stepOpen") }.keyboardShortcut("1", modifiers: .command)
             Button("Pick") { send("stepCull") }.keyboardShortcut("2", modifiers: .command)
             Button("Edit") { send("stepEdit") }.keyboardShortcut("3", modifiers: .command)
@@ -122,7 +131,11 @@ final class SetsMenuModel: ObservableObject {
     @Published var recents: [Recent] = []
     /// The page shows an error in place of its screen: ⌘R reloads it.
     @Published var pageError = false
+    /// The page on screen: Photos (Pick) or Video (Skim, Debug builds).
+    @Published var page: SetsPage = .current
     weak var controller: SetsWindowController?
+
+    static func switchPage(_ page: SetsPage) { shared.controller?.switchPage(to: page) }
 
     static func command(_ name: String) { shared.controller?.command(name) }
     static func reopen(_ id: String) { shared.controller?.reopen(id) }
