@@ -21,6 +21,9 @@ import VideoToolbox
 /// The clip's preferred transform is not applied (camera clips are landscape; the mask lab does the same).
 nonisolated final class SkimTracker: @unchecked Sendable {
     static let shared = SkimTracker()
+    /// Whether each frame's cues carry `look`, the feature-print distance to the start frame's shape. It costs a
+    /// feature print a frame, so only the mask lab turns it on, to test it as a sureness cue.
+    nonisolated(unsafe) static var logsLook = false
 
     private final class Job {
         let id: String
@@ -220,7 +223,8 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         if step.shape != nil { refound = refound || w.wasLost; w.lost = 0 }
         let sure = SkimFollow.sureness(tracker: figure, found: step.shape != nil, area: step.shape?.area, last: w.area, refound: refound)
         let cues = SkimFollow.Cues(tracker: figure, agree: agree, area: step.shape?.area, last: w.area, refound: refound,
-                                   score: step.shape?.score, rivals: rivals, lost: w.lost)
+                                   score: step.shape?.score, rivals: rivals, lost: w.lost,
+                                   look: Self.logsLook ? Self.look(image, shape: step.shape, first: first, print: print) : nil)
         w.wasLost = step.shape == nil
         w.wavered = (figure ?? 1) < SkimFollow.steady
         if let a = step.shape?.area { w.area = a }
@@ -263,6 +267,15 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         else { return nil }
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         return ctx.makeImage()
+    }
+
+    /// The feature-print distance from what is in `shape`'s box to the start frame's print (0 on the start frame).
+    private static func look(_ image: CGImage, shape: LookMasks.Found?, first: Bool, print: VNFeaturePrintObservation?) -> Double? {
+        if first, shape != nil { return 0 }
+        guard let shape, let print, let p = featurePrint(image, box: shape.box) else { return nil }
+        var d: Float = 0
+        guard (try? p.computeDistance(&d, to: print)) != nil else { return nil }
+        return Double(d)
     }
 
     /// Vision's feature print of what is in `box` (fractions from the top left) of `image`.

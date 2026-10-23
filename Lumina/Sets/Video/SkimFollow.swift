@@ -346,7 +346,8 @@ nonisolated enum SkimFollow {
     /// the tracker's figure (nil: no tracker, the first frame, or found again), the IoU of the tracker's box with the
     /// shape put on it, the shape's area and the last frame's, whether it was found again by its feature print, Vision's
     /// score for the shape, how many shapes overlapped the tracker's box (more than one: look-alikes or a crowd), and
-    /// how many frames in a row it had been lost.
+    /// how many frames in a row it had been lost, and (mask lab only, `SkimTracker.logsLook`) the feature-print distance
+    /// from what is in the shape's box to what was in it on the start frame.
     struct Cues: Equatable, Sendable {
         var tracker: Double?
         var agree: Double?
@@ -356,11 +357,12 @@ nonisolated enum SkimFollow {
         var score: Double?
         var rivals: Int
         var lost: Int
+        var look: Double? = nil
 
         var json: [String: Any] {
             func r(_ v: Double?) -> Any { v.map { ($0 * 10_000).rounded() / 10_000 } ?? NSNull() }
             return ["tracker": r(tracker), "agree": r(agree), "area": r(area), "last": r(last), "refound": refound,
-                    "score": r(score), "rivals": rivals, "lost": lost]
+                    "score": r(score), "rivals": rivals, "lost": lost, "look": r(look)]
         }
     }
 

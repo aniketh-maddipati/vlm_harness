@@ -137,6 +137,7 @@ func main() throws {
 
     let started = Date()
     let id = "masklab"
+    SkimTracker.logsLook = true
     SkimTracker.shared.start(id: id, url: url, kind: kind, box: box, t0: t0)
     var state = "run", why = "", got: [SkimFollow.Tracked] = []
     while true {
