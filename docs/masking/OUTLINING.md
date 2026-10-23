@@ -121,6 +121,21 @@ frame ~310 ms (fast, balanced) and ~410 ms (accurate); each added include or exc
 balanced for the first request. The model is a one-time download from Apple (`downloadAssets`, ~55 MB, 5.9 s here)
 into macOS's own protected storage. SAM 2.1 small and EdgeTAM rows follow.
 
+**Brush (scribble), 2026-10-23.** The same 16 objects, seeded with `init(seedScribbleBuffer:)`: a stroke along the
+label's skeleton, 2 % of the long edge wide, kept inside the label (`Tools/masklab/scribble_merged.py`). Balanced:
+
+| | 1 click | click + exclude | box | brush stroke |
+|---|---|---|---|---|
+| all 16 | 0.753 | 0.771 | 0.809 | **0.835** |
+| 14 (without the two specks) | 0.861 | 0.881 | 0.886 | **0.924** |
+
+The stroke wins most on thin or busy shapes: shooting_2 0.67 → 0.89, gold-fish_2 0.82 → 0.96, gold-fish_1 0.86 → 0.93.
+First request ~163 ms median, the same as a click. What the buffer is, measured (the SDK documents none of it): a
+one-channel `CVPixelBuffer` wrapped as `CVReadOnlyPixelBuffer(unsafeBuffer:)`; `OneComponent8` with the stroke at 255
+and `OneComponent32Float` with the stroke at 1.0 give the same mask; its origin is the image's top left (a vertically
+flipped stroke scores 0), unlike `NormalizedPoint`'s bottom left; a buffer at half the image's size works the same
+(it is scaled to the image). Points added after a scribble seed: up to 13 (the doc comment).
+
 ## Order
 
 1. B and B2, with the SAM 2.1 speed fix (1.6 fps today).

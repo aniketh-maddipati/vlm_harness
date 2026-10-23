@@ -3,7 +3,8 @@
 //   masklab-iterative --status                         asset status (ready / notReady / downloading / error)
 //   masklab-iterative --download                       download the model assets (Vision decides where they go)
 //   masklab-iterative IMAGE --out PREFIX [--quality fast|balanced|accurate]
-//       (--seed-point x,y | --seed-box x,y,w,h) [--add x,y]… [--remove x,y]…
+//       (--seed-point x,y | --seed-box x,y,w,h | --seed-scribble STROKE.png [--scribble-format 8|f32]
+//        [--scribble-own-size]) [--add x,y]… [--remove x,y]…
 //
 // Coordinates are fractions of the image from its top left (the mask lab's convention); Vision's own are from the
 // bottom left, so they are flipped here. Writes PREFIX-0.png after the seed and PREFIX-<k>.png after each added
@@ -12,6 +13,7 @@
 //
 //   swiftc -O -o masklab-iterative Tools/masklab/iterative/main.swift
 import CoreGraphics
+import CoreVideo
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
@@ -68,6 +70,7 @@ struct Main {
         if a.first == "--track" { try await track(Array(a.dropFirst())); return }
         var image: String?, out: String?, quality = "balanced", seedPoint: [Double]?, seedBox: [Double]?
         var adds: [[Double]] = [], removes: [[Double]] = []
+        var scribble: String?, scribbleFormat = "8", scribbleAtImageSize = true
         var i = 0
         func next() throws -> String { i += 1; guard i < a.count else { throw Usage(description: "\(a[i - 1]) needs a value") }; return a[i] }
         while i < a.count {
@@ -78,6 +81,9 @@ struct Main {
             case "--seed-box": seedBox = try nums(try next(), 4)
             case "--add": adds.append(try nums(try next(), 2))
             case "--remove": removes.append(try nums(try next(), 2))
+            case "--seed-scribble": scribble = try next()
+            case "--scribble-format": scribbleFormat = try next()
+            case "--scribble-own-size": scribbleAtImageSize = false
             default: image = a[i]
             }
             i += 1
@@ -85,11 +91,37 @@ struct Main {
         guard let image, let out else { throw Usage(description: "IMAGE and --out are needed") }
         let cg = try load(image)
         let req: GenerateIterativeSegmentationRequest
-        if let b = seedBox {
+        if let s = scribble {
+            // A stroke drawn as a mask (PNG, white = stroke), handed over as a one-channel buffer. The SDK documents
+            // neither the format nor the values, so `--scribble-format` tries them: 8 (OneComponent8, stroke 255),
+            // f32 (OneComponent32Float, stroke 1.0), at the image's size or the stroke file's own.
+            let stroke = try load(s)
+            let w = scribbleAtImageSize ? cg.width : stroke.width, h = scribbleAtImageSize ? cg.height : stroke.height
+            let f32 = scribbleFormat == "f32"
+            var pb: CVPixelBuffer?
+            CVPixelBufferCreate(nil, w, h, f32 ? kCVPixelFormatType_OneComponent32Float : kCVPixelFormatType_OneComponent8,
+                                [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary, &pb)
+            guard let pb else { throw Usage(description: "can't make the scribble buffer") }
+            CVPixelBufferLockBaseAddress(pb, [])
+            let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)!
+            ctx.draw(stroke, in: CGRect(x: 0, y: 0, width: w, height: h))
+            let src = ctx.data!.assumingMemoryBound(to: UInt8.self)
+            let base = CVPixelBufferGetBaseAddress(pb)!, row = CVPixelBufferGetBytesPerRow(pb)
+            for y in 0..<h {
+                for x in 0..<w {
+                    let v = src[y * w + x]
+                    if f32 { base.advanced(by: y * row).assumingMemoryBound(to: Float.self)[x] = Float(v) / 255 }
+                    else { base.advanced(by: y * row).assumingMemoryBound(to: UInt8.self)[x] = v }
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(pb, [])
+            req = GenerateIterativeSegmentationRequest(seedScribbleBuffer: CVReadOnlyPixelBuffer(unsafeBuffer: pb))
+        } else if let b = seedBox {
             req = GenerateIterativeSegmentationRequest(seedBox: NormalizedRect(x: b[0], y: 1 - b[1] - b[3], width: b[2], height: b[3]))
         } else if let p = seedPoint {
             req = GenerateIterativeSegmentationRequest(seedPoint: point(p))
-        } else { throw Usage(description: "--seed-point or --seed-box") }
+        } else { throw Usage(description: "--seed-point, --seed-box or --seed-scribble") }
         req.qualityLevel = ["fast": .fast, "accurate": .accurate][quality] ?? .balanced
         var times: [Double] = []
         func step(_ k: Int) async throws {

@@ -15,7 +15,7 @@ UA = {"User-Agent": "lumina-masklab/1 (dataset subset fetch)"}
 
 class RangeFile(io.RawIOBase):
     def __init__(self, url, block=1 << 20):
-        self.url, self.pos, self.block = url, 0, block
+        self.origin, self.url, self.pos, self.block = url, url, 0, block
         # One byte by range: the size from Content-Range, and the URL after redirects (Hugging Face → its CDN).
         # Works where HEAD doesn't (Google Drive's download host).
         req = urllib.request.Request(url, headers={**UA, "Range": "bytes=0-0"})
@@ -50,9 +50,11 @@ class RangeFile(io.RawIOBase):
                     data = r.read()
                 self.fetched += len(data)
                 return data
-            except Exception:
+            except Exception as e:
                 if attempt == 4:
                     raise
+                if getattr(e, "code", None) in (401, 403):  # a signed CDN link ran out: ask the origin again
+                    self.url = self.origin
                 time.sleep(2 ** attempt)
 
     def _block(self, i):
