@@ -71,8 +71,8 @@ const until = async (p, test) => { for (let k = 0; k < 24; k++) { if (await test
   await p.keyboard.press('o');
   await until(p, async () => /click the thing/.test(await say(p)));
   ok(/click the thing you mean/.test(await say(p)), 'the line says to click: ' + JSON.stringify(await say(p)));
-  ok(await p.evaluate(() => window.__masks) === 0, 'Vision\'s finders were not asked');
-  ok(await pressed(p) === '', 'no chips before a click: ' + JSON.stringify(await pressed(p)));
+  await until(p, async () => /q:subject/.test(await pressed(p)));
+  ok(await pressed(p) === 'q:subject:false q:background:false', 'one-tap chips from Vision\'s shapes, nothing chosen: ' + JSON.stringify(await pressed(p)));
   const r = await (await p.$('[data-lumina="viewer-outlines"]')).boundingBox();
   const at = (fx, fy) => p.mouse.click(r.x + r.width * fx, r.y + r.height * fy);
   await at(0.3, 0.5);
@@ -82,7 +82,7 @@ const until = async (p, test) => { for (let k = 0; k < 24; k++) { if (await test
   ok(q.length === 1 && q[0].jpeg && q[0].points.length === 1 && q[0].points[0].in === true, 'one click, one prompt, the frame as a JPEG: ' + JSON.stringify(q.map(x => x.points)));
   ok(Math.abs(q[0].points[0].x - 0.3) < 0.02 && Math.abs(q[0].points[0].y - 0.5) < 0.02, 'where it was clicked: ' + JSON.stringify(q[0].points[0]));
   ok(/^f[0-9a-z]+-\d+$/.test(q[0].key) && q[0].key.length <= 64, 'the frame\'s key: ' + q[0].key);
-  ok(await pressed(p) === 'pick:true', 'the outline is chosen: ' + await pressed(p));
+  ok(await pressed(p) === 'pick:true q:subject:false q:background:false', 'the outline is chosen: ' + await pressed(p));
   ok(/outlined · click outside to add, inside to take away · drag along the edge to redraw it · esc to undo/.test(await say(p)), 'the line says what a click does: ' + JSON.stringify(await say(p)));
   const lit = await p.evaluate(() => { const c = document.querySelector('[data-lumina="viewer-outlines"]'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; });
   ok(lit > 500, 'the outline and the click are drawn: ' + lit + ' pixels');
@@ -103,15 +103,25 @@ const until = async (p, test) => { for (let k = 0; k < 24; k++) { if (await test
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   const a2 = await area();
   ok(a2 > a3, 'esc undoes the last click (the outline grows back): ' + a3 + ' → ' + a2);
-  ok(await pressed(p) === 'pick:true' && (await prompts(p)).length === 3, 'without asking again: ' + (await prompts(p)).length);
+  ok(/^pick:true/.test(await pressed(p)) && (await prompts(p)).length === 3, 'without asking again: ' + (await prompts(p)).length);
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
-  ok(await pressed(p) === '', 'esc at the first click lets it go: ' + JSON.stringify(await pressed(p)));
+  ok(await pressed(p) === 'q:subject:false q:background:false', 'esc at the first click lets it go: ' + JSON.stringify(await pressed(p)));
   ok(/click the thing you mean/.test(await say(p)), 'and the line says to click again: ' + JSON.stringify(await say(p)));
   await at(0.6, 0.4);
   await until(p, async () => (await prompts(p)).length === 4 && /outlined/.test(await say(p)));
   q = await prompts(p);
   ok(q.length === 4 && q[3].points.length === 1, 'a click after that starts a new outline: ' + JSON.stringify(q[3] && q[3].points));
+  // one tap: the Subject chip chooses Vision's subject in place of the outline; again lets it go; a click outlines again
+  await p.click('[data-ol="q:subject"]'); await p.waitForTimeout(250);
+  ok(await pressed(p) === 'q:subject:true q:background:false', 'Subject in one tap, the outline let go: ' + JSON.stringify(await pressed(p)));
+  ok(/^Subject chosen · click the picture to outline something else instead/.test(await say(p)), 'the line says so: ' + JSON.stringify(await say(p)));
+  await p.click('[data-ol="q:subject"]'); await p.waitForTimeout(250);
+  ok(await pressed(p) === 'q:subject:false q:background:false', 'the same chip again lets it go: ' + JSON.stringify(await pressed(p)));
+  await p.click('[data-ol="q:background"]'); await p.waitForTimeout(250);
+  await at(0.6, 0.4);
+  await until(p, async () => (await prompts(p)).length === 5 && /outlined/.test(await say(p)));
+  ok(await pressed(p) === 'pick:true q:subject:false q:background:false' && (await prompts(p))[4].points.length === 1, 'a click after a chip outlines afresh: ' + JSON.stringify(await pressed(p)));
   // drawing by hand: a drag out from the outline's edge and back adds a bump; esc takes it back
   const pick = () => p.evaluate(() => { const b = [...document.querySelectorAll('[data-ol]')].find(x => x.getAttribute('data-ol') === 'pick'); return b ? b.getAttribute('aria-pressed') : ''; });
   const drag = async pts => { await p.mouse.move(r.x + r.width * pts[0][0], r.y + r.height * pts[0][1]); await p.mouse.down();
