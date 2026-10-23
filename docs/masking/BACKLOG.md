@@ -7,6 +7,12 @@ per step. A round ends with a short report: what shipped, what was measured, wha
 other four design notes are not in the repo, on any branch, or on the Mac yet. Re-rank once they are.
 Until then the order follows the owner's request of 2026-10-23 and what PR #308 left open.
 
+## Now: one objective
+
+**Trustworthy video tracking** (owner, 2026-10-23: one objective at a time). The plan, the data and the done criteria
+are in [TRACKING-EXPERIMENTS.md](TRACKING-EXPERIMENTS.md). Healing, stills and the other items below are parked
+until it's done.
+
 ## Rules for every item
 
 - **Data lives on the T7.** Datasets, model weights, caches, test outputs and renders go under
