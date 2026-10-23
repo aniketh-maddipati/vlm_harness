@@ -14,7 +14,7 @@ inside the page: the same steps in either engine.
 
 Bounded: LUMINA_WEB_LIMIT seconds (default 300), then FAIL and exit 124.
 """
-import functools, http.server, json, os, shutil, signal, socket, subprocess, sys, tempfile, threading, time, urllib.request
+import functools, http.server, json, os, shutil, signal, socket, subprocess, sys, tempfile, threading, time, urllib.error, urllib.request
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 CLIPS = os.path.join(ROOT, 'Tests/web/fixtures/skim-clips')
@@ -104,7 +104,18 @@ def safari(url, names):
                 break
             except OSError:
                 time.sleep(0.2)
-        sid = wd('POST', '/session', {'capabilities': {'alwaysMatch': {'browserName': 'safari'}}})['sessionId']
+        # A fresh macOS runner sometimes answers the first new session with a 500 while Safari is
+        # still starting (seen on CI before any page loaded). Ask again, twice at most, while time allows.
+        t0 = time.time()
+        for attempt in range(3):
+            try:
+                sid = wd('POST', '/session', {'capabilities': {'alwaysMatch': {'browserName': 'safari'}}})['sessionId']
+                break
+            except urllib.error.HTTPError as e:
+                print('safaridriver: new session failed (%s): %s' % (e.code, e.read()[:300].decode('utf-8', 'replace')), flush=True)
+                if attempt == 2 or time.time() - t0 > 150:
+                    raise
+                time.sleep(5)
         wd('POST', '/session/%s/timeouts' % sid, {'script': 180000, 'pageLoad': 30000})
         wd('POST', '/session/%s/url' % sid, {'url': url})
         res = wd('POST', '/session/%s/execute/async' % sid, {
