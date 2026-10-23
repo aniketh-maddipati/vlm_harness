@@ -63,6 +63,8 @@ def main():
     ap.add_argument("--clips", required=True)
     ap.add_argument("--labels", required=True)
     ap.add_argument("--run", action="append", default=[], help="name=path to a tracker's run folder")
+    ap.add_argument("--states", action="append", default=[],
+                    help="name=states.json (calibrate.py --states-out): that column's strip from the file, not timing.json")
     ap.add_argument("--objects", default="")
     ap.add_argument("--per", type=int, default=6)
     ap.add_argument("--tile", type=int, default=0, help="tile width (default: fits --width)")
@@ -85,7 +87,14 @@ def main():
             pick = [frames[round(i * (len(frames) - 1) / max(1, a.per - 1))] for i in range(a.per)]
             clip = os.path.join(a.clips, obj + ".mov")
             states = {}
+            for spec in a.states:
+                sname, spath = spec.split("=", 1)
+                for run_states in json.load(open(spath)).values():
+                    if obj in run_states:
+                        states[sname] = (run_states[obj]["start_frame"], run_states[obj]["sure_frames"])
             for name, path in runs:
+                if name in states:
+                    continue
                 t = os.path.join(path, obj, "timing.json")
                 if os.path.exists(t):
                     tj = json.load(open(t))

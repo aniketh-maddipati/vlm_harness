@@ -124,6 +124,29 @@ def fit(rs, target=0.85, bad=0.05):
     return (best, measure(rs, [sure(r, best) for r in rs])) if best else (None, None)
 
 
+def frame_states(run, rule):
+    """Every tracked frame's state under `rule` (sure, or today's shaky / lost where the rule says not sure), per clip:
+    what the strip would show. Labels are not needed."""
+    out = {}
+    for clip, folder in score.clip_dirs(run).items():
+        timing = score.load_timing(folder) or {}
+        cues, states = timing.get("cues_frames"), timing.get("sure_frames")
+        if not cues or not states:
+            continue
+        a0 = next((c.get("area") for c in cues if c and c.get("area")), None)
+        row = []
+        for c, today in zip(cues, states):
+            c = c or {}
+            area, last = c.get("area"), c.get("last")
+            r = {"found": area is not None, "refound": bool(c.get("refound")), "tracker": c.get("tracker"),
+                 "agree": c.get("agree"), "rivals": c.get("rivals", 0), "look": c.get("look"),
+                 "start": max(area / a0, a0 / area) if area and a0 else None,
+                 "jump": max(area / last, last / area) if area and last else None}
+            row.append("sure" if sure(r, rule) else ("lost" if today == "lost" or not r["found"] else "shaky"))
+        out[clip] = {"start_frame": int(timing.get("start_frame", 0)), "sure_frames": row}
+    return out
+
+
 def parse_run(arg):
     run, _, labels = arg.partition(":")
     if not labels:
@@ -138,6 +161,8 @@ def main(argv=None):
     ap.add_argument("--target", type=float, default=0.85, help="mean IoU the sure frames must reach (0.85)")
     ap.add_argument("--bad-share", type=float, default=0.05, help="most sure frames allowed under IoU 0.5 (0.05)")
     ap.add_argument("--out", help="write the rule and every number here (JSON)")
+    ap.add_argument("--states-out", help="write each --test run's per-frame states under the fitted rule here (JSON, "
+                                         "{run: {clip: {start_frame, sure_frames}}}), for sheet.py --states")
     a = ap.parse_args(argv)
 
     fit_rows = [r for arg in a.fit for r in rows(*parse_run(arg))]
@@ -166,6 +191,9 @@ def main(argv=None):
         if new:
             line += f" · fitted sure {new['sure_share']:.0%} IoU {f(new['iou_sure'])} bad {f(new['bad_share'])}"
         print(line)
+    if a.states_out and rule:
+        with open(a.states_out, "w") as fh:
+            json.dump({parse_run(arg)[0]: frame_states(parse_run(arg)[0], rule) for arg in a.test}, fh)
     if a.out:
         with open(a.out, "w") as fh:
             json.dump(report, fh, indent=1)
