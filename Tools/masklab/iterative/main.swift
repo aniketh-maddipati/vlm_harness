@@ -65,6 +65,7 @@ struct Main {
             print("{\"status\": \"\(await r.assetStatus)\"}")
             return
         }
+        if a.first == "--track" { try await track(Array(a.dropFirst())); return }
         var image: String?, out: String?, quality = "balanced", seedPoint: [Double]?, seedBox: [Double]?
         var adds: [[Double]] = [], removes: [[Double]] = []
         var i = 0
@@ -103,5 +104,56 @@ struct Main {
         for p in removes { try req.addExcludedPoint(point(p)); try await step(k); k += 1 }
         let size = "[\(cg.width), \(cg.height)]"
         print("{\"image\": \"\(image)\", \"quality\": \"\(quality)\", \"size\": \(size), \"ms\": \(times)}")
+    }
+
+    /// B2: a box per frame (another tracker's), the mask from the prompted segmenter, in one process.
+    ///   masklab-iterative --track BOXES.json --out DIR [--quality q] [--tracker name]
+    /// BOXES.json: {"clip": name, "frames": [{"n": 12, "image": "/…/00012.jpg", "box": [x,y,w,h] | null}, …]}
+    /// Writes DIR/<n:06d>.png for every listed frame (empty where box is null) and DIR/timing.json.
+    static func track(_ a: [String]) async throws {
+        var boxes: String?, out: String?, quality = "balanced", tracker = "iterative-on-box"
+        var i = 0
+        func next() throws -> String { i += 1; guard i < a.count else { throw Usage(description: "\(a[i - 1]) needs a value") }; return a[i] }
+        while i < a.count {
+            switch a[i] {
+            case "--out": out = try next()
+            case "--quality": quality = try next()
+            case "--tracker": tracker = try next()
+            default: boxes = a[i]
+            }
+            i += 1
+        }
+        guard let boxes, let out else { throw Usage(description: "--track BOXES.json --out DIR") }
+        struct Job: Decodable { struct Frame: Decodable { var n: Int; var image: String; var box: [Double]? }; var clip: String; var frames: [Frame] }
+        let job = try JSONDecoder().decode(Job.self, from: Data(contentsOf: URL(fileURLWithPath: boxes)))
+        try FileManager.default.createDirectory(atPath: out, withIntermediateDirectories: true)
+        let t0 = ContinuousClock.now
+        var per: [Double] = [], ran = 0, first = job.frames.first?.n ?? 0
+        var size = (0, 0)
+        for f in job.frames {
+            let cg = try load(f.image)
+            size = (cg.width, cg.height)
+            let path = "\(out)/" + String(format: "%06d.png", f.n)
+            guard let b = f.box, b[2] > 0, b[3] > 0 else {
+                let ctx = CGContext(data: nil, width: cg.width, height: cg.height, bitsPerComponent: 8, bytesPerRow: 0,
+                                    space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)!
+                try save(ctx.makeImage()!, path)
+                per.append(0)
+                continue
+            }
+            let req = GenerateIterativeSegmentationRequest(seedBox: NormalizedRect(x: b[0], y: 1 - b[1] - b[3], width: b[2], height: b[3]))
+            req.qualityLevel = ["fast": .fast, "accurate": .accurate][quality] ?? .balanced
+            let t = ContinuousClock.now
+            let obs = try await req.perform(on: cg)
+            per.append(ms(t))
+            ran += 1
+            if let obs { try save(try obs.cgImage, path) }
+        }
+        first = min(first, job.frames.map(\.n).min() ?? 0)
+        let timing: [String: Any] = ["tracker": tracker, "clip": job.clip, "start_frame": first, "frames": job.frames.count,
+                                     "total_ms": ms(t0), "per_frame_ms": per, "model_frames": ran, "quality": quality,
+                                     "proxy": [size.0, size.1]]
+        try JSONSerialization.data(withJSONObject: timing).write(to: URL(fileURLWithPath: "\(out)/timing.json"))
+        print("\(job.clip): \(job.frames.count) frames, model on \(ran), \(String(format: "%.1f", Double(job.frames.count) / (ms(t0) / 1000))) fps")
     }
 }
