@@ -8,7 +8,9 @@ import ImageIO
 /// body, in practice), since dust belongs to a sensor.
 ///
 /// Positions come back twice: per group in the stored frame (where the dust is), and per photo
-/// turned upright (where the page draws it).
+/// turned upright (where the page draws it), and per photo as stored again (what Lightroom's spot heals
+/// in its XMP want: `LuminaCore.retouchXmp`). Each photo's spots also go to `LookDust.Registry`,
+/// where the develop finds them for a look with `dust:1`.
 ///
 /// Thread-safe. One search at a time at `.utility`; a new one waits for the last.
 nonisolated final class SetsDust: @unchecked Sendable {
@@ -52,16 +54,22 @@ nonisolated final class SetsDust: @unchecked Sendable {
         }
         var outGroups: [[String: Any]] = []
         var photos: [String: [[String: Any]]] = [:]
+        var stored: [String: [[String: Any]]] = [:]
         for key in order {
             guard let g = groups[key] else { continue }
             let spots = g.acc.spots()
             outGroups.append(["size": [g.acc.width, g.acc.height], "frames": g.acc.frames, "spots": spots.map(\.dictionary)])
+            // The develop lifts them for a look with dust:1; a clean search clears the old ones.
+            for p in g.photos { if let url = ingest.resolve(p.rel) { LookDust.Registry.shared.set(spots, for: url) } }
             guard !spots.isEmpty else { continue }
-            for p in g.photos { photos[p.rel] = spots.map { $0.upright(orientation: p.orientation).dictionary } }
+            for p in g.photos {
+                photos[p.rel] = spots.map { $0.upright(orientation: p.orientation).dictionary }
+                stored[p.rel] = spots.map(\.dictionary)
+            }
         }
         let found = outGroups.reduce(0) { $0 + (($1["spots"] as? [Any])?.count ?? 0) }
         LuminaLog.app.info("dust: \(previews.count, privacy: .public) frames, \(unread, privacy: .public) unread, \(found, privacy: .public) spots")
-        return ["frames": previews.count - unread, "unread": unread, "groups": outGroups, "photos": photos]
+        return ["frames": previews.count - unread, "unread": unread, "groups": outGroups, "photos": photos, "stored": stored]
     }
 
     /// Linear luma of a JPEG as stored (not turned), at most `pixels` on the long edge.
