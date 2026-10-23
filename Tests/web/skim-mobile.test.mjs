@@ -114,6 +114,12 @@ test('Phone view: a button narrows the page to an iPhone’s width, and the narr
   assert.match(css, /\[data-screen-label=Skim\]\{container:skim \/ inline-size\}/); assert.doesNotMatch(css, /@media \(max-width:640px\)/);
   assert.match(css, /\[data-view=phone\]\{width:390px;max-width:100%/);
   assert.match(template, /<div data-screen-label="Skim" data-view="\{\{ viewName \}\}"/);
-  assert.match(template, /<button type="button" data-lumina="phone-view" aria-pressed="\{\{ phoneA \}\}" onClick="\{\{ phoneToggle \}\}"/);
+  assert.match(template, /<sc-if value="\{\{ phoneViewOn \}\}"[^>]*><button type="button" data-lumina="phone-view" aria-pressed="\{\{ phoneA \}\}" onClick="\{\{ phoneToggle \}\}"/);
   assert.match(src, /localStorage\.getItem\('lumina-skimview'\) === 'phone'/);
+});
+
+test('Phone view is off for now: no Phone button, and neither ?phone=1 nor a saved choice turns it on', () => {
+  assert.match(src, /static PHONE_VIEW = false;/);
+  assert.match(src, /phoneSaved\(\) \{ if \(!Component\.PHONE_VIEW\) return false;/);
+  assert.match(src, /phoneViewOn:Component\.PHONE_VIEW,/);
 });
