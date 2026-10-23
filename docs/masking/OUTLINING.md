@@ -25,45 +25,46 @@ to it (experiment B below) and stay the plan for carrying a mask through the cli
 Open questions: whether the download works from the sandboxed app, how it behaves offline, and how fast it is per
 added point.
 
-## Trackpad controls (recommended set)
+## Controls: click, click again, drag an edge, Esc
 
-The modifiers keep their current meaning, with points instead of whole shapes:
+Owner (2026-10-23): "how to make it simpler and more intuitive with less variation in controls". Today's Viewer has
+11 outline controls (O, hover, click, ⇧-click, ⌥-click, scroll for the edge, ⇧-scroll to soften, ⏎, Esc, { }, "Fix
+this stretch"). They come down to:
 
 | gesture | does |
 |---|---|
-| click | starts an object at that point (seed point) |
-| ⇧-click | adds a point that is part of it (included) |
-| ⌥-click | adds a point that isn't (excluded): splits the owner off the dog |
-| drag | a box around the object (seed box) |
-| ⌘-drag | paints a scribble over it (seed scribble). Press harder (Force Touch) for a wider brush; with ⌥ it erases |
-| pinch / two-finger drag | zoom and pan while refining (pinch zoom exists today; pan is added in outline mode) |
-| ⌘Z | takes back the last point, box or stroke |
-| ⏎ | follows it through the clip, as today |
-| Esc | drops the draft |
-| T, then move along an edge | the tracer (below) |
+| click | outlines the thing under it, and following it through the clip starts by itself |
+| click again | outside the outline adds that part, inside takes it away (one click on the neighbour Vision merged in takes it out) |
+| drag along the edge | the tracer for fine corrections: the line snaps to the picture's edges and replaces that stretch |
+| Esc | undoes the last click or drag; a second Esc lets go of the shape |
+
+No modifier keys and no modes. Pinch and two-finger pan still zoom and move, as everywhere else. What goes:
+
+- ⇧-click and ⌥-click: inside or outside decides.
+- ⏎: following starts on the first click and restarts after each fix.
+- Scroll and ⇧-scroll for the edge: a soft edge sized to the shape, kept as a setting in Export.
+- The O switch: outlines show on hover.
+- { } and "Fix this stretch": the strip only marks what needs you, in red where the track is unsure. A click on a mark
+  jumps there, and a click on the frame fixes it the same way. Only that stretch is followed again.
+
+Every gesture shows its result while the finger is still down. The target is under 100 ms per click on the M4 Pro,
+measured before the UI is built.
 
 ### The tracer, for fine corrections
 
-A magnetic trace in the style of intelligent scissors (live wire). With T held or toggled, the line follows the cursor
-but snaps to the strongest nearby edge in the frame. The path from the last anchor to the cursor is shown live, before
+A magnetic trace in the style of intelligent scissors (live wire). A drag that starts on the outline's edge follows
+the cursor but snaps to the strongest nearby edge in the frame. The path from the last anchor to the cursor is shown live, before
 it's committed:
 
 - The cost of each pixel comes from the frame's own edges: gradient strength, and the edge direction against the path's
   direction, on the 720 proxy and only in a band around the cursor. A shortest path from the last anchor to the cursor
   (Dijkstra) runs on each move, which is fast at that size.
-- A click drops an anchor. The path also drops one on its own after the cursor has stayed on the same edge for a
-  while, as Photoshop's magnetic lasso does. ⌘Z takes back the last anchor, and Esc drops the trace.
-- Started on the current outline and ended back on it, the trace replaces just that stretch of the outline: the fine
-  correction. A closed trace on its own becomes a new shape.
+- Anchors drop on their own after the cursor has stayed on the same edge for a while, as Photoshop's magnetic lasso
+  does, so the drag never has to stop. Letting go ends the trace, and Esc takes it back.
+- The trace replaces just the stretch of the outline between where it started and where it rejoined it.
 - The traced stretch is then handed to the model as a scribble along the edge, with an included point inside and an
   excluded point outside, so the mask beyond the stretch stays consistent. The edge snap runs on the result.
 - Pinch zoom works mid-trace, so a hair-width edge can be traced at 400%.
-
-Not recommended: a two-finger swipe to step through candidate masks or frames, since two-finger horizontal moves
-already pan and scrub, and would fight. Candidates, if a model offers several, go on Tab.
-
-Each added point re-runs only the prompt (the picture's encoding is kept), so the outline should update while the
-finger is still on the trackpad. The target is under 100 ms per point on the M4 Pro, measured before building the UI.
 
 The edge snap (`LookMasks.guided`) stays on top of whichever mask comes back.
 
@@ -79,7 +80,6 @@ The edge snap (`LookMasks.guided`) stays on top of whichever mask comes back.
 ## Order
 
 1. B and B2, with the SAM 2.1 speed fix (1.6 fps today).
-2. The page and the Mac side for click, ⇧ / ⌥ points and box, behind the current outline mode.
-3. The tracer: live wire on the page, the stretch replaced in the outline, then refined by the model.
-4. Scribble with pressure, pan, ⌘Z.
-5. A screenshot sheet of each control on a DAVIS clip, then the owner tries it on a T7 clip.
+2. One PR on the page and the Mac side: click and click again, Esc, the strip's red marks, and the six controls that go.
+3. Drag along the edge: the tracer, then refined by the model.
+4. A screenshot sheet of each control on a DAVIS clip, then the owner tries it on a T7 clip.
