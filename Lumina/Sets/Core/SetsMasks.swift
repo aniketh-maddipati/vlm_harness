@@ -141,6 +141,42 @@ nonisolated final class SetsMasks: @unchecked Sendable {
                               sky: sceneRan ? sky(image, labels: labels(scene), refine: refine) : nil)
     }
 
+    /// The people and objects inside `window` (fractions from the top left) of a frame, in the frame's fractions: what
+    /// Skim's track looks at between whole frames (`SkimFollow.window`). Only the two instance finders run; the scene
+    /// label, the sky and saliency are left out (a track never follows the sky through a window), and so is the
+    /// background, which is the window's, not the frame's. Nil when the window is empty or the finders can't run.
+    static func near(_ image: CGImage, window: LookMasks.Box, refine: Bool = true) -> [LookMasks.Found]? {
+        let r = CGRect(x: (window.x * Double(image.width)).rounded(.down), y: (window.y * Double(image.height)).rounded(.down),
+                       width: (window.w * Double(image.width)).rounded(.up), height: (window.h * Double(image.height)).rounded(.up))
+            .intersection(CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard r.width >= 16, r.height >= 16, let crop = image.cropping(to: r) else { return nil }
+        // the window as cropped, whole pixels, so the shapes land where they are
+        let placedIn = LookMasks.Box(x: Double(r.minX) / Double(image.width), y: Double(r.minY) / Double(image.height),
+                                     w: Double(r.width) / Double(image.width), h: Double(r.height) / Double(image.height))
+        let handler = VNImageRequestHandler(cgImage: crop, options: [:])
+        let people = VNGeneratePersonInstanceMaskRequest()
+        let objects = VNGenerateForegroundInstanceMaskRequest()
+        let peopleRan = (try? handler.perform([people])) != nil
+        let objectsRan = (try? handler.perform([objects])) != nil
+        guard peopleRan || objectsRan else { return nil }
+        let w = crop.width, h = crop.height
+        let guide = refine ? luminance(crop) : nil
+        func regions(_ obs: VNInstanceMaskObservation?) -> [LookMasks.Region] {
+            guard let obs else { return [] }
+            return obs.allInstances.compactMap { i -> LookMasks.Region? in
+                guard let buffer = try? obs.generateScaledMaskForImage(forInstances: IndexSet(integer: i), from: handler),
+                      var mask = plane(buffer) else { return nil }
+                if mask.width != w || mask.height != h { mask = LookMasks.resized(mask, width: w, height: h) }
+                if let guide { mask = LookMasks.guided(mask, guide: guide, radius: max(2, max(w, h) / 128)) }
+                return LookMasks.Region(mask: mask, score: Double(obs.confidence), saliency: nil)
+            }
+        }
+        return LookMasks.name(people: regions(peopleRan ? people.results?.first : nil),
+                              objects: regions(objectsRan ? objects.results?.first : nil))
+            .filter { SkimFollow.boxed($0.kind) }
+            .map { SkimFollow.placed($0, in: placedIn) }
+    }
+
     /// The classifier's labels, identifier → confidence (each label's own, 0 … 1).
     private static func labels(_ request: VNClassifyImageRequest) -> [String: Float] {
         var out: [String: Float] = [:]

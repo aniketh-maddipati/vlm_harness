@@ -192,6 +192,51 @@ nonisolated enum SkimFollow {
 
     // MARK: The Mac's own track (SkimTracker)
 
+    // The window: Vision looks only around the followed shape. Its finders scale any picture to their own input, so a
+    // window around the box gives a small subject more of that input, and the frame's scene label, sky and saliency
+    // (which a track never uses) are skipped. The whole frame is looked at again on the first frame, every
+    // `fullEvery` frames, while the shape is lost, after the tracker wavered, and when the shape runs into the window's
+    // edge, so a shape that grows or a second one coming in is not missed.
+
+    /// How many times the box's side the window is, around the box's centre.
+    static let windowScale = 3.0
+    /// The window's side at least, as a share of the frame's.
+    static let windowMin = 0.3
+    /// A window over this share of the frame is the whole frame.
+    static let windowMax = 0.6
+    /// Frames in a row looked at through the window before the whole frame is looked at again.
+    static let fullEvery = 12
+
+    /// The window to look through around `box` (fractions from the top left), inside the frame. Nil: look at the whole
+    /// frame (the window would cover most of it, or the box is empty).
+    static func window(around box: Box) -> Box? {
+        guard box.w > 0, box.h > 0, box.w.isFinite, box.h.isFinite else { return nil }
+        let w = min(1, max(windowMin, box.w * windowScale)), h = min(1, max(windowMin, box.h * windowScale))
+        guard w * h <= windowMax else { return nil }
+        let cx = box.x + box.w / 2, cy = box.y + box.h / 2
+        return Box(x: min(1 - w, max(0, cx - w / 2)), y: min(1 - h, max(0, cy - h / 2)), w: w, h: h)
+    }
+
+    /// A shape found inside `window` (its fractions are the window's) in the frame's fractions.
+    static func placed(_ f: LookMasks.Found, in window: Box) -> LookMasks.Found {
+        var o = f
+        o.box = Box(x: window.x + f.box.x * window.w, y: window.y + f.box.y * window.h, w: f.box.w * window.w, h: f.box.h * window.h)
+        o.area = f.area * window.w * window.h
+        o.outline = f.outline.map { $0.map { LookMasks.Point(x: window.x + $0.x * window.w, y: window.y + $0.y * window.h) } }
+        return o
+    }
+
+    /// Whether `box` (the frame's fractions) runs into an edge of `window` that is not the frame's own: the shape may
+    /// go on past it, so the frame is looked at whole.
+    static func cut(_ box: Box, by window: Box, margin: Double = 0.01) -> Bool {
+        let e = 1e-9
+        return (window.x > e && box.x <= window.x + margin)
+            || (window.y > e && box.y <= window.y + margin)
+            || (window.x + window.w < 1 - e && box.x + box.w >= window.x + window.w - margin)
+            || (window.y + window.h < 1 - e && box.y + box.h >= window.y + window.h - margin)
+    }
+
+
     /// The long edge of the frames the Mac reads a clip at to follow a shape: the mask lab's proxy, where Vision's
     /// tracker and its instance masks were measured. The matte is drawn from the outline at its own size.
     static let proxyEdge = 720
