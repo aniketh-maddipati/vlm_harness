@@ -100,6 +100,23 @@ test('a saved matte is listed beside its clip in the .fcpxml', () => {
   assert.doesNotMatch(fn.call(sel).text, /matte/);
 });
 
+test('a removal is connected above its clip in the sorted timeline, and listed in the event', () => {
+  const fx = fixture(), ctx = ctxFromFixture(fx), keep = fx.clips.find(c => c.mark === 'keep'), { fn } = loadBuildX();
+  ctx.patches = () => ({[keep.id]: {path:'/Volumes/T7/Export/' + keep.name.replace(/\.\w+$/, '') + ' patch.mov', name:'x patch.mov', shape:'Person 1'}});
+  const x = fn.call(ctx).text;
+  assert.match(x, /<asset id="p\d+" name="[^"]+ patch · Person 1" start="0s" duration="[^"]+" hasVideo="1" hasAudio="0" format="r\d+">/);
+  assert.match(x, /<media-rep kind="original-media" src="file:\/\/\/Volumes\/T7\/Export\/[^"]+%20patch\.mov"\/>/);
+  assert.match(x, /<keyword-collection name="patch"\/>/);
+  // in the project: the patch is a connected clip (lane 1) inside its clip, the same length, from the clip's start
+  const pid = /<asset id="(p\d+)"/.exec(x)[1], aid = 'a' + pid.slice(1);
+  const m = new RegExp('<asset-clip ref="' + aid + '" offset="[^"]+" name="[^"]+" duration="([^"]+)"[^>]*[^/]>\\n\\s+<asset-clip ref="' + pid + '" lane="1" offset="0s" name="[^"]+ patch" duration="([^"]+)" format="r\\d+" tcFormat="NDF"/>').exec(x);
+  assert.ok(m, 'connected above its clip');
+  assert.equal(m[2], m[1], 'as long as its clip');
+  // every asset-clip that opens is closed
+  const proj = x.slice(x.indexOf('<project'), x.indexOf('</project>'));
+  assert.equal((proj.match(/<asset-clip [^>]*[^/]>/g) || []).length, (proj.match(/<\/asset-clip>/g) || []).length);
+});
+
 test('the page: Follow only with the app, in plain words, ended on the Mac', () => {
   assert.match(src, /folApi\(\) \{[^\n]*v\.follow && v\.matte/);
   assert.match(src, /api\.followEnd\(id\)/, 'every follow is ended');

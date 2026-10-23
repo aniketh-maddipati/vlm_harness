@@ -738,6 +738,27 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             guard let id = SkimFollow.trackID(body["id"]) else { return (NSNull(), nil) }
             let from = (body["from"] as? NSNumber).map { $0.doubleValue.isFinite ? Int(max(0, min(1e9, $0.doubleValue))) : 0 } ?? 0
             return (SkimTracker.shared.poll(id, from: from) ?? NSNull(), nil)
+        case "skimRemove":
+            // Remove: the shape of a finished track taken out of its clip (in the opened folder) as a patch for Final Cut
+            // (SkimPatch: the clip's own frames where the shape is not, still camera only), written as a new file into the
+            // folder the workshop names, else the Save to folder; never a card, never over a file, never the clip.
+            guard let id = SkimFollow.trackID(body["track"]), let tracked = SkimTracker.shared.samples(id) else { return (["ok": false, "why": "The track is not there any more. Follow the shape again."], nil) }
+            guard let root = lastOpened, let rel = body["path"] as? String, rel.utf8.count <= 4096, let clip = SkimTrash.resolve(root: root, rel: rel),
+                  let req = SkimPatch.request(body, tracked: tracked) else { return (["ok": false, "why": "Nothing to remove."], nil) }
+            let into: URL, scoped: Bool
+            if let d = body["dir"] as? String, !d.isEmpty {
+                guard skimGranted(d) else { return (["ok": false, "why": "Lumina has no access to that folder. Give it access in Export first."], nil) }
+                into = URL(fileURLWithPath: d, isDirectory: true); scoped = false
+            } else if let dir = skimExportFolder() {
+                into = dir; scoped = dir.startAccessingSecurityScopedResource()
+            } else {
+                return (["ok": false, "why": "Choose a Save to folder in Export first: the patch goes next to the .fcpxml."], nil)
+            }
+            defer { if scoped { into.stopAccessingSecurityScopedResource() } }
+            if SetsFileOps.isCard(into) { return (["ok": false, "why": Self.skimCardRefusal], nil) }
+            let saved = await Task.detached(priority: .userInitiated) { await SkimPatch.write(req, clip: clip, into: into) }.value
+            if saved.ok { skimSaved.insert(saved.path); onEvent?("skim patch saved \(saved.path)") }
+            return (saved.json, nil)
         case "skimMatte":
             // A followed shape as a black-and-white movie for Final Cut (SkimMatte), written as a new file into the folder the
             // workshop names (one Skim was let into), else the Save to folder; never a card, never over a file, never the clip.

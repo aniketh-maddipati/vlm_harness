@@ -322,6 +322,7 @@ nonisolated enum SetsPage: String, Sendable {
         track: (id, path, start, t, fix) => post('skimTrack', Object.assign({ id: String(id), path: String(path), kind: start ? String(start.kind) : '', box: start ? start.box : null, t: Number(t) || 0 }, fix && typeof fix === 'object' ? { patch: String(fix.patch), from: Number(fix.from) || 0, to: Number(fix.to) || 0 } : {})),
         trackPoll: (id, from) => post('skimTrackPoll', { id: String(id), from: Number(from) || 0 }),
         trackEnd: (id) => post('skimTrack', { id: String(id), end: true }),
+        remove: (m) => post('skimRemove', m && typeof m === 'object' ? { name: String(m.name), path: String(m.path), frames: Number(m.frames), fd: m.fd, track: String(m.track), dir: m.dir ? String(m.dir) : '', grow: Number(m.grow) || 0, soft: Number(m.soft) || 0 } : {}),
         mark() {}, preview() {}, handoff() {}
       });
     })();

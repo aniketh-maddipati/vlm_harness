@@ -166,6 +166,7 @@ final class SetsBridgeOpsTests: XCTestCase {
         "skimMasks": ["frame"], "skimFollow": ["id", "frame", "kind", "box", "end"],
         "skimMatte": ["name", "w", "h", "frames", "fd", "samples", "dir", "track", "grow", "soft"],
         "skimTrack": ["id", "path", "kind", "box", "t", "end", "patch", "from", "to"], "skimTrackPoll": ["id", "from"],
+        "skimRemove": ["name", "path", "frames", "fd", "track", "dir", "grow", "soft"],
         // Handoff's file view (Prompt 27, `SetsBridgeFilesTests` for what each does when it may).
         "filesPlaces": [], "filesDirList": ["path"], "filesPlaceAdd": ["at"], "filesPlaceRemove": ["path"], "filesDirMake": ["parent", "name"],
         "filesSaveToChoose": [], "filesSaveToAsk": [], "filesSaveToSet": ["path"], "filesReveal": ["paths"], "filesSavedCheck": ["list"],
@@ -251,6 +252,8 @@ final class SetsBridgeOpsTests: XCTestCase {
             return truthy ? "started a track on a hostile \(field)" : nil
         case ("skimTrackPoll", _):
             return r != nil && !(r is NSNull) ? "answered for a track never started" : nil
+        case ("skimRemove", _):
+            return ((r as? [String: Any])?["ok"] as? Bool) == true ? "wrote a patch" : nil
         case ("skimMatte", _):
             return ((r as? [String: Any])?["ok"] as? Bool) == true ? "wrote a matte" : nil
         case ("canvasEnter", "rel"):

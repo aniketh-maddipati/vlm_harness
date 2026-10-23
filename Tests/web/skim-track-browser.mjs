@@ -9,7 +9,9 @@
 //   3. Save matte names the track and sends no outlines.
 //   4. The strip under the scrub bar shows the shaky stretch; } goes to it; with the shape chosen there, Fix this
 //      stretch follows it again on the Mac from that frame through the stretch, and the strip is sure after.
-//   5. Let go ends the track.
+//   5. Remove from the clip sends the track, the clip's path and its length; a refusal is said in the line, a patch
+//      is kept for the .fcpxml.
+//   6. Let go ends the track.
 //
 //   node Tests/web/skim-track-browser.mjs        # needs ffmpeg and Playwright's Chromium
 import fs from 'node:fs';
@@ -49,6 +51,8 @@ await ctx.addInitScript(shapes => {
       return later({state:n >= 48 && from + page.length >= 48 ? 'done' : 'run', done:n / 48, n, from, frames:page,
         strip:n >= 48 ? [{t0:0, t1:41 / 24, sure:'sure'}, {t0:42 / 24, t1:47 / 24, sure:'shaky'}] : undefined}); },
     trackEnd:id => { window.__end.push(id); return later(true); },
+    remove:m => { window.__remove = (window.__remove || []).concat([m]); return later(window.__remove.length === 1 ? {ok:false, why:'The camera moves in this clip. Removing from the clip\'s own frames needs a still camera.'}
+      : {ok:true, path:'/Users/me/Export/C0001 patch.mov', name:'C0001 patch.mov'}); },
     matte:m => { window.__matte.push(m); return later({ok:true, path:'/Users/me/Export/' + m.name.replace(/\.\w+$/, '') + ' matte.mov', name:m.name.replace(/\.\w+$/, '') + ' matte.mov', folder:'/Users/me/Export'}); },
   }};
 }, SHAPES);
@@ -101,6 +105,17 @@ const strip2 = await p.evaluate(() => [...document.querySelectorAll('[data-lumin
 ok(strip2.join() === 'sure', 'after the fix the strip is sure: ' + strip2.join());
 ok(/in 100% of the clip/.test(await say()) && !/worth a look/.test(await say()), 'the line: ' + JSON.stringify(await say()));
 ok((await p.evaluate(() => window.__end)).length === 1, 'the fix is ended on the Mac once in');
+await p.click('[data-lumina="follow-remove"]');
+for (let k = 0; k < 20 && !/camera moves/.test(await say()); k++) await p.waitForTimeout(150);
+ok(/The camera moves in this clip/.test(await say()), 'a refusal is said: ' + JSON.stringify(await say()));
+await p.click('[data-lumina="follow-remove"]');
+for (let k = 0; k < 20 && !/removed ·/.test(await say()); k++) await p.waitForTimeout(150);
+const R = await p.evaluate(() => window.__remove);
+ok(R.length === 2 && R[1].track === Tr[0].id && /C0001\.MP4$/.test(R[1].path) && R[1].frames === 48 && R[1].name === 'C0001.MP4', 'the removal asked for: ' + JSON.stringify(R[1]));
+ok(/removed · C0001 patch\.mov · in the next \.fcpxml, over its clip/.test(await say()), 'the line: ' + JSON.stringify(await say()));
+ok(!(await p.$('[data-lumina="follow-remove"]')), 'removed once');
+const kp = await p.evaluate(() => { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.indexOf('lumina-skim:patches:') === 0) return localStorage.getItem(k); } return ''; });
+ok(/C0001 patch\.mov/.test(kp), 'the patch is kept for the .fcpxml: ' + kp);
 await p.screenshot({path:path.join(T, 'track.png')});
 await p.click('[data-lumina="follow-drop"]'); await p.waitForTimeout(300);
 const E = await p.evaluate(() => window.__end);
