@@ -1,0 +1,16 @@
+// The Lumina Skim app: the video step (design/handoff/lumina-skim) as an app of its own, beside Lumina.
+// Scripts/release.sh includes this after Config/Release.xcconfig when run with LUMINA_APP=skim, so
+// everything Release.xcconfig sets (sandbox, hardened runtime, arm64, macOS 15) holds unless named here.
+// Same target and sources as Lumina: LUMINA_SKIM_APP makes SetsPage show Skim and serve Skim's files only.
+
+// Its own sandbox container (saved shoots, covers, places and the Trash log live there), so it never
+// sees or changes Lumina's. It must not change after the first build handed out.
+PRODUCT_BUNDLE_IDENTIFIER = com.aniketh.lumina.skim
+// "Lumina Skim.app" beside "Lumina.app" in /Applications. The Swift module keeps its name.
+PRODUCT_NAME = Lumina Skim
+PRODUCT_MODULE_NAME = Lumina
+INFOPLIST_KEY_CFBundleDisplayName = Lumina Skim
+INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.video
+
+// The app target's Release conditions (LUMINA_SHIPPING_APP), plus the one that makes it Skim.
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = LUMINA_SHIPPING_APP LUMINA_SKIM_APP

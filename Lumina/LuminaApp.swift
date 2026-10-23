@@ -100,9 +100,14 @@ struct LuminaCommands: Commands {
             Divider()
         }
         CommandGroup(replacing: .help) {
-            Button("Keyboard Shortcuts  ?") { send("shortcuts") }
-            Button("Learn the Keys") { send("grammar") }
-            Button("Lumina FAQ") { send("faq") }
+            if SetsPage.current == .skim {
+                // A file of what the page saw (build, timings, clips that didn't read, errors), for the tester to send.
+                Button("Save a Report…") { send("report") }
+            } else {
+                Button("Keyboard Shortcuts  ?") { send("shortcuts") }
+                Button("Learn the Keys") { send("grammar") }
+                Button("Lumina FAQ") { send("faq") }
+            }
             Button("Report a Bug…") { SetsMenuModel.openLink("mailto:anikethcov@gmail.com") }
         }
     }
@@ -133,9 +138,9 @@ final class SetsMenuModel: ObservableObject {
     }
 
     static func showAbout() {
-        let credits = NSAttributedString(string: "© 2026 Aniketh Maddipati\nHelp ▸ Lumina FAQ",
+        let credits = NSAttributedString(string: "© 2026 Aniketh Maddipati\n" + (SetsPage.current == .skim ? "Help ▸ Save a Report…" : "Help ▸ Lumina FAQ"),
                                          attributes: [.font: NSFont.systemFont(ofSize: 11), .paragraphStyle: { let p = NSMutableParagraphStyle(); p.alignment = .center; return p }()])
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Lumina", .credits: credits])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: SetsPage.current.appName, .credits: credits])
         NSApp.activate(ignoringOtherApps: true)
     }
 }

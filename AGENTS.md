@@ -155,7 +155,9 @@ it; either way the most recent shoot opens again. A branch is built from its wor
 work included; one `dev.sh` at a time (a second is refused, exit 75). It is not what ships: Edit latency, the
 sandbox and the release settings are judged on the Release app or the probe.
 
-**Skim, the video step (branch `video/skim-mvp`, Debug only).** `bash Scripts/dev-skim.sh --watch` keeps a
+**Skim, the video step.** It ships as its own app, "Lumina Skim" (`LUMINA_APP=skim bash Scripts/release.sh local|dmg`:
+`Config/Skim.xcconfig` on the same target, bundle id `com.aniketh.lumina.skim`, `LUMINA_SKIM_APP` shows Skim only; the
+Lumina app refuses `skim…` ops). `bash Scripts/dev-skim.sh --watch` keeps a
 second dev app, "Lumina Skim" (bundle id `com.lumina.app.skim`, its own container, build folder and lock), beside
 "Lumina Dev". It shows `Lumina Skim v3.dc.html` instead of Pick (`SetsPage`, `LUMINA_PAGE=skim`): no plumbing, no
 Edit canvas, no card watcher; the menu's ⌘-keys come back to the page as its own keys. Edit the page in

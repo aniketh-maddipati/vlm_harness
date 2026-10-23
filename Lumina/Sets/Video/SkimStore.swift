@@ -6,7 +6,7 @@ import Foundation
 ///
 /// The page holds the same entries in its localStorage for the session, which the app's non-persistent
 /// web view forgets on quit. So on load it asks for all of them (`skimStore`) and makes its own match, and it
-/// sends every change here (`skimSave`). Only Debug builds show Skim (`SetsPage`, `LUMINA_PAGE=skim`).
+/// sends every change here (`skimSave`). Skim shows in the Lumina Skim app and in Debug builds run with `LUMINA_PAGE=skim` (`SetsPage`).
 ///
 /// Bounded: keys start with `lumina-skim:` and are at most 512 characters, a value is at most 256 KB, at
 /// most 512 shoots and 4 MB in all. Writes are atomic (a temp file, then a rename).

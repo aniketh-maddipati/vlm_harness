@@ -139,8 +139,8 @@ jobs:
           # The offline escape test always gates; its per-layer breakdown (a report, ~100 s) runs on main and nightly.
           LUMINA_OFFLINE_LAYERS: ${{ github.event_name == 'pull_request' && '0' || '1' }}
         run: NODE_PATH="$(npm root -g)" xvfb-run -a -s "-screen 0 2000x1300x24" /usr/bin/python3 Tests/web/webkit.py
-      - name: "Skim: the Final Cut export (buildX) and its DTD check"
-        run: node --test Tests/web/skim-export.test.mjs
+      - name: "Skim: the Final Cut export (buildX) and its DTD check, and Save a report"
+        run: node --test Tests/web/skim-export.test.mjs Tests/web/skim-report.test.mjs
 
   chromium:
     # The Chromium plumbing harness, beside the WebKitGTK job rather than before it in the same job.
@@ -266,6 +266,13 @@ jobs:
         if: needs.changes.outputs.release == 'true'
         env:
           PREFLIGHT_ALLOW: D2
+        run: bash Scripts/release.sh local --strict
+      - name: "release.sh local --strict, the Lumina Skim app"
+        # The same target as Lumina with Config/Skim.xcconfig: its own bundle id, name and category, Skim's page only.
+        if: needs.changes.outputs.release == 'true'
+        env:
+          PREFLIGHT_ALLOW: D2
+          LUMINA_APP: skim
         run: bash Scripts/release.sh local --strict
 
   probe:
