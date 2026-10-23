@@ -14,6 +14,15 @@ step is measured by taps and time to a good result as well as accuracy. Next, in
 3. Following starts by itself after the tap.
 4. Remove on a moving camera (the parked healing work).
 
+Queued measurements (from the strategy page, 2026-10-23):
+
+- Click-started J&F on the 61 DAVIS val objects for EdgeTAM and SAM 2.1 Base+, seeded with Apple's click mask.
+- Volumetric J (`score.py` `vj`) next to per-frame J, which scores an empty mask on a hidden object as 1.0.
+- Taps to 90% IoU (NoC90) on DAVIS-585 and COCO-MVal: Apple's prompted segmenter against SAM 2.1 Small.
+- Lightroom side by side on 200 stills (50 each of people, objects, sky, removals), by taps and time as well as accuracy.
+- Flow-guided fill plus LaMa against ProPainter on DAVIS with synthetic masks. ProPainter, ObjectClear, MatAnyone and
+  MiniMax-Remover are reference only (licences); EdgeTAM, SAM 2.1, LaMa and MI-GAN can ship.
+
 ## Why outlining is stuck today
 
 A click in the Viewer picks one of Vision's ready-made shapes (`olPick`: click = only this shape, ⇧-click adds a

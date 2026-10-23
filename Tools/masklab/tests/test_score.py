@@ -74,6 +74,17 @@ class ScoreTests(unittest.TestCase):
         self.assertIsNone(c["flicker"])
         self.assertGreater(c["flicker_all"], 0)
 
+    def test_volumetric_j_does_not_reward_empty_frames(self):
+        # The object is hidden (empty label) on half the labelled frames; a tracker that gives up there and
+        # everywhere else scores 0.5 per-frame J, but 0 volumetric J.
+        for n in LABELLED[::2]:
+            write(os.path.join(self.labels, "clip"), n, np.zeros((H, W), bool), pad=1)
+        none = self.clip(self.run_dir("none", lambda n: np.zeros((H, W), bool)))
+        self.assertGreater(none["iou"], 0.4)
+        self.assertAlmostEqual(none["vj"], 0.0)
+        exact = self.clip(self.run_dir("exact2", lambda n: disc(*centre(n)) if n not in LABELLED[::2] else np.zeros((H, W), bool)))
+        self.assertAlmostEqual(exact["vj"], 1.0)
+
     def test_drifting_mask(self):
         # The mask slides off the object, a little more each frame.
         c = self.clip(self.run_dir("drift", lambda n: disc(centre(n)[0] + n * 0.5, 45)))
