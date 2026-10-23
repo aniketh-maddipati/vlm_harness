@@ -84,7 +84,7 @@ function addKw(x,kw){ x=x.replace(/<rdf:li>Lumina pass \d+<\/rdf:li>/g,'').repla
 // Canonical look string (BRIDGE-v0.03 §4 = DESIGN-ASKS Prompt 1 §2 grammar, extended with Edit's own keys).
 // Space-separated key:value. Order: ev wb con hl sh wh bl vib sat clr shp nr vig bw crop, then every other key A→Z.
 // ev two decimals with a sign · integers with a sign (0 unsigned) · shp / nr unsigned · wb as K/tint (either side may be empty)
-// · bw:1 · crop:x,y,w,h/angle (fractions, 4 decimals) + cropRatio:<preset> · anything else (curve points, strings) as
+// · bw:1 · dust:1 · crop:x,y,w,h/angle (fractions, 4 decimals) + cropRatio:<preset> · anything else (curve points, strings) as
 // '~' + encodeURIComponent(JSON). Null values are dropped. '' is the neutral look.
 const LOOK_ORDER=['ev','wb','con','hl','sh','wh','bl','vib','sat','clr','shp','nr','vig','bw','crop'];
 function lookString(L){ if(!L) return ''; const o=[], has=k=>L[k]!=null&&L[k]!=='', sg=v=>v>0?'+'+v:String(v), num=v=>Number.isInteger(v)?sg(v):sg(+v.toFixed(3)), r4=v=>String(+(+v).toFixed(4));
@@ -94,6 +94,7 @@ function lookString(L){ if(!L) return ''; const o=[], has=k=>L[k]!=null&&L[k]!==
     else if(k==='wb') o.push('wb:'+(has('wb')?Math.round(L.wb):'')+'/'+(has('tint')?num(Math.round(L.tint)):''));
     else if(k==='shp'||k==='nr') o.push(k+':'+Math.round(v));
     else if(k==='bw'){ if(v) o.push('bw:1'); }
+    else if(k==='dust'){ if(v) o.push('dust:1'); }
     else if(k==='prof'){ if(v==='adobe') o.push('prof:adobe'); }
     else if(k==='crop'&&v&&typeof v==='object'){ o.push('crop:'+[v.x,v.y,v.w,v.h].map(x=>r4(x||0)).join(',')+'/'+r4(v.ang||0)); if(v.ratio!=null) o.push('cropRatio:'+encodeURIComponent(String(v.ratio))); }
     else if(typeof v==='number'&&isFinite(v)) o.push(k+':'+num(v));
@@ -102,6 +103,7 @@ function lookString(L){ if(!L) return ''; const o=[], has=k=>L[k]!=null&&L[k]!==
 function parseLook(s){ const o={}; if(!s) return o; let ratio=null; String(s).trim().split(/\s+/).forEach(tok=>{ const j=tok.indexOf(':'); if(j<1) return; const k=tok.slice(0,j), v=tok.slice(j+1);
     try{ if(k==='wb'){ const [K,T]=v.split('/'); if(K!=='') o.wb=+K; if(T!=null&&T!=='') o.tint=+T; }
       else if(k==='bw') o.bw=v==='1';
+      else if(k==='dust') o.dust=v==='1';
       else if(k==='prof'){ if(v==='adobe') o.prof='adobe'; }
       else if(k==='crop'){ const [xywh,ang]=v.split('/'), n=xywh.split(',').map(Number); o.crop={x:n[0],y:n[1],w:n[2],h:n[3],ang:+(ang||0)}; }
       else if(k==='cropRatio') ratio=decodeURIComponent(v);
@@ -162,7 +164,8 @@ function freshXmp(rating,label,dev,kw){
 
 // Dust spots as Lightroom spot heals (crs:RetouchAreas: one heal per spot, a single round Mask/Paint
 // dab, the source left for Lightroom to choose). spots: [{x,y,r}] as fractions of the RAW as stored
-// (sensor orientation, as Lightroom's crop is), r a fraction of the stored width. A sidecar that
+// (sensor orientation, as Lightroom's crop is) and before any crop, r a fraction of the stored width
+// (checked in Lightroom across orientations 1, 3, 6 and 8, a crop, and corner spots). A sidecar that
 // already has retouching keeps it untouched and gets none (Lightroom's own heals win). The heal
 // carries the photo's process version when it has one, else Lightroom's current one, so a ratings-only
 // sidecar doesn't fall back to an old process.

@@ -693,7 +693,7 @@ final class LookCanvasController: NSObject {
         refiningTimer = Timer.scheduledTimer(withTimeInterval: LookRawPolicy.refiningAfterMs / 1000, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated { guard let self, self.regionSeq == seq else { return }; self.stats.refining = true; self.setFacts() }
         }
-        tiles.region(rel: rel, url: url, decoder: version, nr: current?.look.nr, roi: roi, rot: current?.look.rot ?? 0, seq: seq, first: { [weak self] ms in
+        tiles.region(rel: rel, url: url, decoder: version, nr: current?.look.nr, dust: current?.look.dust ?? false, roi: roi, rot: current?.look.rot ?? 0, seq: seq, first: { [weak self] ms in
             guard let self, self.regionSeq == seq else { return }
             if ms <= LookRawPolicy.refiningAfterMs { self.refiningTimer?.invalidate() }
         }, done: { [weak self] r in

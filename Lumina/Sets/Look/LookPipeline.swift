@@ -183,8 +183,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// CIRAWFilter with Apple's default profile and no auto adjustments. `longEdge` scales the
     /// decode itself (`scaleFactor`), so a 1024 px preview never demosaics 24 MP.
     /// `decoderVersion` picks one of `supportedDecoderVersions` (RAW 9 tiers; nil = Core Image's
-    /// default), `nr` is the look's Detail ▸ luminance noise reduction (0 … 100).
-    static func develop(url: URL, longEdge px: Int?, rules: LookRules, decoderVersion: Int? = nil, nr: Double? = nil) throws -> Developed {
+    /// default), `nr` is the look's Detail ▸ luminance noise reduction (0 … 100). `dust` lifts out
+    /// the sensor dust `LookDust.Registry` holds for the file (the look's `dust:1`).
+    static func develop(url: URL, longEdge px: Int?, rules: LookRules, decoderVersion: Int? = nil, nr: Double? = nil, dust: Bool = false) throws -> Developed {
         guard let raw = CIRAWFilter(imageURL: url) else { throw Failure("not a RAW Core Image can read: \(url.lastPathComponent)") }
         if let want = decoderVersion {
             guard let v = raw.supportedDecoderVersions.first(where: { decoderNumber($0) == want }) else {
@@ -202,10 +203,15 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         // The lens's corner shading, undone with the camera's own numbers, in the decoder's linear
         // space (before its tone curve), as Lightroom's lens profile does. 0 leaves the shading in.
         let shading = rules.k("rawDevelop", "lensShading", 0)
-        if shading > 0, let s = LookLensShading.read(url: url), s.corrects {
-            raw.linearSpaceFilter = LookShadingFilter(shading: s, amount: shading)
-        }
-        guard let out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite else { throw Failure("couldn't decode \(url.lastPathComponent)") }
+        let lens = shading > 0 ? LookLensShading.read(url: url).flatMap { $0.corrects ? $0 : nil } : nil
+        // Dust lives on the sensor, so it is lifted with the frame as stored: the decoder is told not
+        // to turn the picture, and it is turned here after (where its linear stage runs is then moot).
+        let spots = dust ? LookDust.Registry.shared.spots(for: url) : []
+        let turn = raw.orientation
+        if !spots.isEmpty { raw.orientation = .up }
+        if lens != nil || !spots.isEmpty { raw.linearSpaceFilter = LookShadingFilter(shading: lens, amount: shading, dust: spots) }
+        guard var out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite else { throw Failure("couldn't decode \(url.lastPathComponent)") }
+        if !spots.isEmpty, turn != .up { out = out.oriented(turn) }
         let asShot = Look.WhiteBalance(kelvin: Double(raw.neutralTemperature), tint: Double(raw.neutralTint))
         return Developed(image: try baseMatched(Self.atOrigin(out), rules: rules), asShot: asShot, anchor: toneAnchor(raw: url, rules: rules),
                          style: LookCameraStyle.read(url: url))
@@ -301,6 +307,23 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             .cropped(to: extent)
     }
 
+    /// Each dust spot's gain (`LookDust.patch`) as a small opaque image placed over its box in
+    /// `extent` (the frame as stored, top row first in the patch, Core Image's origin at the bottom).
+    /// Each is multiplied onto the frame inside its box only; elsewhere the frame is left as it is.
+    static func dustGain(_ spots: [LookDust.Spot], extent: CGRect) -> [CIImage] {
+        guard !spots.isEmpty, !extent.isInfinite, extent.width >= 1, extent.height >= 1 else { return [] }
+        let w = Int(extent.width.rounded()), h = Int(extent.height.rounded())
+        return spots.compactMap { spot in
+            guard let p = LookDust.patch(spot, width: w, height: h) else { return nil }
+            var px = [Float](repeating: 1, count: p.width * p.height * 4)
+            // A bitmap's first row is its top, as in the patch.
+            for j in 0..<(p.width * p.height) { let g = p.gain[j]; px[4 * j] = g; px[4 * j + 1] = g; px[4 * j + 2] = g }
+            let data = px.withUnsafeBufferPointer { Data(buffer: $0) }
+            return CIImage(bitmapData: data, bytesPerRow: p.width * 16, size: CGSize(width: p.width, height: p.height), format: .RGBAf, colorSpace: nil)
+                .transformed(by: CGAffineTransform(translationX: extent.minX + CGFloat(p.x0), y: extent.maxY - CGFloat(p.y0 + p.height)))
+        }
+    }
+
     /// A photo's embedded JPEG (its byte range in the RAW, as the page's `parseHead` found it),
     /// turned upright, scaled to `longEdge`: the canvas's stand-in when the RAW itself can't be
     /// developed (a corrupt file with a good preview, or the synthetic ARWs the CI probe uses).
@@ -326,8 +349,8 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     }
 
     /// A RAW when Core Image reads it as one, else any image ImageIO reads.
-    static func developAny(url: URL, longEdge px: Int?, rules: LookRules, decoderVersion: Int? = nil, nr: Double? = nil) throws -> Developed {
-        if isRAW(url) { return try develop(url: url, longEdge: px, rules: rules, decoderVersion: decoderVersion, nr: nr) }
+    static func developAny(url: URL, longEdge px: Int?, rules: LookRules, decoderVersion: Int? = nil, nr: Double? = nil, dust: Bool = false) throws -> Developed {
+        if isRAW(url) { return try develop(url: url, longEdge: px, rules: rules, decoderVersion: decoderVersion, nr: nr, dust: dust) }
         return try developImage(url: url, longEdge: px)
     }
 
@@ -690,23 +713,35 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     }
 }
 
-/// `CIRAWFilter.linearSpaceFilter` for the lens shading: the frame times the radial gain.
+/// `CIRAWFilter.linearSpaceFilter` for the lens shading and the sensor dust: the frame times the
+/// radial gain, then times each dust spot's gain (`LookDust.patch`; the frame must be as stored).
 nonisolated final class LookShadingFilter: CIFilter {
     @objc dynamic var inputImage: CIImage?
-    private let shading: LookLensShading
+    private let shading: LookLensShading?
     private let amount: Double
+    private let dust: [LookDust.Spot]
 
-    init(shading: LookLensShading, amount: Double) {
+    init(shading: LookLensShading?, amount: Double, dust: [LookDust.Spot] = []) {
         self.shading = shading
         self.amount = amount
+        self.dust = dust
         super.init()
     }
 
     required init?(coder: NSCoder) { nil }
 
     override var outputImage: CIImage? {
-        guard let img = inputImage else { return nil }
-        guard let gain = LookPipeline.shadingGain(shading, amount: amount, extent: img.extent) else { return img }
-        return gain.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: img.extent)
+        guard var img = inputImage else { return nil }
+        let extent = img.extent
+        if let shading, let gain = LookPipeline.shadingGain(shading, amount: amount, extent: extent) {
+            img = gain.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: extent)
+        }
+        // Multiply compositing answers only where both images are (the patch's box), so the lifted
+        // box goes back over the frame.
+        for patch in LookPipeline.dustGain(dust, extent: extent) {
+            img = patch.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: patch.extent)
+                .composited(over: img).cropped(to: extent)
+        }
+        return img
     }
 }
