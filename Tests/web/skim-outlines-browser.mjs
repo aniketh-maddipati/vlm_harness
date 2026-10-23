@@ -3,8 +3,10 @@
 // the frame, the subject, and the rest of the frame. Bounded (LUMINA_WEB_LIMIT, 180 s).
 //   1. Without lumina.video.masks (Safari, Chrome) there is no Outlines switch and O does nothing.
 //   2. O reads the frame on show once: a JPEG of it goes to masks, and the chips say what is there.
-//   3. The pointer holds the frame while outlines are on; a click on the disc chooses the subject, a click
-//      beside it the background, a chip lets one go. O again puts them away.
+//   3. The pointer holds the frame while outlines are on and names the shape under it; a click on the disc chooses
+//      the subject, a click beside it the background alone, ⇧-click adds, ⌥-click takes away, a chip turns one on and
+//      off. Scroll on the picture grows the chosen edge, ⇧-scroll softens it; esc lets the draft go. O again puts
+//      them away.
 //
 //   node Tests/web/skim-outlines-browser.mjs        # needs ffmpeg and Playwright's Chromium
 import fs from 'node:fs';
@@ -74,12 +76,30 @@ const pressed = p => p.evaluate(() => [...document.querySelectorAll('[data-ol]')
   ok(await pressed(p) === 'subject:true background:false', 'a click on the disc chooses the subject: ' + await pressed(p));
   ok(/1 chosen/.test(await say(p)), 'and says so: ' + JSON.stringify(await say(p)));
   await p.mouse.click(r.x + r.width * 0.1, r.y + r.height * 0.15); await p.waitForTimeout(300);
-  ok(await pressed(p) === 'subject:true background:true', 'a click beside it chooses the background: ' + await pressed(p));
+  ok(await pressed(p) === 'subject:false background:true', 'a click beside it chooses the background alone: ' + await pressed(p));
+  await p.keyboard.down('Shift'); await p.mouse.click(r.x + r.width * 0.5, r.y + r.height * 0.5); await p.keyboard.up('Shift'); await p.waitForTimeout(300);
+  ok(await pressed(p) === 'subject:true background:true', '⇧-click adds the subject: ' + await pressed(p));
+  await p.keyboard.down('Alt'); await p.mouse.click(r.x + r.width * 0.1, r.y + r.height * 0.15); await p.keyboard.up('Alt'); await p.waitForTimeout(300);
+  ok(await pressed(p) === 'subject:true background:false', '⌥-click takes the background away: ' + await pressed(p));
   await p.click('[data-ol="subject"]'); await p.waitForTimeout(300);
-  ok(await pressed(p) === 'subject:false background:true', 'a chip lets one go: ' + await pressed(p));
+  ok(await pressed(p) === 'subject:false background:false', 'a chip lets one go: ' + await pressed(p));
+  await p.click('[data-ol="subject"]'); await p.waitForTimeout(300);
+  // hover: the shape under the pointer is named on the picture (a dark label over the disc's box)
+  const dark = () => p.evaluate(() => { const c = document.querySelector('[data-lumina="viewer-outlines"]'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200 && d[i] < 40 && d[i + 1] < 40) n++; return n; });
+  await p.click('[data-ol="subject"]'); await p.waitForTimeout(200);
+  const d0 = await dark(); await p.mouse.move(r.x + r.width * 0.5, r.y + r.height * 0.5, {steps:3}); await p.waitForTimeout(300);
+  const d1 = await dark(); ok(d1 > d0 + 500, 'hover names the shape: ' + d0 + ' → ' + d1);
+  await p.mouse.click(r.x + r.width * 0.5, r.y + r.height * 0.5); await p.waitForTimeout(300);
+  ok(await pressed(p) === 'subject:true background:false', 'chosen again: ' + await pressed(p));
+  await p.mouse.wheel(0, -400); await p.waitForTimeout(300);
+  ok(/edge \+\d+ px/.test(await say(p)), 'scroll grows the edge: ' + JSON.stringify(await say(p)));
+  await p.keyboard.down('Shift'); await p.mouse.wheel(0, -400); await p.keyboard.up('Shift'); await p.waitForTimeout(300);
+  ok(/edge \+\d+ px · soft \d+ px/.test(await say(p)), '⇧-scroll softens it: ' + JSON.stringify(await say(p)));
+  await p.screenshot({path:path.join(T, 'outlines.png')});
+  await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+  ok(await pressed(p) === 'subject:false background:false' && !/edge/.test(await say(p)), 'esc lets the draft go: ' + await pressed(p) + ' ' + JSON.stringify(await say(p)));
   ok(await tc() === t0, 'the frame never moved: ' + await tc());
   ok(await p.evaluate(() => window.__asks.length) === 1, 'nothing was read again');
-  await p.screenshot({path:path.join(T, 'outlines.png')});
   await p.keyboard.press('o'); await p.waitForTimeout(400);
   ok(!(await p.$('[data-lumina="viewer-outlines"]')), 'O again puts them away');
   ok(errs.length === 0, 'no page errors: ' + errs.join(' | '));

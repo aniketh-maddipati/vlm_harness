@@ -164,7 +164,7 @@ final class SetsBridgeOpsTests: XCTestCase {
         "writeInto": ["label", "files"], "readSidecars": ["root", "files"], "writeSidecars": ["root", "files"], "reveal": ["path"],
         "setPrefs": ["prefs"], "checkAccess": [], "reopenDenied": [], "reopenCurrent": [],
         "skimMasks": ["frame"], "skimFollow": ["id", "frame", "kind", "box", "end"],
-        "skimMatte": ["name", "w", "h", "frames", "fd", "samples", "dir", "track"],
+        "skimMatte": ["name", "w", "h", "frames", "fd", "samples", "dir", "track", "grow", "soft"],
         "skimTrack": ["id", "path", "kind", "box", "t", "end", "patch", "from", "to"], "skimTrackPoll": ["id", "from"],
         // Handoff's file view (Prompt 27, `SetsBridgeFilesTests` for what each does when it may).
         "filesPlaces": [], "filesDirList": ["path"], "filesPlaceAdd": ["at"], "filesPlaceRemove": ["path"], "filesDirMake": ["parent", "name"],

@@ -228,4 +228,30 @@ final class SkimFollowTests: XCTestCase {
         XCTAssertEqual(m.map(\.t), [0, 0.5, 1, 1.5, 2])
         XCTAssertEqual(m.map(\.sure), [.sure, .sure, .sure, .sure, .sure], "a patch frame outside its stretch is left out")
     }
+
+    // MARK: The edge
+
+    func testTheEdgeThePageMaySend() {
+        XCTAssertEqual(SkimFollow.edge(grow: 0.01, soft: 0.02).grow, 0.01)
+        XCTAssertEqual(SkimFollow.edge(grow: 1, soft: 1).grow, SkimFollow.maxGrow)
+        XCTAssertEqual(SkimFollow.edge(grow: -1, soft: -1).grow, -SkimFollow.maxGrow)
+        XCTAssertEqual(SkimFollow.edge(grow: -1, soft: -1).soft, 0)
+        XCTAssertEqual(SkimFollow.edge(grow: Double.nan, soft: "x").grow, 0)
+        XCTAssertEqual(SkimFollow.edge(grow: nil, soft: nil).soft, 0)
+    }
+
+    func testGrowShrinkAndSoften() {
+        // a 20 × 20 square in a 60 × 60 frame
+        var p = LookMasks.Plane(width: 60, height: 60)
+        for y in 20..<40 { for x in 20..<40 { p[x, y] = 1 } }
+        func width(_ q: LookMasks.Plane) -> Int { (0..<60).filter { q[$0, 30] > 0.5 }.count }
+        XCTAssertEqual(width(SkimFollow.edged(p, grow: 0, soft: 0)), 20)
+        let g = width(SkimFollow.edged(p, grow: 4, soft: 0)), s = width(SkimFollow.edged(p, grow: -4, soft: 0))
+        XCTAssertTrue((25...29).contains(g), "grown about 4 px a side: \(g)")
+        XCTAssertTrue((11...15).contains(s), "shrunk about 4 px a side: \(s)")
+        let soft = SkimFollow.edged(p, grow: 0, soft: 6)
+        XCTAssertEqual(soft[30, 30], 1, accuracy: 1e-5, "the middle stays")
+        XCTAssertTrue(soft[20, 30] > 0.2 && soft[20, 30] < 0.8, "the edge is soft: \(soft[20, 30])")
+        XCTAssertEqual(soft[5, 30], 0, accuracy: 1e-5, "far outside stays out")
+    }
 }

@@ -2,7 +2,7 @@
 // stand-ins for the app's lumina.video.masks, .track, .trackPoll, .trackEnd and .matte (the bridge's skimMasks,
 // skimTrack, skimTrackPoll and skimMatte). The stand-in track answers every frame of a 2 s clip at 24p (48), a disc,
 // in pages, the last quarter second shaky. Bounded (LUMINA_WEB_LIMIT, 180 s).
-//   1. Follow through the clip starts one track, with the clip's path in the shoot, the shape's kind and box and the
+//   1. ⏎ on the draft (Follow through the clip) starts one track, with the clip's path in the shoot, the shape's kind and box and the
 //      time on show, and sends no frame from the page (no .follow).
 //   2. The page fetches every followed frame, page by page; the line says every frame and how much is worth a look;
 //      the outline is drawn; the facts say where the shape is.
@@ -64,7 +64,8 @@ const say = () => p.evaluate(() => document.querySelector('[data-lumina="follow"
 await p.keyboard.press('o');
 for (let k = 0; k < 20 && !(await p.$('[data-ol="subject"]')); k++) await p.waitForTimeout(250);
 await p.click('[data-ol="subject"]'); await p.waitForTimeout(300);
-await p.click('[data-lumina="follow-go"]');
+{ const sel = await p.evaluate(() => document.querySelector('[data-lumina="viewer-selections"]')?.innerText || ''); ok(/⏎ to follow, esc to let go/.test(sel), 'the draft says how to go on: ' + JSON.stringify(sel)); }
+await p.keyboard.press('Enter');
 for (let k = 0; k < 120 && !/ followed/.test(await say()); k++) await p.waitForTimeout(250);
 const Tr = await p.evaluate(() => window.__track), Po = (await p.evaluate(() => window.__poll)), Fo = await p.evaluate(() => window.__f);
 ok(Tr.length === 1 && /C0001\.MP4$/.test(Tr[0].path) && Tr[0].start.kind === 'subject' && Tr[0].start.box.join() === '0.4,0.3,0.2,0.4' && typeof Tr[0].t === 'number', 'one track, with the path, kind, box and time: ' + JSON.stringify(Tr));

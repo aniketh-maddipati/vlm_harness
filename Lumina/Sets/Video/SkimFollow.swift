@@ -162,6 +162,34 @@ nonisolated enum SkimFollow {
         return (i, i, 0)
     }
 
+    // MARK: The edge (scroll and ⇧-scroll on the chosen shape)
+
+    /// How far the page may grow or shrink the edge, and soften it, as a fraction of the frame's long edge.
+    static let maxGrow = 0.05
+    static let maxSoft = 0.05
+
+    /// The edge as the page sends it: grow (negative shrinks) and soften, fractions of the long edge, cut to their
+    /// limits. Missing or not a number: 0.
+    static func edge(grow: Any?, soft: Any?) -> (grow: Double, soft: Double) {
+        func v(_ a: Any?) -> Double { (a as? NSNumber).map(\.doubleValue).flatMap { $0.isFinite ? $0 : nil } ?? 0 }
+        return (min(maxGrow, max(-maxGrow, v(grow))), min(maxSoft, max(0, v(soft))))
+    }
+
+    /// A mask with its edge moved out by `grow` pixels (in by a negative one) and softened over `soft` pixels: a
+    /// tent blur as wide as the move, cut near its foot (so the edge moves about that far, a little rounder at corners),
+    /// then a tent blur as wide as the softening.
+    static func edged(_ p: LookMasks.Plane, grow: Int, soft: Int) -> LookMasks.Plane {
+        var m = p
+        if grow != 0 {
+            let r = max(1, (abs(grow) + 1) / 2), b = LookMasks.boxMean(LookMasks.boxMean(p, radius: r), radius: r)
+            let cut: Float = grow > 0 ? 0.04 : 0.96
+            for i in m.values.indices { m.values[i] = b.values[i] > cut ? 1 : 0 }
+            if grow < 0 { for i in m.values.indices where p.values[i] < m.values[i] { m.values[i] = p.values[i] } }
+        }
+        if soft > 0 { let r = max(1, (soft + 1) / 2); m = LookMasks.boxMean(LookMasks.boxMean(m, radius: r), radius: r) }
+        return m
+    }
+
     // MARK: The Mac's own track (SkimTracker)
 
     /// The long edge of the frames the Mac reads a clip at to follow a shape: the mask lab's proxy, where Vision's

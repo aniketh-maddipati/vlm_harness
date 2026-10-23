@@ -763,7 +763,7 @@ body:has([data-view=phone]){background:#111}
                   <sc-for list="{{ ticks }}" as="tk" hint-placeholder-count="8"><div style="position:absolute;top:3px;left:{{ tk.l }};width:1px;height:8px;background:rgba(239,236,230,0.3)"></div></sc-for>
                   <div style="position:absolute;top:0;left:{{ it.ph }};width:2px;height:14px;margin-left:-1px;border-radius:1px;background:#EFECE6"></div>
                 </div>
-                <sc-if value="{{ it.stripOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="follow-strip" title="{{ it.stripTip }}" style="position:relative;height:5px;margin-top:-4px;border-radius:2px;overflow:hidden;background:rgba(239,236,230,0.06)"><sc-for list="{{ it.strip }}" as="sg" hint-placeholder-count="3"><div data-sure="{{ sg.sure }}" data-t="{{ sg.t }}" onClick="{{ folSeg }}" style="position:absolute;top:0;bottom:0;left:{{ sg.l }};width:{{ sg.w }};background:{{ sg.bg }};cursor:{{ sg.cur }}"></div></sc-for></div></sc-if>
+                <sc-if value="{{ it.stripOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="follow-strip" title="{{ it.stripTip }}" style="position:relative;height:5px;margin-top:-4px;border-radius:2px;overflow:hidden;background:rgba(239,236,230,0.06)"><sc-for list="{{ it.strip }}" as="sg" hint-placeholder-count="3"><button type="button" tabindex="-1" data-sure="{{ sg.sure }}" data-t="{{ sg.t }}" aria-label="{{ sg.tip }}" onClick="{{ folSeg }}" style="box-sizing:border-box;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:absolute;top:0;bottom:0;left:{{ sg.l }};width:{{ sg.w }};background:{{ sg.bg }};cursor:{{ sg.cur }}"></button></sc-for></div></sc-if>
                 <div style="display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden;color:#9A958D"><span style="color:{{ it.nameC }}">{{ it.name }}</span><span style="color:{{ it.subC }}">{{ it.sub }}</span></div>
                 <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="viewer-selections" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:30px"><span style="color:#9A958D;margin-right:4px">{{ it.olSay }}</span><sc-for list="{{ it.olChips }}" as="oc" hint-placeholder-count="2"><button type="button" data-ol="{{ oc.id }}" aria-pressed="{{ oc.on }}" title="{{ oc.l }} · choose / let go" onClick="{{ olChip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:{{ oc.bg }};color:{{ oc.fg }};box-shadow:inset 0 0 0 1px {{ oc.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ oc.l }}</button></sc-for><sc-if value="{{ it.folOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="follow" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:6px"><sc-if value="{{ it.folGoOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-go" title="Follow the chosen shape through the whole clip, from this frame" onClick="{{ folGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Follow through the clip</button></sc-if><sc-if value="{{ it.folStopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-stop" title="Stop following" onClick="{{ folStop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop</button></sc-if><sc-if value="{{ it.folSaveOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-matte" title="Save the followed shape as a black-and-white movie for Final Cut, next to the .fcpxml" onClick="{{ folMatte }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Save matte</button></sc-if><sc-if value="{{ it.folFixOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-fix" title="Follow the chosen shape again from this frame, through the stretch that is worth a look" onClick="{{ folFix }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Fix this stretch</button></sc-if><sc-if value="{{ it.folDropOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-drop" title="Let the followed shape go" onClick="{{ folDrop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Let go</button></sc-if><span data-lumina="follow-say" style="color:#9A958D">{{ it.folSay }}</span></span></sc-if></div></sc-if>
               </div>
@@ -1442,34 +1442,82 @@ class Component extends DCLogic {
     const f = this.olFor(), list = Array.isArray(f) ? f : [], sel = this.olSel(), vw = (v && v.videoWidth) || 16, vh = (v && v.videoHeight) || 9;
     const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1, w = Math.max(2, Math.round((cv.clientWidth || 320) * dpr * Math.max(1, st.zc || 1))), h = Math.max(2, Math.round(w * vh / vw));
     const fr = this.folOf(this.byId && this.byId[st.cur]), at = fr && fr.samples.length ? Component.folAt(fr.samples, this.vidWant || 0) : null;
-    const key = this.olKey() + '|' + (Array.isArray(f) ? f.length : String(f)) + '|' + sel.join(',') + '|' + w + 'x' + h + '|' + (at ? at.t + ':' + fr.samples.length : '');
+    const ed = this.olEdgeOf(st.cur), hov = this.olHov && !sel.includes(this.olHov) ? list.find(s => s.id === this.olHov) : null;
+    const key = this.olKey() + '|' + (Array.isArray(f) ? f.length : String(f)) + '|' + sel.join(',') + '|' + w + 'x' + h + '|' + (at ? at.t + ':' + fr.samples.length : '') + '|' + (hov ? hov.id : '') + '|' + ed.grow + ',' + ed.soft;
     if (key === this.olPainted) return; this.olPainted = key;
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     const x = cv.getContext('2d'); x.clearRect(0, 0, w, h); x.lineJoin = 'round';
     for (const s of list) {
       const on = sel.includes(s.id); if (s.kind === 'background' && !on) continue;   // the rest of the frame is outlined once chosen
       const p = new Path2D(); for (const L of s.outline || []) { L.forEach(([a, b], i) => i ? p.lineTo(a * w, b * h) : p.moveTo(a * w, b * h)); p.closePath(); }
-      if (on) { x.fillStyle = 'rgba(255,210,122,0.26)'; x.fill(p, 'evenodd'); }
-      x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 2.5 : 1.5) * dpr; x.strokeStyle = 'rgba(22,21,20,0.6)'; x.stroke(p);
-      x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 1.5 : 1) * dpr; x.strokeStyle = on ? '#FFD27A' : 'rgba(239,236,230,0.9)'; x.stroke(p);
+      if (on) this.olFill(x, p, w, h, ed);
+      const hv = hov && hov.id === s.id;
+      x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 2.5 : hv ? 3 : 1.5) * dpr; x.strokeStyle = 'rgba(22,21,20,0.6)'; x.stroke(p);
+      x.setLineDash(on ? [] : [6 * dpr, 4 * dpr]); x.lineWidth = (on ? 1.5 : hv ? 2 : 1) * dpr; x.strokeStyle = on ? '#FFD27A' : hv ? '#FFFFFF' : 'rgba(239,236,230,0.9)'; x.stroke(p);
+    }
+    // the shape under the pointer, named
+    if (hov && hov.box) {
+      const name = Component.olName(hov), fs = 13 * dpr; x.setLineDash([]); x.font = '600 ' + fs + 'px -apple-system,system-ui,sans-serif';
+      const tw = x.measureText(name).width, bx = Math.max(4 * dpr, Math.min(w - tw - 16 * dpr, hov.box[0] * w)), by = Math.max(4 * dpr, hov.box[1] * h - fs - 14 * dpr);
+      x.fillStyle = 'rgba(22,21,20,0.86)'; x.fillRect(bx, by, tw + 12 * dpr, fs + 8 * dpr); x.fillStyle = '#EFECE6'; x.fillText(name, bx + 6 * dpr, by + fs + 1 * dpr);
     }
     // the followed shape where it was at the nearest followed frame, over the rest
     if (at && at.outline) {
       const p = new Path2D(); for (const L of at.outline) { L.forEach(([a, b], i) => i ? p.lineTo(a * w, b * h) : p.moveTo(a * w, b * h)); p.closePath(); }
-      x.setLineDash([]); x.fillStyle = 'rgba(255,210,122,0.18)'; x.fill(p, 'evenodd'); x.lineWidth = 3 * dpr; x.strokeStyle = 'rgba(22,21,20,0.6)'; x.stroke(p); x.lineWidth = 2 * dpr; x.strokeStyle = '#FFD27A'; x.stroke(p);
+      x.setLineDash([]); this.olFill(x, p, w, h, ed, 0.7); x.lineWidth = 3 * dpr; x.strokeStyle = 'rgba(22,21,20,0.6)'; x.stroke(p); x.lineWidth = 2 * dpr; x.strokeStyle = '#FFD27A'; x.stroke(p);
     }
+  }
+  // A chosen shape's tint, with the draft's edge: grown or shrunk by a stroke as wide as twice the move, softened by a blur.
+  olFill(x, p, w, h, ed, a) {
+    const L = Math.max(w, h), g = (ed && ed.grow || 0) * L, sf = (ed && ed.soft || 0) * L;
+    if (!g && !sf) { x.fillStyle = 'rgba(255,210,122,' + (0.26 * (a || 1)).toFixed(3) + ')'; x.fill(p, 'evenodd'); return; }
+    const o = this.olOff || (this.olOff = document.createElement('canvas')); if (o.width !== w || o.height !== h) { o.width = w; o.height = h; }
+    const k = o.getContext('2d'); k.clearRect(0, 0, w, h); k.globalCompositeOperation = 'source-over'; k.setLineDash([]); k.lineJoin = 'round'; k.fillStyle = k.strokeStyle = '#FFD27A'; k.fill(p, 'evenodd');
+    if (g) { k.lineWidth = Math.abs(g) * 2; if (g < 0) k.globalCompositeOperation = 'destination-out'; k.stroke(p); k.globalCompositeOperation = 'source-over'; }
+    x.save(); x.globalAlpha = 0.26 * (a || 1); if (sf) x.filter = 'blur(' + (sf / 2).toFixed(1) + 'px)'; x.drawImage(o, 0, 0); x.restore();
   }
   olPick(e) {
     const cv = this.olCv, v = this.vidEl, f = this.olFor(); if (!cv || !v || !Array.isArray(f)) return;
     const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY), s = p && Component.olHit(f, p.x, p.y);
-    if (s) this.olChoose(s.id);
+    if (s) this.olChoose(s.id, e.altKey ? 'out' : e.shiftKey ? 'add' : 'only');
   }
-  olChoose(id) { const st = this.state, now = this.olSel(), next = now.includes(id) ? now.filter(x => x !== id) : now.concat(id); this.setState({olSel:{...(st.olSel || {}), [st.cur]:next}}); }
+  // A click chooses the shape alone (a draft: nothing is followed until ⏎), ⇧-click adds it, ⌥-click takes it away;
+  // a chip turns its shape on and off.
+  olChoose(id, how) {
+    const st = this.state, now = this.olSel(), next = Component.olNext(now, id, how);
+    this.setState({olSel:{...(st.olSel || {}), [st.cur]:next}});
+  }
+  static olNext(now, id, how) {
+    const has = (now || []).includes(id);
+    return how === 'only' ? (has && now.length === 1 ? [] : [id]) : how === 'add' ? (has ? now : now.concat(id)) : how === 'out' ? now.filter(x => x !== id) : has ? now.filter(x => x !== id) : now.concat(id);
+  }
+  // The shape under the pointer, outlined and named on the picture (outlines on).
+  olHover(e) {
+    const cv = this.olCv, v = this.vidEl, f = this.olFor(); if (!cv || !v || !Array.isArray(f)) return;
+    const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY), s = p && Component.olHit(f, p.x, p.y), id = s && s.kind !== 'background' ? s.id : null;
+    if (id !== this.olHov) { this.olHov = id; this.olPaint(); }
+  }
+  // The draft's edge: grown (or shrunk) and softened by scroll and ⇧-scroll on the picture, fractions of the long edge
+  // (SkimFollow.edge, the same limits); the matte takes it.
+  olEdgeOf(id) { return (this.olEdge && this.olEdge.get(id)) || {grow:0, soft:0}; }
+  static olEdgeBy(e, dy, soft) {
+    const st = Math.round(-dy / 40) / 1000 || (dy < 0 ? 0.001 : -0.001), c = v => Math.round(Math.max(-0.05, Math.min(0.05, v)) * 1000) / 1000;
+    return soft ? {grow:e.grow, soft:Math.max(0, c(e.soft + st))} : {grow:c(e.grow + st), soft:e.soft};
+  }
+  olWheel(e) {
+    const st = this.state, m = this.olEdge || (this.olEdge = new Map()), d = e.shiftKey && Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    m.set(st.cur, Component.olEdgeBy(this.olEdgeOf(st.cur), d, e.shiftKey)); this.olPaint(); this.setState(x => ({tick:(x.tick || 0) + 1}));
+  }
+  static olEdgeSay(e, long) { const px = v => Math.round(v * (long || 1920)); return !e || (!e.grow && !e.soft) ? '' : 'edge ' + (e.grow > 0 ? '+' : e.grow < 0 ? '−' : '') + Math.abs(px(e.grow)) + ' px' + (e.soft ? ' · soft ' + px(e.soft) + ' px' : ''); }
+  // ⏎ follows the draft (one shape chosen); esc lets the draft go.
+  olDraft() { const st = this.state, c = this.byId && this.byId[st.cur], r = this.folOf(c); return st.lv >= 2 && !!st.ol && this.olSel().length === 1 && !!this.folApi() && !(r && (r.state === 'run' || r.fixing)); }
+  olDrop() { const st = this.state; if (this.olEdge) this.olEdge.delete(st.cur); this.setState({olSel:{...(st.olSel || {}), [st.cur]:[]}}); }
   olChip = e => { const id = e.currentTarget.getAttribute('data-ol'); if (id) this.olChoose(id); };
   olVals(c) {
     const st = this.state, on = !!st.ol && st.lv >= 2 && !!this.olApi() && !!c._file && !this.vidNew; if (!on) return {olOn:false};
     const f = this.olFor(), list = Array.isArray(f) ? f : [], sel = this.olSel();
-    return {olOn:true, olSay:Component.olSay(f, list.filter(s => sel.includes(s.id)).length), ...this.folVals(c, list.filter(s => sel.includes(s.id)).length),
+    const n = list.filter(s => sel.includes(s.id)).length, es = n ? Component.olEdgeSay(this.olEdgeOf(st.cur), Math.max(c.w || 0, c.h || 0)) : '';
+    return {olOn:true, olSay:Component.olSay(f, n) + (n === 1 && this.olDraft() && !this.folOf(c) ? ' · ⏎ to follow, esc to let go' : '') + (es ? ' · ' + es : ''), ...this.folVals(c, list.filter(s => sel.includes(s.id)).length),
       olChips:list.map(s => { const ch = sel.includes(s.id); return {id:s.id, l:Component.olName(s), on:ch, bg:ch ? '#FFD27A' : 'transparent', fg:ch ? '#1E1D1B' : '#EFECE6', ring:ch ? '#FFD27A' : 'rgba(239,236,230,0.3)'}; })};
   }
   // Where a click lands in the frame, 0 … 1 of its width and height, for a picture drawn object-fit: cover in the box r.
@@ -1605,7 +1653,7 @@ class Component extends DCLogic {
     const S = (samples || []).filter(x => x && x.sure && typeof x.t === 'number').slice().sort((a, b) => a.t - b.t), out = []; if (!S.length || !(dur > 0)) return out;
     for (let i = 0; i < S.length; i++) { const x = S[i], l = out[out.length - 1]; if (l && l.sure === x.sure) l.t1 = x.t; else out.push({sure:x.sure, t0:x.t, t1:x.t}); }
     return out.map((r, i) => { const a = i ? (out[i - 1].t1 + r.t0) / 2 : 0, b = i < out.length - 1 ? (r.t1 + out[i + 1].t0) / 2 : dur;
-      return {sure:r.sure, t0:r.t0, t1:r.t1, l:(a / dur * 100).toFixed(2) + '%', w:(Math.max(0, b - a) / dur * 100).toFixed(2) + '%', bg:r.sure === 'lost' ? '#FF8A7A' : r.sure === 'shaky' ? '#FFD27A' : 'rgba(169,209,142,0.32)', cur:r.sure === 'sure' ? 'default' : 'pointer', t:r.t0.toFixed(3)}; });
+      return {sure:r.sure, t0:r.t0, t1:r.t1, l:(a / dur * 100).toFixed(2) + '%', w:(Math.max(0, b - a) / dur * 100).toFixed(2) + '%', bg:r.sure === 'lost' ? '#FF8A7A' : r.sure === 'shaky' ? '#FFD27A' : 'rgba(169,209,142,0.32)', cur:r.sure === 'sure' ? 'default' : 'pointer', t:r.t0.toFixed(3), tip:r.sure === 'sure' ? 'sure' : r.sure === 'shaky' ? 'worth a look: go there' : 'lost: go there'}; });
   }
   folStripVals(c) {
     const r = this.folOf(c); if (!r || !r.track || r.state !== 'done' || !c.dur) return {stripOn:false};
@@ -1669,7 +1717,7 @@ class Component extends DCLogic {
     const c = this.byId && this.byId[this.state.cur], r = this.folOf(c), api = this.folApi(); if (!c || !r || r.state !== 'done' || r.saving || !api) return;
     const {fd, nf} = Component.clipFd(c, this.d && this.d.shoot.rate);
     r.saving = true; r.why = ''; this.setState(x => ({tick:(x.tick || 0) + 1}));
-    let o = null; try { o = await api.matte(Object.assign({name:c.name, w:c.w, h:c.h, frames:nf, fd, dir:this.exDir('fcp')}, r.track ? {track:r.track} : {samples:r.samples.map(x => ({t:x.t, outline:x.outline || []}))})); } catch (e) {}
+    let o = null; try { o = await api.matte(Object.assign({name:c.name, w:c.w, h:c.h, frames:nf, fd, dir:this.exDir('fcp'), grow:this.olEdgeOf(c.id).grow, soft:this.olEdgeOf(c.id).soft}, r.track ? {track:r.track} : {samples:r.samples.map(x => ({t:x.t, outline:x.outline || []}))})); } catch (e) {}
     r.saving = false;
     if (o && o.ok) { r.matte = {path:o.path, name:o.name}; const m = {...this.mattes(), [c.id]:{path:o.path, name:o.name, shape:r.shape.name}}; this.matteM = m; this.persist(this.matteKey(), JSON.stringify(m)); }
     else r.why = (o && o.why) || 'The app did not answer.';
@@ -2461,6 +2509,7 @@ class Component extends DCLogic {
     const st = this.state;
     if (st.noKeep) return this.setState({noKeep:false});
     if (st.progOn) return this.progShut();
+    if (st.lv >= 2 && st.ol && this.olSel().length) { const r = this.folOf(this.byId && this.byId[st.cur]); if (!(r && (r.state === 'run' || r.fixing))) return this.olDrop(); }
     if (st.lv >= 2 && st.zc > 1.01) return this.setState({zc:1});
     if (st.prop) { clearTimeout(this.propT); this.propFn = null; return this.setState({prop:null}); }
     if (this.dockFoc()) return this.dockLeave();
@@ -2524,6 +2573,7 @@ class Component extends DCLogic {
     if (this.dockKey(e)) return;
     if (this.mk[kl] && !e.altKey) { e.preventDefault(); if (e.repeat) return; this.heldAt = e.timeStamp; this.heldTapped = false; return this.setState({held:this.mk[kl]}); }
     if (k === ' ' && !st.held && !(this.isCtl(t) && this.tabFocus)) { e.preventDefault(); if (!e.repeat) this.spaceDown(e); return; }
+    if (k === 'Enter' && !st.held && !e.shiftKey && !e.altKey && !(this.isCtl(t) && this.tabFocus) && this.olDraft()) { e.preventDefault(); return this.folGo(); }
     if (k === 'Enter' || k === ' ') {
       if (st.held) { e.preventDefault(); return this.decide(); }
       // ⏎ goes in and comes back out, as a double-click does: the canvas opens the clip large, the Viewer goes back to
@@ -2616,6 +2666,8 @@ class Component extends DCLogic {
     if (e.ctrlKey) { e.preventDefault(); return this.zoomBy(-e.deltaY * 0.01, e); }
     // Over the strip above the Viewer a scroll or a swipe either way moves the strip a frame at a time (tsGo's paging, finer).
     if (st.lv >= 2 && e.target && e.target.closest && e.target.closest('[data-lumina="furled-takes"]')) { e.preventDefault(); return this.tsWheel(e); }
+    // Over the picture with a shape chosen (outlines on): scroll grows or shrinks its edge, ⇧-scroll softens it.
+    if (st.lv >= 2 && st.ol && !e.ctrlKey && this.olSel().length) { const pic = e.target && e.target.closest && e.target.closest('[data-pic]'); if (pic && pic.getAttribute('data-clip') === st.cur) { e.preventDefault(); return this.olWheel(e); } }
     if (st.lv >= 2 && Component.zoomHeld(st.zc) && !e.ctrlKey) { const pic = e.target && e.target.closest && e.target.closest('[data-pic]'); if (pic && pic.getAttribute('data-clip') === st.cur && Math.abs(e.deltaY) >= Math.abs(e.deltaX)) { e.preventDefault(); return this.panBy(e.deltaX, e.deltaY, pic); } }
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5) {
       e.preventDefault();
@@ -2707,12 +2759,13 @@ class Component extends DCLogic {
   scrubMove = e => { const r = e.currentTarget.getBoundingClientRect(); this.setState({fx:Math.max(0, Math.min(7, (e.clientX - r.left) / r.width * 7))}); };
   picF(e) { const r = e.currentTarget.firstElementChild.getBoundingClientRect(); return Math.max(0, Math.min(0.999, (e.clientX - r.left) / Math.max(1, r.width))); }
   picMove = e => { const id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e), h = this.state.hv;
+    if (this.olHold(id)) this.olHover(e);
     if (!Component.pointerScrubs(this.state.zc, id === this.state.cur) || this.olHold(id)) { if (h && h.id === id) this.setState({hv:null, ...this.pinHv()}); return; }
     if (!h || h.id !== id || Math.abs(h.f - f) > 0.002) this.setState({hv:{id, f}}); };
   // Zoomed: a drag on the picture moves it. The frame stays.
   picDown = e => { const st = this.state, id = e.currentTarget.getAttribute('data-clip'); if (e.button || st.held || Component.pointerScrubs(st.zc, id === st.cur)) return;
     const r = e.currentTarget.firstElementChild.getBoundingClientRect(); e.preventDefault(); this.panS = {x:e.clientX, y:e.clientY, zo:st.zo, w:r.width, h:r.height, moved:false}; };
-  picLeave = () => { if (this.state.hv) this.setState({hv:null}); };
+  picLeave = () => { if (this.olHov) { this.olHov = null; this.olPaint(); } if (this.state.hv) this.setState({hv:null}); };
   picClick = e => {
     const st = this.state, id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e);
     if (st.held) { this.heldTapped = true; this.doMark([id], st.held); return; }
