@@ -24,6 +24,9 @@ nonisolated final class SkimTracker: @unchecked Sendable {
 
     private final class Job {
         let id: String
+        /// A fix: the track whose stretch `span` this one re-tracks, and takes the place of when it is done.
+        var into: String?
+        var span: (from: Double, to: Double)?
         var state = "run"          // run, done, stopped, failed
         var why = ""
         var frames: [SkimFollow.Tracked] = []
@@ -37,28 +40,43 @@ nonisolated final class SkimTracker: @unchecked Sendable {
     private var jobs: [String: Job] = [:]
 
     /// Starts following `kind` chosen at `box` (fractions from the top left) on the frame at `t0` seconds of the clip
-    /// at `url`; any track by that id is stopped and let go first.
-    func start(id: String, url: URL, kind: LookMasks.Kind, box: LookMasks.Box, t0: Double) {
+    /// at `url`; any track by that id is stopped and let go first. With `fix`, only the stretch `from … to` is followed
+    /// and, once done, takes the place of that stretch in the track `into` (a fix counts against no limit and goes with
+    /// its track).
+    func start(id: String, url: URL, kind: LookMasks.Kind, box: LookMasks.Box, t0: Double, fix: (into: String, from: Double, to: Double)? = nil) {
         let job = Job(id: id)
+        job.into = fix?.into
+        job.span = fix.map { (max(0, $0.from), max($0.from, $0.to)) }
         lock.withLock {
             let now = Date()
-            jobs = jobs.filter { now.timeIntervalSince($0.value.touched) < SkimFollow.kept }
-            jobs[id]?.stop = true
-            jobs.removeValue(forKey: id)
-            while jobs.count >= SkimFollow.tracks, let oldest = jobs.min(by: { $0.value.touched < $1.value.touched })?.key {
-                jobs[oldest]?.stop = true; jobs.removeValue(forKey: oldest)
-            }
+            for (k, j) in jobs where now.timeIntervalSince(j.touched) >= SkimFollow.kept { letGo(k) }
+            letGo(id)
+            while jobs.values.filter({ $0.into == nil }).count >= SkimFollow.tracks, job.into == nil,
+                  let oldest = jobs.values.filter({ $0.into == nil }).min(by: { $0.touched < $1.touched })?.id { letGo(oldest) }
             jobs[id] = job
         }
         Task.detached(priority: .utility) { [self] in
             do { try await run(job, url: url, kind: kind, box: box, t0: t0) } catch {
                 lock.withLock { if job.state == "run" { job.state = "failed"; job.why = (error as? Failed)?.why ?? "the clip couldn’t be read" } }
             }
-            lock.withLock { if job.state == "run" { job.state = job.stop ? "stopped" : "done" } }
+            lock.withLock {
+                if job.state == "run" { job.state = job.stop ? "stopped" : "done" }
+                // a fix that finished takes the place of its stretch in its track
+                if job.state == "done", let into = job.into, let span = job.span, let base = jobs[into], base.state == "done" || base.state == "stopped" {
+                    base.frames = SkimFollow.merged(base.frames, patch: job.frames, from: span.from, to: span.to)
+                }
+            }
         }
     }
 
-    func end(_ id: String) { lock.withLock { jobs[id]?.stop = true; _ = jobs.removeValue(forKey: id) } }
+    /// Under the lock: the track `id` and its fixes stopped and let go.
+    private func letGo(_ id: String) {
+        guard let j = jobs.removeValue(forKey: id) else { return }
+        j.stop = true
+        for (k, f) in jobs where f.into == id { f.stop = true; jobs.removeValue(forKey: k) }
+    }
+
+    func end(_ id: String) { lock.withLock { letGo(id) } }
 
     /// The track `id` for the page: its state, how far it is (0 … 1), why it failed, the followed frames from `from`
     /// (at most `SkimFollow.page`, in the order they were followed), how many there are, and the strip so far.
@@ -115,8 +133,9 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         guard let size = SkimFollow.proxySize(width: Int(natural.width.rounded()), height: Int(natural.height.rounded())), length.isFinite, length > 0 else {
             throw Failed(why: "the clip couldn’t be read")
         }
-        lock.withLock { j.expected = Int((length * (fps > 0 ? fps : 30)).rounded()) }
-        let start = min(max(0, t0), max(0, length - 0.001))
+        let span = j.span.map { (from: min($0.from, length), to: min($0.to, length)) } ?? (from: 0, to: length)
+        lock.withLock { j.expected = Int(((span.to - span.from) * (fps > 0 ? fps : 30)).rounded()) }
+        let start = min(max(span.from, t0), max(span.from, span.to - 0.001))
 
         // The chosen shape's feature print, from the first frame read, to find it again after it is lost.
         var print: VNFeaturePrintObservation?
@@ -125,7 +144,7 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         // Forward from the frame it was chosen on.
         let fwd = Way(SkimFollower.Trail(kind: kind, box: box))
         var first = true
-        try read(track: track, asset: asset, size: size, from: start, to: length) { t, image in
+        try read(track: track, asset: asset, size: size, from: start, to: span.to) { t, image in
             if self.stopped(j) { return false }
             let found = SetsMasks.masks(image) ?? []
             let f = self.follow(fwd, image: image, t: t, found: found, first: first, print: print)
@@ -140,7 +159,8 @@ nonisolated final class SkimTracker: @unchecked Sendable {
 
         // Back to the start, a second at a time, each stretch from its end to its start.
         let back = Way(SkimFollower.Trail(kind: kind, box: startBox))
-        for c in SkimFollow.backChunks(from: start, chunk: 1) {
+        for c0 in SkimFollow.backChunks(from: start, chunk: 1) where c0.to > span.from {
+            let c = (from: max(c0.from, span.from), to: c0.to)
             var frames: [(t: Double, image: CGImage)] = []
             try read(track: track, asset: asset, size: size, from: c.from, to: c.to) { t, image in
                 guard t < c.to - 1e-4, let copy = Self.copied(image) else { return !self.stopped(j) }

@@ -6,7 +6,10 @@
 //      time on show, and sends no frame from the page (no .follow).
 //   2. The page fetches every followed frame, page by page; the line says every frame and how much is worth a look;
 //      the outline is drawn; the facts say where the shape is.
-//   3. Save matte names the track and sends no outlines; Let go ends the track.
+//   3. Save matte names the track and sends no outlines.
+//   4. The strip under the scrub bar shows the shaky stretch; } goes to it; with the shape chosen there, Fix this
+//      stretch follows it again on the Mac from that frame through the stretch, and the strip is sure after.
+//   5. Let go ends the track.
 //
 //   node Tests/web/skim-track-browser.mjs        # needs ffmpeg and Playwright's Chromium
 import fs from 'node:fs';
@@ -38,8 +41,11 @@ await ctx.addInitScript(shapes => {
     masks:frame => later(/^\/9j\//.test(frame) ? shapes : null),
     follow:(id, frame, start) => { window.__f.push({id}); return later(null); },
     followEnd:id => later(true),
-    track:(id, path, start, t) => { window.__track.push({id, path, start, t}); return later(true); },
-    trackPoll:(id, from) => { window.__poll.push({id, from}); polls++; const n = Math.min(48, polls * 20), page = frames.slice(from, Math.min(n, from + 16));
+    track:(id, path, start, t, fix) => { window.__track.push({id, path, start, t, fix}); return later(true); },
+    trackPoll:(id, from) => {
+      const fx = window.__track.find(x => x.id === id && x.fix); window.__poll.push({id, from});
+      if (fx) { const fr = frames.filter(f => f.t >= fx.fix.from - 1e-6 && f.t <= fx.fix.to + 1e-6).map(f => ({...f, sure:'sure'})), page = fr.slice(from, from + 16);
+        return later({state:from + page.length >= fr.length ? 'done' : 'run', done:(from + page.length) / fr.length, n:fr.length, from, frames:page}); } window.__poll.push({id, from}); polls++; const n = Math.min(48, polls * 20), page = frames.slice(from, Math.min(n, from + 16));
       return later({state:n >= 48 && from + page.length >= 48 ? 'done' : 'run', done:n / 48, n, from, frames:page,
         strip:n >= 48 ? [{t0:0, t1:41 / 24, sure:'sure'}, {t0:42 / 24, t1:47 / 24, sure:'shaky'}] : undefined}); },
     trackEnd:id => { window.__end.push(id); return later(true); },
@@ -60,7 +66,7 @@ for (let k = 0; k < 20 && !(await p.$('[data-ol="subject"]')); k++) await p.wait
 await p.click('[data-ol="subject"]'); await p.waitForTimeout(300);
 await p.click('[data-lumina="follow-go"]');
 for (let k = 0; k < 120 && !/ followed/.test(await say()); k++) await p.waitForTimeout(250);
-const Tr = await p.evaluate(() => window.__track), Po = await p.evaluate(() => window.__poll), Fo = await p.evaluate(() => window.__f);
+const Tr = await p.evaluate(() => window.__track), Po = (await p.evaluate(() => window.__poll)), Fo = await p.evaluate(() => window.__f);
 ok(Tr.length === 1 && /C0001\.MP4$/.test(Tr[0].path) && Tr[0].start.kind === 'subject' && Tr[0].start.box.join() === '0.4,0.3,0.2,0.4' && typeof Tr[0].t === 'number', 'one track, with the path, kind, box and time: ' + JSON.stringify(Tr));
 ok(Fo.length === 0, 'no frame sent from the page: ' + Fo.length);
 ok(Po.length >= 3 && Po.every(q => q.id === Tr[0].id) && Po[Po.length - 1].from >= 32, 'polled page by page: ' + Po.map(q => q.from).join(' '));
@@ -75,10 +81,29 @@ const M = await p.evaluate(() => window.__matte);
 ok(M.length === 1 && M[0].track === Tr[0].id && !('samples' in M[0]) && M[0].frames === 48, 'the matte names the track: ' + JSON.stringify(M));
 ok(/matte saved · C0001 matte\.mov/.test(await say()), 'the line: ' + JSON.stringify(await say()));
 ok((await p.evaluate(() => window.__end)).length === 0, 'the track is kept while the follow is');
+const strip = await p.evaluate(() => [...document.querySelectorAll('[data-lumina="follow-strip"] [data-sure]')].map(e => e.getAttribute('data-sure')));
+ok(strip.join() === 'sure,shaky', 'the strip under the scrub bar: ' + strip.join());
+ok(!(await p.$('[data-lumina="follow-fix"]')), 'no fix on a sure frame');
+await p.keyboard.press('}'); await p.waitForTimeout(900);
+const sub = await p.evaluate(() => document.querySelector('[data-lumina="clip-row"]')?.innerText.match(/\d+:\d+[:.]\d+ of/)?.[0] || '');
+ok(!!sub, '} went to the shaky stretch: ' + sub);
+for (let k = 0; k < 20 && !(await p.$('[data-ol="subject"]')); k++) await p.waitForTimeout(250);
+if (!(await p.evaluate(() => document.querySelector('[data-ol="subject"]')?.getAttribute('aria-pressed') === 'true'))) { await p.click('[data-ol="subject"]'); await p.waitForTimeout(300); }
+for (let k = 0; k < 20 && !(await p.$('[data-lumina="follow-fix"]')); k++) await p.waitForTimeout(200);
+ok(!!(await p.$('[data-lumina="follow-fix"]')), 'on the shaky frame with the shape chosen: Fix this stretch');
+await p.screenshot({path:path.join(T, 'strip.png')});
+await p.click('[data-lumina="follow-fix"]');
+for (let k = 0; k < 40 && !(await p.evaluate(() => [...document.querySelectorAll('[data-lumina="follow-strip"] [data-sure]')].every(e => e.getAttribute('data-sure') === 'sure'))); k++) await p.waitForTimeout(200);
+const Fx = (await p.evaluate(() => window.__track)).filter(x => x.fix);
+ok(Fx.length === 1 && Fx[0].fix.patch === Tr[0].id && Math.abs(Fx[0].fix.from - 41 / 24) < 1e-3 && Fx[0].fix.to === 2 && Fx[0].t >= Fx[0].fix.from, 'the fix: the track, from the last sure frame to the end: ' + JSON.stringify(Fx));
+const strip2 = await p.evaluate(() => [...document.querySelectorAll('[data-lumina="follow-strip"] [data-sure]')].map(e => e.getAttribute('data-sure')));
+ok(strip2.join() === 'sure', 'after the fix the strip is sure: ' + strip2.join());
+ok(/in 100% of the clip/.test(await say()) && !/worth a look/.test(await say()), 'the line: ' + JSON.stringify(await say()));
+ok((await p.evaluate(() => window.__end)).length === 1, 'the fix is ended on the Mac once in');
 await p.screenshot({path:path.join(T, 'track.png')});
 await p.click('[data-lumina="follow-drop"]'); await p.waitForTimeout(300);
 const E = await p.evaluate(() => window.__end);
-ok(E.length === 1 && E[0] === Tr[0].id, 'Let go ends the track: ' + JSON.stringify(E));
+ok(E.length === 2 && E[1] === Tr[0].id, 'Let go ends the track: ' + JSON.stringify(E));
 ok(errs.length === 0, 'no page errors: ' + errs.join(' | '));
 console.log('screenshot ' + path.join(T, 'track.png'));
 await b.close();

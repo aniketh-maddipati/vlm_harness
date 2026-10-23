@@ -725,7 +725,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             if (body["end"] as? Bool) == true { SkimTracker.shared.end(id); return (true, nil) }
             guard let root = lastOpened, let rel = body["path"] as? String, rel.utf8.count <= 4096, let url = SkimTrash.resolve(root: root, rel: rel),
                   let start = SkimFollow.start(kind: body["kind"], box: body["box"]), let t0 = SkimFollow.time(body["t"]) else { return (false, nil) }
-            SkimTracker.shared.start(id: id, url: url, kind: start.kind, box: start.box, t0: t0)
+            // A fix: the stretch `from … to` of the track `patch` followed again from the shape chosen at `t`.
+            var fix: (into: String, from: Double, to: Double)?
+            if body["patch"] != nil {
+                guard let into = SkimFollow.trackID(body["patch"]), let a = SkimFollow.time(body["from"]), let b = SkimFollow.time(body["to"]), a <= t0, t0 <= b else { return (false, nil) }
+                fix = (into, a, b)
+            }
+            SkimTracker.shared.start(id: id, url: url, kind: start.kind, box: start.box, t0: t0, fix: fix)
             return (true, nil)
         case "skimTrackPoll":
             // How a track is going, and its followed frames from `from` (SkimTracker.poll).

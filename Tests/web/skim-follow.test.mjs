@@ -10,7 +10,7 @@ import { PAGE, extractMethod, loadBuildX, ctxFromFixture, fixture } from './skim
 
 const src = fs.readFileSync(PAGE, 'utf8');
 const C = { FDS: {24:[1001, 24000], 25:[100, 2500], 30:[1001, 30000], 50:[100, 5000], 60:[1001, 60000], 100:[100, 10000], 120:[1001, 120000]} };
-for (const [name, args] of [['folTimes', 't0, dur, step'], ['folStep', 'dur'], ['folAt', 'samples, t'], ['folInside', 'px, total'], ['clipFd', 'c, rate'], ['matteSize', 'w, h'], ['folSeen', 'samples']]) {
+for (const [name, args] of [['folTimes', 't0, dur, step'], ['folStep', 'dur'], ['folAt', 'samples, t'], ['folInside', 'px, total'], ['clipFd', 'c, rate'], ['matteSize', 'w, h'], ['folSeen', 'samples'], ['folStrip', 'samples, dur'], ['folSpan', 't, strip, dur'], ['folMerged', 'base, patch, from, to']]) {
   const body = extractMethod(src, name, 'static ' + name + '(' + args + ') {').replace(/^static /, 'function ');
   C[name] = new Function('Component', 'return ' + body)(C);
 }
@@ -53,6 +53,19 @@ test('a track on the Mac: where the shape is, and how much is worth a look', () 
   assert.equal(C.folSeen([]), null);
   assert.match(src, /api\.trackEnd\(r\.track\)/, 'Let go ends the track');
   assert.match(src, /r\.track \? \{track:r\.track\}/, 'the matte is made from the track');
+});
+
+test('the strip, a fix\'s stretch, and the fix in place', () => {
+  const S = [0, 0.5, 1, 1.5, 2, 2.5].map((t, i) => ({t, sure:i === 2 || i === 3 ? 'shaky' : i === 4 ? 'lost' : 'sure'}));
+  const st = C.folStrip(S, 3);
+  assert.deepEqual(st.map(x => x.sure), ['sure', 'shaky', 'lost', 'sure']);
+  assert.deepEqual(st.map(x => x.l), ['0.00%', '25.00%', '58.33%', '75.00%'], 'each stretch from halfway to its neighbour');
+  assert.equal(st[3].w, '25.00%', 'the last to the end of the clip');
+  assert.deepEqual(C.folStrip([], 3), []);
+  assert.deepEqual(C.folSpan(1.2, st, 3), {from:0.5, to:2.5}, 'from the last sure frame before to the first after');
+  assert.deepEqual(C.folSpan(2.8, [{sure:'lost', t0:2.6, t1:3}], 3), {from:0, to:3});
+  const m = C.folMerged(S, [{t:1, sure:'sure'}, {t:2.5, sure:'shaky'}], 1, 2);
+  assert.deepEqual(m.map(x => x.t + ':' + x.sure), ['0:sure', '0.5:sure', '1:sure', '2.5:sure'], 'the stretch replaced, nothing outside it touched');
 });
 
 test('the matte is the clip\'s length in its frames, at most 1920 on the long edge and even', () => {

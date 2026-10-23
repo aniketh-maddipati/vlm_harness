@@ -209,4 +209,23 @@ final class SkimFollowTests: XCTestCase {
         XCTAssertEqual(SkimFollow.time(2.5), 2.5)
         XCTAssertNil(SkimFollow.time(-1)); XCTAssertNil(SkimFollow.time(Double.nan)); XCTAssertNil(SkimFollow.time("2"))
     }
+
+    func testAFixReTracksTheStretchBetweenTheSureOnes() {
+        let strip: [SkimFollow.Run] = [.init(t0: 0, t1: 1, sure: .sure), .init(t0: 1.04, t1: 2, sure: .shaky), .init(t0: 2.04, t1: 2.5, sure: .lost),
+                                       .init(t0: 2.54, t1: 4, sure: .sure), .init(t0: 4.04, t1: 5, sure: .shaky)]
+        let a = SkimFollow.fixSpan(at: 1.5, strip: strip, length: 5)
+        XCTAssertEqual(a.from, 1); XCTAssertEqual(a.to, 2.54)
+        let b = SkimFollow.fixSpan(at: 4.5, strip: strip, length: 5)
+        XCTAssertEqual(b.from, 4); XCTAssertEqual(b.to, 5, "no sure stretch after: to the end")
+        let c = SkimFollow.fixSpan(at: 0.5, strip: [.init(t0: 0, t1: 5, sure: .lost)], length: 5)
+        XCTAssertEqual(c.from, 0); XCTAssertEqual(c.to, 5)
+    }
+
+    func testAFixTakesThePlaceOfItsStretch() {
+        func f(_ t: Double, _ s: SkimFollow.Sure) -> SkimFollow.Tracked { .init(t: t, step: .init(box: nil, held: s != .lost, shape: nil), sure: s) }
+        let base = [0.0, 0.5, 1.0, 1.5, 2.0].map { f($0, $0 >= 1 && $0 <= 1.5 ? .lost : .sure) }
+        let m = SkimFollow.merged(base, patch: [f(1.5, .sure), f(1.0, .sure), f(3, .sure)], from: 1, to: 1.5)
+        XCTAssertEqual(m.map(\.t), [0, 0.5, 1, 1.5, 2])
+        XCTAssertEqual(m.map(\.sure), [.sure, .sure, .sure, .sure, .sure], "a patch frame outside its stretch is left out")
+    }
 }

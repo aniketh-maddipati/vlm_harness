@@ -231,6 +231,21 @@ nonisolated enum SkimFollow {
         return out
     }
 
+    /// The stretch a fix at `t` re-tracks (the user chose the shape again on that frame): from the end of the last sure
+    /// stretch before `t` to the start of the first sure one after it, within the clip (0 … `length`).
+    static func fixSpan(at t: Double, strip: [Run], length: Double) -> (from: Double, to: Double) {
+        let from = strip.filter { $0.sure == .sure && $0.t1 < t }.map(\.t1).max() ?? 0
+        let to = strip.filter { $0.sure == .sure && $0.t0 > t }.map(\.t0).min() ?? length
+        return (max(0, min(from, t)), max(t, min(to, length)))
+    }
+
+    /// A track with a fixed stretch in place: the frames of `base` outside `from … to`, and those of `patch` inside it,
+    /// in time order.
+    static func merged(_ base: [Tracked], patch: [Tracked], from: Double, to: Double) -> [Tracked] {
+        let inside = { (f: Tracked) in f.t >= from - 1e-6 && f.t <= to + 1e-6 }
+        return (base.filter { !inside($0) } + patch.filter(inside)).sorted { $0.t < $1.t }
+    }
+
     /// The largest distance between the chosen shape's feature print and a shape's in a later frame for that shape to be
     /// it, found again after it was lost (behind a pillar, out of the frame). To set from the mask lab's V2 run.
     static let refind = 0.6
