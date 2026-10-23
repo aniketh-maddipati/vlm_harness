@@ -195,6 +195,9 @@ final class SetsBridgeOpsTests: XCTestCase {
             "skimTrack": ["kind": "person", "box": [0.1, 0.1, 0.3, 0.5], "t": 0],
         ]
         for (op, fields) in Self.fields.sorted(by: { $0.key < $1.key }) {
+            // The skimTrack rows start real tracks (under the shoot id and every hostile id that is still a valid one);
+            // let them go, so skimTrackPoll is asked only about tracks never started.
+            if op == "skimTrackPoll" { SkimTracker.shared.end(id); for case let (_, s as String) in values() { SkimTracker.shared.end(s) } }
             // Missing everything, and the op alone with a wrong-typed op name next to it.
             for body in [["op": op], ["op": op, "op2": NSNull()]] as [[String: Any]] {
                 _ = await call(b, body); calls += 1
