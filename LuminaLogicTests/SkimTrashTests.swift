@@ -63,6 +63,13 @@ final class SkimTrashTests: XCTestCase {
         XCTAssertEqual(t.listed(shoot: "s"), [], "nothing left noted")
     }
 
+    func testMovesThatOverlapAreAllNoted() throws {
+        for i in 0..<24 { try Data(count: 100).write(to: root.appendingPathComponent("CLIP/D\(i).MP4")) }
+        let t = trash(), root = root!
+        DispatchQueue.concurrentPerform(iterations: 24) { i in _ = t.move(root: root, rels: ["CLIP/D\(i).MP4"], shoot: "s", refusal: nil) }
+        XCTAssertEqual(t.all().count, 24, "no move's note is lost to another saved at the same time")
+    }
+
     func testARefusalMovesNothing() {
         let out = trash().move(root: root, rels: ["CLIP/C0001.MP4"], shoot: "s", refusal: "This drive is read only. Skim can't move anything off it.")
         XCTAssertEqual(out, [SkimTrash.Answer(rel: "CLIP/C0001.MP4", ok: false, bytes: 0, why: "This drive is read only. Skim can't move anything off it.")])
