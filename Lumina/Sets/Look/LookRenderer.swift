@@ -59,10 +59,12 @@ nonisolated final class LookRenderer: @unchecked Sendable {
 
     // MARK: the developed cache
 
-    private static func key(_ rel: String, _ px: Int, _ decoder: Int?, _ nr: Double?) -> String { "\(rel)|\(px)|\(decoder ?? 0)|\(nr.map { Int($0.rounded()) } ?? -1)" }
+    private static func key(_ rel: String, _ px: Int, _ decoder: Int?, _ nr: Double?, _ dust: Bool) -> String {
+        "\(rel)|\(px)|\(decoder ?? 0)|\(nr.map { Int($0.rounded()) } ?? -1)|\(dust ? LookDust.Registry.shared.generation : 0)"
+    }
 
-    func developed(url: URL, rel: String, px: Int, decoder: Int? = nil, nr: Double? = nil, preview: LookBases.PreviewFallback? = nil) throws -> LookPipeline.Developed {
-        let key = Self.key(rel, px, decoder, nr)
+    func developed(url: URL, rel: String, px: Int, decoder: Int? = nil, nr: Double? = nil, dust: Bool = false, preview: LookBases.PreviewFallback? = nil) throws -> LookPipeline.Developed {
+        let key = Self.key(rel, px, decoder, nr, dust)
         let hit: Entry? = lock.withLock { () -> Entry? in
             guard let e = cache[key] else { return nil }
             order.removeAll { $0 == key }; order.append(key); _stats.cacheHits += 1
@@ -72,7 +74,7 @@ nonisolated final class LookRenderer: @unchecked Sendable {
         let t0 = Date()
         let raw: LookPipeline.Developed
         do {
-            raw = try LookPipeline.developAny(url: url, longEdge: px, rules: pipeline.rules, decoderVersion: decoder, nr: nr)
+            raw = try LookPipeline.developAny(url: url, longEdge: px, rules: pipeline.rules, decoderVersion: decoder, nr: nr, dust: dust)
         } catch {
             // The RAW can't be developed: its embedded JPEG stands in when the page gave its range (as the canvas's bases do).
             guard let p = preview else { throw error }
@@ -113,7 +115,7 @@ nonisolated final class LookRenderer: @unchecked Sendable {
                     masks: (() -> [LookMasks.Found]?)? = nil) throws -> Data {
         if isStale(rel: rel, seq: seq) { lock.withLock { _stats.stale += 1 }; throw Stale() }
         let parsed = try Look.parse(look)
-        var dev = try developed(url: url, rel: rel, px: px, decoder: decoder, nr: parsed.nr, preview: preview)
+        var dev = try developed(url: url, rel: rel, px: px, decoder: decoder, nr: parsed.nr, dust: parsed.dust, preview: preview)
         // The developed image is the whole upright photo: its masks fill it.
         if !parsed.locals.isEmpty, let found = masks?() { dev = dev.withMasks(found, key: LookPipeline.PhotoMasks.key(rel: rel, found)) }
         if isStale(rel: rel, seq: seq) { lock.withLock { _stats.stale += 1 }; throw Stale() }

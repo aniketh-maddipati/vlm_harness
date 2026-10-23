@@ -74,6 +74,7 @@ eq('drop onto a stack merges',kinds(LC.buildShoot(fx.stacks.input,fx.stackMerge.
   eq('look string: roadmap example parse → format is identical',LC.lookString(LC.parseLook(ex)),ex);
   const L={ev:0.35,wb:5600,tint:-4,crop:{x:0.1,y:0,w:0.8,h:1,ang:1.5,ratio:'4:5'},curve:[[0,0],[0.5,0.55],[1,1]],sat_red:-10,bw:true}, s=LC.lookString(L);
   eq('look string: Edit keys round-trip (crop, curve, sat_<colour>, bw)',srt(LC.parseLook(s)),srt(L)); eq('look string: parse → format → parse is stable',LC.lookString(LC.parseLook(s)),s);
+  eq('look string: dust:1 round-trips, off writes nothing',[LC.lookString({ev:0.3,dust:true}),LC.parseLook('ev:+0.30 dust:1').dust,LC.lookString({dust:false})],['ev:+0.30 dust:1',true,'']);
   eq('look string: canonical order and signs',LC.lookString({sh:25,ev:-0.3,hl:0,wb:5200}),'ev:-0.30 wb:5200/ hl:0 sh:+25'); eq('as-shot look → empty string',LC.lookString({}),'');
   eq('profile: Camera (the default) writes nothing, Adobe Color writes prof:adobe',[LC.lookString({prof:'camera'}),LC.lookString({prof:'adobe',ev:0.3})],['','ev:+0.30 prof:adobe']);
   eq('profile survives parse → format',LC.lookString(LC.parseLook('prof:adobe sh:+10')),'sh:+10 prof:adobe'); }

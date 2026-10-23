@@ -718,6 +718,23 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   sres = await save();
   ok(sres && sres.t === '4 saved' && !sres.bad, 'stale sidecar: the next Save reads it again', sres);
   ok(lrRead('DSC01004.xmp') === racy.replace('xmp:Rating="1"', 'xmp:Rating="3"'), 'stale sidecar: the next Save → the newest settings survive, rating set', lrRead('DSC01004.xmp'));
+  // Sensor dust: lumina.dust sends the photos' previews to the Mac (a path with none is dropped), and
+  // Save gives a photo whose Edit look has dust:1 Lightroom spot heals for its spots as stored; a photo
+  // without dust:1, or without spots, keeps its sidecar as it was.
+  { const rels = await page.evaluate(() => { const l = __lumina.logic(); return l.data.order.slice(0, 2).map(id => { const p = l.data.byId[id]; return { id, rel: p.rel || p.path || p.file }; }); });
+    bridge.dustAnswer = { frames: 1, unread: 0, groups: [], photos: {}, stored: {} };
+    const dr = await page.evaluate(r => window.lumina.dust([r, 'nope/DSC09999.ARW']), rels[0].rel);
+    ok(dr && dr.frames === 1 && bridge.dustItems && bridge.dustItems.length === 1, 'dust: lumina.dust asks the Mac with the previews it has and answers its result', { dr, items: bridge.dustItems });
+    ok((await page.evaluate(() => window.lumina.dust(['nope/DSC09999.ARW']))) === null, 'dust: no preview for any path → null, the Mac not asked');
+    const before2 = lrRead('DSC01002.xmp');
+    await page.evaluate(r => { const l = __lumina.logic(), st = l.editStore(); st.looks = Object.assign({}, st.looks, { [r[0].id]: { dust: true }, [r[1].id]: {} });
+      localStorage.setItem(l.editKey(), JSON.stringify(st)); l._dzSt = null;
+      window.luminaDustResult = { stored: { [r[0].rel]: [{ x: 0.2, y: 0.3, r: 0.01 }], [r[1].rel]: [{ x: 0.5, y: 0.5, r: 0.01 }] } }; }, rels);
+    sres = await save();
+    const x1 = lrRead('DSC01001.xmp'), x2 = lrRead('DSC01002.xmp');
+    ok(sres && sres.t === '4 saved' && /<crs:RetouchAreas>/.test(x1) && /<rdf:li>d 0\.200000 0\.300000<\/rdf:li>/.test(x1) && /crs:Exposure2012="\+1\.50"/.test(x1), 'dust: Save writes a dust:1 photo\'s spots as Lightroom heals, beside its settings', { sres, x1 });
+    ok(!/RetouchAreas/.test(x2) && x2 === before2, 'dust: a photo without dust:1 gets no heals', x2);
+    await page.evaluate(() => { delete window.luminaDustResult; const l = __lumina.logic(); localStorage.removeItem(l.editKey()); l._dzSt = null; }); }
   // Handoff's Save to (Prompt 27): a folder → the sidecars go there as the page merged them, nothing read back first;
   // ask each time → the Mac's folder panel (Cancel writes nothing).
   const saveTo = path.join(tmp, 'save-to');

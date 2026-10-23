@@ -17,6 +17,7 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let rel: String
         let decoder: Int
         let nr: Int?
+        let dust: Int
         let col: Int
         let row: Int
     }
@@ -120,24 +121,25 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
     /// with the composite. Failures name the decoder so the caller can fall back one version.
     /// `rot` is the look's quarter turn: `roi` is then a region of the turned picture, and the
     /// region comes back turned (the crop is not applied here, as before).
-    func region(rel: String, url: URL, decoder: Int, nr: Double?, roi: LookCanvasSchedule.ROI, rot: Int = 0, seq: Int,
+    func region(rel: String, url: URL, decoder: Int, nr: Double?, dust: Bool = false, roi: LookCanvasSchedule.ROI, rot: Int = 0, seq: Int,
                 first: @escaping (Double) -> Void, done: @escaping (Result<Region, Error>) -> Void) {
         lock.withLock { latest = max(latest, seq) }
         queue.addOperation { [self] in
-            let r = Result { try self.render(rel: rel, url: url, decoder: decoder, nr: nr, roi: roi, rot: rot, seq: seq, first: first) }
+            let r = Result { try self.render(rel: rel, url: url, decoder: decoder, nr: nr, dust: dust, roi: roi, rot: rot, seq: seq, first: first) }
             DispatchQueue.main.async { done(r) }
         }
     }
 
     private func stale(_ seq: Int) -> Bool { lock.withLock { latest > seq } }
 
-    private func render(rel: String, url: URL, decoder: Int, nr: Double?, roi: LookCanvasSchedule.ROI, rot: Int, seq: Int, first: @escaping (Double) -> Void) throws -> Region {
+    private func render(rel: String, url: URL, decoder: Int, nr: Double?, dust: Bool, roi: LookCanvasSchedule.ROI, rot: Int, seq: Int, first: @escaping (Double) -> Void) throws -> Region {
         if stale(seq) { throw Cancelled() }
         let t0 = Date()
-        let dkey = "\(rel)|\(decoder)|\(nr.map { Int($0.rounded()) } ?? -1)"
+        let dustKey = dust ? LookDust.Registry.shared.generation : 0
+        let dkey = "\(rel)|\(decoder)|\(nr.map { Int($0.rounded()) } ?? -1)|\(dustKey)"
         let dev: LookPipeline.Developed
         if let d = lock.withLock({ developed[dkey] }) { dev = d } else {
-            dev = try LookPipeline.develop(url: url, longEdge: nil, rules: pipeline.rules, decoderVersion: decoder, nr: nr)
+            dev = try LookPipeline.develop(url: url, longEdge: nil, rules: pipeline.rules, decoderVersion: decoder, nr: nr, dust: dust)
             lock.withLock { developed = [dkey: dev] }          // one full-size graph at a time
         }
         let size = dev.extent.size
@@ -149,7 +151,7 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let nrKey = nr.map { Int($0.rounded()) }
         for (col, row) in wanted {
             if stale(seq) { throw Cancelled() }
-            let key = Key(rel: rel, decoder: decoder, nr: nrKey, col: col, row: row)
+            let key = Key(rel: rel, decoder: decoder, nr: nrKey, dust: dustKey, col: col, row: row)
             if let t = lock.withLock({ cache.get(key) }) { tiles.append(t); hits += 1 }
             else {
                 let tt = Date()

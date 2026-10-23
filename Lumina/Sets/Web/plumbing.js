@@ -261,9 +261,10 @@
     },
     // Sensor dust across a shoot, found by the Mac on the embedded previews (never a RAW decode).
     // Takes photo paths (best: one per stack, different scenes, stopped down); resolves to
-    // { frames, unread, groups: [{ size: [w, h], frames, spots }], photos: { path: spots } }, where a
-    // spot is { x, y, r, depth, hits, frames }: x, y fractions of the picture (upright in photos,
-    // as stored in groups), r a fraction of the stored width. Null when no path has a preview.
+    // { frames, unread, groups: [{ size: [w, h], frames, spots }], photos: { path: spots }, stored: { path: spots } },
+    // where a spot is { x, y, r, depth, hits, frames }: x, y fractions of the picture (upright in photos,
+    // as stored in groups and stored: what retouchXmp takes), r a fraction of the stored width. Each photo
+    // with spots is then lifted by the develop when its look has dust:1. Null when no path has a preview.
     dust: paths => {
       const items = (Array.isArray(paths) ? paths : []).map(p => previewAt.get(String(p))).filter(Boolean);
       if (!items.length) return Promise.resolve(null);
