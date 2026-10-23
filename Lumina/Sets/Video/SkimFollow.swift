@@ -402,4 +402,37 @@ nonisolated enum SkimFollow {
         let stem = ((clip.split(whereSeparator: { $0 == "/" || $0 == "\\" }).last.map(String.init) ?? "") as NSString).deletingPathExtension
         return SkimExport.safeName(stem + " matte.mov", allowed: ["mov"])
     }
+
+    // MARK: Click to outline (SkimPrompt, macOS 27)
+
+    /// One click on the frame: where (fractions from the top left) and whether it adds what's under it or takes it away.
+    struct PromptPoint: Equatable, Sendable {
+        var x: Double, y: Double
+        var include: Bool
+    }
+
+    /// The most clicks one outline takes; past that the page starts again.
+    static let promptMax = 32
+
+    /// The clicks as the page sends them, oldest first: `[{x, y, in}]`, at least one, at most `promptMax`, each inside
+    /// the frame. The first one starts the outline, so it always adds. Nil for anything else.
+    static func promptPoints(_ any: Any?) -> [PromptPoint]? {
+        guard let a = any as? [Any], !a.isEmpty, a.count <= promptMax else { return nil }
+        var out: [PromptPoint] = []
+        for e in a {
+            guard let d = e as? [String: Any], let x = (d["x"] as? NSNumber)?.doubleValue, let y = (d["y"] as? NSNumber)?.doubleValue,
+                  x.isFinite, y.isFinite, (0...1).contains(x), (0...1).contains(y) else { return nil }
+            let include = (d["in"] as? Bool) ?? true
+            out.append(PromptPoint(x: x, y: y, include: out.isEmpty ? true : include))
+        }
+        return out
+    }
+
+    /// The clicks to add to the outline already made from `old` to reach `new`: the new ones at the end when `new` only
+    /// adds to `old` (the model keeps the frame's encoding, so a click costs milliseconds), nil when `new` is not `old`
+    /// and more (an undo, or another frame), which starts again from `new`'s first click.
+    static func promptAdded(_ old: [PromptPoint], _ new: [PromptPoint]) -> [PromptPoint]? {
+        guard !old.isEmpty, new.count >= old.count, Array(new.prefix(old.count)) == old else { return nil }
+        return Array(new.dropFirst(old.count))
+    }
 }

@@ -1426,7 +1426,49 @@ class Component extends DCLogic {
   // under the picture do the same. ⇧← ⇧→ still step the frames; each frame is read once.
   olApi() { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.masks ? v : null; }
   olHold(id) { const st = this.state; return !!st.ol && st.lv >= 2 && id === st.cur && !!this.olApi(); }
-  olToggle() { const st = this.state; if (!this.olApi() || st.step !== 'skim' || st.lv < 2) return; if (st.ol) return this.setState({ol:false}); this.setState({ol:true, hv:null, ...this.pinHv()}, () => this.olSoon()); }
+  olToggle() { const st = this.state; if (!this.olApi() || st.step !== 'skim' || st.lv < 2) return; if (st.ol) return this.setState({ol:false}); this.prCheck(); this.setState({ol:true, hv:null, ...this.pinHv()}, () => this.olSoon()); }
+  // Click to outline (macOS 27, lumina.video.prompt: the bridge's skimPrompt, SkimPrompt.swift): a click outlines the
+  // thing under it, whatever Vision's finders would have lumped it with; a click outside the outline adds what's
+  // there, one inside takes it away; esc undoes the last click. Asked once (promptReady): 'ready', 'download' (the
+  // first click has macOS fetch Apple's model, a few seconds) or 'no', where a click chooses one of Vision's shapes
+  // as before. docs/masking/OUTLINING.md.
+  prApi() { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.prompt && v.promptReady ? v : null; }
+  prOk() { return this.prState === 'ready' || this.prState === 'download'; }
+  prCheck() {
+    if (this.prState !== undefined) return; const a = this.prApi(); if (!a) { this.prState = 'no'; return; }
+    this.prState = 'asking';
+    Promise.resolve().then(() => a.promptReady()).then(r => { this.prState = r === 'ready' || r === 'download' ? r : 'no'; this.olPainted = null; this.olPaint(); this.setState(x => ({tick:(x.tick || 0) + 1})); }, () => { this.prState = 'no'; });
+  }
+  // The frame's name for the Mac (at most 64 characters): the same frame and clicks so far add to the outline there.
+  static prKey(k) { let h = 2166136261; for (let i = 0; i < k.length; i++) { h ^= k.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return 'f' + h.toString(36) + '-' + k.length; }
+  // A click on the frame: the first starts the outline, a later one outside it adds and inside it takes away.
+  static prNext(pts, shape, x, y) { const inside = !!(shape && Component.olInside(shape.outline, x, y)); return (pts || []).concat({x, y, in:!(pts && pts.length) || !inside}); }
+  prClick(p) {
+    const st = this.state, api = this.prApi(), k = this.olKey(), j = this.olJpg; if (!api || !k || !j || j.k !== k || p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return;
+    let pr = this.olPr; if (!pr || pr.k !== k) pr = this.olPr = {k, pts:[], hist:[]};
+    if (pr.pts.length >= 32) return;
+    const pts = Component.prNext(pr.pts, pr.hist[pr.hist.length - 1], p.x, p.y), seq = this.prSeq = (this.prSeq || 0) + 1;
+    this.prBusy = this.prState === 'download' && !pr.hist.length ? 'getting the outliner ready (the first time only)…' : 'outlining…'; this.prWhy = '';
+    this.setState(x => ({tick:(x.tick || 0) + 1}));
+    Promise.resolve().then(() => api.prompt(Component.prKey(k), j.b64, pts)).then(f => f, () => null).then(f => {
+      if (seq !== this.prSeq || this.olPr !== pr) return;
+      this.prBusy = '';
+      if (!f || !Array.isArray(f.outline) || !f.outline.length) { this.prWhy = 'nothing to outline there'; return this.setState(x => ({tick:(x.tick || 0) + 1})); }
+      if (this.prState === 'download') this.prState = 'ready';
+      pr.pts = pts; pr.hist.push(f); this.prShow(pr, f);
+    });
+  }
+  // Esc: the last click undone (the outline before it, held here, so nothing is asked again); the first lets the shape go.
+  prUndo() {
+    const pr = this.olPr; if (!pr || pr.hist.length < 2 || pr.k !== this.olKey()) return false;
+    this.prSeq = (this.prSeq || 0) + 1; this.prBusy = ''; this.prWhy = '';
+    pr.pts = pr.pts.slice(0, -1); pr.hist.pop(); this.prShow(pr, pr.hist[pr.hist.length - 1]); return true;
+  }
+  prShow(pr, f) {
+    const st = this.state, m = this.olMap || (this.olMap = new Map()), now = m.get(pr.k), list = Array.isArray(now) ? now.filter(s => s.id !== 'pick') : [];
+    m.set(pr.k, list.concat({...f, id:'pick'})); this.olPainted = null;
+    this.setState({olSel:{...(st.olSel || {}), [st.cur]:['pick']}}, () => this.olPaint());
+  }
   olClick = () => this.olToggle();
   olCvRef = el => { this.olCv = el || null; this.olPainted = null; if (el) { this.olPaint(); this.olSoon(); } };
   // The frame on show: its clip and the time the video was asked for.
@@ -1446,7 +1488,7 @@ class Component extends DCLogic {
     try { o.getContext('2d').drawImage(v, 0, 0, o.width, o.height); } catch (x) { return done(null); }
     new Promise(r => o.toBlob(r, 'image/jpeg', 0.85))
       .then(b => b ? new Promise((r, j) => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).replace(/^data:[^,]*,/, '')); fr.onerror = j; fr.readAsDataURL(b); }) : '')
-      .then(b64 => b64 ? api.masks(b64) : null)
+      .then(b64 => { if (!b64) return null; this.olJpg = {k, b64}; return this.prOk() ? [] : api.masks(b64); })
       .then(done, () => done(null));
   }
   olPaint() {
@@ -1455,12 +1497,14 @@ class Component extends DCLogic {
     const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1, w = Math.max(2, Math.round((cv.clientWidth || 320) * dpr * Math.max(1, st.zc || 1))), h = Math.max(2, Math.round(w * vh / vw));
     const fr = this.folOf(this.byId && this.byId[st.cur]), at = fr && fr.samples.length ? Component.folAt(fr.samples, this.vidWant || 0) : null;
     const ed = this.olEdgeOf(st.cur), hov = this.olHov && !sel.includes(this.olHov) ? list.find(s => s.id === this.olHov) : null;
-    const key = this.olKey() + '|' + (Array.isArray(f) ? f.length : String(f)) + '|' + sel.join(',') + '|' + w + 'x' + h + '|' + (at ? at.t + ':' + fr.samples.length : '') + '|' + (hov ? hov.id : '') + '|' + ed.grow + ',' + ed.soft;
+    const pr = this.prOk() && this.olPr && this.olPr.k === this.olKey() ? this.olPr : null, pick = list.find(s => s.id === 'pick');
+    const key = this.olKey() + '|' + (Array.isArray(f) ? f.length : String(f)) + '|' + sel.join(',') + '|' + w + 'x' + h + '|' + (at ? at.t + ':' + fr.samples.length : '') + '|' + (hov ? hov.id : '') + '|' + ed.grow + ',' + ed.soft + '|' + (pr ? pr.pts.length + ':' + pr.hist.length : '') + '|' + (pick ? pick.area : '') + '|' + this.prOk();
     if (key === this.olPainted) return; this.olPainted = key;
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     const x = cv.getContext('2d'); x.clearRect(0, 0, w, h); x.lineJoin = 'round';
     for (const s of list) {
       const on = sel.includes(s.id); if (s.kind === 'background' && !on) continue;   // the rest of the frame is outlined once chosen
+      if (this.prOk() && !on) continue;   // clicks outline: Vision's shapes stay out of the way
       const p = new Path2D(); for (const L of s.outline || []) { L.forEach(([a, b], i) => i ? p.lineTo(a * w, b * h) : p.moveTo(a * w, b * h)); p.closePath(); }
       if (on) this.olFill(x, p, w, h, ed);
       const hv = hov && hov.id === s.id;
@@ -1472,6 +1516,13 @@ class Component extends DCLogic {
       const name = Component.olName(hov), fs = 13 * dpr; x.setLineDash([]); x.font = '600 ' + fs + 'px -apple-system,system-ui,sans-serif';
       const tw = x.measureText(name).width, bx = Math.max(4 * dpr, Math.min(w - tw - 16 * dpr, hov.box[0] * w)), by = Math.max(4 * dpr, hov.box[1] * h - fs - 14 * dpr);
       x.fillStyle = 'rgba(22,21,20,0.86)'; x.fillRect(bx, by, tw + 12 * dpr, fs + 8 * dpr); x.fillStyle = '#EFECE6'; x.fillText(name, bx + 6 * dpr, by + fs + 1 * dpr);
+    }
+    // the clicks: + where one added, − where one took away
+    if (pr) for (const q of pr.pts) {
+      const cx = q.x * w, cy = q.y * h, r = 6 * dpr; x.setLineDash([]); x.lineCap = 'round';
+      x.beginPath(); x.arc(cx, cy, r + 2 * dpr, 0, 2 * Math.PI); x.fillStyle = 'rgba(22,21,20,0.75)'; x.fill();
+      x.beginPath(); x.moveTo(cx - r * 0.6, cy); x.lineTo(cx + r * 0.6, cy); if (q.in) { x.moveTo(cx, cy - r * 0.6); x.lineTo(cx, cy + r * 0.6); }
+      x.lineWidth = 2 * dpr; x.strokeStyle = q.in ? '#FFD27A' : '#FF8A7A'; x.stroke();
     }
     // the followed shape where it was at the nearest followed frame, over the rest
     if (at && at.outline) {
@@ -1490,7 +1541,9 @@ class Component extends DCLogic {
   }
   olPick(e) {
     const cv = this.olCv, v = this.vidEl, f = this.olFor(); if (!cv || !v || !Array.isArray(f)) return;
-    const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY), s = p && Component.olHit(f, p.x, p.y);
+    const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY);
+    if (p && this.prOk()) { const r = this.folOf(this.byId && this.byId[this.state.cur]); if (!(r && (r.state === 'run' || r.fixing))) this.prClick(p); return; }
+    const s = p && Component.olHit(f, p.x, p.y);
     if (s) this.olChoose(s.id, e.altKey ? 'out' : e.shiftKey ? 'add' : 'only');
   }
   // A click chooses the shape alone (a draft: nothing is followed until ⏎), ⇧-click adds it, ⌥-click takes it away;
@@ -1505,7 +1558,7 @@ class Component extends DCLogic {
   }
   // The shape under the pointer, outlined and named on the picture (outlines on).
   olHover(e) {
-    const cv = this.olCv, v = this.vidEl, f = this.olFor(); if (!cv || !v || !Array.isArray(f)) return;
+    const cv = this.olCv, v = this.vidEl, f = this.olFor(); if (!cv || !v || !Array.isArray(f) || this.prOk()) return;
     const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY), s = p && Component.olHit(f, p.x, p.y), id = s && s.kind !== 'background' ? s.id : null;
     if (id !== this.olHov) { this.olHov = id; this.olPaint(); }
   }
@@ -1523,14 +1576,16 @@ class Component extends DCLogic {
   static olEdgeSay(e, long) { const px = v => Math.round(v * (long || 1920)); return !e || (!e.grow && !e.soft) ? '' : 'edge ' + (e.grow > 0 ? '+' : e.grow < 0 ? '−' : '') + Math.abs(px(e.grow)) + ' px' + (e.soft ? ' · soft ' + px(e.soft) + ' px' : ''); }
   // ⏎ follows the draft (one shape chosen); esc lets the draft go.
   olDraft() { const st = this.state, c = this.byId && this.byId[st.cur], r = this.folOf(c); return st.lv >= 2 && !!st.ol && this.olSel().length === 1 && !!this.folApi() && !(r && (r.state === 'run' || r.fixing)); }
-  olDrop() { const st = this.state; if (this.olEdge) this.olEdge.delete(st.cur); this.setState({olSel:{...(st.olSel || {}), [st.cur]:[]}}); }
+  olDrop() { const st = this.state, m = this.olMap, pk = this.olPr && m && m.get(this.olPr.k); if (Array.isArray(pk)) m.set(this.olPr.k, pk.filter(s => s.id !== 'pick')); if (this.olEdge) this.olEdge.delete(st.cur); this.olPr = null; this.prSeq = (this.prSeq || 0) + 1; this.prBusy = ''; this.prWhy = ''; this.setState({olSel:{...(st.olSel || {}), [st.cur]:[]}}, () => { this.olPainted = null; this.olPaint(); }); }
   olChip = e => { const id = e.currentTarget.getAttribute('data-ol'); if (id) this.olChoose(id); };
   olVals(c) {
     const st = this.state, on = !!st.ol && st.lv >= 2 && !!this.olApi() && !!c._file && !this.vidNew; if (!on) return {olOn:false};
     const f = this.olFor(), list = Array.isArray(f) ? f : [], sel = this.olSel();
     const n = list.filter(s => sel.includes(s.id)).length, es = n ? Component.olEdgeSay(this.olEdgeOf(st.cur), Math.max(c.w || 0, c.h || 0)) : '';
-    return {olOn:true, olSay:Component.olSay(f, n) + (n === 1 && this.olDraft() && !this.folOf(c) ? ' · ⏎ to follow, esc to let go' : '') + (es ? ' · ' + es : ''), ...this.folVals(c, list.filter(s => sel.includes(s.id)).length),
-      olChips:list.map(s => { const ch = sel.includes(s.id); return {id:s.id, l:Component.olName(s), on:ch, bg:ch ? '#FFD27A' : 'transparent', fg:ch ? '#1E1D1B' : '#EFECE6', ring:ch ? '#FFD27A' : 'rgba(239,236,230,0.3)'}; })};
+    const pk = this.prOk(), say = pk ? Component.prSay(f, n, this.prBusy, this.prWhy, this.olPr && this.olPr.k === this.olKey() ? this.olPr.pts.length : 0, this.olDraft() && !this.folOf(c))
+      : Component.olSay(f, n) + (n === 1 && this.olDraft() && !this.folOf(c) ? ' · ⏎ to follow, esc to let go' : '');
+    return {olOn:true, olSay:say + (es ? ' · ' + es : ''), ...this.folVals(c, list.filter(s => sel.includes(s.id)).length),
+      olChips:(pk ? list.filter(s => s.id === 'pick') : list).map(s => { const ch = sel.includes(s.id); return {id:s.id, l:Component.olName(s), on:ch, bg:ch ? '#FFD27A' : 'transparent', fg:ch ? '#1E1D1B' : '#EFECE6', ring:ch ? '#FFD27A' : 'rgba(239,236,230,0.3)'}; })};
   }
   // Where a click lands in the frame, 0 … 1 of its width and height, for a picture drawn object-fit: cover in the box r.
   static olPoint(r, vw, vh, cx, cy) {
@@ -1549,7 +1604,13 @@ class Component extends DCLogic {
     let best = null; for (const s of list || []) if (s.kind !== 'background' && Component.olInside(s.outline, x, y) && (!best || s.area < best.area)) best = s;   // the sky is a shape like the others
     return best || (list || []).find(s => s.kind === 'background' && Component.olInside(s.outline, x, y)) || null;
   }
-  static olName(s) { const n = /-(\d+)$/.exec(s.id || ''); return s.kind === 'subject' ? 'Subject' : s.kind === 'background' ? 'Background' : s.kind === 'sky' ? 'Sky' : (s.kind === 'person' ? 'Person' : 'Object') + (n ? ' ' + n[1] : ''); }
+  static olName(s) { const n = /-(\d+)$/.exec(s.id || ''); return s.id === 'pick' ? 'Outlined' : s.kind === 'subject' ? 'Subject' : s.kind === 'background' ? 'Background' : s.kind === 'sky' ? 'Sky' : (s.kind === 'person' ? 'Person' : 'Object') + (n ? ' ' + n[1] : ''); }
+  static prSay(f, n, busy, why, clicks, draft) {
+    if (f === undefined || f === 'wait') return 'reading this frame…'; if (f === null) return 'this frame couldn’t be read';
+    if (busy) return busy;
+    const tail = n && clicks ? ' · click outside to add, inside to take away' + (draft ? ' · ⏎ to follow' : '') + ' · esc to undo' : '';
+    return (why ? why + ' · ' : '') + (n ? 'outlined' + tail : 'click the thing you mean');
+  }
   static olSay(f, n) { return f === undefined || f === 'wait' ? 'reading this frame…' : f === null ? 'this frame couldn’t be read' : !f.length ? 'nothing to choose in this frame' : n ? n + ' chosen' : 'click a shape to choose it'; }
   // Follow (with the app): the one shape chosen, followed through the whole clip from the frame on show, forward to the
   // end and back to the start, eight frames a second (fewer in a clip over 75 s, at most 600 frames). Each frame is drawn
@@ -2538,7 +2599,7 @@ class Component extends DCLogic {
     const st = this.state;
     if (st.noKeep) return this.setState({noKeep:false});
     if (st.progOn) return this.progShut();
-    if (st.lv >= 2 && st.ol && this.olSel().length) { const r = this.folOf(this.byId && this.byId[st.cur]); if (!(r && (r.state === 'run' || r.fixing))) return this.olDrop(); }
+    if (st.lv >= 2 && st.ol && this.olSel().length) { const r = this.folOf(this.byId && this.byId[st.cur]); if (!(r && (r.state === 'run' || r.fixing))) return this.prUndo() || this.olDrop(); }
     if (st.lv >= 2 && st.zc > 1.01) return this.setState({zc:1});
     if (st.prop) { clearTimeout(this.propT); this.propFn = null; return this.setState({prop:null}); }
     if (this.dockFoc()) return this.dockLeave();

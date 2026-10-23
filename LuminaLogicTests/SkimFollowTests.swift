@@ -284,4 +284,26 @@ final class SkimFollowTests: XCTestCase {
         XCTAssertTrue(soft[20, 30] > 0.2 && soft[20, 30] < 0.8, "the edge is soft: \(soft[20, 30])")
         XCTAssertEqual(soft[5, 30], 0, accuracy: 1e-5, "far outside stays out")
     }
+
+    func testTheClicksThePageMaySend() {
+        let p = SkimFollow.promptPoints([["x": 0.5, "y": 0.4, "in": false], ["x": 0.2, "y": 0.9, "in": false], ["x": 1, "y": 0]])
+        XCTAssertEqual(p, [.init(x: 0.5, y: 0.4, include: true), .init(x: 0.2, y: 0.9, include: false), .init(x: 1, y: 0, include: true)],
+                       "the first click always adds; a click with no `in` adds")
+        XCTAssertNil(SkimFollow.promptPoints([] as [Any]))
+        XCTAssertNil(SkimFollow.promptPoints([["x": 1.2, "y": 0.5]]), "outside the frame")
+        XCTAssertNil(SkimFollow.promptPoints([["x": Double.nan, "y": 0.5]]))
+        XCTAssertNil(SkimFollow.promptPoints([["x": "0.5", "y": 0.5]]))
+        XCTAssertNil(SkimFollow.promptPoints("clicks"))
+        XCTAssertNil(SkimFollow.promptPoints(Array(repeating: ["x": 0.5, "y": 0.5], count: SkimFollow.promptMax + 1)))
+    }
+
+    func testAClickAddsToTheOutlineAndAnUndoStartsAgain() {
+        let a = SkimFollow.PromptPoint(x: 0.5, y: 0.5, include: true), b = SkimFollow.PromptPoint(x: 0.7, y: 0.5, include: false)
+        let c = SkimFollow.PromptPoint(x: 0.1, y: 0.1, include: true)
+        XCTAssertEqual(SkimFollow.promptAdded([a], [a, b]), [b])
+        XCTAssertEqual(SkimFollow.promptAdded([a, b], [a, b]), [], "the same clicks again: nothing to add")
+        XCTAssertNil(SkimFollow.promptAdded([a, b], [a]), "an undo starts again")
+        XCTAssertNil(SkimFollow.promptAdded([a, b], [a, c]), "a different click starts again")
+        XCTAssertNil(SkimFollow.promptAdded([], [a]), "nothing yet: start")
+    }
 }
