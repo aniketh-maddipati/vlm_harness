@@ -73,9 +73,33 @@ The edge snap (`LookMasks.guided`) stays on top of whichever mask comes back.
 - **B. Prompts on merged objects.** DAVIS val frame 0 of lab-coat, gold-fish, pigs and shooting: Vision's best shape
   against one click, a click plus one excluded click on the merged neighbour, and a box. Run with SAM 2.1 small,
   EdgeTAM and `GenerateIterativeSegmentationRequest`, scored against the labels, with ms per prompt. Sheet:
-  `checkpoints/06-prompts-on-merged.png`.
+  `checkpoints/06-prompts-on-merged.jpg`.
 - **B2. Box from the track, mask from the prompt.** Every frame: Skim's tracked box as the seed box. This is E4's
   "Vision tracks the box, the model makes the mask", with Apple's model as the first candidate.
+
+### B results (2026-10-23): Apple's prompted segmenter on merged objects
+
+DAVIS 2017 val frame 0, the 16 labelled objects of lab-coat, gold-fish, pigs and shooting. Mean IoU against the label
+(`Tools/masklab/prompts_merged.py`, `masklab-iterative`; sheet `checkpoints/06-prompts-on-merged.jpg`). The click is
+the label's pixel nearest its centroid; the exclude click sits on the neighbour Vision merged in.
+
+| | 1 click | click + exclude | box |
+|---|---|---|---|
+| Vision's best instance (vision-oracle) | 0.240 | | |
+| GenerateIterativeSegmentationRequest, fast | 0.751 | 0.768 | 0.806 |
+| balanced | 0.753 | 0.771 | 0.809 |
+| accurate | 0.747 | 0.759 | 0.770 |
+
+Two of the 16 are specks of 18 and 14 px (lab-coat_1 and _2) that nothing finds. Without them, balanced reaches 0.86
+with one click and 0.89 with a box, against Vision's 0.27. Per object (balanced, one click): lab-coat_3/4/5
+0.96/0.91/0.92, gold-fish_1–5 0.86–0.97, pigs_1–3 0.96–0.98; shooting_1 (a person holding a gun) 0.38, 0.64 with
+the exclude click. Accurate is no better than balanced.
+
+Time (M4 Pro, one process per request, so the first request includes a ~150 ms model load): the first request on a
+frame ~310 ms (fast, balanced) and ~410 ms (accurate); each added include or exclude point ~20 ms (balanced) and ~40 ms
+(accurate). The image encoding is kept between points, so a fix-up click is immediate. In process, warm: 155 ms
+balanced for the first request. The model is a one-time download from Apple (`downloadAssets`, ~55 MB, 5.9 s here)
+into macOS's own protected storage. SAM 2.1 small and EdgeTAM rows follow.
 
 ## Order
 

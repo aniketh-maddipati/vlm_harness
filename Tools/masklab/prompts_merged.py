@@ -80,6 +80,7 @@ class Sam:
 def vision(img_path, size, quality, prompt, out):
     w, h = size
     kind, v = prompt
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     args = [ITER, img_path, "--out", out, "--quality", quality]
     if kind == "box":
         x0, y0, x1, y1 = v

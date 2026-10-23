@@ -9,5 +9,6 @@ owner's footage.
 |---|---|
 | 01-davis-vision-skim-oracle.jpg | DAVIS 2017 val: vision-instance, skim, vision-oracle on six objects |
 | 05-window-crop.jpg | DAVIS 2017 val: skim before and after the window crop (#310) on three objects |
+| 06-prompts-on-merged.jpg | DAVIS 2017 val frame 0: Apple's prompted segmenter (one click, click + exclude, box) on objects Vision merges |
 
 Frames: DAVIS 2017, CC BY 4.0 (davischallenge.org).

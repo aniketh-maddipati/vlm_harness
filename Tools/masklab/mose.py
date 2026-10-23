@@ -50,7 +50,9 @@ def main():
             for m in tar:
                 parts = m.name.strip("./").split("/")
                 if len(parts) >= 3 and parts[-2] in want and m.isfile():
-                    tar.extract(m, root, filter="data")
+                    if ".." in m.name or m.name.startswith("/"):
+                        continue
+                    tar.extract(m, root)
                     if parts[-3] == "JPEGImages":
                         seen_jpg.add(parts[-2])
                 # The tar lists a video's folder in one run: once every chosen video's frames went by
