@@ -321,7 +321,7 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
                 <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span style="font-size:15.5px;color:#EFECE6">{{ eo.t }}</span><span style="font-size:13.5px;color:#9A958D;line-height:1.4">{{ eo.sub }}</span></span>
                 <span aria-hidden="true" style="flex:none;position:relative;width:42px;height:26px;border-radius:13px;background:{{ eo.tr }};transition:background 200ms ease-out"><span style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#F7F4EE;box-shadow:0 1px 3px rgba(0,0,0,0.35);transform:translateX({{ eo.kx }});transition:transform 460ms var(--ho-spring)"></span></span>
               </div></sc-for>
-              <div style="display:grid;grid-template-rows:{{ ho.jpgRows }};opacity:{{ ho.jpgOp }};background:#262523;transition:grid-template-rows 420ms var(--ho-snap), opacity 200ms ease-out"><div style="min-height:0;overflow:hidden"><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:4px 16px 14px"><span style="font-size:14px;color:#B8B3AB">JPEG size</span><div role="radiogroup" aria-label="JPEG size" style="display:grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:10px;background:#1E1D1B"><sc-for list="{{ ho.jpgSizes }}" as="z" hint-placeholder-count="2"><div role="radio" aria-checked="{{ z.on }}" sc-camel-tab-index="0" sc-camel-on-click="{{ z.go }}" style="padding:7px 16px;border-radius:8px;background:{{ z.bg }};color:{{ z.fg }};font-size:14px;cursor:pointer;white-space:nowrap" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ z.t }}</div></sc-for></div><span style="font-size:13.5px;color:#9A958D">{{ ho.jpgWhere }}</span></div></div></div>
+              <div style="display:grid;grid-template-rows:{{ ho.jpgRows }};opacity:{{ ho.jpgOp }};background:#262523;transition:grid-template-rows 420ms var(--ho-snap), opacity 200ms ease-out"><div style="min-height:0;overflow:hidden"><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:4px 16px 14px"><span style="font-size:14px;color:#B8B3AB">JPEG size</span><div role="radiogroup" aria-label="JPEG size" style="display:grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:10px;background:#1E1D1B"><sc-for list="{{ ho.jpgSizes }}" as="z" hint-placeholder-count="3"><div role="radio" aria-checked="{{ z.on }}" sc-camel-tab-index="0" sc-camel-on-click="{{ z.go }}" style="padding:7px 16px;border-radius:8px;background:{{ z.bg }};color:{{ z.fg }};font-size:14px;cursor:pointer;white-space:nowrap" style-focus="outline:2px solid #FFD27A;outline-offset:1px">{{ z.t }}</div></sc-for></div><span style="font-size:13.5px;color:#9A958D">{{ ho.jpgWhere }}</span></div></div></div>
             </div>
           </section>
         </div>
@@ -1469,6 +1469,7 @@ class Component extends DCLogic {
   // needs (the drives, the shoot's folders, the saved files' state, the sidecar plan) is read ahead while you cull (hoWarm),
   // so Handoff opens on what is already known and only refreshes it.
   static HO_PREFS = ['scope','jpg','jpgPx','lr','clr'];
+  static HO_JPX = [2048,3000,null];   // JPEG long edge; null = full size. 3000 is Exposure's ideal.
   static HO_MK = {keep:'#FFD27A',maybe:'#7FA8D8',out:'#FF8A7A'};
   static HO_W = {keep:'kept',maybe:'maybe',out:'rejected'};
   static HO0(){ return {open:{},kids:{},sel:'',pick:{},mk:null,hot:'',say:null,cm:null,ql:null,rn:null,pl:null,plWhy:'',box:null,pv:false,rev:false,sv:'',born:{},shut:{}}; }
@@ -1478,6 +1479,7 @@ class Component extends DCLogic {
   hoSet(f){ const mk=w=>({...w,...(typeof f==='function'?f(w):f)}); if(this.state.view!=='export'){ this._hoPend=mk(this.hoW()||Component.HO0()); return; }
     const P=this._hoPend; this._hoPend=null; this.setState(s=>({hf:mk({...(s.hf||Component.HO0()),...(P||{})})})); }
   hoPrefs(){ if(this._hoP) return this._hoP; let o={}; try{ o=JSON.parse(localStorage.getItem('lumina-v4-handoff')||'{}')||{}; }catch(_){} return (this._hoP=o); }
+  hoJpx(){ const v=this.hoOpt('jpgPx',2048); return Component.HO_JPX.includes(v)?v:2048; }
   hoOpt(k,d){ const ex=this.state.ex||{}; if(k in ex) return ex[k]; const P=this.hoPrefs(); return k in P?P[k]:d; }
   hoPref(p){ this.exSet(p); const P={...this.hoPrefs()}; Object.keys(p).forEach(k=>{ if(Component.HO_PREFS.includes(k)) P[k]=p[k]; }); this._hoP=P; try{ localStorage.setItem('lumina-v4-handoff',JSON.stringify(P)); }catch(_){} }
   hoB(b){ b=+b||0; for(const [m,t] of [[1e12,'TB'],[1e9,'GB'],[1e6,'MB'],[1e3,'KB']]) if(b>=m){ const v=b/m; return (v>=10?Math.round(v):Math.round(v*10)/10)+' '+t; } return Math.max(0,Math.round(b))+' B'; }
@@ -1739,7 +1741,7 @@ class Component extends DCLogic {
   // ——— the page's values for the Handoff block
   handoffView(){ const s=this.state, v=s.view, B=this.data.byId, n=this.data.order.length, K=this.kept(), F=LuminaV4.fmt, w=this.hoW()||Component.HO0(), host=this.hoHost(), app=Component.app(), oc=this.onCard(), res=s.ex.result, MK=Component.HO_MK, HW=Component.HO_W;
     const btn=(id,t,tip,on,go,extra)=>({id,t,tip:tip||'',off:on?'false':'true',op:on?1:0.45,cur:on?'pointer':'default',go:on?go:()=>{},...(extra||{})});
-    const sc=this.hoOpt('scope','picks'), jpg=!!this.hoOpt('jpg',false), lr=!!this.hoOpt('lr',false), clr=!!this.hoOpt('clr',false), jpx=this.hoOpt('jpgPx',2048)===null?null:2048;
+    const sc=this.hoOpt('scope','picks'), jpg=!!this.hoOpt('jpg',false), lr=!!this.hoOpt('lr',false), clr=!!this.hoOpt('clr',false), jpx=this.hoJpx();
     const plan=this.hoPlan(), N=plan.n, mp=(s.passN||1)>1, mv=this.hoDrafts(), noun=sc==='picks'?(N===1?'pick':'picks'):(N===1?'photo':'photos'), ix=this.hoIndex();
     const dX=this.hoDest('xmp'), dJ=this.hoDest('jpeg'), sd=this.hoShootDir(), cnt={keep:0,maybe:0,out:0,'':0}; plan.ids.forEach(id=>{ cnt[this.hoMark(id)]++; });
     const o={}, saved=!!res&&!res.bad, dirty=this.unsaved()>0||!saved;
@@ -1763,7 +1765,7 @@ class Component extends DCLogic {
     const r0=(s.prefs&&s.prefs.rating)||3, gt=x=>x===1?' gets ':' get '; o.scopeSub=[cnt.keep?this.hoPl(cnt.keep,mp?'photo':'pick')+(mp?gt(cnt.keep)+'the pass it made':gt(cnt.keep)+r0+'★'):'0 picks',cnt.maybe?cnt.maybe+' maybe'+(cnt.maybe===1?'':'s')+gt(cnt.maybe)+'1★ and “Lumina maybe”':'',cnt.out?cnt.out+' rejected'+gt(cnt.out)+'Rejected':'',cnt['']?cnt['']+' not decided'+gt(cnt[''])+'no rating':''].filter(Boolean).join(' · ')+(sc==='all'?'. Photos not decided that already have a sidecar are left as they are.':'.');
     const sw=(id,t,on,go,sub)=>({id,t,sub,on:on?'true':'false',mk:on?'✓':'',tr:on?'#FFD27A':'rgba(239,236,230,0.16)',kx:on?'16px':'0px',bg:on?'rgba(255,210,122,0.16)':'rgba(239,236,230,0.06)',fg:on?'#FFD27A':'#B8B3AB',go});
     o.then=[sw('ho-jpg','Also export JPEGs with the look',jpg,()=>this.hoPref({jpg:!jpg}),'Renders each photo with its Edit look into a JPEG folder.'),sw('ho-lr','Open in Lightroom',lr,()=>this.hoPref({lr:!lr}),'After saving, opens the folder in Lightroom Classic.'),sw('ho-clr','Clear working files',clr,()=>this.hoPref({clr:!clr}),'After saving, removes Lumina\'s previews for this shoot. Your RAWs and sidecars stay.')];
-    o.jpgRows=jpg?'1fr':'0fr'; o.jpgOp=jpg?1:0; o.jpgSizes=[[2048,'2048 px'],[null,'Full size']].map(([val,t])=>({t,on:val===jpx?'true':'false',bg:val===jpx?'#5B5854':'transparent',fg:val===jpx?'#EFECE6':'#9A958D',go:()=>this.hoPref({jpgPx:val})}));
+    o.jpgRows=jpg?'1fr':'0fr'; o.jpgOp=jpg?1:0; o.jpgSizes=Component.HO_JPX.map(v=>[v,v==null?'Full size':v+' px']).map(([val,t])=>({t,on:val===jpx?'true':'false',bg:val===jpx?'#5B5854':'transparent',fg:val===jpx?'#EFECE6':'#9A958D',go:()=>this.hoPref({jpgPx:val})}));
     o.jpgWhere='JPEGs → '+(dJ==null?'asks where':this.hoTilde(this.hoWhere(dJ))+'/JPEG');
     // Preview the sidecars
     const pvOn=!!w.pv; o.pvA=pvOn?'true':'false'; o.pvRot=pvOn?'90deg':'0deg'; o.pvRows=pvOn?'1fr':'0fr'; o.pvOp=pvOn?1:0; o.pvGo=()=>this.hoSet(x=>({pv:!x.pv}));
@@ -1885,7 +1887,7 @@ class Component extends DCLogic {
       this.hoRecord({id:'x'+Date.now().toString(36),kind:'xmp',name:'Sidecars · '+this.hoPl(okIds.length,'photo'),dir:dX===''?(this.hoShootDir()||where):where,at:Date.now(),x0:this.xmpFor(okIds[0]),
         f:okIds.map(id=>{ const it=P[id]||{}; return {id,p:zip?'':dX===''?(it.at?it.at+'/'+it.x:''):where+'/'+(it.name||it.x),r:this.hoRate(id).r,d:Component.hoDir(this.hoAbs(id)),b:this.xmpFor(id).length}; })},opt.replace); }
     let jpgLine=''; if(doJ){ if(Component.app()&&this.real){ const st=this.editStore(), base=this.hoWhere(dJ), used=new Set(this.hoGet('saves').filter(e=>e.kind==='jpeg'&&e.st!=='trash'&&Component.hoDir(e.dir)===base).map(e=>Component.hoBase(e.dir)));
-        let fo='JPEG'; for(let i=2;used.has(fo);i++) fo='JPEG '+i; const jf=ids.map(id=>({name:fo+'/'+LuminaV4.fmt.base(B[id].file)+'.jpg',look:{src:B[id].path||B[id].file,look:this.lookFor(id,st),px:this.hoOpt('jpgPx',2048)===null?null:2048}}));
+        let fo='JPEG'; for(let i=2;used.has(fo);i++) fo='JPEG '+i; const jf=ids.map(id=>({name:fo+'/'+LuminaV4.fmt.base(B[id].file)+'.jpg',look:{src:B[id].path||B[id].file,look:this.lookFor(id,st),px:this.hoJpx()}}));
         try{ const jr=await this.writeInto(jf,'jpeg',dJ), je=(jr&&jr.errors)||[], jn=jr&&jr.n!=null?jr.n:jf.length-je.length, jw=(jr&&jr.path)||base; jpgLine=jn+' JPEGs · '+fo+'/'+(jr&&jr.decoder?' · rendered with '+jr.decoder:''); if(je.length) errs=errs.concat(je);
           if(jn>0){ const bad=new Set(je.map(x=>String(x&&(x.name||x.file)||''))), jOk=ids.filter(id=>!bad.has(LuminaV4.fmt.base(B[id].file)+'.jpg')&&!bad.has(fo+'/'+LuminaV4.fmt.base(B[id].file)+'.jpg'));
             this.hoRecord({id:'j'+Date.now().toString(36),kind:'jpeg',name:fo+' · '+this.hoPl(jOk.length,'photo'),dir:jw+'/'+fo,at:Date.now(),f:jOk.map(id=>({id,p:jw+'/'+fo+'/'+LuminaV4.fmt.base(B[id].file)+'.jpg',lk:this.lookFor(id,st),d:Component.hoDir(this.hoAbs(id))}))},opt.kind==='jpeg'?opt.replace:null); } }
