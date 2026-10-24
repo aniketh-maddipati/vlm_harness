@@ -163,9 +163,9 @@ final class SetsBridgeOpsTests: XCTestCase {
         "saveSession": ["id", "json", "summary"], "recents": [], "reopen": ["id"], "workingFiles": ["id"], "removeShoot": ["id"],
         "writeInto": ["label", "files"], "readSidecars": ["root", "files"], "writeSidecars": ["root", "files"], "reveal": ["path"],
         "setPrefs": ["prefs"], "checkAccess": [], "reopenDenied": [], "reopenCurrent": [],
-        "skimMasks": ["frame"], "skimFollow": ["id", "frame", "kind", "box", "end"],
+        "skimMasks": ["frame"], "skimPromptReady": [], "skimPrompt": ["key", "frame", "points", "stroke"], "skimFollow": ["id", "frame", "kind", "box", "end"],
         "skimMatte": ["name", "w", "h", "frames", "fd", "samples", "dir", "track", "grow", "soft"],
-        "skimTrack": ["id", "path", "kind", "box", "t", "end", "patch", "from", "to"], "skimTrackPoll": ["id", "from"],
+        "skimTrack": ["id", "path", "kind", "box", "t", "end", "patch", "from", "to", "prompted"], "skimTrackPoll": ["id", "from"],
         "skimRemove": ["name", "path", "frames", "fd", "track", "dir", "grow", "soft"],
         // Handoff's file view (Prompt 27, `SetsBridgeFilesTests` for what each does when it may).
         "filesPlaces": [], "filesDirList": ["path"], "filesPlaceAdd": ["at"], "filesPlaceRemove": ["path"], "filesDirMake": ["parent", "name"],
@@ -249,6 +249,10 @@ final class SetsBridgeOpsTests: XCTestCase {
             return url.path == shoot.path || url.path.hasPrefix(shoot.path + "/") ? nil : "revealed \(url.path)"
         case ("skimMasks", "frame"):
             return r != nil && !(r is NSNull) ? "found selections in a frame that is not a JPEG" : nil
+        case ("skimPrompt", _):
+            return r != nil && !(r is NSNull) ? "outlined a frame that is not a JPEG" : nil
+        case ("skimPromptReady", _):
+            return r is String ? nil : "answered something other than a status"
         case ("skimFollow", _):
             return r != nil && !(r is NSNull) && !(field == "end" && truthy) ? "followed a frame that is not a JPEG" : nil
         case ("skimTrack", "path"), ("skimTrack", "kind"), ("skimTrack", "box"):

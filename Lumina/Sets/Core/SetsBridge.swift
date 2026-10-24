@@ -734,6 +734,19 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             let frame = body["frame"] as? String
             guard let found = await Task.detached(priority: .userInitiated, operation: { SetsMasks.masks(frame: frame) }).value else { return (NSNull(), nil) }
             return (found.map(\.dictionary), nil)
+        case "skimPromptReady":
+            // Whether this Mac outlines by clicks (SkimPrompt: Vision's prompted segmenter, macOS 27): ready, download, no.
+            return (await SkimPrompt.status(), nil)
+        case "skimPrompt":
+            // Click to outline: the thing under the page's clicks on one frame it drew from its own <video>, as one shape
+            // (SkimPrompt). Clicks on the same `key` add to the outline already made; one outline is held in memory.
+            // A brush `stroke` over the thing seeds the outline in place of the first click.
+            let stroke = body["stroke"].flatMap { $0 is NSNull ? nil : $0 }.map(SkimFollow.promptStroke)
+            if let stroke, stroke == nil { return (NSNull(), nil) }
+            guard let key = SkimFollow.trackID(body["key"]), let points = SkimFollow.promptPoints(body["points"], seeded: stroke != nil),
+                  let frame = body["frame"] as? String, !frame.isEmpty else { return (NSNull(), nil) }
+            guard let found = await SkimPrompt.outline(key: key, frame: frame, points: points, stroke: stroke ?? nil) else { return (NSNull(), nil) }
+            return (found.dictionary, nil)
         case "skimFollow":
             // Follow: one chosen shape followed through a clip (SkimFollower, Vision's object tracker on the Mac), one frame
             // the page drew from its own <video> at a time, in and out of memory. `end` lets the follow go; nothing is kept.
@@ -756,7 +769,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 guard let into = SkimFollow.trackID(body["patch"]), let a = SkimFollow.time(body["from"]), let b = SkimFollow.time(body["to"]), a <= t0, t0 <= b else { return (false, nil) }
                 fix = (into, a, b)
             }
-            SkimTracker.shared.start(id: id, url: url, kind: start.kind, box: start.box, t0: t0, fix: fix)
+            SkimTracker.shared.start(id: id, url: url, kind: start.kind, box: start.box, t0: t0, fix: fix, prompted: (body["prompted"] as? Bool) == true)
             return (true, nil)
         case "skimTrackPoll":
             // How a track is going, and its followed frames from `from` (SkimTracker.poll).

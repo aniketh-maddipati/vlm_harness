@@ -191,6 +191,7 @@ def score_clip(run_dir, label_dir, tolerance=3.0, still_iou=0.95, still_gap=30):
     scored = [n for n in sorted(labels) if lo is not None and lo <= n <= hi]
     per_frame = []
     label_cache = {}
+    inter = union = 0
     for n in scored:
         lab = label_cache.setdefault(n, load_mask(labels[n]))
         pred = run_mask(n, lab.shape)
@@ -198,7 +199,11 @@ def score_clip(run_dir, label_dir, tolerance=3.0, still_iou=0.95, still_gap=30):
             out["missing"] += 1
             pred = np.zeros_like(lab)
         per_frame.append({"frame": n, "iou": iou(pred, lab), "bf": boundary_f(pred, lab, tolerance)})
+        inter += int(np.logical_and(pred, lab).sum()); union += int(np.logical_or(pred, lab).sum())
     out["labelled"] = len(per_frame)
+    # Volumetric J: the clip's masks as one volume, so a frame where both are empty earns nothing
+    # (per-frame J scores it 1.0, which rewards a tracker for giving up while the object is hidden).
+    out["vj"] = inter / union if union else None
     out["per_frame"] = per_frame
     if per_frame:
         ious = [p["iou"] for p in per_frame]
@@ -281,7 +286,7 @@ def summary(run):
         return float(np.mean(v)) if v else None
     j, f = mean("iou"), mean("bf")
     out = {"clips": len(clips), "iou": j, "bf": f, "jf": (j + f) / 2 if j is not None and f is not None else None,
-           "fps": mean("fps"), "sure_share": mean("sure_share")}
+           "fps": mean("fps"), "sure_share": mean("sure_share"), "vj": mean("vj")}
     pooled = {}
     for c in clips:
         for s, v in (c.get("iou_by_sure") or {}).items():
