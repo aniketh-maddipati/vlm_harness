@@ -12,7 +12,7 @@ const src = fs.readFileSync(PAGE, 'utf8');
 const stat = (name, head) => new Function('return function ' + extractMethod(src, name, head).replace(/^static /, ''))();
 const isDebug = stat('isDebug', 'static isDebug(search, hash) {');
 const cutLine = stat('cutLine', 'static cutLine(n, bytes, fmtB, vw) {');
-const countsLine = stat('countsLine', 'static countsLine(kept, n, vw) {');
+const countsLine = stat('countsLine', 'static countsLine(kept, n) {');
 const nextPace = stat('nextPace', 'static nextPace(pace) {');
 const fmtB = new Function('return function ' + extractMethod(src, 'fmtB', 'fmtB(b) {'))();
 const template = src.slice(0, src.indexOf('class Component'));
@@ -85,12 +85,10 @@ test('the trust line is on the Open step and words stay neutral', () => {
   }
 });
 
-test('the bottom line counts what is kept, as Stills does, and says less in a narrow window', () => {
+test('the bottom line counts what is kept, as Stills does', () => {
   assert.equal(cutLine(3, 4_200_000_000, fmtB, 1440), 'cut: 3 clips · 4.2 GB you can free');
   assert.equal(cutLine(0, 0, fmtB, 720), 'cut: none yet');
-  assert.equal(countsLine(4, 32, 1440), '4 kept of 32 · 0 automatic');
-  assert.equal(countsLine(4, 32, undefined), '4 kept of 32 · 0 automatic');
-  assert.equal(countsLine(4, 32, 720), '4 kept of 32');
+  assert.equal(countsLine(4, 32), '4 kept of 32');   // no "0 automatic": it was always 0, and Stills dropped it too
   assert.match(src, /vals\.counts = st\.flash \|\| Component\.countsLine\(markN\.keep, C\.length, st\.vw\);/);
 });
 

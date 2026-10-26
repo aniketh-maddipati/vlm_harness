@@ -13,7 +13,8 @@ let fails = 0; const ok = (c, what) => { console.log((c ? 'ok    ' : 'FAIL  ') +
 const b = await pw.chromium.launch({executablePath:process.env.CHROMIUM || undefined}), p = await (await b.newContext({viewport:{width:1440, height:1000}})).newPage(), errs = [];
 p.on('pageerror', e => errs.push(String(e)));
 try {
-  await p.goto('file://' + page + '?debug=1');   // Files is in Export's debug part (LOCAL-CHANGES 314) await p.waitForTimeout(1000);
+  // Files is in Export's debug part (LOCAL-CHANGES 314)
+  await p.goto('file://' + page + '?debug=1'); await p.waitForTimeout(1000);
   await p.setInputFiles('input[type=file]:not([webkitdirectory]):not([data-lumina])', files);
   for (let k = 0; k < 40 && !(await p.evaluate(() => /Imported clips/.test(document.body.innerText))); k++) await p.waitForTimeout(250);
   await p.waitForTimeout(1500); await p.keyboard.press('k'); await p.waitForTimeout(150);

@@ -40,7 +40,8 @@ async function run(quota, host) {
   if (quota) await ctx.addInitScript(() => { const put = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function (v, k) { if (this.name === 'clip') throw new DOMException('full', 'QuotaExceededError'); return put.call(this, v, k); }; });
   const open = async dir => {
     const p = await ctx.newPage(); p.on('pageerror', e => errs.push(String(e)));
-    await p.goto('file://' + page + '?debug=1');   // the storage line is in debug mode (LOCAL-CHANGES 314) await p.waitForTimeout(1000); const base = await p.evaluate(() => window.__vids);
+    // the storage line is in debug mode (LOCAL-CHANGES 314)
+    await p.goto('file://' + page + '?debug=1'); await p.waitForTimeout(1000); const base = await p.evaluate(() => window.__vids);
     await p.setInputFiles('input[type=file]', dir);
     for (let k = 0; k < 120; k++) { await p.waitForTimeout(500); if (await p.evaluate(() => { try { const a = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]')[0]; return !!(a && a.done != null); } catch (x) { return false; } })) break; }
     const read = await p.evaluate(() => window.__vids) - base; await p.waitForTimeout(2200); return {p, read};

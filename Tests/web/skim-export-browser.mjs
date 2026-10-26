@@ -74,7 +74,8 @@ async function run(host) {
       trashPutBack: () => { const t = JSON.parse(localStorage.getItem('fake-trash') || '[]'); localStorage.setItem('fake-trash', '[]'); window.__calls.push(['putback', t.length]); return ask(t); }}};
   });
   const p = await ctx.newPage(); p.on('pageerror', e => errs.push(String(e)));
-  await p.goto('file://' + page + '?debug=1');   // Export's Files and More are in debug mode (LOCAL-CHANGES 314) await p.waitForTimeout(1000);
+  // Export's Files and More are in debug mode (LOCAL-CHANGES 314)
+  await p.goto('file://' + page + '?debug=1'); await p.waitForTimeout(1000);
   await p.setInputFiles('input[type=file]', dir);
   for (let k = 0; k < 60; k++) { await p.waitForTimeout(500); if (await p.evaluate(() => { try { const a = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]')[0]; return !!(a && a.done != null); } catch (x) { return false; } })) break; }
   // mark through the page's own keys: two selected, one maybe, two cut
