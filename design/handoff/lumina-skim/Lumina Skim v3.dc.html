@@ -2271,7 +2271,7 @@ class Component extends DCLogic {
       if (one) {
         const m = st.marks[c0.id] || null, ch = this.chips(c0), t = this.tone(c0, skI != null ? skI : fi), pc0 = compact && this.profChip(c0);   // compact tiles have no chip row: the profile goes on the line
         return {...base, thumb:t.bg, flt:t.flt, cell:c0.dur ? this.fmtDur(c0.dur) : '—', durOn:!compact || zl === 2, phOn:this.waiting(c0), phSub:this.phSub(c0), title:nm(c0), tFont:'inherit', tSize:compact ? '12px' : '13px', tH:compact ? '18px' : '24px',
-          right:'', l2:false, l3:false,
+          right:zl === 1 ? '' : this.hm(c0.t), rightC:'#9A958D', l2:false, l3:false,
           line:compact ? (m ? this.W(m) + ' · ' : '') + this.fmtB(c0.bytes) + (pc0 ? ' · ' + pc0.t : '') : (c0.dur ? this.fmtDur(c0.dur) : '—') + ' · ' + this.fmtB(c0.bytes),
           edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm && !compact, mark:this.W(m), markC:m ? MK[m] : '',
           skOn:skI != null, sk:skI != null ? [0, 1, 2, 3, 4, 5, 6, 7].map(k => ({c:k === skI ? '#FFD27A' : 'rgba(22,21,20,0.55)'})) : [],

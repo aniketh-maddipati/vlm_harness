@@ -29,8 +29,10 @@ window.__skimEngineCheck = async function (names) {
     const tile = $('[data-gi="0"]'); if (tile) tile.click(); await wait(300);
     const before = text('[data-lumina="counts"]');
     for (const type of ['keydown', 'keyup']) (document.activeElement || document).dispatchEvent(new KeyboardEvent(type, {key: 'k', bubbles: true, cancelable: true}));
-    const after = await until(() => /^1 decided/.test(text('[data-lumina="counts"]')) && text('[data-lumina="counts"]'), 3000);
+    const after = await until(() => /^1 kept/.test(text('[data-lumina="counts"]')) && text('[data-lumina="counts"]'), 3000);
     ok(after, 'K marks the clip on screen: ' + (after || text('[data-lumina="counts"]') || before));
+    // the file check sits under More, which only debug mode shows (as ?debug=1 does for the other browser tests)
+    if (window.luminaSkimDebug) window.luminaSkimDebug('panel');
     const tab = [...document.querySelectorAll('[data-lumina="steps"] *')].filter(e => e.textContent.trim() === 'Export').pop();
     if (tab) tab.click();
     // Export is one page: the summary (and the file check) is folded under Summary, below the shortcuts.
