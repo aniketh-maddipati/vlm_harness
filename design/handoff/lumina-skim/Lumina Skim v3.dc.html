@@ -766,12 +766,13 @@ body:has([data-view=phone]){background:#111}
                   <sc-if value="{{ it.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:8px;top:8px;padding:2px 9px;border-radius:5px;background:rgba(22,21,20,0.82);color:{{ it.ghostC }};font-weight:700;font-size:13px;opacity:0.7">{{ it.ghostT }}</div></sc-if>
                 </div>
                 <div style="position:relative;height:14px;visibility:{{ it.barVis }}">
-                  <div style="position:absolute;left:0;right:0;top:6px;height:2px;border-radius:1px;background:rgba(239,236,230,0.14)"></div>
+                  <sc-if value="{{ it.fgOn }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ fgCvRef }}" data-lumina="follow-graph" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas><button type="button" tabindex="-1" aria-label="{{ it.fgSay }} · click to go there" title="{{ it.fgSay }} · the line is the mask's size, red a jump · click to go there" onClick="{{ fgClick }}" style="box-sizing:border-box;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:absolute;inset:0;background:transparent;cursor:pointer"></button></sc-if>
+                  <div style="position:absolute;left:0;right:0;top:6px;height:2px;border-radius:1px;background:rgba(239,236,230,0.14);pointer-events:none"></div>
                   <sc-for list="{{ ticks }}" as="tk" hint-placeholder-count="8"><div style="position:absolute;top:3px;left:{{ tk.l }};width:1px;height:8px;background:rgba(239,236,230,0.3)"></div></sc-for>
                   <div style="position:absolute;top:0;left:{{ it.ph }};width:2px;height:14px;margin-left:-1px;border-radius:1px;background:#EFECE6"></div>
                 </div>
                 <sc-if value="{{ it.stripOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="follow-strip" title="{{ it.stripTip }}" style="position:relative;height:5px;margin-top:-4px;border-radius:2px;overflow:hidden;background:rgba(239,236,230,0.06)"><sc-for list="{{ it.strip }}" as="sg" hint-placeholder-count="3"><button type="button" tabindex="-1" data-sure="{{ sg.sure }}" data-t="{{ sg.t }}" aria-label="{{ sg.tip }}" onClick="{{ folSeg }}" style="box-sizing:border-box;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:absolute;top:0;bottom:0;left:{{ sg.l }};width:{{ sg.w }};background:{{ sg.bg }};cursor:{{ sg.cur }}"></button></sc-for></div></sc-if>
-                <div style="display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden;color:#9A958D"><span style="color:{{ it.nameC }}">{{ it.name }}</span><span style="color:{{ it.subC }}">{{ it.sub }}</span></div>
+                <div style="display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden;color:#9A958D"><sc-if value="{{ it.playOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="viewer-play" title="Play / pause (L)" onClick="{{ playGo }}" style="box-sizing:border-box;padding:0 8px;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;line-height:inherit;border-radius:5px;background:rgba(239,236,230,0.1);color:#EFECE6;cursor:pointer;font-size:12px" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ it.playL }}</button></sc-if><span style="color:{{ it.nameC }}">{{ it.name }}</span><span style="color:{{ it.subC }}">{{ it.sub }}</span></div>
                 <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="viewer-selections" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:30px"><span style="color:#9A958D;margin-right:4px">{{ it.olSay }}</span><sc-for list="{{ it.olChips }}" as="oc" hint-placeholder-count="2"><button type="button" data-ol="{{ oc.id }}" aria-pressed="{{ oc.on }}" title="{{ oc.l }} · choose / let go" onClick="{{ olChip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:{{ oc.bg }};color:{{ oc.fg }};box-shadow:inset 0 0 0 1px {{ oc.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ oc.l }}</button></sc-for><sc-if value="{{ it.folOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="follow" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:6px"><sc-if value="{{ it.folGoOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-go" title="Follow the chosen shape through the whole clip, from this frame" onClick="{{ folGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Follow through the clip</button></sc-if><sc-if value="{{ it.folStopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-stop" title="Stop following" onClick="{{ folStop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop</button></sc-if><sc-if value="{{ it.folSaveOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-matte" title="Save the followed shape as a black-and-white movie for Final Cut, next to the .fcpxml" onClick="{{ folMatte }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Save matte</button></sc-if><sc-if value="{{ it.folFixOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-fix" title="Follow the chosen shape again from this frame, through the stretch that is worth a look" onClick="{{ folFix }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Fix this stretch</button></sc-if><sc-if value="{{ it.folRemoveOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-remove" title="Take the shape out of the clip, filled with the scene from the clip's own frames where it isn't (still camera only), as a layer for Final Cut next to the .fcpxml" onClick="{{ folRemove }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Remove from the clip</button></sc-if><sc-if value="{{ it.folDropOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-drop" title="Let the followed shape go" onClick="{{ folDrop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Let go</button></sc-if><span data-lumina="follow-say" style="color:#9A958D">{{ it.folSay }}</span></span></sc-if></div></sc-if>
               </div>
             </sc-for>
@@ -1375,7 +1376,7 @@ class Component extends DCLogic {
     { const wk = this._wk || {}; if (this.d && (wk.d !== this.d || wk.m !== s0.marks)) { this._wk = {d:this.d, m:s0.marks}; if (s0.step === 'skim') this.exWarmSoon(); } }
     if (s0.step === 'export' && !this.plT) this.plT = setInterval(() => { if (!document.hidden && this.state.step === 'export') this.wsPlacesPoll(); }, 4000);
     if (s0.step !== 'export' && this.plT) { clearInterval(this.plT); this.plT = null; }
-    this.syncVid(); this.paintVid(); this.olPaint();
+    this.syncVid(); this.paintVid(); this.olPaint(); this.fgPaint();
   }
   load() {
     const S = window.LuminaVideoSamples, host = window.LuminaVideo && !window.LuminaVideo.__sample ? window.LuminaVideo : null;
@@ -1426,7 +1427,183 @@ class Component extends DCLogic {
   // under the picture do the same. ⇧← ⇧→ still step the frames; each frame is read once.
   olApi() { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.masks ? v : null; }
   olHold(id) { const st = this.state; return !!st.ol && st.lv >= 2 && id === st.cur && !!this.olApi(); }
-  olToggle() { const st = this.state; if (!this.olApi() || st.step !== 'skim' || st.lv < 2) return; if (st.ol) return this.setState({ol:false}); this.setState({ol:true, hv:null, ...this.pinHv()}, () => this.olSoon()); }
+  olToggle() { const st = this.state; if (!this.olApi() || st.step !== 'skim' || st.lv < 2) return; if (st.ol) return this.setState({ol:false}); this.prCheck(); this.setState({ol:true, hv:null, ...this.pinHv()}, () => this.olSoon()); }
+  // Click to outline (macOS 27, lumina.video.prompt: the bridge's skimPrompt, SkimPrompt.swift): a click outlines the
+  // thing under it, whatever Vision's finders would have lumped it with; a click outside the outline adds what's
+  // there, one inside takes it away; esc undoes the last click. Asked once (promptReady): 'ready', 'download' (the
+  // first click has macOS fetch Apple's model, a few seconds) or 'no', where a click chooses one of Vision's shapes
+  // as before. docs/masking/OUTLINING.md.
+  prApi() { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.prompt && v.promptReady ? v : null; }
+  prOk() { return this.prState === 'ready' || this.prState === 'download'; }
+  prCheck() {
+    if (this.prState !== undefined) return; const a = this.prApi(); if (!a) { this.prState = 'no'; return; }
+    this.prState = 'asking';
+    Promise.resolve().then(() => a.promptReady()).then(r => { this.prState = r === 'ready' || r === 'download' ? r : 'no'; this.olPainted = null; this.olPaint(); this.setState(x => ({tick:(x.tick || 0) + 1})); }, () => { this.prState = 'no'; });
+  }
+  // The frame's name for the Mac (at most 64 characters): the same frame and clicks so far add to the outline there.
+  static prKey(k) { let h = 2166136261; for (let i = 0; i < k.length; i++) { h ^= k.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return 'f' + h.toString(36) + '-' + k.length; }
+  // A click on the frame: the first starts the outline, a later one outside it adds and inside it takes away.
+  static prNext(pts, shape, x, y, seeded) { const inside = !!(shape && Component.olInside(shape.outline, x, y)); return (pts || []).concat({x, y, in:(!seeded && !(pts && pts.length)) || !inside}); }
+  prClick(p) {
+    clearTimeout(this.prAutoT);
+    const st = this.state, api = this.prApi(), k = this.olKey(), j = this.olJpg; if (!api || !k || !j || j.k !== k || p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return;
+    let pr = this.olPr; if (!pr || pr.k !== k) pr = this.olPr = {k, pts:[], hist:[]};
+    if (pr.pts.length >= 12) return;   // Vision takes 13 points on one outline
+    const pts = Component.prNext(pr.pts, pr.hist[pr.hist.length - 1], p.x, p.y, !!pr.stroke), seq = this.prSeq = (this.prSeq || 0) + 1;
+    this.prBusy = this.prState === 'download' && !pr.hist.length ? 'getting the outliner ready (the first time only)…' : 'outlining…'; this.prWhy = '';
+    this.setState(x => ({tick:(x.tick || 0) + 1}));
+    Promise.resolve().then(() => api.prompt(Component.prKey(k), j.b64, pts, pr.stroke)).then(f => f, () => null).then(f => {
+      if (seq !== this.prSeq || this.olPr !== pr) return;
+      this.prBusy = '';
+      if (!f || !Array.isArray(f.outline) || !f.outline.length) { this.prWhy = 'nothing to outline there'; return this.setState(x => ({tick:(x.tick || 0) + 1})); }
+      if (this.prState === 'download') this.prState = 'ready';
+      pr.pts = pts; pr.hist.push({...f, n:pts.length}); this.prShow(pr, f);
+    });
+  }
+  // Esc: the last click undone (the outline before it, held here, so nothing is asked again); the first lets the shape go.
+  prUndo() {
+    const pr = this.olPr; if (!pr || pr.hist.length < 2 || pr.k !== this.olKey()) return false;
+    this.prSeq = (this.prSeq || 0) + 1; this.prBusy = ''; this.prWhy = '';
+    pr.hist.pop(); const top = pr.hist[pr.hist.length - 1]; pr.pts = pr.pts.slice(0, top.n || 0); this.prShow(pr, top); return true;
+  }
+  // Drawing by hand (clicks on): a drag. With an outline on the frame, the drag's ends join the outline where they
+  // are nearest and the drag takes the place of the stretch between them (out from the edge adds, in takes away); with
+  // none, the drag is a shape of its own, closed from its end back to its start. Either way the line snaps to the
+  // picture's own edges as it goes (intelligent scissors, a live wire: the cheapest path over the frame's edges
+  // from the last anchor to the pointer), and an anchor drops every few pixels so the path ahead stays short.
+  // Esc undoes a drag as it undoes a click. docs/masking/OUTLINING.md, "The tracer".
+  static drGrad(rgba, w, h) {
+    const y = new Float32Array(w * h), g = new Float32Array(w * h);
+    for (let i = 0, j = 0; i < y.length; i++, j += 4) y[i] = 0.299 * rgba[j] + 0.587 * rgba[j + 1] + 0.114 * rgba[j + 2];
+    let mx = 1e-6;
+    for (let r = 1; r < h - 1; r++) for (let c = 1; c < w - 1; c++) {
+      const i = r * w + c, a = y[i - w - 1], b = y[i - w], d = y[i - w + 1], e = y[i - 1], f = y[i + 1], k = y[i + w - 1], l = y[i + w], m = y[i + w + 1];
+      const gx = d + 2 * f + m - a - 2 * e - k, gy = k + 2 * l + m - a - 2 * b - d, v = Math.sqrt(gx * gx + gy * gy); g[i] = v; if (v > mx) mx = v;
+    }
+    for (let i = 0; i < g.length; i++) g[i] /= mx;
+    return g;
+  }
+  // The strongest edge within r pixels of p, else p.
+  static drSnap(g, w, h, p, r) {
+    let best = [Math.round(p[0]), Math.round(p[1])], bv = -1;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const x = Math.round(p[0]) + dx, y = Math.round(p[1]) + dy; if (x < 0 || y < 0 || x >= w || y >= h || dx * dx + dy * dy > r * r) continue;
+      const v = g[y * w + x] - 0.01 * Math.sqrt(dx * dx + dy * dy); if (v > bv) { bv = v; best = [x, y]; }
+    }
+    return best;
+  }
+  // The cheapest 8-connected path from a to b over (1 - edge), inside the box around them grown by `pad`.
+  static drWire(g, w, h, a, b, pad) {
+    const x0 = Math.max(0, Math.min(a[0], b[0]) - pad), y0 = Math.max(0, Math.min(a[1], b[1]) - pad);
+    const x1 = Math.min(w - 1, Math.max(a[0], b[0]) + pad), y1 = Math.min(h - 1, Math.max(a[1], b[1]) + pad), bw = x1 - x0 + 1, bh = y1 - y0 + 1, n = bw * bh;
+    const dist = new Float32Array(n).fill(Infinity), from = new Int32Array(n).fill(-1), done = new Uint8Array(n);
+    const at = (x, y) => (y - y0) * bw + (x - x0), s = at(a[0], a[1]), t = at(b[0], b[1]);
+    const heap = [], push = (i, d) => { heap.push([d, i]); let k = heap.length - 1; while (k) { const q = (k - 1) >> 1; if (heap[q][0] <= heap[k][0]) break; [heap[q], heap[k]] = [heap[k], heap[q]]; k = q; } };
+    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top; };
+    dist[s] = 0; push(s, 0);
+    while (heap.length) {
+      const [d, i] = pop(); if (done[i]) continue; done[i] = 1; if (i === t) break;
+      const cx = i % bw + x0, cy = (i / bw | 0) + y0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue; const nx = cx + dx, ny = cy + dy; if (nx < x0 || ny < y0 || nx > x1 || ny > y1) continue;
+        const j = at(nx, ny); if (done[j]) continue;
+        const nd = d + (1.02 - g[ny * w + nx]) * (dx && dy ? 1.4142 : 1); if (nd < dist[j]) { dist[j] = nd; from[j] = i; push(j, nd); }
+      }
+    }
+    const out = []; for (let i = t; i >= 0; i = i === s ? -1 : from[i]) { out.push([i % bw + x0, (i / bw | 0) + y0]); if (i !== s && from[i] < 0) break; }
+    return out.reverse();
+  }
+  // Where p is nearest one of the loops: the loop and the vertex.
+  static drNear(loops, p) {
+    let best = null; (loops || []).forEach((L, li) => L.forEach((q, vi) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (!best || d < best.d) best = {li, vi, d}; }));
+    return best;
+  }
+  // A loop with the stretch between its vertices i and j replaced by `path` (from near i to near j): of the two
+  // stretches between them, the shorter one goes.
+  static drSplice(L, i, j, path) {
+    const n = L.length, len = (a, b) => { let s = 0; for (let k = a; k !== b; k = (k + 1) % n) { const p = L[k], q = L[(k + 1) % n]; s += Math.hypot(q[0] - p[0], q[1] - p[1]); } return s; };
+    const arc = (a, b) => { const o = []; for (let k = a; ; k = (k + 1) % n) { o.push(L[k]); if (k === b) break; } return o; };
+    if (i === j) return n > 2 ? path.concat(arc((j + 1) % n, (j + n - 1) % n)) : path;
+    return len(i, j) <= len(j, i) ? path.concat(arc(j, i).slice(1, -1)) : arc(i, j).slice(1, -1).concat(path.slice().reverse());
+  }
+  // A shape the page draws as Vision's: box, area (fractions of the frame) and outline.
+  // With no outline yet, a drag that ends back where it began (a loop drawn round the thing) is a shape by hand; any
+  // other is a brush stroke over the thing (Lightroom's Brush select), which the model outlines.
+  static drOpen(raw) {
+    if (!raw || raw.length < 2) return false; let len = 0; for (let i = 1; i < raw.length; i++) len += Math.hypot(raw[i][0] - raw[i - 1][0], raw[i][1] - raw[i - 1][1]);
+    const a = raw[0], b = raw[raw.length - 1]; return !(Math.hypot(a[0] - b[0], a[1] - b[1]) < Math.max(0.03, 0.12 * len) && len > 0.15);
+  }
+  static drThin(raw, n) { if (raw.length <= n) return raw.map(([x, y]) => ({x:Math.round(x * 1e4) / 1e4, y:Math.round(y * 1e4) / 1e4})); const out = []; for (let i = 0; i < n; i++) { const [x, y] = raw[Math.round(i * (raw.length - 1) / (n - 1))]; out.push({x:Math.round(x * 1e4) / 1e4, y:Math.round(y * 1e4) / 1e4}); } return out; }
+  prBrush(k, stroke) {
+    const api = this.prApi(), j = this.olJpg; if (!api || !j || j.k !== k) { this.olPainted = null; this.olPaint(); return; }
+    const pr = this.olPr = {k, pts:[], hist:[], stroke}, seq = this.prSeq = (this.prSeq || 0) + 1;
+    this.prBusy = this.prState === 'download' ? 'getting the outliner ready (the first time only)…' : 'outlining…'; this.prWhy = ''; this.olPainted = null; this.olPaint();
+    this.setState(x => ({tick:(x.tick || 0) + 1}));
+    Promise.resolve().then(() => api.prompt(Component.prKey(k), j.b64, [], stroke)).then(f => f, () => null).then(f => {
+      if (seq !== this.prSeq || this.olPr !== pr) return;
+      this.prBusy = '';
+      if (!f || !Array.isArray(f.outline) || !f.outline.length) { this.olPr = null; this.prWhy = 'nothing to outline there'; return this.setState(x => ({tick:(x.tick || 0) + 1})); }
+      if (this.prState === 'download') this.prState = 'ready';
+      pr.hist.push({...f, n:0}); this.prShow(pr, f);
+    });
+  }
+  static drShape(loops) {
+    let x0 = 1, y0 = 1, x1 = 0, y1 = 0, a = 0;
+    for (const L of loops) { let s = 0; for (let k = 0; k < L.length; k++) { const p = L[k], q = L[(k + 1) % L.length]; s += p[0] * q[1] - q[0] * p[1]; if (p[0] < x0) x0 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[0] > x1) x1 = p[0]; if (p[1] > y1) y1 = p[1]; } a += Math.abs(s) / 2; }
+    return {id:'pick', kind:'object', score:1, area:Math.round(a * 1e4) / 1e4, box:[x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0)], outline:loops};
+  }
+  drStart(e) {
+    clearTimeout(this.prAutoT); if (this.playing) this.vidPause();
+    const k = this.olKey(), j = this.olJpg, cv = this.olCv, v = this.vidEl; if (!k || !j || j.k !== k || !j.cv || !cv || !v) return false;
+    const W = j.cv.width, H = j.cv.height, p0 = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY); if (!p0) return false;
+    if (!this.drG || this.drG.k !== k) { try { this.drG = {k, w:W, h:H, g:Component.drGrad(j.cv.getContext('2d').getImageData(0, 0, W, H).data, W, H)}; } catch (x) { return false; } }
+    const G = this.drG, a = Component.drSnap(G.g, W, H, [p0.x * W, p0.y * H], 4);
+    this.drS = {k, x:e.clientX, y:e.clientY, moved:false, anchor:a, done:[a], live:[], travel:0, last:[p0.x * W, p0.y * H], raw:[[p0.x, p0.y]]};
+    return true;
+  }
+  drMove(e) {
+    const s = this.drS, G = this.drG, cv = this.olCv, v = this.vidEl; if (!s || !G || !cv || !v) return;
+    if (!s.moved && Math.hypot(e.clientX - s.x, e.clientY - s.y) < 5) return; s.moved = true;
+    const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY); if (!p) return;
+    const q = [Math.max(0, Math.min(G.w - 1, p.x * G.w)), Math.max(0, Math.min(G.h - 1, p.y * G.h))];
+    if (s.raw.length < 2048) s.raw.push([q[0] / G.w, q[1] / G.h]);
+    s.travel += Math.hypot(q[0] - s.last[0], q[1] - s.last[1]); s.last = q;
+    const b = Component.drSnap(G.g, G.w, G.h, q, 4);
+    s.live = Component.drWire(G.g, G.w, G.h, s.anchor, b, 12);
+    if (s.travel > 28 && s.live.length > 2) { s.done = s.done.concat(s.live.slice(1)); s.anchor = b; s.live = []; s.travel = 0; }
+    this.olPainted = null; this.olPaint();
+  }
+  drEnd() {
+    const s = this.drS, G = this.drG; this.drS = null; if (!s || !G) return false;
+    if (!s.moved) { this.olPainted = null; this.olPaint(); return false; }
+    const px = s.done.concat(s.live.slice(1)), path = px.filter((q, i) => i % 2 === 0 || i === px.length - 1).map(q => [Math.round(q[0] / G.w * 1e4) / 1e4, Math.round(q[1] / G.h * 1e4) / 1e4]);
+    if (path.length < 3) { this.olPainted = null; this.olPaint(); return true; }
+    const st = this.state, m = this.olMap, list = m && Array.isArray(m.get(s.k)) ? m.get(s.k) : [], cur = list.find(x => x.id === 'pick') && (this.olSel() || []).includes('pick') ? list.find(x => x.id === 'pick') : null;
+    let loops;
+    if (cur && cur.outline && cur.outline.length) {
+      const a = Component.drNear(cur.outline, path[0]), b = Component.drNear(cur.outline, path[path.length - 1]);
+      loops = cur.outline.slice();
+      if (a && b && a.li === b.li) loops[a.li] = Component.drSplice(cur.outline[a.li], a.vi, b.vi, path);
+      else loops.push(path);   // ends on two different loops: kept as a shape of its own
+    } else if (Component.drOpen(s.raw)) return this.prBrush(s.k, Component.drThin(s.raw, 256)), true;   // a stroke over the thing: the model outlines it
+    else loops = [path];
+    let pr = this.olPr; if (!pr || pr.k !== s.k) pr = this.olPr = {k:s.k, pts:[], hist:[]};
+    const f = Component.drShape(loops); pr.hist.push({...f, n:pr.pts.length, hand:true}); this.prShow(pr, f);
+    return true;
+  }
+  prShow(pr, f) {
+    const st = this.state, m = this.olMap || (this.olMap = new Map()), now = m.get(pr.k), list = Array.isArray(now) ? now.filter(s => s.id !== 'pick') : [];
+    m.set(pr.k, list.concat({...f, id:'pick'})); this.olPainted = null;
+    this.setState({olSel:{...(st.olSel || {}), [st.cur]:['pick']}}, () => { this.olPaint(); this.prAutoSoon(); });
+  }
+  // Following starts by itself once the outline has been left alone a moment (a click, a stroke or a fix restarts the
+  // wait), the first time on a clip; ⏎ starts it at once. A clip already followed is followed again by ⏎ or Fix.
+  prAutoSoon() {
+    clearTimeout(this.prAutoT); const k = this.olKey(), cur = this.state.cur;
+    this.prAutoT = setTimeout(() => { const c = this.byId && this.byId[this.state.cur];
+      if (this.state.cur === cur && this.olKey() === k && !this.drS && !this.prBusy && this.olDraft() && !this.folOf(c)) this.folGo(); }, Component.prAutoMs);
+  }
+  static prAutoMs = 1200;
   olClick = () => this.olToggle();
   olCvRef = el => { this.olCv = el || null; this.olPainted = null; if (el) { this.olPaint(); this.olSoon(); } };
   // The frame on show: its clip and the time the video was asked for.
@@ -1446,21 +1623,27 @@ class Component extends DCLogic {
     try { o.getContext('2d').drawImage(v, 0, 0, o.width, o.height); } catch (x) { return done(null); }
     new Promise(r => o.toBlob(r, 'image/jpeg', 0.85))
       .then(b => b ? new Promise((r, j) => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).replace(/^data:[^,]*,/, '')); fr.onerror = j; fr.readAsDataURL(b); }) : '')
-      .then(b64 => b64 ? api.masks(b64) : null)
+      .then(b64 => { if (!b64) return null; this.olJpg = {k, b64, cv:o}; if (!this.prOk()) return api.masks(b64);
+        // clicks outline, so the frame is ready at once; Vision's own shapes follow for the one-tap chips (Subject, Sky, People, Background)
+        Promise.resolve().then(() => api.masks(b64)).then(r => { const now = m.get(k); if (!Array.isArray(r) || !Array.isArray(now)) return;
+          m.set(k, now.filter(x => x.id === 'pick').concat(r)); this.olPainted = null; this.olPaint(); this.setState(x => ({tick:(x.tick || 0) + 1})); }, () => {});
+        return []; })
       .then(done, () => done(null));
   }
   olPaint() {
     const cv = this.olCv, v = this.vidEl, st = this.state; if (!cv) return;
     const f = this.olFor(), list = Array.isArray(f) ? f : [], sel = this.olSel(), vw = (v && v.videoWidth) || 16, vh = (v && v.videoHeight) || 9;
     const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1, w = Math.max(2, Math.round((cv.clientWidth || 320) * dpr * Math.max(1, st.zc || 1))), h = Math.max(2, Math.round(w * vh / vw));
-    const fr = this.folOf(this.byId && this.byId[st.cur]), at = fr && fr.samples.length ? Component.folAt(fr.samples, this.vidWant || 0) : null;
+    const fr = this.folOf(this.byId && this.byId[st.cur]), at = fr && fr.samples.length ? Component.folAt(fr.samples, this.vidShown()) : null;
     const ed = this.olEdgeOf(st.cur), hov = this.olHov && !sel.includes(this.olHov) ? list.find(s => s.id === this.olHov) : null;
-    const key = this.olKey() + '|' + (Array.isArray(f) ? f.length : String(f)) + '|' + sel.join(',') + '|' + w + 'x' + h + '|' + (at ? at.t + ':' + fr.samples.length : '') + '|' + (hov ? hov.id : '') + '|' + ed.grow + ',' + ed.soft;
+    const pr = this.prOk() && this.olPr && this.olPr.k === this.olKey() ? this.olPr : null, pick = list.find(s => s.id === 'pick');
+    const key = this.olKey() + '|' + (Array.isArray(f) ? f.length : String(f)) + '|' + sel.join(',') + '|' + w + 'x' + h + '|' + (at ? at.t + ':' + fr.samples.length : '') + '|' + (hov ? hov.id : '') + '|' + ed.grow + ',' + ed.soft + '|' + (pr ? pr.pts.length + ':' + pr.hist.length : '') + '|' + (pick ? pick.area : '') + '|' + this.prOk();
     if (key === this.olPainted) return; this.olPainted = key;
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     const x = cv.getContext('2d'); x.clearRect(0, 0, w, h); x.lineJoin = 'round';
     for (const s of list) {
       const on = sel.includes(s.id); if (s.kind === 'background' && !on) continue;   // the rest of the frame is outlined once chosen
+      if (this.prOk() && !on) continue;   // clicks outline: Vision's shapes stay out of the way
       const p = new Path2D(); for (const L of s.outline || []) { L.forEach(([a, b], i) => i ? p.lineTo(a * w, b * h) : p.moveTo(a * w, b * h)); p.closePath(); }
       if (on) this.olFill(x, p, w, h, ed);
       const hv = hov && hov.id === s.id;
@@ -1472,6 +1655,22 @@ class Component extends DCLogic {
       const name = Component.olName(hov), fs = 13 * dpr; x.setLineDash([]); x.font = '600 ' + fs + 'px -apple-system,system-ui,sans-serif';
       const tw = x.measureText(name).width, bx = Math.max(4 * dpr, Math.min(w - tw - 16 * dpr, hov.box[0] * w)), by = Math.max(4 * dpr, hov.box[1] * h - fs - 14 * dpr);
       x.fillStyle = 'rgba(22,21,20,0.86)'; x.fillRect(bx, by, tw + 12 * dpr, fs + 8 * dpr); x.fillStyle = '#EFECE6'; x.fillText(name, bx + 6 * dpr, by + fs + 1 * dpr);
+    }
+    // the clicks: + where one added, − where one took away
+    if (pr) for (const q of pr.pts) {
+      const cx = q.x * w, cy = q.y * h, r = 6 * dpr; x.setLineDash([]); x.lineCap = 'round';
+      x.beginPath(); x.arc(cx, cy, r + 2 * dpr, 0, 2 * Math.PI); x.fillStyle = 'rgba(22,21,20,0.75)'; x.fill();
+      x.beginPath(); x.moveTo(cx - r * 0.6, cy); x.lineTo(cx + r * 0.6, cy); if (q.in) { x.moveTo(cx, cy - r * 0.6); x.lineTo(cx, cy + r * 0.6); }
+      x.lineWidth = 2 * dpr; x.strokeStyle = q.in ? '#FFD27A' : '#FF8A7A'; x.stroke();
+    }
+    // the line being drawn: committed in white, the stretch ahead to the pointer dashed
+    const ds = this.drS, dg = this.drG;
+    if (ds && ds.moved && dg && ds.k === this.olKey()) {
+      const line = (pts, dash) => { if (pts.length < 2) return; const q = new Path2D(); pts.forEach(([a, b], i) => i ? q.lineTo(a / dg.w * w, b / dg.h * h) : q.moveTo(a / dg.w * w, b / dg.h * h));
+        x.setLineDash(dash ? [4 * dpr, 3 * dpr] : []); x.lineWidth = 3.5 * dpr; x.strokeStyle = 'rgba(22,21,20,0.7)'; x.stroke(q); x.lineWidth = 1.8 * dpr; x.strokeStyle = '#FFFFFF'; x.stroke(q); };
+      if (!pick && ds.raw && ds.raw.length > 1) { const q = new Path2D(); ds.raw.forEach(([a, b], i) => i ? q.lineTo(a * w, b * h) : q.moveTo(a * w, b * h));
+        x.setLineDash([]); x.lineCap = 'round'; x.lineJoin = 'round'; x.lineWidth = 0.02 * Math.max(w, h); x.strokeStyle = 'rgba(255,210,122,0.35)'; x.stroke(q); }
+      line(ds.done, false); line(ds.live, true);
     }
     // the followed shape where it was at the nearest followed frame, over the rest
     if (at && at.outline) {
@@ -1489,8 +1688,11 @@ class Component extends DCLogic {
     x.save(); x.globalAlpha = 0.26 * (a || 1); if (sf) x.filter = 'blur(' + (sf / 2).toFixed(1) + 'px)'; x.drawImage(o, 0, 0); x.restore();
   }
   olPick(e) {
+    if (this.playing) this.vidPause();
     const cv = this.olCv, v = this.vidEl, f = this.olFor(); if (!cv || !v || !Array.isArray(f)) return;
-    const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY), s = p && Component.olHit(f, p.x, p.y);
+    const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY);
+    if (p && this.prOk()) { const r = this.folOf(this.byId && this.byId[this.state.cur]); if (!(r && (r.state === 'run' || r.fixing))) this.prClick(p); return; }
+    const s = p && Component.olHit(f, p.x, p.y);
     if (s) this.olChoose(s.id, e.altKey ? 'out' : e.shiftKey ? 'add' : 'only');
   }
   // A click chooses the shape alone (a draft: nothing is followed until ⏎), ⇧-click adds it, ⌥-click takes it away;
@@ -1505,7 +1707,7 @@ class Component extends DCLogic {
   }
   // The shape under the pointer, outlined and named on the picture (outlines on).
   olHover(e) {
-    const cv = this.olCv, v = this.vidEl, f = this.olFor(); if (!cv || !v || !Array.isArray(f)) return;
+    const cv = this.olCv, v = this.vidEl, f = this.olFor(); if (!cv || !v || !Array.isArray(f) || this.prOk()) return;
     const p = Component.olPoint(cv.getBoundingClientRect(), v.videoWidth, v.videoHeight, e.clientX, e.clientY), s = p && Component.olHit(f, p.x, p.y), id = s && s.kind !== 'background' ? s.id : null;
     if (id !== this.olHov) { this.olHov = id; this.olPaint(); }
   }
@@ -1523,14 +1725,34 @@ class Component extends DCLogic {
   static olEdgeSay(e, long) { const px = v => Math.round(v * (long || 1920)); return !e || (!e.grow && !e.soft) ? '' : 'edge ' + (e.grow > 0 ? '+' : e.grow < 0 ? '−' : '') + Math.abs(px(e.grow)) + ' px' + (e.soft ? ' · soft ' + px(e.soft) + ' px' : ''); }
   // ⏎ follows the draft (one shape chosen); esc lets the draft go.
   olDraft() { const st = this.state, c = this.byId && this.byId[st.cur], r = this.folOf(c); return st.lv >= 2 && !!st.ol && this.olSel().length === 1 && !!this.folApi() && !(r && (r.state === 'run' || r.fixing)); }
-  olDrop() { const st = this.state; if (this.olEdge) this.olEdge.delete(st.cur); this.setState({olSel:{...(st.olSel || {}), [st.cur]:[]}}); }
-  olChip = e => { const id = e.currentTarget.getAttribute('data-ol'); if (id) this.olChoose(id); };
+  olDrop() { clearTimeout(this.prAutoT); const st = this.state, m = this.olMap, pk = this.olPr && m && m.get(this.olPr.k); if (Array.isArray(pk)) m.set(this.olPr.k, pk.filter(s => s.id !== 'pick')); if (this.olEdge) this.olEdge.delete(st.cur); this.olPr = null; this.prSeq = (this.prSeq || 0) + 1; this.prBusy = ''; this.prWhy = ''; this.setState({olSel:{...(st.olSel || {}), [st.cur]:[]}}, () => { this.olPainted = null; this.olPaint(); }); }
+  olChip = e => { const id = e.currentTarget.getAttribute('data-ol'); if (!id) return; if (id.startsWith('q:')) return this.prQuick(id.slice(2)); this.olChoose(id); };
+  // One tap, as Lightroom's Select buttons (clicks on): Vision's Subject, Sky, People (every person) or Background chosen
+  // in place of the clicked outline; the same chip again lets it go. A click on the frame then outlines by clicks again.
+  static prQuickIds(list, q) { return (list || []).filter(s => s.id !== 'pick' && (q === 'people' ? s.kind === 'person' : s.kind === q)).map(s => s.id); }
+  static prChips(list, sel) {
+    const L = {subject:'Subject', sky:'Sky', people:'People', background:'Background'}, out = [];
+    const pk = (list || []).find(s => s.id === 'pick'); if (pk) out.push({id:'pick', l:'Outlined', on:sel.includes('pick')});
+    for (const q of ['subject', 'sky', 'people', 'background']) { const ids = Component.prQuickIds(list, q); if (!ids.length) continue;
+      out.push({id:'q:' + q, l:L[q] + (q === 'people' && ids.length > 1 ? ' · ' + ids.length : ''), on:ids.length === sel.length && ids.every(i => sel.includes(i))}); }
+    return out;
+  }
+  prQuick(q) {
+    const st = this.state, f = this.olFor(), ids = Component.prQuickIds(Array.isArray(f) ? f : [], q), now = this.olSel(); if (!ids.length) return;
+    const same = ids.length === now.length && ids.every(i => now.includes(i)), m = this.olMap, pk = this.olPr && m && m.get(this.olPr.k);
+    if (Array.isArray(pk)) m.set(this.olPr.k, pk.filter(s => s.id !== 'pick')); this.olPr = null; this.prSeq = (this.prSeq || 0) + 1; this.prBusy = ''; this.prWhy = '';
+    this.setState({olSel:{...(st.olSel || {}), [st.cur]:same ? [] : ids}}, () => { this.olPainted = null; this.olPaint(); if (!same && ids.length === 1) this.prAutoSoon(); });
+  }
   olVals(c) {
     const st = this.state, on = !!st.ol && st.lv >= 2 && !!this.olApi() && !!c._file && !this.vidNew; if (!on) return {olOn:false};
     const f = this.olFor(), list = Array.isArray(f) ? f : [], sel = this.olSel();
     const n = list.filter(s => sel.includes(s.id)).length, es = n ? Component.olEdgeSay(this.olEdgeOf(st.cur), Math.max(c.w || 0, c.h || 0)) : '';
-    return {olOn:true, olSay:Component.olSay(f, n) + (n === 1 && this.olDraft() && !this.folOf(c) ? ' · ⏎ to follow, esc to let go' : '') + (es ? ' · ' + es : ''), ...this.folVals(c, list.filter(s => sel.includes(s.id)).length),
-      olChips:list.map(s => { const ch = sel.includes(s.id); return {id:s.id, l:Component.olName(s), on:ch, bg:ch ? '#FFD27A' : 'transparent', fg:ch ? '#1E1D1B' : '#EFECE6', ring:ch ? '#FFD27A' : 'rgba(239,236,230,0.3)'}; })};
+    const pk = this.prOk(), say = pk ? Component.prSay(f, n, this.prBusy, this.prWhy, this.olPr && this.olPr.k === this.olKey() ? this.olPr.pts.length : 0, this.olDraft() && !this.folOf(c), n && !sel.includes('pick') ? Component.olName(list.find(s => sel.includes(s.id))) : '')
+      : Component.olSay(f, n) + (n === 1 && this.olDraft() && !this.folOf(c) ? ' · ⏎ to follow, esc to let go' : '');
+    const fv = this.folVals(c, list.filter(s => sel.includes(s.id)).length), fg = this.fgVals(c);
+    if (fg.fgOn && fg.fgSay && fv.folSay && !/^(removing|following)/.test(fv.folSay)) fv.folSay += ' · ' + fg.fgSay;
+    return {olOn:true, olSay:say + (es ? ' · ' + es : ''), ...fv,
+      olChips:(pk ? Component.prChips(list, sel) : list.map(s => ({id:s.id, l:Component.olName(s), on:sel.includes(s.id)}))).map(c => ({...c, bg:c.on ? '#FFD27A' : 'transparent', fg:c.on ? '#1E1D1B' : '#EFECE6', ring:c.on ? '#FFD27A' : 'rgba(239,236,230,0.3)'}))};
   }
   // Where a click lands in the frame, 0 … 1 of its width and height, for a picture drawn object-fit: cover in the box r.
   static olPoint(r, vw, vh, cx, cy) {
@@ -1549,7 +1771,14 @@ class Component extends DCLogic {
     let best = null; for (const s of list || []) if (s.kind !== 'background' && Component.olInside(s.outline, x, y) && (!best || s.area < best.area)) best = s;   // the sky is a shape like the others
     return best || (list || []).find(s => s.kind === 'background' && Component.olInside(s.outline, x, y)) || null;
   }
-  static olName(s) { const n = /-(\d+)$/.exec(s.id || ''); return s.kind === 'subject' ? 'Subject' : s.kind === 'background' ? 'Background' : s.kind === 'sky' ? 'Sky' : (s.kind === 'person' ? 'Person' : 'Object') + (n ? ' ' + n[1] : ''); }
+  static olName(s) { const n = /-(\d+)$/.exec(s.id || ''); return s.id === 'pick' ? 'Outlined' : s.kind === 'subject' ? 'Subject' : s.kind === 'background' ? 'Background' : s.kind === 'sky' ? 'Sky' : (s.kind === 'person' ? 'Person' : 'Object') + (n ? ' ' + n[1] : ''); }
+  static prSay(f, n, busy, why, clicks, draft, quick) {
+    if (f === undefined || f === 'wait') return 'reading this frame…'; if (f === null) return 'this frame couldn’t be read';
+    if (busy) return busy;
+    if (quick) return (n > 1 && quick.startsWith('Person') ? 'People' : quick) + ' chosen · click the picture to outline something else instead' + (draft ? ' · follows in a moment (⏎ now)' : '') + ' · esc to let go';
+    const tail = n ? ' · click outside to add, inside to take away · drag along the edge to redraw it' + (draft ? ' · follows in a moment (⏎ now)' : '') + ' · esc to undo' : '';
+    return (why ? why + ' · ' : '') + (n ? 'outlined' + tail : 'click or brush over the thing you mean');
+  }
   static olSay(f, n) { return f === undefined || f === 'wait' ? 'reading this frame…' : f === null ? 'this frame couldn’t be read' : !f.length ? 'nothing to choose in this frame' : n ? n + ' chosen' : 'click a shape to choose it'; }
   // Follow (with the app): the one shape chosen, followed through the whole clip from the frame on show, forward to the
   // end and back to the start, eight frames a second (fewer in a clip over 75 s, at most 600 frames). Each frame is drawn
@@ -1646,7 +1875,7 @@ class Component extends DCLogic {
   // stretches. The track stays on the Mac for the matte until Let go.
   async folTrack(c, s, t0, api, rec, tell) {
     const id = String(c.id).slice(0, 40) + '|' + Date.now(); rec.track = id;
-    if (!(await api.track(id, c.path, {kind:s.kind, box:s.box}, t0))) throw 'refused';
+    if (!(await api.track(id, c.path, {kind:s.kind, box:s.box, prompted:s.id === 'pick'}, t0))) throw 'refused';
     let from = 0;
     for (let k = 0; k < 200000; k++) {
       if (rec.tok.stop || this.folOf(c) !== rec) throw 'stopped';
@@ -1667,12 +1896,53 @@ class Component extends DCLogic {
     return out.map((r, i) => { const a = i ? (out[i - 1].t1 + r.t0) / 2 : 0, b = i < out.length - 1 ? (r.t1 + out[i + 1].t0) / 2 : dur;
       return {sure:r.sure, t0:r.t0, t1:r.t1, l:(a / dur * 100).toFixed(2) + '%', w:(Math.max(0, b - a) / dur * 100).toFixed(2) + '%', bg:r.sure === 'lost' ? '#FF8A7A' : r.sure === 'shaky' ? '#FFD27A' : 'rgba(169,209,142,0.32)', cur:r.sure === 'sure' ? 'default' : 'pointer', t:r.t0.toFixed(3), tip:r.sure === 'sure' ? 'sure' : r.sure === 'shaky' ? 'worth a look: go there' : 'lost: go there'}; });
   }
+  // The followed mask, frame by frame (the graph under the strip): its size, how much it jumps from one followed frame to
+  // the next (size by more than a third, or its middle by more than its own half-width), and how sure each frame was.
+  static polyArea(loops) { let a = 0; for (const L of loops || []) { let s = 0; for (let i = 0, j = L.length - 1; i < L.length; j = i++) s += (L[j][0] + L[i][0]) * (L[j][1] - L[i][1]); a += Math.abs(s) / 2; } return a; }
+  static folStats(samples) {
+    const S = (samples || []).filter(x => x && typeof x.t === 'number').slice().sort((a, b) => a.t - b.t), pts = [];
+    for (const x of S) {
+      const area = x.outline && x.outline.length ? Component.polyArea(x.outline) : 0;
+      let cx = null, cy = null; if (x.outline && x.outline.length) { let n = 0, sx = 0, sy = 0; for (const L of x.outline) for (const [a, b] of L) { sx += a; sy += b; n++; } if (n) { cx = sx / n; cy = sy / n; } }
+      const p = {t:x.t, area, cx, cy, sure:x.sure || (area ? 'sure' : 'lost'), jump:false}, q = pts[pts.length - 1];
+      if (q && q.area > 0 && area > 0) { const r = Math.max(area / q.area, q.area / area), mv = Math.hypot(cx - q.cx, cy - q.cy); p.change = r - 1; p.jump = r > 1.35 || mv > Math.max(0.03, 0.5 * Math.sqrt(area)); }
+      pts.push(p);
+    }
+    const on = pts.filter(p => p.area > 0), areas = on.map(p => p.area), ch = pts.map(p => p.change).filter(v => v != null);
+    const mean = areas.length ? areas.reduce((a, b) => a + b, 0) / areas.length : 0;
+    return {pts, n:pts.length, sure:pts.length ? pts.filter(p => p.sure === 'sure').length / pts.length : 0, jumps:pts.filter(p => p.jump).length,
+      lost:pts.filter(p => !p.area).length, size:mean > 0 ? Math.sqrt(areas.reduce((a, b) => a + (b - mean) ** 2, 0) / areas.length) / mean : 0,
+      flicker:ch.length ? ch.reduce((a, b) => a + b, 0) / ch.length : 0, max:areas.length ? Math.max(...areas) : 0};
+  }
+  static fgSay(z) {
+    if (!z || z.n < 2) return '';
+    return 'mask · ' + Math.round(z.sure * 100) + '% sure · ' + (z.jumps ? z.jumps + (z.jumps === 1 ? ' jump' : ' jumps') : 'no jumps') + (z.lost ? ' · lost in ' + z.lost : '')
+      + ' · size ±' + Math.round(z.size * 100) + '% · frame to frame ' + Math.round(z.flicker * 100) + '%';
+  }
+  fgVals(c) {
+    const r = this.folOf(c); if (!r || r.state === 'run' || !c.dur || !r.samples || r.samples.length < 2) return {fgOn:false};
+    const k = r.samples.length + ':' + (r.samples[r.samples.length - 1] || {}).t; if (!r.stats || r.statsK !== k) { r.stats = Component.folStats(r.samples); r.statsK = k; }
+    return {fgOn:true, fgSay:Component.fgSay(r.stats)};
+  }
+  fgCvRef = el => { this.fgCv = el || null; if (el) this.fgPaint(); };
+  fgPaint() {
+    const cv = this.fgCv, st = this.state, c = this.byId && this.byId[st.cur], r = this.folOf(c); if (!cv || !c || !c.dur || !r || !r.stats) return;
+    const z = r.stats, dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1, w = Math.max(2, Math.round((cv.clientWidth || 300) * dpr)), h = Math.max(2, Math.round((cv.clientHeight || 26) * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const x = cv.getContext('2d'), X = t => t / c.dur * w, P = z.pts; x.clearRect(0, 0, w, h);
+    for (let i = 0; i < P.length; i++) { const a = i ? (P[i - 1].t + P[i].t) / 2 : 0, b = i < P.length - 1 ? (P[i].t + P[i + 1].t) / 2 : c.dur;
+      x.fillStyle = P[i].sure === 'lost' || !P[i].area ? 'rgba(255,138,122,0.28)' : P[i].sure === 'shaky' ? 'rgba(255,210,122,0.22)' : 'rgba(169,209,142,0.12)'; x.fillRect(X(a), 0, Math.max(1, X(b) - X(a)), h); }
+    if (z.max > 0) { x.beginPath(); P.forEach((p, i) => { const y = h - 2 * dpr - (p.area / z.max) * (h - 5 * dpr); i ? x.lineTo(X(p.t), y) : x.moveTo(X(p.t), y); }); x.lineWidth = 1.5 * dpr; x.strokeStyle = '#EFECE6'; x.stroke(); }
+    x.fillStyle = '#FF8A7A'; for (const p of P) if (p.jump) x.fillRect(X(p.t) - dpr, 0, 2 * dpr, h);
+    const now = X(this.vidShown()); x.fillStyle = '#FFD27A'; x.fillRect(now - dpr, 0, 2 * dpr, h);
+  }
+  fgClick = e => { const cv = this.fgCv, c = this.byId && this.byId[this.state.cur]; if (!cv || !c || !c.dur) return; const b = cv.getBoundingClientRect(); this.folSeek(Math.max(0, Math.min(c.dur, (e.clientX - b.left) / Math.max(1, b.width) * c.dur))); };
   folStripVals(c) {
     const r = this.folOf(c); if (!r || !r.track || r.state !== 'done' || !c.dur) return {stripOn:false};
     const st = Component.folStrip(r.samples, c.dur), n = st.filter(x => x.sure !== 'sure').length;
     return {stripOn:st.length > 0, strip:st, stripTip:n ? n + (n === 1 ? ' stretch' : ' stretches') + ' worth a look · { } to go to them' : 'every frame sure'};
   }
-  folSeek(t) { const c = this.byId && this.byId[this.state.cur]; if (!c || !c.dur) return; this.setState({fx:Math.max(0, Math.min(7, t / c.dur * 8 - 0.5))}); }
+  folSeek(t) { if (this.playing) this.vidPause(); const c = this.byId && this.byId[this.state.cur]; if (!c || !c.dur) return; this.setState({fx:Math.max(0, Math.min(7, t / c.dur * 8 - 0.5))}); }
   folSeg = e => { const el = e.currentTarget; if (el.getAttribute('data-sure') === 'sure') return; e.stopPropagation(); this.folSeek(+el.getAttribute('data-t') + 0.001); };
   // the start of the next (d 1) or last (d −1) stretch worth a look from the frame on show; false when there is none
   folJump(d) {
@@ -1697,7 +1967,7 @@ class Component extends DCLogic {
     r.fixing = {from:span.from, to:span.to, done:0}; r.why = ''; this.setState(x => ({tick:(x.tick || 0) + 1}));
     const got = [];
     try {
-      if (!(await api.track(id, c.path, {kind:s.kind, box:s.box}, t, {patch:r.track, from:span.from, to:span.to}))) throw 'refused';
+      if (!(await api.track(id, c.path, {kind:s.kind, box:s.box, prompted:s.id === 'pick'}, t, {patch:r.track, from:span.from, to:span.to}))) throw 'refused';
       let from = 0;
       for (let k = 0; k < 100000; k++) {
         if (this.folOf(c) !== r) throw 'stopped';
@@ -2538,7 +2808,7 @@ class Component extends DCLogic {
     const st = this.state;
     if (st.noKeep) return this.setState({noKeep:false});
     if (st.progOn) return this.progShut();
-    if (st.lv >= 2 && st.ol && this.olSel().length) { const r = this.folOf(this.byId && this.byId[st.cur]); if (!(r && (r.state === 'run' || r.fixing))) return this.olDrop(); }
+    if (st.lv >= 2 && st.ol && this.olSel().length) { const r = this.folOf(this.byId && this.byId[st.cur]); if (!(r && (r.state === 'run' || r.fixing))) return this.prUndo() || this.olDrop(); }
     if (st.lv >= 2 && st.zc > 1.01) return this.setState({zc:1});
     if (st.prop) { clearTimeout(this.propT); this.propFn = null; return this.setState({prop:null}); }
     if (this.dockFoc()) return this.dockLeave();
@@ -2620,7 +2890,7 @@ class Component extends DCLogic {
       case 'ArrowDown': e.preventDefault(); if (this.cvGrid()) return this.cvMoveRow(1); return e.shiftKey ? this.chapJump(1) : this.unfurl();
       case 'ArrowUp': e.preventDefault(); if (this.cvGrid()) return this.cvMoveRow(-1); return e.shiftKey ? this.chapJump(-1) : this.furl();
       case 'ArrowLeft': case 'ArrowRight': {
-        e.preventDefault(); const d = k === 'ArrowRight' ? 1 : -1;
+        e.preventDefault(); if (this.playing) this.vidPause(); const d = k === 'ArrowRight' ? 1 : -1;
         if (e.shiftKey && st.lv === 1) return this.extend(d);
         // The Viewer: ← → the clip before and after (straight across scenes), ⇧← ⇧→ the frames of this one.
         if (st.lv === 2) return e.shiftKey ? this.move(d) : this.takeStep(d);
@@ -2632,6 +2902,7 @@ class Component extends DCLogic {
       case ']': if (this.cvGrid()) return; return this.chapJump(1);
       case 'v': case 'V': return this.pvToggle();
       case 'o': case 'O': if (e.altKey || e.repeat) return; e.preventDefault(); return this.olToggle();
+      case 'l': case 'L': if (e.altKey || e.repeat || st.lv < 2 || st.step !== 'skim') return; e.preventDefault(); return this.vidToggle();
       case 'z': case 'Z': return this.zoomKey();
       case '-': case '_': if (this.cvGrid()) return this.cvZoom(-1); if (k === '_') return; return this.gapsSet(st.nCut - 1);
       case '=': case '+': if (this.cvGrid()) return this.cvZoom(1); return this.gapsSet(st.nCut + 1);
@@ -2667,6 +2938,7 @@ class Component extends DCLogic {
     this.setState({box:{x:p.x, y:p.y, w:0, h:0}, sel:[]});
   };
   mm(e) {
+    if (this.drS) return this.drMove(e);
     if (this.panS) { const s = this.panS; if (!Component.zoomHeld(this.state.zc)) { this.panS = null; return; } s.moved = true; return this.setState({zo:Component.panTo(s.zo, e.clientX - s.x, e.clientY - s.y, s.w, s.h, this.state.zc)}); }
     if (!this.boxS || !this.sc) return;
     // one update per frame, whatever the mouse rate
@@ -2679,6 +2951,7 @@ class Component extends DCLogic {
   }
   mu() {
     const st = this.state;
+    if (this.drS) { this.drEnded = this.drEnd(); return; }
     if (this.panS) { this.panS = null; return this.setState(s => ({tick:(s.tick || 0) + 1})); }
     if (this.boxS) {
       const s = this.boxS; this.boxS = null;
@@ -2792,17 +3065,46 @@ class Component extends DCLogic {
     if (!Component.pointerScrubs(this.state.zc, id === this.state.cur) || this.olHold(id)) { if (h && h.id === id) this.setState({hv:null, ...this.pinHv()}); return; }
     if (!h || h.id !== id || Math.abs(h.f - f) > 0.002) this.setState({hv:{id, f}}); };
   // Zoomed: a drag on the picture moves it. The frame stays.
-  picDown = e => { const st = this.state, id = e.currentTarget.getAttribute('data-clip'); if (e.button || st.held || Component.pointerScrubs(st.zc, id === st.cur)) return;
+  picDown = e => { const st = this.state, id = e.currentTarget.getAttribute('data-clip'); this.drEnded = false;
+    // clicks on: a drag draws (the tracer); pinch and two fingers still zoom and move the picture
+    if (!e.button && !st.held && this.olHold(id) && this.prOk()) { const r = this.folOf(this.byId && this.byId[st.cur]); if (!(r && (r.state === 'run' || r.fixing)) && this.drStart(e)) { e.preventDefault(); return; } }
+    if (e.button || st.held || Component.pointerScrubs(st.zc, id === st.cur)) return;
     const r = e.currentTarget.firstElementChild.getBoundingClientRect(); e.preventDefault(); this.panS = {x:e.clientX, y:e.clientY, zo:st.zo, w:r.width, h:r.height, moved:false}; };
   picLeave = () => { if (this.olHov) { this.olHov = null; this.olPaint(); } if (this.state.hv) this.setState({hv:null}); };
   picClick = e => {
     const st = this.state, id = e.currentTarget.getAttribute('data-clip'), f = this.picF(e);
     if (st.held) { this.heldTapped = true; this.doMark([id], st.held); return; }
+    if (this.drEnded) { this.drEnded = false; return; }   // the end of a drag that drew
     if (this.olHold(id)) return this.olPick(e);   // outlines on: a click chooses a shape, the frame stays
     if (!Component.pointerScrubs(st.zc, id === st.cur)) return;   // zoomed: a click or the end of a drag leaves the frame where it is
     this.setState({cur:id, fx:Math.max(0, Math.min(7, f * 8 - 0.5)), hv:{id, f}});
   };
   // One <video> for the clip on the canvas: its own frames at full size, seeked to the skim, latest wins.
+  // Playback in the Viewer (L, or the play button): the clip plays from the frame on show, and the outline followed
+  // through it is drawn on every frame the video shows (requestVideoFrameCallback), with the graph's playhead. Any
+  // scrub, click or other clip pauses it where it is; at the end it stops on the last frame.
+  vidShown() { return this.playing && this.vidNow != null ? this.vidNow : this.vidWant || 0; }
+  static fxAt(t, dur) { return Math.max(-0.5, Math.min(7.5, t / dur * 8 - 0.5)); }
+  vidToggle() { return this.playing ? this.vidPause() : this.vidPlay(); }
+  vidPlay() {
+    const v = this.vidEl, st = this.state, c = this.byId && this.byId[st.cur]; if (!v || !c || !c.dur || st.lv < 2 || st.step !== 'skim' || this.vidFor !== c.id || v.readyState < 2) return;
+    clearTimeout(this.prAutoT); if (v.currentTime >= c.dur - 0.08) v.currentTime = 0;
+    this.playing = true; this.vidNow = v.currentTime; const id = c.id;
+    const next = () => { if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(tick); else requestAnimationFrame(() => tick(0, null)); };
+    const tick = (now, meta) => {
+      if (!this.playing || v !== this.vidEl || this.state.cur !== id) return;
+      this.vidNow = meta && meta.mediaTime != null ? meta.mediaTime : v.currentTime; this.olPaint(); this.fgPaint();
+      const ms = performance.now(); if (ms - (this.playUi || 0) > 120) { this.playUi = ms; this.vidWant = this.vidNow; this.setState({fx:Component.fxAt(this.vidNow, c.dur), hv:null}); }
+      if (v.ended || v.paused) return this.vidPause(); next();
+    };
+    Promise.resolve(v.play()).then(() => { next(); this.setState(x => ({tick:(x.tick || 0) + 1})); }, () => { this.playing = false; this.setState(x => ({tick:(x.tick || 0) + 1})); });
+  }
+  vidPause() {
+    const v = this.vidEl, c = this.byId && this.byId[this.state.cur]; const was = this.playing; this.playing = false; if (!v) return;
+    try { v.pause(); } catch (x) {}
+    if (was && c && c.dur && this.vidFor === c.id) { this.vidWant = v.currentTime; this.vidNow = null; this.setState({fx:Component.fxAt(v.currentTime, c.dur), hv:null}, () => { this.olPainted = null; this.olPaint(); this.fgPaint(); }); }
+  }
+  playGo = () => this.vidToggle();
   vidRef = el => {
     if (!el) { this.dropVid(); this.vidEl = null; return; }
     if (el === this.vidEl) return;
@@ -2837,12 +3139,13 @@ class Component extends DCLogic {
     if (r === 'off') this.vidOff = c.id; else this.vidNew = true;   // a fresh <video>: one that stopped answering may not answer a new file either
     this.paintVid(); this.setState(s => ({tick:(s.tick || 0) + 1}));
   }
-  dropVid() { const v = this.vidEl; if (this.vidUrl) URL.revokeObjectURL(this.vidUrl); if (this.vidFor) this.vOpen = Math.max(0, (this.vOpen || 0) - 1); this.vidUrl = null; this.vidFor = null; this.vidWant = null; clearTimeout(this.vidT); this.vidT = 0; this.vidAsk = 0; this.vidUp = null; if (v) { v.style.opacity = '0'; v.removeAttribute('src'); try { v.load(); } catch (x) {} } }
+  dropVid() { this.playing = false; const v = this.vidEl; if (this.vidUrl) URL.revokeObjectURL(this.vidUrl); if (this.vidFor) this.vOpen = Math.max(0, (this.vOpen || 0) - 1); this.vidUrl = null; this.vidFor = null; this.vidWant = null; clearTimeout(this.vidT); this.vidT = 0; this.vidAsk = 0; this.vidUp = null; if (v) { v.style.opacity = '0'; v.removeAttribute('src'); try { v.load(); } catch (x) {} } }
   skimF(c) { const st = this.state; return st.hv && st.hv.id === c.id ? st.hv.f : c.id === st.cur ? (st.fx + 0.5) / 8 : 0.5; }
   syncVid() {
     const v = this.vidEl, st = this.state; if (!v) return;
     const c = st.step === 'skim' && st.lv >= 2 ? this.byId[st.cur] : null;
     if (!c || !c._file || !c.dur) { if (this.vidFor) this.dropVid(); return; }
+    if (this.playing) { if (this.vidFor === c.id) return; this.vidPause(); }
     if (this.vidOff && this.vidOff !== c.id) { this.vidOff = null; this.vidTry = 0; }
     if (this.vidOff === c.id) return;
     if (this.vidFor !== c.id) { const again = this.vidWas === c.id; this.dropVid(); if (!again) this.vidTry = 0; this.vidWas = c.id; this.vidUrl = URL.createObjectURL(c._file); this.vidFor = c.id; this.vOpen = (this.vOpen || 0) + 1; v.src = this.vidUrl; }
@@ -3037,7 +3340,7 @@ class Component extends DCLogic {
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, tsGo:this.tsGo, tsBack:false, tsFwd:false, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static', lv2Rows:'auto', topCol:'1', picRow:'2', infoCol:'1', infoRow:'3',
       wClick:this.wClick, 
-      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, pvCvRef:this.pvCvRef, olCvRef:this.olCvRef, olChip:this.olChip, olClick:this.olClick, folGo:this.folGo, folStop:this.folStop, folMatte:this.folMatte, folDrop:this.folDrop, folFix:this.folFix, folSeg:this.folSeg, folRemove:this.folRemove,
+      scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, fgCvRef:this.fgCvRef, fgClick:this.fgClick, playGo:this.playGo, pvCvRef:this.pvCvRef, olCvRef:this.olCvRef, olChip:this.olChip, olClick:this.olClick, folGo:this.folGo, folStop:this.folStop, folMatte:this.folMatte, folDrop:this.folDrop, folFix:this.folFix, folSeg:this.folSeg, folRemove:this.folRemove,
       grid42:true,
       boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
       undoN:st.undo.length, redoN:st.redo.length, undoC:st.undo.length ? '#EFECE6' : '#6E6A64', redoC:st.redo.length ? '#EFECE6' : '#6E6A64',
@@ -3217,11 +3520,12 @@ class Component extends DCLogic {
         const isC = cc.id === c.id, w = isC ? fit.wc : fit.wo, ff = this.skimF(cc), ti = this.tone(cc, Math.min(7, Math.floor(ff * 8)), isC), mm = st.marks[cc.id] || null, g2 = isC ? gm : null, hvOn = !!(st.hv && st.hv.id === cc.id);
         centers.push(x + w / 2); x += w + fit.gap;
         const zz = isC && st.zc > 1.01, say = Component.skimSay((cc.frames || []).filter(Boolean).length, isC, this.vidOff === cc.id);
-        return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, vflt:this.pvOn(cc) ? this.pvFlt(cc) : 'none', anim:ti.anim, vid:isC && !!cc._file && !this.vidNew, drag:!zz ? 'true' : 'false', hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:isC && Component.zoomHeld(st.zc), zT:'zoomed · Z to fit', cur:isC && Component.zoomHeld(st.zc) ? (this.panS ? 'grabbing' : 'grab') : 'ew-resize',
+        return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, vflt:this.pvOn(cc) ? this.pvFlt(cc) : 'none', anim:ti.anim, vid:isC && !!cc._file && !this.vidNew, drag:!zz && !(isC && this.olHold(cc.id) && this.prOk()) ? 'true' : 'false', hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:isC && Component.zoomHeld(st.zc), zT:'zoomed · Z to fit', cur:isC && Component.zoomHeld(st.zc) ? (this.panS ? 'grabbing' : 'grab') : 'ew-resize',
           edge:g2 ? 'inset 0 0 0 3px ' + MK[g2] + '99' : mm ? 'inset 0 0 0 ' + (isC ? 3 : 2) + 'px ' + MK[mm] : 'none', markOn:!!mm && !g2, mark:this.W(mm), markC:mm ? MK[mm] : '', ghost:!!g2, ghostT:this.W(g2), ghostC:g2 ? MK[g2] : '',
           name:cc.name.replace(/\.\w+$/, ''), nameC:isC ? '#EFECE6' : '#B8B3AB', barVis:isC ? 'visible' : 'hidden', ph:(ff * 100).toFixed(2) + '%',
           sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' + (say ? ' · ' + say : '') : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—') + (say ? ' · ' + say : ''), subC:isC ? '#B8B3AB' : '#9A958D',
-          ...(isC ? this.olVals(cc) : {olOn:false}), ...(isC ? this.folStripVals(cc) : {stripOn:false})};
+          ...(isC ? this.olVals(cc) : {olOn:false}), ...(isC ? this.folStripVals(cc) : {stripOn:false}), ...(isC ? this.fgVals(cc) : {fgOn:false}),
+          playOn:isC && !!cc._file && !!cc.dur, playL:isC && this.playing ? '❚❚ Pause' : '▶ Play'};
       });
       const cw = Math.max(0, x - fit.gap), more = list.length - k, before = s0, after = list.length - s0 - k;
       const span = gq ? gq.title : '', extra = (before ? '‹ ' + before + ' more · ' : '') + (after ? after + ' more ›' : '');
@@ -5971,7 +6275,7 @@ class Component extends DCLogic {
       add('← →', (prev || next) && 'clips'); add('K M C', 'mark on / off'); add('⇧← ⇧→', 'scrub'); add('⇧C', 'cut clips'); add('⇧R', 'Rec.709 ' + (st.pv ? 'off' : 'on')); add('Z', st.zc > 1.01 ? 'fit' : 'zoom'); add('⏎ esc 2×click', 'back to the grid'); add('⌘⌫', 'not in this shoot');
       return {lead:'Viewer · ' + nm(st.cur), list:out};
     }
-    add('↑', 'Viewer · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M C', 'mark ' + nm(st.cur));
+    add('↑', 'Viewer · ' + nm(st.cur)); add('←', fi > 0 && 'frame ' + fi); add('→', fi < 7 && 'frame ' + (fi + 2)); add('⇧ arrows', 'pan'); add('K M C', 'mark ' + nm(st.cur)); add('L', this.playing ? 'pause' : 'play');
     return {lead:'Frame ' + (fi + 1) + ' · ' + nm(st.cur), list:out};
   }
   extraVals(markN, markB, und) {

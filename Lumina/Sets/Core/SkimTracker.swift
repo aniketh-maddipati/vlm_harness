@@ -21,6 +21,9 @@ import VideoToolbox
 /// The clip's preferred transform is not applied (camera clips are landscape; the mask lab does the same).
 nonisolated final class SkimTracker: @unchecked Sendable {
     static let shared = SkimTracker()
+    /// Whether each frame's cues carry `look`, the feature-print distance to the start frame's shape. It costs a
+    /// feature print a frame, so only the mask lab turns it on, to test it as a sureness cue.
+    nonisolated(unsafe) static var logsLook = false
 
     private final class Job {
         let id: String
@@ -42,8 +45,11 @@ nonisolated final class SkimTracker: @unchecked Sendable {
     /// Starts following `kind` chosen at `box` (fractions from the top left) on the frame at `t0` seconds of the clip
     /// at `url`; any track by that id is stopped and let go first. With `fix`, only the stretch `from … to` is followed
     /// and, once done, takes the place of that stretch in the track `into` (a fix counts against no limit and goes with
-    /// its track).
-    func start(id: String, url: URL, kind: LookMasks.Kind, box: LookMasks.Box, t0: Double, fix: (into: String, from: Double, to: Double)? = nil) {
+    /// its track). `prompted`: the shape was outlined by clicks (SkimPrompt), so each frame's outline comes from the
+    /// prompted segmenter with the box followed so far as its prompt, not from Vision's own shapes, which may merge it
+    /// with its neighbours again.
+    func start(id: String, url: URL, kind: LookMasks.Kind, box: LookMasks.Box, t0: Double, fix: (into: String, from: Double, to: Double)? = nil,
+               prompted: Bool = false) {
         let job = Job(id: id)
         job.into = fix?.into
         job.span = fix.map { (max(0, $0.from), max($0.from, $0.to)) }
@@ -56,7 +62,7 @@ nonisolated final class SkimTracker: @unchecked Sendable {
             jobs[id] = job
         }
         Task.detached(priority: .utility) { [self] in
-            do { try await run(job, url: url, kind: kind, box: box, t0: t0) } catch {
+            do { try await run(job, url: url, kind: kind, box: box, t0: t0, prompted: prompted) } catch {
                 lock.withLock { if job.state == "run" { job.state = "failed"; job.why = (error as? Failed)?.why ?? "the clip couldn’t be read" } }
             }
             lock.withLock {
@@ -129,10 +135,16 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         /// Frames looked at through the window since the last whole frame (`SkimFollow.fullEvery` forces a whole one),
         /// and whether the tracker wavered on the last frame (the next is looked at whole).
         var sinceFull = SkimFollow.fullEvery, wavered = false
-        init(_ t: SkimFollower.Trail) { trail = t }
+        /// The shape was outlined by clicks: its outline comes from the prompted segmenter on each frame.
+        let prompted: Bool
+        /// The area of the first outline the prompted segmenter gave (the clicked shape), for `SkimFollow.promptHolds`.
+        var startArea: Double?
+        /// This frame's prompted outline jumped or ran away: followed, but shaky.
+        var promptJumped = false
+        init(_ t: SkimFollower.Trail, prompted: Bool = false) { trail = t; self.prompted = prompted }
     }
 
-    private func run(_ j: Job, url: URL, kind: LookMasks.Kind, box: LookMasks.Box, t0: Double) async throws {
+    private func run(_ j: Job, url: URL, kind: LookMasks.Kind, box: LookMasks.Box, t0: Double, prompted: Bool) async throws {
         let asset = AVURLAsset(url: url)
         guard let track = try await asset.loadTracks(withMediaType: .video).first else { throw Failed(why: "the clip has no picture") }
         let natural = try await track.load(.naturalSize), length = try await asset.load(.duration).seconds
@@ -149,7 +161,7 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         var startBox = box
 
         // Forward from the frame it was chosen on.
-        let fwd = Way(SkimFollower.Trail(kind: kind, box: box))
+        let fwd = Way(SkimFollower.Trail(kind: kind, box: box), prompted: prompted)
         var first = true
         try read(track: track, asset: asset, size: size, from: start, to: span.to) { t, image in
             if self.stopped(j) { return false }
@@ -165,7 +177,8 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         guard !stopped(j) else { return }
 
         // Back to the start, a second at a time, each stretch from its end to its start.
-        let back = Way(SkimFollower.Trail(kind: kind, box: startBox))
+        let back = Way(SkimFollower.Trail(kind: kind, box: startBox), prompted: prompted)
+        back.startArea = fwd.startArea
         for c0 in SkimFollow.backChunks(from: start, chunk: 1) where c0.to > span.from {
             let c = (from: max(c0.from, span.from), to: c0.to)
             var frames: [(t: Double, image: CGImage)] = []
@@ -186,6 +199,17 @@ nonisolated final class SkimTracker: @unchecked Sendable {
     /// frames, while the shape is lost, after the tracker wavered, for the sky and the background, and when the shape
     /// runs into the window's edge.
     private func shapes(_ w: Way, _ image: CGImage) -> [LookMasks.Found] {
+        // Outlined by clicks: the prompted segmenter, prompted with the box followed so far a little grown. An outline
+        // that jumps or runs away (SkimFollow.promptHolds) is still followed, but its frame is marked shaky, so the strip
+        // shows where to look. (Dropping those frames cost J&F .61 → .46 on DAVIS val.) Lost a while, it falls back to
+        // Vision's shapes, which the feature print can find it among again.
+        w.promptJumped = false
+        if w.prompted, w.lost < SkimFollow.lostFor, let box = w.trail.box {
+            guard let s = SkimPrompt.outlineSync(image, box: SkimFollow.grown(box, by: SkimFollow.promptGrow)) else { return [] }
+            w.promptJumped = !SkimFollow.promptHolds(area: s.area, last: w.area, start: w.startArea)
+            if w.startArea == nil { w.startArea = s.area }
+            return [s]
+        }
         if SkimFollow.boxed(w.trail.kind), w.lost == 0, !w.wavered, w.sinceFull < SkimFollow.fullEvery,
            let box = w.trail.box, let window = SkimFollow.window(around: box),
            let near = SetsMasks.near(image, window: window) {
@@ -218,9 +242,11 @@ nonisolated final class SkimTracker: @unchecked Sendable {
             }
         }
         if step.shape != nil { refound = refound || w.wasLost; w.lost = 0 }
-        let sure = SkimFollow.sureness(tracker: figure, found: step.shape != nil, area: step.shape?.area, last: w.area, refound: refound)
+        var sure = SkimFollow.sureness(tracker: figure, found: step.shape != nil, area: step.shape?.area, last: w.area, refound: refound)
+        if w.promptJumped, sure == .sure { sure = .shaky }
         let cues = SkimFollow.Cues(tracker: figure, agree: agree, area: step.shape?.area, last: w.area, refound: refound,
-                                   score: step.shape?.score, rivals: rivals, lost: w.lost)
+                                   score: step.shape?.score, rivals: rivals, lost: w.lost,
+                                   look: Self.logsLook ? Self.look(image, shape: step.shape, first: first, print: print) : nil)
         w.wasLost = step.shape == nil
         w.wavered = (figure ?? 1) < SkimFollow.steady
         if let a = step.shape?.area { w.area = a }
@@ -263,6 +289,15 @@ nonisolated final class SkimTracker: @unchecked Sendable {
         else { return nil }
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         return ctx.makeImage()
+    }
+
+    /// The feature-print distance from what is in `shape`'s box to the start frame's print (0 on the start frame).
+    private static func look(_ image: CGImage, shape: LookMasks.Found?, first: Bool, print: VNFeaturePrintObservation?) -> Double? {
+        if first, shape != nil { return 0 }
+        guard let shape, let print, let p = featurePrint(image, box: shape.box) else { return nil }
+        var d: Float = 0
+        guard (try? p.computeDistance(&d, to: print)) != nil else { return nil }
+        return Double(d)
     }
 
     /// Vision's feature print of what is in `box` (fractions from the top left) of `image`.

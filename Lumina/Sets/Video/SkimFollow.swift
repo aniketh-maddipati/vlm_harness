@@ -346,7 +346,8 @@ nonisolated enum SkimFollow {
     /// the tracker's figure (nil: no tracker, the first frame, or found again), the IoU of the tracker's box with the
     /// shape put on it, the shape's area and the last frame's, whether it was found again by its feature print, Vision's
     /// score for the shape, how many shapes overlapped the tracker's box (more than one: look-alikes or a crowd), and
-    /// how many frames in a row it had been lost.
+    /// how many frames in a row it had been lost, and (mask lab only, `SkimTracker.logsLook`) the feature-print distance
+    /// from what is in the shape's box to what was in it on the start frame.
     struct Cues: Equatable, Sendable {
         var tracker: Double?
         var agree: Double?
@@ -356,11 +357,12 @@ nonisolated enum SkimFollow {
         var score: Double?
         var rivals: Int
         var lost: Int
+        var look: Double? = nil
 
         var json: [String: Any] {
             func r(_ v: Double?) -> Any { v.map { ($0 * 10_000).rounded() / 10_000 } ?? NSNull() }
             return ["tracker": r(tracker), "agree": r(agree), "area": r(area), "last": r(last), "refound": refound,
-                    "score": r(score), "rivals": rivals, "lost": lost]
+                    "score": r(score), "rivals": rivals, "lost": lost, "look": r(look)]
         }
     }
 
@@ -399,5 +401,83 @@ nonisolated enum SkimFollow {
     static func matteName(clip: String) -> String? {
         let stem = ((clip.split(whereSeparator: { $0 == "/" || $0 == "\\" }).last.map(String.init) ?? "") as NSString).deletingPathExtension
         return SkimExport.safeName(stem + " matte.mov", allowed: ["mov"])
+    }
+
+    // MARK: Click to outline (SkimPrompt, macOS 27)
+
+    /// One click on the frame: where (fractions from the top left) and whether it adds what's under it or takes it away.
+    struct PromptPoint: Equatable, Sendable {
+        var x: Double, y: Double
+        var include: Bool
+    }
+
+    /// How much the followed box is grown on each side (a share of its own size) to prompt the next frame's outline,
+    /// so a shape that moved a little since is still inside it.
+    static let promptGrow = 0.15
+
+    /// `b` grown by `f` of its width and height on each side, kept inside the frame.
+    static func grown(_ b: Box, by f: Double) -> Box {
+        let x0 = max(0, b.x - b.w * f), y0 = max(0, b.y - b.h * f)
+        let x1 = min(1, b.x + b.w * (1 + f)), y1 = min(1, b.y + b.h * (1 + f))
+        return Box(x: x0, y: y0, w: max(0, x1 - x0), h: max(0, y1 - y0))
+    }
+
+    /// How far a followed outline may grow past the one clicked (by area) before it is taken for a runaway: the box
+    /// growing frame by frame until the outline fills the picture (`docs/masking/checkpoints/08`, gold-fish_1).
+    static let promptCap = 2.0
+
+    /// Whether the prompted segmenter's outline on a frame is the shape followed so far: not a jump in area from the
+    /// last frame's (more than `jump` either way, as when it spreads across a pig walking in front), and not grown past
+    /// `promptCap` times the clicked outline. When it isn't, the frame is marked shaky.
+    static func promptHolds(area: Double, last: Double?, start: Double?) -> Bool {
+        guard area > 0 else { return false }
+        if let last, last > 0, max(area / last, last / area) > jump { return false }
+        if let start, start > 0, area > start * promptCap { return false }
+        return true
+    }
+
+    /// A brush stroke over the thing meant (Lightroom's Brush select): the cursor's path, fractions from the top left,
+    /// drawn `strokeWidth` of the frame's long edge wide as the model's seed. On DAVIS's merged objects a stroke
+    /// outlines better than a click: 0.92 IoU against 0.86 (OUTLINING.md, the scribble row).
+    static let strokeMax = 512
+    static let strokeWidth = 0.02
+
+    /// The stroke as the page sends it, `[{x, y}]`: 2 to `strokeMax` points inside the frame. Nil for anything else.
+    static func promptStroke(_ any: Any?) -> [Point]? {
+        guard let a = any as? [Any], a.count >= 2, a.count <= strokeMax else { return nil }
+        var out: [Point] = []
+        for e in a {
+            guard let d = e as? [String: Any], let x = (d["x"] as? NSNumber)?.doubleValue, let y = (d["y"] as? NSNumber)?.doubleValue,
+                  x.isFinite, y.isFinite, (0...1).contains(x), (0...1).contains(y) else { return nil }
+            out.append(Point(x: x, y: y))
+        }
+        return out
+    }
+
+    /// The most clicks one outline takes; past that the page starts again.
+    /// (Vision takes at most 13 points on one request seeded with a point or a stroke.)
+    static let promptMax = 12
+
+    /// The clicks as the page sends them, oldest first: `[{x, y, in}]`, at most `promptMax`, each inside the frame.
+    /// Without a brush stroke there is at least one, and the first starts the outline, so it always adds; `seeded`
+    /// (a stroke started it) allows none, and each click adds or takes away as it says. Nil for anything else.
+    static func promptPoints(_ any: Any?, seeded: Bool = false) -> [PromptPoint]? {
+        guard let a = any as? [Any], seeded || !a.isEmpty, a.count <= promptMax else { return nil }
+        var out: [PromptPoint] = []
+        for e in a {
+            guard let d = e as? [String: Any], let x = (d["x"] as? NSNumber)?.doubleValue, let y = (d["y"] as? NSNumber)?.doubleValue,
+                  x.isFinite, y.isFinite, (0...1).contains(x), (0...1).contains(y) else { return nil }
+            let include = (d["in"] as? Bool) ?? true
+            out.append(PromptPoint(x: x, y: y, include: out.isEmpty && !seeded ? true : include))
+        }
+        return out
+    }
+
+    /// The clicks to add to the outline already made from `old` to reach `new`: the new ones at the end when `new` only
+    /// adds to `old` (the model keeps the frame's encoding, so a click costs milliseconds), nil when `new` is not `old`
+    /// and more (an undo, or another frame), which starts again from `new`'s first click.
+    static func promptAdded(_ old: [PromptPoint], _ new: [PromptPoint], seeded: Bool = false) -> [PromptPoint]? {
+        guard seeded || !old.isEmpty, new.count >= old.count, Array(new.prefix(old.count)) == old else { return nil }
+        return Array(new.dropFirst(old.count))
     }
 }
