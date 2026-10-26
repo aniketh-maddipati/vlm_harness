@@ -18,8 +18,12 @@ nonisolated enum SkimPrompt {
     /// Whether this Mac can outline by clicks: "ready", "download" (macOS fetches the model at the first click),
     /// or "no" (before macOS 27, or the model can't be had).
     static func status() async -> String {
+        #if compiler(>=6.4)
         guard #available(macOS 27.0, *) else { return "no" }
         return await Session.shared.status()
+        #else
+        return "no"
+        #endif
     }
 
     /// The outline for `points` on `frame` (a base64 JPEG the page drew from its own video), as one shape the page
@@ -27,8 +31,12 @@ nonisolated enum SkimPrompt {
     /// model can't run. `key` names the frame: clicks on the same key add to the outline already made. `stroke`: a
     /// brush stroke over the thing (SkimFollow.promptStroke) seeds the outline in place of the first click.
     static func outline(key: String, frame: Any?, points: [SkimFollow.PromptPoint], stroke: [LookMasks.Point]? = nil) async -> LookMasks.Found? {
+        #if compiler(>=6.4)
         guard #available(macOS 27.0, *) else { return nil }
         return await Session.shared.outline(key: key, frame: frame, points: points, stroke: stroke)
+        #else
+        return nil
+        #endif
     }
 
     /// The stroke as Vision's scribble seed: one byte a pixel, 255 under the stroke and 0 elsewhere, from the top left
@@ -56,6 +64,7 @@ nonisolated enum SkimPrompt {
     /// `image`, prompted by the box alone, as one shape; nil before macOS 27 or when nothing is there. Blocks its
     /// thread (the track's own, in the background) for the request, about 150 ms.
     static func outlineSync(_ image: CGImage, box: LookMasks.Box) -> LookMasks.Found? {
+        #if compiler(>=6.4)
         guard #available(macOS 27.0, *) else { return nil }
         let done = DispatchSemaphore(value: 0), held = Held(image)
         Task.detached(priority: .utility) {
@@ -66,6 +75,9 @@ nonisolated enum SkimPrompt {
         }
         done.wait()
         return held.out
+        #else
+        return nil
+        #endif
     }
 
     /// The frame handed to the request's task and its answer handed back (written once, read after the wait).
@@ -75,6 +87,9 @@ nonisolated enum SkimPrompt {
         init(_ image: CGImage) { self.image = image }
     }
 
+    // Vision's prompted segmenter is in the macOS 27 SDK only (Xcode 27, Swift 6.4). Older toolchains, such as CI's
+    // Xcode 16, build without it, and click to outline then reports "no" as it does before macOS 27.
+    #if compiler(>=6.4)
     @available(macOS 27.0, *)
     actor Session {
         static let shared = Session()
@@ -145,4 +160,5 @@ nonisolated enum SkimPrompt {
             return LookMasks.Found(id: "pick", kind: .object, score: 1, box: box, area: LookMasks.area(mask), outline: LookMasks.outline(mask))
         }
     }
+    #endif
 }
