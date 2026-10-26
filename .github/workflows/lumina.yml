@@ -166,6 +166,8 @@ jobs:
         run: NODE_PATH="$(npm root -g)" node Tests/web/plumbing-harness.mjs
       - name: grid zoom steps up to one photo per row, then the photo opens
         run: NODE_PATH="$(npm root -g)" node Tests/web/grid-zoom.mjs
+      - name: Stills moves have an inverse and no step is final
+        run: NODE_PATH="$(npm root -g)" node Tests/web/stills-reversible.mjs
       - name: the Stills web preview, built and opened (what lumina-still.pages.dev serves)
         run: NODE_PATH="$(npm root -g)" node Tests/web/stills-preview.mjs
 

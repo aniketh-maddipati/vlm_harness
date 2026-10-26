@@ -788,7 +788,7 @@ class Component extends DCLogic {
     if(c==='KeyW'){ if(!this.p()) return; this.setState({pick:!s.pick,stMode:false,verOpen:false,spec:null}); return this.say(!s.pick?'Click something that should be neutral grey.':'Picker off'); }
     if(c==='Equal'){ e.preventDefault(); return this.same(); }
     if(c==='Digit0'){ return sh?this.resetAll():this.resetK(this._hk||this.slider()[0]); }
-    if(k==='Escape'){ if(s.hide){ this.setState({hide:false,large:false}); return; } if((s.zm||1)!==1){ this.zoomTo(1); return; } if(s.before){ this.setState({before:false}); return; } if(s.sg){ this.setState({sg:false}); return; } if(s.pick){ this.setState({pick:false}); return this.say('Picker off'); } if(s.large){ e.preventDefault(); this.setState({large:false}); } return; }
+    if(k==='Escape'){ if(s.hide){ this.setState({hide:false,large:false}); return; } if((s.zm||1)!==1){ this.zoomTo(1); return; } if(s.before){ this.setState({before:false}); return; } if(s.sg){ this.setState({sg:false}); return; } if(s.pick){ this.setState({pick:false}); return this.say('Picker off'); } e.preventDefault(); if(s.large){ this.setState({large:false}); return; } this.emit('step',{view:'back'}); return; }
     if(c==='KeyX') return this.reject();
     if(c==='KeyQ') return sh?this.redo():this.undo();
     if(c==='KeyA') return this.auto();
