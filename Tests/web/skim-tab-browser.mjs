@@ -24,7 +24,7 @@ for (let k = 0; k < 60; k++) { await p.waitForTimeout(500); if (await p.evaluate
 const clipsTab = p.locator('[data-lumina="levels"] [role=tab]').nth(1); if (await clipsTab.count()) { await clipsTab.click(); await p.waitForTimeout(200); } else { await p.click('[data-gi="0"]'); await p.waitForTimeout(200); }
 await p.mouse.click(2, 600); await p.waitForTimeout(200);
 // the clip the page names as current
-const look = () => p.evaluate(() => [...document.querySelectorAll('[data-lumina="where"],[data-lumina="strip-where"],[data-lumina="info-head"]')].map(e => e.innerText).join(' | '));
+const look = () => p.evaluate(() => [...document.querySelectorAll('[data-lumina="keybar"],[data-lumina="strip-where"],[data-lumina="info-head"]')].map(e => e.getAttribute('data-cur') || e.innerText).join(' | '));
 const press = async k => { await p.keyboard.press(k); await p.waitForTimeout(600); };
 const focus = () => p.evaluate(() => { const a = document.activeElement; return a ? a.tagName + (a.getAttribute('data-lumina') || '') : ''; });
 

@@ -40,7 +40,8 @@ async function run(quota, host) {
   if (quota) await ctx.addInitScript(() => { const put = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function (v, k) { if (this.name === 'clip') throw new DOMException('full', 'QuotaExceededError'); return put.call(this, v, k); }; });
   const open = async dir => {
     const p = await ctx.newPage(); p.on('pageerror', e => errs.push(String(e)));
-    await p.goto('file://' + page); await p.waitForTimeout(1000); const base = await p.evaluate(() => window.__vids);
+    // the storage line is in debug mode (LOCAL-CHANGES 314)
+    await p.goto('file://' + page + '?debug=1'); await p.waitForTimeout(1000); const base = await p.evaluate(() => window.__vids);
     await p.setInputFiles('input[type=file]', dir);
     for (let k = 0; k < 120; k++) { await p.waitForTimeout(500); if (await p.evaluate(() => { try { const a = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]')[0]; return !!(a && a.done != null); } catch (x) { return false; } })) break; }
     const read = await p.evaluate(() => window.__vids) - base; await p.waitForTimeout(2200); return {p, read};
@@ -68,7 +69,7 @@ async function run(quota, host) {
     for (let i = 0; i < 5; i++) { await p.keyboard.press('c'); await p.waitForTimeout(50); await p.keyboard.press('ArrowRight'); }
     for (let i = 0; i < 30; i++) await p.keyboard.press('ArrowLeft');
     const sk = await p.evaluate(() => Object.keys(localStorage).find(k => /^lumina-skim:shoot/.test(k)) || '');
-    ok(/5 decided/.test(await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent || '')), 'five clips marked cut: ' + await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent));
+    ok(/^0 kept of 30$/.test(await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent || '')), 'five clips marked cut, none kept (the row under the grid counts only kept): ' + await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent));
     await p.waitForTimeout(300); await tap(p, '[data-lumina="storage"]'); let r2 = await rows(p);
     ok(/Cut clips on T7\n5 clips · /.test(r2) && /Send to Final Cut first/.test(r2) && await p.evaluate(() => document.querySelector('[data-lumina="storage-trash-move"]').getAttribute('aria-disabled')) === 'true', 'five cut: the move waits for the Final Cut file');
     // the shoot's key: its marks' key where marks are kept, else the shoot the app's store saved last (marks are never stored on video/skim-condensed)
@@ -85,7 +86,7 @@ async function run(quota, host) {
     await tap(p, '[data-lumina="storage-trash-back"]'); await p.waitForTimeout(300);
     ok(/Put back 5 clips/.test(await rows(p)), 'Put back returns them');
   } else if (!quota) {
-    ok(/^storage · in memory \d+ MB of \d+ MB/.test(await line(p)), 'the line outside debug mode: ' + await line(p));
+    ok(/^storage · in memory \d+ MB of \d+ MB/.test(await line(p)), 'the line in debug mode: ' + await line(p));
     await tap(p, '[data-lumina="storage"]'); ok(/Frames in memory/.test(await rows(p)), 'a click opens the rows');
     await p.keyboard.press('Escape'); await p.waitForTimeout(150); ok(!(await rows(p)), 'Esc closes them');
     const first = read; await p.close(); ({p, read} = await open(path.join(T, 'shoot')));

@@ -13,14 +13,15 @@ let fails = 0; const ok = (c, what) => { console.log((c ? 'ok    ' : 'FAIL  ') +
 const b = await pw.chromium.launch({executablePath:process.env.CHROMIUM || undefined}), p = await (await b.newContext({viewport:{width:1440, height:1000}})).newPage(), errs = [];
 p.on('pageerror', e => errs.push(String(e)));
 try {
-  await p.goto('file://' + page); await p.waitForTimeout(1000);
+  // Files is in Export's debug part (LOCAL-CHANGES 314)
+  await p.goto('file://' + page + '?debug=1'); await p.waitForTimeout(1000);
   await p.setInputFiles('input[type=file]:not([webkitdirectory]):not([data-lumina])', files);
   for (let k = 0; k < 40 && !(await p.evaluate(() => /Imported clips/.test(document.body.innerText))); k++) await p.waitForTimeout(250);
   await p.waitForTimeout(1500); await p.keyboard.press('k'); await p.waitForTimeout(150);
   await p.keyboard.press('Meta+e'); await p.waitForTimeout(1200);
   const rows = await p.$$eval('[data-lumina="ws-row"]', es => es.map(e => [e.getAttribute('data-kind'), e.innerText.replace(/\s+/g, ' ').trim()]));
   ok(rows.length === 5 && /^\W*Imported clips/.test(rows[0][1]) && rows.filter(r => r[0] === 'clip').length === 4, 'clips picked one by one are listed in Files, unfurled, with no click: ' + rows.map(r => r[1]).join(' | '));
-  ok(rows.some(r => r[0] === 'clip' && /selected/.test(r[1])) && rows.filter(r => /undecided/.test(r[1])).length === 3, 'each clip shows its mark');
+  ok(rows.some(r => r[0] === 'clip' && /kept/.test(r[1])) && rows.filter(r => /undecided/.test(r[1])).length === 3, 'each clip shows its mark');
   ok(/sees only the clips you opened/.test(await p.evaluate(() => document.body.innerText)), 'the note says the browser sees the clips you opened');
 } finally { await b.close(); fs.rmSync(T, {recursive:true, force:true}); }
 ok(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.join(' | ') : ''));

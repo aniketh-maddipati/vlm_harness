@@ -190,9 +190,11 @@ test('Viewer in a narrow window: the facts go under the picture when that makes 
     || /vp = narrow \? null : Component\.viewPlan\(st\.vw, st\.vh - this\.dockH\(\)(?: [-+] \d+)?\)[^;]*W = narrow \? [^:]+: vp\.W[^;]*: Math\.max\(st\.vh <= 500 \? 130 : 0, vp\.H\); if \(vp\) vals\.lv2Cols = vp\.cols;/.test(pageSrc));
 });
 
-test('Viewer beside the info: the info column starts where the picture ends, and the mark buttons sit over it', () => {
+test('Viewer beside the info: the info column starts where the picture ends', () => {
   assert.match(pageSrc, /if \(side\) vals\.lv2Cols = fit\.wc \+ 'px minmax\(240px,1fr\)';/);
   assert.match(pageSrc, /side \? \{lv2Rows:'auto minmax\(0,1fr\)', topCol:'2', picRow:'1 \/ span 2', infoCol:'2', infoRow:'2'\}/);
   assert.match(pageSrc, /data-lumina="viewer-top" style="grid-column:\{\{ topCol \}\};grid-row:1;/);
-  for (const g of ["'look', 'Picture'", "'file', 'File'", "'where', 'Where'"]) assert.ok(pageSrc.includes(g), g);
+  // two plain columns of text, as Stills' look-closer (LOCAL-CHANGES 314): no cards, no Where
+  for (const g of ["['look', 'Measured', 1]", "['file', 'Clip', 2]"]) assert.ok(pageSrc.includes(g), g);
+  assert.ok(!pageSrc.includes("'where', 'Where'"));
 });

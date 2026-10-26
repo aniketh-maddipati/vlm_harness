@@ -84,13 +84,12 @@ test('working out the drop over a large shoot is quick', () => {
   assert.ok(performance.now() - t < 100);
 });
 
-test('the line sits in the footer outside debug mode, with its rows behind it', () => {
-  const foot = template.indexOf('data-lumina="footer"'), line = template.indexOf('data-lumina="storage"'), rows = template.indexOf('data-lumina="storage-rows"'), dbg = template.indexOf('<sc-if value="{{ dbgOn }}"');
-  assert.ok(foot > 0 && foot < line && line < rows);
-  assert.ok(dbg < foot);                                   // the debug switch is in the top bar, closed before the footer
-  assert.match(src, /storeOn:false/);                      // collapsed by default
-  assert.match(src, /if \(st\.storeOn && k === 'Escape'\) return this\.storeShut\(\)/);   // Escape closes it (it drops back down, then goes)
-  assert.match(src, /storeShut\(\) \{ this\.foldShut\('\[data-lumina="storage-rows"\]', \(\) => \{ this\.storeSaid = null; this\.setState\(\{storeOn:false\}\)/);
+test('no storage line on screen outside debug mode (LOCAL-CHANGES 314); its logic stays for the debug panel', () => {
+  const dbg = template.lastIndexOf('<sc-if value="{{ storeDbgOn }}"', template.indexOf('data-lumina="storage"'));
+  assert.ok(dbg > template.indexOf('data-lumina="counts"'), 'the storage line is behind the debug switch, after the kept count');
+  assert.ok(!template.includes('data-lumina="footer"'));
+  assert.match(src, /storeOn:false/);
+  assert.match(src, /if \(st\.storeOn && k === 'Escape'\) return this\.storeShut\(\)/);
   assert.match(template, /data-lumina="memory-pill"/);    // the debug panel stays as it is
 });
 

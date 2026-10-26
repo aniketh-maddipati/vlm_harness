@@ -49,7 +49,7 @@ test('exGate and download come out of the page', () => {
 test('only cut clips, default options: the button is off and nothing is written', () => {
   const r = press(shoot('cc...'), OPTS.default);
   assert.equal(r.gate.n, 0);
-  assert.equal(r.gate.label, 'Nothing selected yet');
+  assert.equal(r.gate.label, 'Nothing kept yet');
   assert.deepEqual(r.saved, []);
   assert.deepEqual(r.said, [], 'and nothing claims a file was saved');
 });
@@ -57,24 +57,24 @@ test('only cut clips, default options: the button is off and nothing is written'
 test('nothing marked at all: off under default and maybes off', () => {
   for (const o of [OPTS.default, OPTS['maybes off']]) {
     const r = press(shoot('.....'), o);
-    assert.equal(r.gate.label, 'Nothing selected yet');
+    assert.equal(r.gate.label, 'Nothing kept yet');
     assert.deepEqual(r.saved, []);
   }
 });
 
-test('one selected turns it on', () => {
+test('one kept turns it on, and the button counts the clips in the file', () => {
   const r = press(shoot('kcc..'), OPTS.default);
-  assert.equal(r.gate.label, 'Download for Final Cut · 1 selected');
+  assert.equal(r.gate.label, 'Download for Final Cut · 1 clip');
   assert.deepEqual(r.saved, ['card.fcpxml']);
 });
 
-test('maybes and nothing selected: the label says the file holds maybes, never "0 selected"', () => {
+test('maybes and nothing kept: the label counts the maybes the file holds, never "0"', () => {
   const on = press(shoot('mmc..'), OPTS.default);
-  assert.equal(on.gate.label, 'Download for Final Cut · 2 maybes only');
+  assert.equal(on.gate.label, 'Download for Final Cut · 2 clips');
   assert.deepEqual(on.saved, ['card.fcpxml']);
-  assert.equal(press(shoot('mc...'), OPTS.default).gate.label, 'Download for Final Cut · 1 maybe only');
+  assert.equal(press(shoot('mc...'), OPTS.default).gate.label, 'Download for Final Cut · 1 clip');
   const off = press(shoot('mmc..'), OPTS['maybes off']);
-  assert.equal(off.gate.label, 'Nothing selected yet');
+  assert.equal(off.gate.label, 'Nothing kept yet');
   assert.deepEqual(off.saved, []);
 });
 
@@ -90,7 +90,7 @@ test('across every combination the button, the file and buildX agree', () => {
       const r = press(shoot(marks), ex), at = marks + ' / ' + name;
       assert.equal(r.gate.n, r.n, 'the gate counts the clips buildX takes: ' + at);
       assert.equal(r.saved.length, r.n > 0 ? 1 : 0, 'a file only when it would hold a clip: ' + at);
-      assert.equal(r.gate.label === 'Nothing selected yet', r.n === 0, at);
+      assert.equal(r.gate.label === 'Nothing kept yet', r.n === 0, at);
       assert.doesNotMatch(r.gate.label, /· 0 /, at);
     }
   assert.equal(press(shoot(''), OPTS.everything).saved.length, 0, 'no clips at all: nothing, even with Everything on');
