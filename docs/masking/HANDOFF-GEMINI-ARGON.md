@@ -120,8 +120,9 @@ on the owner's M4 Pro).
   - **Mask readout**: a graph in the scrub bar (mask size over time, jumps in red, sure/shaky/lost shading) and a
     summary line like "88% sure · 2 jumps · size ±40%".
   - Mask lab: look cue, dataset converters, `heal_score.py`, `make_holes.py`, volumetric J.
-  - Note: CI's macOS "build + tests" job was **skipped** on #311 (it only runs on macOS runners when triggered); the
-    Swift compiled in the owner's hot build, but a full `LuminaLogicTests` run on the merged `main` is your first job.
+  - Note: #311 broke CI's Mac build (CI uses Xcode 16.4, which lacks `GenerateIterativeSegmentationRequest`). PR #313
+    guards that code with `#if compiler(>=6.4)` (the macOS 27 SDK's Swift). Make sure #313 is merged and main is green,
+    then run the full `LuminaLogicTests` on the owner's Mac (macOS 27 SDK), since CI never compiles the click-to-outline path.
 
 ### Numbers (DAVIS 2017 val, 61 objects, M4 Pro)
 
