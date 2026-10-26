@@ -844,7 +844,7 @@ body:has([data-view=phone]){background:#111}
 
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
   <!-- One line, as Stills has it: what the keys do, undo and redo, and how many are kept. -->
-  <div data-lumina="keybar" data-cur="{{ curId }}" style="flex:none;height:34px;display:flex;align-items:center;gap:16px;padding:0 20px;background:#262523;border-top:1px solid rgba(239,236,230,0.08);color:#B8B3AB;white-space:nowrap;overflow:hidden">
+  <div data-lumina="keybar" data-cur="{{ curId }}" style="flex:none;height:34px;display:flex;align-items:center;gap:16px;padding:0 20px;background:#262523;border-top:1px solid rgba(239,236,230,0.08);color:#B8B3AB;white-space:nowrap;overflow:visible;position:relative;z-index:4">
     <sc-if value="{{ navOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="nav" style="flex:none;display:flex;align-items:center;gap:6px">
       <button type="button" data-lumina="nav-grid" onClick="{{ navGrid }}" style="box-sizing:content-box;padding:0;background:transparent;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:content-box;height:28px;padding:0 12px;border-radius:7px;display:flex;align-items:center;gap:6px;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;white-space:nowrap">‹ Clips</button>
       <button type="button" data-lumina="nav-prev" aria-label="previous clip" onClick="{{ navPrev }}" style="box-sizing:content-box;padding:0;background:transparent;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;box-sizing:content-box;height:28px;padding:0 12px;border-radius:7px;display:grid;place-items:center;background:rgba(239,236,230,0.08);color:#EFECE6;cursor:pointer;opacity:{{ navPrevOp }};font-size:16px">‹</button>

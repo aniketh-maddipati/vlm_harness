@@ -249,9 +249,9 @@ async function run(host) {
     await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '"]'); await p.waitForTimeout(150);
     if (await p.$eval('[data-lumina="ws-row"][data-path="' + dumpP + '"]', e => e.getAttribute('aria-expanded')) !== 'true') { await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '"]'); await p.waitForTimeout(150); }
     await p.click('[data-lumina="ws-sort"]'); await p.waitForTimeout(300);
-    ok(/^3 moves waiting/.test(await text('[data-lumina="ws-plan-say"]')) && /new/.test(await text('[data-lumina="ws-row"][data-path="' + dumpP + '/Selected"]')) && await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/Maybe"]')
-      && await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/Selected/' + sel1 + '"]') && !await p.$('[data-lumina="ws-row"][data-path="' + made + '/' + sel1 + '"]'),
-      'app: Sort by mark plans Selected and Maybe folders, shown as new, with the clips inside; the earlier move is replaced: ' + await text('[data-lumina="ws-plan-say"]'));
+    ok(/^3 moves waiting/.test(await text('[data-lumina="ws-plan-say"]')) && /new/.test(await text('[data-lumina="ws-row"][data-path="' + dumpP + '/Kept"]')) && await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/Maybe"]')
+      && await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/Kept/' + sel1 + '"]') && !await p.$('[data-lumina="ws-row"][data-path="' + made + '/' + sel1 + '"]'),
+      'app: Sort by mark plans Kept and Maybe folders, shown as new, with the clips inside; the earlier move is replaced: ' + await text('[data-lumina="ws-plan-say"]'));
     await p.click('[data-lumina="ws-plan-review"]'); await p.waitForTimeout(150);
     const lst = await text('[data-lumina="ws-plan-list"]');
     ok((lst.match(/→/g) || []).length === 3 && /dump → .*dump\/Maybe/.test(lst), 'app: Review lists every move, old folder → new: ' + lst.replace(/\n/g, ' | '));
@@ -262,7 +262,7 @@ async function run(host) {
     const ac = await p.evaluate(() => window.__calls.filter(c => c[0] === 'arrange' || c[0] === 'save'));
     ok(ac.length === 1 && ac[0][1] === 2 && /^Moved 2 clips .+ into 1 folder/.test(await text('[data-lumina="ws-plan-say"]')) && await p.$('[data-lumina="ws-run-undo-0"]'),
       'app: ⌘⏎ with moves waiting applies them (and saves nothing): ' + await text('[data-lumina="ws-plan-say"]'));
-    ok(await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/Selected/' + sel1 + '"][data-kind="clip"]') && !await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]'), 'app: the tree reads the folders again: the clip is in Selected now');
+    ok(await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/Kept/' + sel1 + '"][data-kind="clip"]') && !await p.$('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]'), 'app: the tree reads the folders again: the clip is in Kept now');
     if (shots) await p.screenshot({path:path.join(shots, 'app-arrange-done.png'), fullPage:false});
     await p.click('[data-lumina="cut-save"]'); await p.waitForTimeout(300);
     await p.keyboard.press('Meta+Enter'); await p.waitForTimeout(900);
@@ -271,7 +271,7 @@ async function run(host) {
     const savedF = calls.filter(c => c[0] === 'save' && /\.fcpxml$/.test(c[1])).pop(), savedT = calls.find(c => c[0] === 'save' && /cut clips\.txt$/.test(c[1]));
     ok(savedF && /<keyword [^>]*value="[^"]*Scene 1/.test(savedF[2]) && /file:\/\/\/Users\/sam\/Desktop\/dump\//.test(savedF[2]), 'app: the file has scene keywords and points at the folder the app read');
     ok(savedF && savedF[3] === made && savedT && savedT[3] === '/Volumes/T7', 'app: each file is saved in the folder it was dropped on');
-    ok(savedF && savedF[2].includes('file:///Users/sam/Desktop/dump/Selected/' + sel1), 'app: the Final Cut file points at the clips where Arrange moved them');
+    ok(savedF && savedF[2].includes('file:///Users/sam/Desktop/dump/Kept/' + sel1), 'app: the Final Cut file points at the clips where Arrange moved them');
     ok(calls.map(c => c[0]).filter(c => !/check|list|mkdir|arrange|size/.test(c)).join(' ') === 'save save fcp trash', 'app: (cut list), save, then Final Cut, then the Trash: ' + calls.map(c => c[0]).join(' '));
     ok(r.includes('clip file missing on disk: ' + await p.evaluate(() => window.__miss)) && /missing on disk/.test(await text('[data-lumina="sum-verify"]')), 'app: a missing clip file is flagged in the result and the summary');
     ok(/Saved .+ in \/Volumes\/T7\/Projects\/Tuesday export/.test(r) && /Opened in Final Cut Pro/.test(r) && /Moved 2 cut clips/.test(r) && /working memory/.test(r), 'app: the result: ' + r.replace(/\n/g, ' | '));
@@ -387,7 +387,7 @@ async function run(host) {
     ok(!await p.$('[data-lumina="ws-menu"]') && await p.getAttribute('[data-lumina="ws-row"][data-path="/Volumes/T7"]', 'aria-expanded') === 'true', 'app: ↓ ⏎ in the menu runs its first item (Expand)');
     // the options: Clips as three cards with their counts, Then as switches with what each does
     const sc = (await p.$$eval('[data-lumina="export-scope"] [role=radio]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()))).join(' | ');
-    ok(/Selected \d+ clips?/.test(sc) && /Everything 8 clips/.test(sc), 'app: Clips, three cards each with its count: ' + sc);
+    ok(/Kept \d+ clips?/.test(sc) && /Everything 8 clips/.test(sc), 'app: Clips, three cards each with its count: ' + sc);
     ok(/Moves|cut clip|No cut clips/.test(await text('[data-lumina="ex-trash"]')) && /working memory/.test(await text('[data-lumina="ex-mem"]')), 'app: each Then switch says what it does: ' + (await text('[data-lumina="ex-mem"]')).replace(/\s+/g, ' '));
   }
   ok(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.join(' | ') : ''));

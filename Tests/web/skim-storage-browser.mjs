@@ -69,7 +69,7 @@ async function run(quota, host) {
     for (let i = 0; i < 5; i++) { await p.keyboard.press('c'); await p.waitForTimeout(50); await p.keyboard.press('ArrowRight'); }
     for (let i = 0; i < 30; i++) await p.keyboard.press('ArrowLeft');
     const sk = await p.evaluate(() => Object.keys(localStorage).find(k => /^lumina-skim:shoot/.test(k)) || '');
-    ok(/5 decided/.test(await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent || '')), 'five clips marked cut: ' + await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent));
+    ok(/^0 kept of 30$/.test(await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent || '')), 'five clips marked cut, none kept (the row under the grid counts only kept): ' + await p.evaluate(() => document.querySelector('[data-lumina="counts"]')?.textContent));
     await p.waitForTimeout(300); await tap(p, '[data-lumina="storage"]'); let r2 = await rows(p);
     ok(/Cut clips on T7\n5 clips · /.test(r2) && /Send to Final Cut first/.test(r2) && await p.evaluate(() => document.querySelector('[data-lumina="storage-trash-move"]').getAttribute('aria-disabled')) === 'true', 'five cut: the move waits for the Final Cut file');
     // the shoot's key: its marks' key where marks are kept, else the shoot the app's store saved last (marks are never stored on video/skim-condensed)
