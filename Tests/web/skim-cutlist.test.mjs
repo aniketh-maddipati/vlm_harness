@@ -106,15 +106,16 @@ test('Export starts on selected plus maybes, and that option is unchanged in wha
   assert.doesNotMatch(x.text, /value="reject"/);
 });
 
-test('the Export screen says selected / maybe / cut and nothing else for the marks', () => {
+test('the Export screen says kept / maybe / cut, as Stills does, and nothing else for the marks', () => {
   const a = src.indexOf('data-screen-label="Export"'), b = src.indexOf('data-screen-label="Skim empty"');
   const vals = extractMethod(src, 'extraVals', 'extraVals(markN, markB, und) {');
   // visible text: what sits between tags in the template, and the string literals in the Export values
-  // ('keep' on its own is the stored key of the selected mark, never shown)
+  // ('keep' on its own is the stored key of the kept mark)
   const lits = (vals.slice(vals.indexOf('if (v.isExport)')).match(/'[^'\n]*'/g) || []).filter(l => l !== "'keep'");
   assert.ok(lits.length > 20);
   const shown = src.slice(a, b).replace(/<[^>]*>/g, ' ') + ' ' + lits.join(' ');
-  assert.doesNotMatch(shown, /\b(keep|kept|keepers?|reject\w*|flag\w*)\b/i);
+  assert.doesNotMatch(shown, /\b(keepers?|reject\w*|flag\w*)\b/i);
+  assert.doesNotMatch(lits.join(' '), /\b[Ss]elected (clips?|ones|\+)/);   // the mark is "kept" (LOCAL-CHANGES 314)
   assert.match(shown, /Clip files are never changed\./);
   // deleting is Finder's for now: Delete in Finder… selects the cut clips there
   assert.match(shown, /Delete in Finder/);

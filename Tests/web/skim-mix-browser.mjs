@@ -56,13 +56,13 @@ ok(/Open 2 clips/.test(await p.innerText('[data-lumina="mix-go"]')), 'a click on
 ok((await rows()).find(x => x.kind === 'day' && /day1/.test(x.text)).on === 'false', 'and dims it');
 // esc goes back, nothing opened
 await p.keyboard.press('Escape'); await p.waitForTimeout(200);
-ok(!(await p.$('[data-lumina="mix"]')) && !(await p.$('[data-lumina="shoot-close"]')), 'esc goes back to Open with nothing opened');
+ok(!(await p.$('[data-lumina="mix"]')) && !(await p.$('[data-lumina="keybar"]')), 'esc goes back to Open with nothing opened');
 // again, keep only day9 (2 clips), ⏎
 await p.setInputFiles('input[type=file][webkitdirectory]:not([data-lumina])', dump);
 await until(() => !!document.querySelector('[data-lumina="mix"]'));
 await p.locator('[data-lumina="mix-row"][data-kind="day"]').nth(0).locator('[data-lumina="mix-toggle"]').click(); await p.waitForTimeout(100);
 await p.keyboard.press('Enter');
-ok(await until(() => !document.querySelector('[data-lumina="mix"]') && !!document.querySelector('[data-lumina="shoot-close"]')), '⏎ opens what is ticked');
+ok(await until(() => !document.querySelector('[data-lumina="mix"]') && !!document.querySelector('[data-lumina="keybar"]')), '⏎ opens what is ticked');
 ok(await until(() => { try { const a = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]')[0]; return !!(a && a.done != null); } catch (x) { return false; } }, 40000), 'the clips are read');
 ok(/\b2 clips\b/.test(await nClips()), 'the shoot holds the 2 ticked clips: ' + await nClips());
 

@@ -74,7 +74,7 @@ async function run(host) {
       trashPutBack: () => { const t = JSON.parse(localStorage.getItem('fake-trash') || '[]'); localStorage.setItem('fake-trash', '[]'); window.__calls.push(['putback', t.length]); return ask(t); }}};
   });
   const p = await ctx.newPage(); p.on('pageerror', e => errs.push(String(e)));
-  await p.goto('file://' + page); await p.waitForTimeout(1000);
+  await p.goto('file://' + page + '?debug=1');   // Export's Files and More are in debug mode (LOCAL-CHANGES 314) await p.waitForTimeout(1000);
   await p.setInputFiles('input[type=file]', dir);
   for (let k = 0; k < 60; k++) { await p.waitForTimeout(500); if (await p.evaluate(() => { try { const a = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]')[0]; return !!(a && a.done != null); } catch (x) { return false; } })) break; }
   // mark through the page's own keys: two selected, one maybe, two cut
@@ -87,10 +87,10 @@ async function run(host) {
     await p.waitForTimeout(2800); const pre = await p.evaluate(() => window.__calls.map(c => c[0]));
     ok(pre.includes('check') && pre.includes('list'), 'app: Export is made ready in Skim, before it opens (the file checked, the folders read): ' + [...new Set(pre)].join(' '));
   }
-  // LOCAL-CHANGES 279: Export is gold in the steps and has its own button at the end of the dock
-  const gold = await p.evaluate(() => { const t = [...document.querySelectorAll('[data-lumina="steps"] [role=tab]')].find(e => e.innerText.trim() === 'Export'), b = document.querySelector('[data-lumina="dock-export"]'); return [t && getComputedStyle(t).color, b && getComputedStyle(b).backgroundColor, b && b.innerText.replace(/\s+/g, ' ').trim()]; });
-  ok(gold[0] === 'rgb(255, 210, 122)' && gold[1] === 'rgb(255, 210, 122)' && /^Export ⌘E \d+ clips?$/.test(gold[2]), (host ? 'app' : 'browser') + ': Export is gold in the steps and at the end of the dock: ' + JSON.stringify(gold));
-  if (host) await p.click('[data-lumina="dock-export"]'); else await p.keyboard.press('Meta+Enter');
+  // LOCAL-CHANGES 314: one way to Export, the step (and ⌘E / ⌘⏎); no gold tab, no Export tile in the Kept strip
+  const gold = await p.evaluate(() => { const t = [...document.querySelectorAll('[data-lumina="steps"] [role=tab]')].find(e => e.innerText.trim() === 'Export'); return [t && getComputedStyle(t).color, !!document.querySelector('[data-lumina="dock-export"]')]; });
+  ok(gold[0] !== 'rgb(255, 210, 122)' && !gold[1], (host ? 'app' : 'browser') + ': Export is a plain step, with no tile in the strip: ' + JSON.stringify(gold));
+  await p.keyboard.press('Meta+Enter');
   await p.waitForTimeout(900);
   const text = sel => p.evaluate(s => document.querySelector(s)?.innerText || '', sel);
   ok(await p.$('[data-lumina="export-plan"]'), (host ? 'app' : 'browser') + ': the Export controls are there');
@@ -110,7 +110,7 @@ async function run(host) {
   if (!host) {
     // Files is never blank in a browser: the folder the shoot came from, each clip with its mark, and a way to open another
     const clipRows = await p.$$eval('[data-lumina="ws-row"][data-kind="clip"]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()));
-    ok(clipRows.length === 8 && clipRows.filter(t => /selected/.test(t)).length === 2 && clipRows.filter(t => /maybe/.test(t)).length === 1 && /this shoot/i.test(await text('[data-lumina="ws-tree"]')),
+    ok(clipRows.length === 8 && clipRows.filter(t => /kept/.test(t)).length === 2 && clipRows.filter(t => /maybe/.test(t)).length === 1 && /this shoot/i.test(await text('[data-lumina="ws-tree"]')),
       'browser: Files lists the folder opened, every clip with its mark: ' + clipRows.slice(0, 3).join(' | '));
     ok(await p.$('[data-lumina="ws-conn-open"]') && !await p.$('[data-lumina="ws-find"]'), 'browser: Files offers Open another folder… and no search it could not run');
     const und = await p.$$eval('[data-lumina="ws-row"][data-kind="clip"]', es => es.filter(e => /undecided/.test(e.innerText)).map(e => e.getAttribute('data-path')));
@@ -172,7 +172,7 @@ async function run(host) {
     await p.click('[data-lumina="ws-row"][data-path="/Users/sam/Desktop/dump"]'); await p.waitForTimeout(300);
     const clipRows = async () => p.$$eval('[data-lumina="ws-row"][data-kind="clip"]', es => es.map(e => e.innerText.replace(/\s+/g, ' ').trim()));
     let cr = await clipRows();
-    ok(cr.length === 8 && cr.filter(r => /selected/.test(r)).length === 2 && cr.filter(r => /cut/.test(r)).length === 2 && cr.filter(r => /maybe/.test(r)).length === 1, 'app: unfurling the shoot folder lists each clip with its mark: ' + cr.join(' | '));
+    ok(cr.length === 8 && cr.filter(r => /kept/.test(r)).length === 2 && cr.filter(r => /cut/.test(r)).length === 2 && cr.filter(r => /maybe/.test(r)).length === 1, 'app: unfurling the shoot folder lists each clip with its mark: ' + cr.join(' | '));
     const box = async (a, b) => { const r1 = await p.locator('[data-lumina="ws-row"][data-path$="' + a + '"]').boundingBox(), r2 = await p.locator('[data-lumina="ws-row"][data-path$="' + b + '"]').boundingBox();
       await p.mouse.move(r1.x + r1.width - 30, r1.y + 4); await p.mouse.down(); await p.mouse.move(r1.x + r1.width - 40, r1.y + 20, {steps:4}); await p.mouse.move(r2.x + r2.width - 40, r2.y + r2.height - 4, {steps:6}); await p.mouse.up(); await p.waitForTimeout(150); };
     const marksOf = async names => p.evaluate(ns => ns.map(n => document.querySelector('[data-lumina="ws-row"][data-path$="/' + n + '"]').innerText.replace(/\s+/g, ' ')), names);
@@ -188,7 +188,7 @@ async function run(host) {
     // the files and folders sit under the shortcuts: bring them up so the row and the bucket are both on screen for the drag
     await p.evaluate(() => document.querySelector('[data-lumina="workshop"]').scrollIntoView({block:'start'})); await p.waitForTimeout(100);
     await p.dragAndDrop('[data-lumina="ws-row"][data-path$="/' + undec[0] + '"]', '[data-lumina="ws-bucket-keep"]'); await p.waitForTimeout(250);
-    ok((await marksOf([undec[0]]))[0].includes('selected') && /^Selected\s*3/.test((await text('[data-lumina="ws-bucket-keep"]')).trim()), 'app: a clip dropped on the Selected bucket is selected: ' + (await text('[data-lumina="ws-bucket-keep"]')).replace(/\s+/g, ' '));
+    ok((await marksOf([undec[0]]))[0].includes('kept') && /^Kept\s*3/.test((await text('[data-lumina="ws-bucket-keep"]')).trim()), 'app: a clip dropped on the Kept bucket is kept: ' + (await text('[data-lumina="ws-bucket-keep"]')).replace(/\s+/g, ' '));
     await p.keyboard.press('Meta+z'); await p.waitForTimeout(200);
     await p.click('[data-lumina="ws-bucket-cut"]'); await p.waitForTimeout(200);
     cr = await clipRows(); ok(cr.length === 2 && cr.every(r => /cut/.test(r)), 'app: clicking the Cut bucket lists only the cut clips: ' + cr.join(' | '));
@@ -237,7 +237,7 @@ async function run(host) {
     // Arrange: a clip dragged onto a folder waits as a draft; Sort by mark plans the rest; Review, ×, then ⌘⏎ applies
     const dumpP = '/Users/sam/Desktop/dump';
     await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '"]'); await p.waitForTimeout(300);
-    cr = await clipRows(); const sel1 = 'C000' + (cr.findIndex(r => /selected/.test(r)) + 1) + '.MP4';
+    cr = await clipRows(); const sel1 = 'C000' + (cr.findIndex(r => /kept/.test(r)) + 1) + '.MP4';
     await p.click('[data-lumina="ws-row"][data-path="' + dumpP + '/' + sel1 + '"]'); await p.waitForTimeout(120);
     // large rows: bring the clip to the top so it and the folder are both on screen for the drag
     await p.evaluate(q => document.querySelector('[data-lumina="ws-row"][data-path="' + q + '"]').scrollIntoView({block:'start'}), dumpP + '/' + sel1); await p.waitForTimeout(100);
@@ -288,12 +288,12 @@ async function run(host) {
     const fb = path.join(T, 'from Final Cut.fcpxml'); fs.writeFileSync(fb, savedF[2].replace(/value="favorite"/g, 'value="reject"'));
     await p.setInputFiles('[data-lumina="ws-back"] input[type=file]', fb); await p.waitForTimeout(400);
     const bs = await text('[data-lumina="ws-back-say"]'), bl = await text('[data-lumina="ws-back-list"]');
-    ok(/from Final Cut\.fcpxml: \d+ clips of this shoot\. 2 marks differ/.test(bs) && (bl.match(/selected\s*→\s*cut/g) || []).length === 2, 'app: Read back lists the marks the file changes, before anything changes: ' + bs + ' | ' + bl.replace(/\n/g, ' '));
-    ok((await marksOf([sel1]))[0].includes('selected'), 'app: reading changes no mark');
+    ok(/from Final Cut\.fcpxml: \d+ clips of this shoot\. 2 marks differ/.test(bs) && (bl.match(/kept\s*→\s*cut/g) || []).length === 2, 'app: Read back lists the marks the file changes, before anything changes: ' + bs + ' | ' + bl.replace(/\n/g, ' '));
+    ok((await marksOf([sel1]))[0].includes('kept'), 'app: reading changes no mark');
     await p.click('[data-lumina="ws-back-use"]'); await p.waitForTimeout(300);
     ok((await marksOf([sel1]))[0].includes('cut') && /^Used 2 marks/.test(await text('[data-lumina="ws-back-say"]')), 'app: Use these marks sets them: ' + await text('[data-lumina="ws-back-say"]'));
     await p.keyboard.press('Meta+z'); await p.waitForTimeout(300);
-    ok((await marksOf([sel1]))[0].includes('selected'), 'app: ⌘Z takes them back');
+    ok((await marksOf([sel1]))[0].includes('kept'), 'app: ⌘Z takes them back');
     await p.setInputFiles('[data-lumina="ws-back"] input[type=file]', {name:'notes.xml', mimeType:'text/xml', buffer:Buffer.from('<notes/>')}); await p.waitForTimeout(300);
     ok(/notes\.xml is not a Final Cut XML file/.test(await text('[data-lumina="ws-back-say"]')), 'app: another XML file is refused');
     // Saved files: the .fcpxml and the cut list Export saved, Current until a mark changes; a preview; Update saves beside it
@@ -330,7 +330,7 @@ async function run(host) {
     { const t = await p.$$eval('[data-lumina="ws-finder-marks"] button', es => es.map(e => e.getAttribute('data-lumina') + ' ' + e.innerText.trim()));
       const before = await p.evaluate(() => window.__calls.length); await p.click('[data-lumina="ws-finder-und"]'); await p.waitForTimeout(250);
       const got = await p.evaluate(n => window.__calls.slice(n).find(c => c[0] === 'showClips'), before);
-      ok(t.some(x => /^ws-finder-und \d+ unmarked · /.test(x)) && t.some(x => /^ws-finder-keep \d+ selected · /.test(x)) && got && got[1].length >= 1 && /Finder has \d+ unmarked clips? selected/.test(await text('[data-lumina="ws-say"]')),
+      ok(t.some(x => /^ws-finder-und \d+ unmarked · /.test(x)) && t.some(x => /^ws-finder-keep \d+ kept · /.test(x)) && got && got[1].length >= 1 && /Finder has \d+ unmarked clips? selected/.test(await text('[data-lumina="ws-say"]')),
         'app: Show in Finder for each mark, unmarked too: ' + t.join(' | ') + ' → ' + await text('[data-lumina="ws-say"]')); }
     await p.click('[data-lumina="ex-preview"]'); await p.waitForTimeout(200);
     ok(/<fcpxml version=/.test(await text('[data-lumina="ex-preview-text"]')), 'app: Preview the file shows what ⌘⏎ saves');

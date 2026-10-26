@@ -192,7 +192,7 @@ test('the one grid: its time rod, its tiles and its words', () => {
   const a = src.indexOf('<sc-if value="{{ lvF }}"'), b = src.indexOf('<sc-if value="{{ lv0 }}"'); assert.ok(a > 0 && b > a);
   const tpl = src.slice(a, b);
   for (const part of ['fold-strip', 'zoom-less', 'zoom-more', 'zoom-levels', 'scenes-less', 'scenes-more', 'aria-label="scenes"', 'fold-count', 'fold-where']) assert.ok(!tpl.includes(part), 'no menu over the grid: ' + part);
-  for (const part of ['time-rod', 'time-mark', 'time-step', 'data-gi', 'data-fold', 'data-scene', 'scene-marks', 'skim-bar', 'tile-marks', 'tile-notes', 'tile-why', 'tile-wait', 'fold-badge']) assert.ok(tpl.includes(part), part);
+  for (const part of ['time-rod', 'time-mark', 'time-step', 'data-gi', 'data-fold', 'data-scene', 'scene-marks', 'skim-bar', 'tile-marks', 'tile-why', 'tile-wait', 'fold-badge']) assert.ok(tpl.includes(part), part);
   // in the script, 'keep' on its own is the stored key and is never shown
   const js = src.slice(src.indexOf('  cvGrid() {'), src.indexOf('  index() {'));
   for (const text of [tpl.replace(/<[^>]*>/g, ' ').replace(/\{\{[^}]*\}\}/g, ' '), (js.match(/'[^']*'/g) || []).filter(q => q !== "'keep'").join(' ')]) assert.doesNotMatch(text, /\b(keep|kept|keepers?|reject\w*|flag\w*)\b/i, 'neutral words only');

@@ -40,7 +40,7 @@ async function run(quota, host) {
   if (quota) await ctx.addInitScript(() => { const put = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function (v, k) { if (this.name === 'clip') throw new DOMException('full', 'QuotaExceededError'); return put.call(this, v, k); }; });
   const open = async dir => {
     const p = await ctx.newPage(); p.on('pageerror', e => errs.push(String(e)));
-    await p.goto('file://' + page); await p.waitForTimeout(1000); const base = await p.evaluate(() => window.__vids);
+    await p.goto('file://' + page + '?debug=1');   // the storage line is in debug mode (LOCAL-CHANGES 314) await p.waitForTimeout(1000); const base = await p.evaluate(() => window.__vids);
     await p.setInputFiles('input[type=file]', dir);
     for (let k = 0; k < 120; k++) { await p.waitForTimeout(500); if (await p.evaluate(() => { try { const a = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]')[0]; return !!(a && a.done != null); } catch (x) { return false; } })) break; }
     const read = await p.evaluate(() => window.__vids) - base; await p.waitForTimeout(2200); return {p, read};
@@ -85,7 +85,7 @@ async function run(quota, host) {
     await tap(p, '[data-lumina="storage-trash-back"]'); await p.waitForTimeout(300);
     ok(/Put back 5 clips/.test(await rows(p)), 'Put back returns them');
   } else if (!quota) {
-    ok(/^storage · in memory \d+ MB of \d+ MB/.test(await line(p)), 'the line outside debug mode: ' + await line(p));
+    ok(/^storage · in memory \d+ MB of \d+ MB/.test(await line(p)), 'the line in debug mode: ' + await line(p));
     await tap(p, '[data-lumina="storage"]'); ok(/Frames in memory/.test(await rows(p)), 'a click opens the rows');
     await p.keyboard.press('Escape'); await p.waitForTimeout(150); ok(!(await rows(p)), 'Esc closes them');
     const first = read; await p.close(); ({p, read} = await open(path.join(T, 'shoot')));
