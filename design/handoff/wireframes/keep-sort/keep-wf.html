@@ -125,6 +125,10 @@
     transition: left 120ms var(--ease-soft);
   }
   .rec-sw[aria-checked="true"] .knob::after { left: 18px; }
+  .rec-kbd {
+    font: 11px/1 var(--sans); font-weight: 700; letter-spacing: 0.02em;
+    padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--mute);
+  }
 
   .primary, .ghost, .danger, .keep-btn {
     font: inherit; font-size: 13px; font-weight: 700;
@@ -199,6 +203,14 @@
   }
   .canvas-wrap.scrubbing { cursor: ns-resize; }
   .canvas-wrap.pinching { cursor: zoom-in; }
+  .canvas-wrap.marqueeing { cursor: crosshair; user-select: none; }
+  .marquee {
+    position: fixed; pointer-events: none; z-index: 40;
+    border: 1.5px solid var(--amber);
+    background: light-dark(rgba(139,107,32,0.12), rgba(255,210,122,0.14));
+    display: none;
+  }
+  .marquee.on { display: block; }
 
   .canvas {
     position: relative; min-height: 100%;
@@ -282,8 +294,12 @@
   }
   .clip-tile:hover { border-color: var(--line); transform: translateY(-1px); }
   .clip-tile.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .clip-tile.pick { border-color: var(--amber); box-shadow: inset 0 0 0 1.5px var(--amber); }
+  .clip-tile.pick.on { border-color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--amber), inset 0 0 0 3px var(--ink); }
   .clip-tile.kept { box-shadow: inset 3px 0 0 var(--keep); }
   .clip-tile.kept.on { box-shadow: inset 3px 0 0 var(--keep), inset 0 0 0 1px var(--ink); }
+  .clip-tile.kept.pick { box-shadow: inset 3px 0 0 var(--keep), inset 0 0 0 1.5px var(--amber); }
+  .clip-tile.dragging { opacity: 0.45; }
   .clip-tile .thumb {
     height: var(--ph); display: grid; place-items: center;
     background: light-dark(rgba(26,25,23,0.08), rgba(239,236,230,0.08));
@@ -383,8 +399,13 @@
     padding: 4px; border-radius: 8px; text-align: left;
     transition: outline-color var(--dur-fast) var(--ease-soft);
   }
+  .dock.drop-over {
+    outline: 1.5px dashed var(--keep); outline-offset: -4px;
+  }
   .dock-tile:hover { background: var(--fill); }
   .dock-tile.on { outline: 1.5px solid var(--amber); outline-offset: 0; }
+  .dock-tile.dragging { opacity: 0.4; }
+  .dock-tile.insert-before { box-shadow: inset 3px 0 0 var(--amber); }
   .dock-tile .pic {
     height: 98px; border-radius: 4px; overflow: hidden;
     background: light-dark(rgba(26,25,23,0.08), #2A2826);
@@ -416,8 +437,8 @@
   .scrim {
     position: fixed; inset: 0;
     background: light-dark(rgba(26,25,23,0.28), rgba(0,0,0,0.5));
-    z-index: 50; display: none; align-items: flex-end; justify-content: center;
-    padding: 24px;
+    z-index: 50; display: none; align-items: center; justify-content: center;
+    padding: 24px 24px 172px;
   }
   .scrim.on { display: flex; }
   .sheet {
@@ -515,7 +536,7 @@
     <span class="say" id="ti-say">every 30 s</span>
   </div>
 
-  <div class="body">
+  <div class="body" id="body">
     <div class="canvas-wrap" id="scroller">
       <div class="canvas" id="canvas">
         <div class="rod" id="rod" title="Drag to scrub time" aria-label="Time scrub">
@@ -547,7 +568,7 @@
   </div>
 
   <div class="foot">
-    <span id="foot-keys">← → · Space · K · ⇧R</span>
+    <span id="foot-keys">← → · Space · K · ⇧ / ⌘ · drag dock · ⇧R</span>
     <span class="grow"></span>
     <span id="foot-right">not kept stay on Place</span>
   </div>
@@ -603,6 +624,7 @@
   <div class="stacks-body" id="stacks-body"></div>
 </div>
 
+<div class="marquee" id="marquee" aria-hidden="true"></div>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -617,7 +639,7 @@
   const TW = [148, 176, 208, 248, 300]; // larger cards by zl
   const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-  const CLIPS = [
+  const ALL_CLIPS = [
     { id:"P01", name:"IMG_2041", src:"phone", log:false, dur:8.2,  bytes:0.18e9, soft:false, t:"2026-10-12T09:14:02" },
     { id:"P02", name:"IMG_2042", src:"phone", log:false, dur:6.1,  bytes:0.14e9, soft:true,  t:"2026-10-12T09:14:18" },
     { id:"P03", name:"IMG_2043", src:"phone", log:false, dur:7.0,  bytes:0.16e9, soft:false, t:"2026-10-12T09:14:41" },
@@ -643,12 +665,18 @@
     { id:"C12", name:"C4971",    src:"card",  log:true,  dur:10.2, bytes:0.39e9, soft:false, t:"2026-10-13T09:10:18" },
     { id:"C13", name:"C4980",    src:"card",  log:false, dur:6.6,  bytes:0.19e9, soft:false, t:"2026-10-13T09:45:40" },
   ];
+  const HANDOFF_SRC = { "sony-card": "card", "sony-card-2": "card", drone: "drone", phone: "phone" };
+  let CLIPS = ALL_CLIPS.slice();
 
   const state = {
     ti: TI_DEF,
     rec709: true,
     cursor: CLIPS[0].id,
     keeps: new Set(),
+    keepOrder: [],
+    picked: new Set(),
+    anchor: null,
+    large: false,
     nle: "premiere",
     packaged: false,
     place: "~/Movies/Dump-Day1",
@@ -660,14 +688,39 @@
     playing: false,
     skim: 0,
     scrubbing: false,
+    handoff: null,
   };
+  const mq = { on: false, x0: 0, y0: 0, moved: false, skipClick: false };
 
   const $ = (id) => document.getElementById(id);
   const must = (id) => { const el = $(id); if (!el) throw new Error("missing #" + id); return el; };
   const fmtGB = (b) => (b / GB).toFixed(1) + " GB";
   const fmtDur = (s) => (s < 60 ? Math.round(s) + " s" : Math.floor(s / 60) + ":" + String(Math.round(s % 60)).padStart(2, "0"));
   const clipById = (id) => CLIPS.find((c) => c.id === id);
-  const keptList = () => CLIPS.filter((c) => state.keeps.has(c.id));
+  const keptList = () => {
+    const map = new Map(CLIPS.map((c) => [c.id, c]));
+    const ordered = state.keepOrder.filter((id) => state.keeps.has(id)).map((id) => map.get(id)).filter(Boolean);
+    const extra = CLIPS.filter((c) => state.keeps.has(c.id) && !state.keepOrder.includes(c.id));
+    return ordered.concat(extra);
+  };
+  function applyHandoff() {
+    let h = null;
+    try { h = JSON.parse(sessionStorage.getItem("lumina-keep-handoff") || "null"); }
+    catch (_) { h = null; }
+    if (!h || typeof h !== "object") return;
+    state.handoff = h;
+    if (h.place) state.place = h.place;
+    const src = HANDOFF_SRC[h.vol];
+    if (src) {
+      const cut = ALL_CLIPS.filter((c) => c.src === src);
+      if (cut.length) CLIPS = cut;
+    }
+    if (!CLIPS.some((c) => c.id === state.cursor)) state.cursor = CLIPS[0].id;
+    const label = h.volume || h.name || "dump";
+    $("shoot-name").textContent = "Sort · " + label;
+    const n = h.files || CLIPS.length;
+    $("shoot-line").textContent = CLIPS.length + " on the axis · " + n + " from " + (h.name || label);
+  }
   const notKept = () => CLIPS.filter((c) => !state.keeps.has(c.id));
   const keptBytes = () => keptList().reduce((a, c) => a + c.bytes, 0);
   const notKeptBytes = () => notKept().reduce((a, c) => a + c.bytes, 0);
@@ -816,9 +869,11 @@
       for (const c of clips) {
         const kept = state.keeps.has(c.id);
         const on = c.id === state.cursor;
+        const pick = state.picked.has(c.id);
         html +=
           '<button type="button" class="clip-tile' + (kept ? " kept" : "") + (on ? " on" : "") +
-          '" data-id="' + c.id + '" style="animation-delay:' + Math.min(ri * 18 + 20, 160) + 'ms">' +
+          (pick ? " pick" : "") +
+          '" data-id="' + c.id + '" draggable="true" style="animation-delay:' + Math.min(ri * 18 + 20, 160) + 'ms">' +
           '<div class="thumb">' + c.src.toUpperCase() + "</div>" +
           '<div class="cn">' + c.name + "</div>" +
           '<div class="cm">' + fmtDur(c.dur) + " · " + fmtGB(c.bytes) +
@@ -862,7 +917,7 @@
         const on = foc === c.id || (!foc && c.id === state.cursor);
         html +=
           '<button type="button" class="dock-tile' + (on ? " on" : "") + '" data-dock="' + c.id +
-          '" title="' + c.name + '">' +
+          '" draggable="true" title="' + c.name + ' · drag to reorder">' +
           '<div class="pic">' + c.src.toUpperCase() + "</div>" +
           '<div class="lab"><span class="n">' + c.name + '</span><span class="s">' +
           fmtDur(c.dur) + "</span></div></button>";
@@ -871,6 +926,12 @@
     }
     $("dock-export").disabled = kept.length === 0;
     $("dock-clean").disabled = !state.packaged;
+  }
+
+  function setLarge(on) {
+    state.large = !!on;
+    const body = $("body");
+    if (body) body.classList.toggle("large-on", state.large);
   }
 
   function renderViewer() {
@@ -911,29 +972,90 @@
     state.toastTimer = setTimeout(() => t.classList.remove("on"), 2600);
   }
 
-  function toggleKeep(id) {
-    if (state.keeps.has(id)) {
-      state.keeps.delete(id);
-      if (state.dockFoc === id) state.dockFoc = null;
-    } else {
+  function markPackagedDirty() {
+    if (!state.packaged) return;
+    state.packaged = false;
+    $("export-open").disabled = true;
+    toast("Keeps changed · package again before Clean");
+  }
+  function keepOne(id, on) {
+    if (on) {
       state.keeps.add(id);
-      state.dockFoc = id;
+      if (!state.keepOrder.includes(id)) state.keepOrder.push(id);
+    } else {
+      state.keeps.delete(id);
+      state.keepOrder = state.keepOrder.filter((x) => x !== id);
+      if (state.dockFoc === id) state.dockFoc = null;
     }
-    if (state.packaged) {
-      state.packaged = false;
-      $("export-open").disabled = true;
-      toast("Keeps changed · package again before Clean");
-    }
+  }
+  function toggleKeep(id) {
+    keepOne(id, !state.keeps.has(id));
+    if (state.keeps.has(id)) state.dockFoc = id;
+    markPackagedDirty();
     render();
   }
+  function toggleKeepSel() {
+    const ids = state.picked.size ? [...state.picked] : [state.cursor];
+    const allKept = ids.every((id) => state.keeps.has(id));
+    ids.forEach((id) => keepOne(id, !allKept));
+    if (!allKept && ids.length) state.dockFoc = ids[ids.length - 1];
+    markPackagedDirty();
+    render();
+  }
+  function reorderKeep(id, beforeId) {
+    if (!state.keeps.has(id)) return;
+    state.keepOrder = state.keepOrder.filter((x) => x !== id);
+    if (!beforeId || !state.keepOrder.includes(beforeId)) state.keepOrder.push(id);
+    else state.keepOrder.splice(state.keepOrder.indexOf(beforeId), 0, id);
+    markPackagedDirty();
+    renderDock();
+  }
 
-  function selectClip(id, fromDock) {
+  function pickIds(ids, { additive, toggle } = {}) {
+    if (!additive && !toggle) state.picked = new Set();
+    (ids || []).forEach((id) => {
+      if (toggle && state.picked.has(id)) state.picked.delete(id);
+      else state.picked.add(id);
+    });
+  }
+  function rangeIds(a, b) {
+    const i = CLIPS.findIndex((c) => c.id === a);
+    const j = CLIPS.findIndex((c) => c.id === b);
+    if (i < 0 || j < 0) return b ? [b] : [];
+    const [lo, hi] = i < j ? [i, j] : [j, i];
+    return CLIPS.slice(lo, hi + 1).map((c) => c.id);
+  }
+  function selectClip(id, fromDock, ev) {
+    if (!id) return;
     state.cursor = id;
     state.skim = 0;
     if (fromDock) state.dockFoc = id;
-    render();
+    const shift = !!(ev && ev.shiftKey);
+    const meta = !!(ev && (ev.metaKey || ev.ctrlKey));
+    if (shift) {
+      const a = state.anchor || state.cursor;
+      pickIds(rangeIds(a, id));
+    } else if (meta) {
+      pickIds([id], { toggle: true, additive: true });
+      state.anchor = id;
+    } else {
+      pickIds([id]);
+      state.anchor = id;
+    }
+    paintSelection();
+    renderViewer();
+    renderDock();
     const el = document.querySelector('.clip-tile[data-id="' + id + '"]');
     if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+  function paintSelection() {
+    document.querySelectorAll(".clip-tile[data-id]").forEach((el) => {
+      const id = el.dataset.id;
+      el.classList.toggle("on", id === state.cursor);
+      el.classList.toggle("pick", state.picked.has(id));
+      el.classList.toggle("kept", state.keeps.has(id));
+    });
+    syncPlayhead();
   }
 
   function scrubAtY(clientY) {
@@ -1033,34 +1155,56 @@
     setRecUI();
     renderViewer();
   };
-  $("tab-export").onclick = openShip;
-  $("dock-export").onclick = openShip;
+  $("tab-export").onclick = openExport;
+  $("dock-export").onclick = openExport;
   $("dock-clean").onclick = openClean;
 
   $("canvas").onclick = (e) => {
+    if (mq.skipClick) { mq.skipClick = false; return; }
     if (e.target.closest(".rod")) return;
     const run = e.target.closest("[data-run-sel]");
     if (run) {
       const ri = +run.dataset.runSel;
       const { runs } = runsForTi();
       const clips = runs[ri] || [];
-      if (clips[0]) selectClip(clips[0].id);
+      const ids = clips.map((c) => c.id);
+      if (!ids.length) return;
+      if (e.metaKey || e.ctrlKey) pickIds(ids, { additive: true });
+      else pickIds(ids);
+      state.cursor = ids[0];
+      state.anchor = ids[0];
+      render();
       return;
     }
     const tile = e.target.closest(".clip-tile[data-id]");
-    if (tile) selectClip(tile.dataset.id);
+    if (tile) selectClip(tile.dataset.id, false, e);
+    else if (!e.shiftKey && !e.metaKey && !e.ctrlKey) {
+      state.picked = new Set();
+      renderCanvas();
+    }
   };
   $("canvas").ondblclick = (e) => {
     const tile = e.target.closest(".clip-tile[data-id]");
-    if (tile) toggleKeep(tile.dataset.id);
+    if (!tile) return;
+    selectClip(tile.dataset.id, false, e);
+    setLarge(true);
+    renderViewer();
   };
+  $("v-frame").ondblclick = () => { setLarge(false); };
 
   $("dock-row").onclick = (e) => {
     const t = e.target.closest("[data-dock]");
     if (t) selectClip(t.dataset.dock, true);
   };
+  $("dock-row").ondblclick = (e) => {
+    const t = e.target.closest("[data-dock]");
+    if (!t) return;
+    selectClip(t.dataset.dock, true);
+    setLarge(true);
+    renderViewer();
+  };
 
-  $("v-keep").onclick = () => toggleKeep(state.cursor);
+  $("v-keep").onclick = () => toggleKeepSel();
 
   // Viewer skim / play
   const stage = $("v-frame");
@@ -1082,7 +1226,7 @@
   stage.addEventListener("pointerup", () => { skimDrag = false; });
   stage.addEventListener("pointercancel", () => { skimDrag = false; });
 
-  $("export-cancel").onclick = closeShip;
+  $("export-cancel").onclick = closeExport;
   $("export-scrim").onclick = (e) => { if (e.target === $("export-scrim")) closeExport(); };
   $("export-go").onclick = doPackage;
   $("export-open").onclick = doOpenNle;
@@ -1181,12 +1325,158 @@
   rod.addEventListener("pointerup", rodEnd);
   rod.addEventListener("pointercancel", rodEnd);
 
+  // Tile → dock keep; dock reorder; canvas drop unkeeps a dock tile
+  let dragKind = null; // "clips" | "dock"
+  let dragIds = [];
+  $("canvas").addEventListener("dragstart", (e) => {
+    const tile = e.target.closest(".clip-tile[data-id]");
+    if (!tile) return;
+    const id = tile.dataset.id;
+    if (!state.picked.has(id)) pickIds([id]);
+    dragKind = "clips";
+    dragIds = [...state.picked];
+    e.dataTransfer.setData("text/plain", dragIds.join(","));
+    e.dataTransfer.setData("application/x-lumina-clips", JSON.stringify(dragIds));
+    e.dataTransfer.effectAllowed = "copy";
+    tile.classList.add("dragging");
+  });
+  $("canvas").addEventListener("dragend", (e) => {
+    const tile = e.target.closest(".clip-tile");
+    if (tile) tile.classList.remove("dragging");
+    dragKind = null; dragIds = [];
+    $("dock").classList.remove("drop-over");
+  });
+  $("canvas").addEventListener("dragover", (e) => {
+    if (dragKind !== "dock") return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  });
+  $("canvas").addEventListener("drop", (e) => {
+    if (dragKind !== "dock") return;
+    e.preventDefault();
+    const id = dragIds[0];
+    if (id) {
+      keepOne(id, false);
+      markPackagedDirty();
+      render();
+    }
+  });
+
+  const dock = $("dock");
+  const dockRow = $("dock-row");
+  dock.addEventListener("dragover", (e) => {
+    if (dragKind !== "clips" && dragKind !== "dock") return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = dragKind === "dock" ? "move" : "copy";
+    dock.classList.add("drop-over");
+  });
+  dock.addEventListener("dragleave", (e) => {
+    if (!dock.contains(e.relatedTarget)) dock.classList.remove("drop-over");
+  });
+  dock.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dock.classList.remove("drop-over");
+    const before = e.target.closest("[data-dock]");
+    const beforeId = before ? before.dataset.dock : null;
+    if (dragKind === "clips") {
+      dragIds.forEach((id) => keepOne(id, true));
+      if (dragIds.length) state.dockFoc = dragIds[dragIds.length - 1];
+      markPackagedDirty();
+      render();
+      return;
+    }
+    if (dragKind === "dock" && dragIds[0] && dragIds[0] !== beforeId) {
+      reorderKeep(dragIds[0], beforeId);
+    }
+  });
+  dockRow.addEventListener("dragstart", (e) => {
+    const t = e.target.closest("[data-dock]");
+    if (!t) return;
+    dragKind = "dock";
+    dragIds = [t.dataset.dock];
+    e.dataTransfer.setData("text/plain", t.dataset.dock);
+    e.dataTransfer.effectAllowed = "move";
+    t.classList.add("dragging");
+  });
+  dockRow.addEventListener("dragend", (e) => {
+    const t = e.target.closest(".dock-tile");
+    if (t) t.classList.remove("dragging");
+    dock.querySelectorAll(".insert-before").forEach((el) => el.classList.remove("insert-before"));
+    dragKind = null; dragIds = [];
+    dock.classList.remove("drop-over");
+  });
+  dockRow.addEventListener("dragover", (e) => {
+    if (dragKind !== "dock") return;
+    const t = e.target.closest("[data-dock]");
+    dock.querySelectorAll(".insert-before").forEach((el) => el.classList.remove("insert-before"));
+    if (t) t.classList.add("insert-before");
+  });
+
+  // Marquee on empty canvas (not rod / tile / two-finger pinch)
+  const marquee = $("marquee");
+  function mqBox(x, y) {
+    const l = Math.min(mq.x0, x), t = Math.min(mq.y0, y);
+    const w = Math.abs(x - mq.x0), h = Math.abs(y - mq.y0);
+    marquee.style.left = l + "px";
+    marquee.style.top = t + "px";
+    marquee.style.width = w + "px";
+    marquee.style.height = h + "px";
+    return { l, t, r: l + w, b: t + h };
+  }
+  function mqHits(box) {
+    const ids = [];
+    document.querySelectorAll(".clip-tile[data-id]").forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.right >= box.l && r.left <= box.r && r.bottom >= box.t && r.top <= box.b) ids.push(el.dataset.id);
+    });
+    return ids;
+  }
+  scroller.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || e.button !== 0) return;
+    if (e.target.closest(".rod") || e.target.closest(".clip-tile") || e.target.closest(".run-mark")) return;
+    if (pinch.pts.size >= 2) return;
+    mq.on = true; mq.moved = false; mq.x0 = e.clientX; mq.y0 = e.clientY;
+    scroller.setPointerCapture(e.pointerId);
+  });
+  scroller.addEventListener("pointermove", (e) => {
+    if (!mq.on) return;
+    if (Math.hypot(e.clientX - mq.x0, e.clientY - mq.y0) < 5 && !mq.moved) return;
+    mq.moved = true;
+    scroller.classList.add("marqueeing");
+    marquee.classList.add("on");
+    const ids = mqHits(mqBox(e.clientX, e.clientY));
+    pickIds(ids, { additive: e.shiftKey || e.metaKey || e.ctrlKey });
+    renderCanvas();
+  });
+  function mqEnd() {
+    if (!mq.on) return;
+    mq.on = false;
+    marquee.classList.remove("on");
+    scroller.classList.remove("marqueeing");
+    if (mq.moved) {
+      mq.skipClick = true;
+      requestAnimationFrame(syncPlayhead);
+    }
+  }
+  scroller.addEventListener("pointerup", mqEnd);
+  scroller.addEventListener("pointercancel", mqEnd);
+
   document.addEventListener("keydown", (e) => {
-    if (e.target.matches("input, textarea")) return;
+    if (e.target && e.target.matches && e.target.matches("input, textarea")) return;
     const idx = CLIPS.findIndex((c) => c.id === state.cursor);
     if ((e.key === "k" || e.key === "K") && !e.metaKey && !e.ctrlKey) {
       e.preventDefault();
-      toggleKeep(state.cursor);
+      toggleKeepSel();
+    } else if ((e.key === "a" || e.key === "A") && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      pickIds(CLIPS.map((c) => c.id));
+      renderCanvas();
+      toast(state.picked.size + " selected");
+    } else if ((e.key === "Backspace" || e.key === "Delete") && state.dockFoc) {
+      e.preventDefault();
+      keepOne(state.dockFoc, false);
+      markPackagedDirty();
+      render();
     } else if (e.key === " ") {
       e.preventDefault();
       state.playing = !state.playing;
@@ -1194,10 +1484,10 @@
       renderViewer();
     } else if (e.key === "ArrowRight" && idx < CLIPS.length - 1) {
       e.preventDefault();
-      selectClip(CLIPS[idx + 1].id);
+      selectClip(CLIPS[idx + 1].id, false, e);
     } else if (e.key === "ArrowLeft" && idx > 0) {
       e.preventDefault();
-      selectClip(CLIPS[idx - 1].id);
+      selectClip(CLIPS[idx - 1].id, false, e);
     } else if (e.key === "ArrowDown" && state.keeps.size) {
       e.preventDefault();
       const kept = keptList();
@@ -1217,6 +1507,8 @@
       if ($("stacks").classList.contains("on")) closeStacks();
       else if ($("clean-scrim").classList.contains("on")) closeClean();
       else if ($("export-scrim").classList.contains("on")) closeExport();
+      else if (state.large) setLarge(false);
+      else if (state.picked.size) { state.picked = new Set(); renderCanvas(); }
       else if (state.dockFoc) { state.dockFoc = null; renderDock(); }
     }
   });
@@ -1224,12 +1516,16 @@
   window.addEventListener("resize", () => renderCanvas());
 
   // Unified Keep boot: dump Place + multi-device contact sheet
-  $("shoot-name").textContent = "Sort · day 1";
-  $("shoot-line").textContent = CLIPS.length + " clips · phone + drone + card";
+  applyHandoff();
+  if (!state.handoff) {
+    $("shoot-name").textContent = "Sort · day 1";
+    $("shoot-line").textContent = CLIPS.length + " clips · phone + drone + card";
+  }
   $("place-path").textContent = state.place;
   $("export-to").textContent = state.place + "/Package";
   syncNle();
   render();
+  window.__keep = { state, clips: () => CLIPS, keptList, toggleKeepSel, reorderKeep, setLarge, setTi, paintSelection, render };
 })();
 </script>
 </body>
