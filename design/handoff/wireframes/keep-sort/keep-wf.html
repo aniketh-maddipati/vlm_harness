@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumina · Sort wireframe</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --ink: light-dark(#1a1917, #EFECE6);
+    --mute: light-dark(#6b6760, #9A958D);
+    --line: light-dark(rgba(26,25,23,0.35), rgba(239,236,230,0.35));
+    --fill: light-dark(rgba(26,25,23,0.04), rgba(239,236,230,0.06));
+    --bg: light-dark(#F6F3EE, #1C1B19);
+    --keep: light-dark(#2E7840, #A9D18E);
+    --amber: light-dark(#8B6B20, #FFD27A);
+    --serif: "Iowan Old Style", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    --pad-x: clamp(14px, 2vw, 22px);
+    --pad-y: clamp(10px, 1.4vh, 16px);
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+    --dur: 320ms;
+    --dur-fast: 180ms;
+    --gut: clamp(108px, 14vw, 140px);
+    --tw: 200px;
+    --ph: 112px;
+    --tile-gap: 16px;
+    --run-gap: 22px;
+  }
+  * { box-sizing: border-box; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes sheet-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translate(-50%, 8px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+  @keyframes play-pulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 13px/1.4 var(--sans); -webkit-font-smoothing: antialiased;
+  }
+  button {
+    font: inherit; color: inherit; background: transparent; border: 0;
+    padding: 0; margin: 0; cursor: pointer; -webkit-appearance: none; appearance: none;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .app {
+    height: 100vh; height: 100dvh; max-height: 100dvh;
+    display: flex; flex-direction: column;
+    background: light-dark(#fff, #141312);
+    min-width: 0; overflow: hidden;
+  }
+
+  /* —— Top bar —— */
+  .top {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px;
+    padding: var(--pad-y) var(--pad-x);
+    border-bottom: 1.5px solid var(--line); flex: none;
+  }
+  .brand { font-family: var(--serif); font-size: clamp(16px, 1.5vw + 12px, 18px); }
+  .tabs { display: flex; gap: 4px; font-size: 12px; color: var(--mute); }
+  .tabs a, .tabs button {
+    padding: 4px 10px; border-radius: 6px; font-weight: 600; color: var(--mute);
+  }
+  .tabs a:hover, .tabs button:hover { color: var(--ink); background: var(--fill); }
+  .tabs .on {
+    color: var(--ink); font-weight: 700;
+    text-decoration: underline; text-underline-offset: 4px;
+  }
+  .top .spacer { flex: 1; min-width: 12px; }
+  .hint {
+    color: var(--mute); font-size: 11px; max-width: 28vw;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none;
+  }
+
+  /* Rec.709 — large press toggle, trailing, on by default */
+  .rec-sw {
+    flex: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+    height: 44px; min-width: 140px; padding: 0 18px; border-radius: 10px;
+    border: 1.5px solid var(--line);
+    font-size: 15px; font-weight: 750; color: var(--mute);
+    background: light-dark(rgba(26,25,23,0.04), rgba(239,236,230,0.06));
+    user-select: none;
+    transition: background var(--dur-fast) var(--ease-soft),
+      border-color var(--dur-fast) var(--ease-soft),
+      color var(--dur-fast) var(--ease-soft),
+      transform 80ms var(--ease-out);
+  }
+  .rec-sw:hover { color: var(--ink); border-color: var(--ink); }
+  .rec-sw:active { transform: scale(0.97); }
+  .rec-sw[aria-checked="true"] {
+    color: var(--ink); border-color: var(--ink);
+    background: light-dark(rgba(26,25,23,0.1), rgba(239,236,230,0.14));
+  }
+  .rec-sw .knob {
+    width: 40px; height: 24px; border-radius: 12px; position: relative; flex: none;
+    background: light-dark(rgba(26,25,23,0.18), rgba(239,236,230,0.18));
+    transition: background 120ms var(--ease-soft);
+  }
+  .rec-sw[aria-checked="true"] .knob { background: light-dark(#2E7840, #A9D18E); }
+  .rec-sw .knob::after {
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: light-dark(#fff, #EFECE6);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    transition: left 120ms var(--ease-soft);
+  }
+  .rec-sw[aria-checked="true"] .knob::after { left: 18px; }
+
+  .primary, .ghost, .danger, .keep-btn {
+    font: inherit; font-size: 13px; font-weight: 700;
+    padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); cursor: pointer;
+  }
+  .primary {
+    background: var(--ink); color: light-dark(#fff, #141312); border-color: var(--ink);
+  }
+  .primary:disabled, .danger:disabled, .ghost:disabled { opacity: 0.35; cursor: default; }
+  .ghost:hover { background: var(--fill); }
+  .danger {
+    color: light-dark(#8B2E2E, #F0A8A0);
+    border-color: light-dark(rgba(139,46,46,0.35), rgba(240,168,160,0.35));
+    background: light-dark(rgba(139,46,46,0.06), rgba(240,168,160,0.08));
+  }
+
+  /* —— Fold bar: Place + pinch feedback (no −/= buttons) —— */
+  .fold-bar {
+    flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px var(--pad-x); border-bottom: 1px solid var(--line);
+    font-size: 12px; font-weight: 650; color: var(--mute);
+  }
+  .fold-bar .title { font-family: var(--serif); font-size: 20px; font-weight: 400; color: var(--ink); }
+  .fold-bar .grow { flex: 1; min-width: 8px; }
+  .ti-feed {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 8px; background: var(--fill);
+    border: 1px solid transparent;
+    transition: border-color var(--dur-fast) var(--ease-soft), background var(--dur-fast) var(--ease-soft);
+  }
+  .ti-feed.flash {
+    border-color: var(--amber);
+    background: light-dark(rgba(139,107,32,0.08), rgba(255,210,122,0.1));
+  }
+  .ti-feed .iv {
+    color: var(--ink); font-weight: 750; min-width: 3.5ch; text-align: center;
+    font-variant-numeric: tabular-nums;
+    transition: transform 160ms var(--ease-out);
+  }
+  .ti-feed.flash .iv { transform: scale(1.06); }
+  .fold-bar .say {
+    color: var(--amber); font-weight: 700; opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-soft);
+  }
+  .fold-bar .say.on { opacity: 1; }
+  .place-pill {
+    font-size: 11px; font-weight: 650; color: var(--mute);
+    padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line);
+    max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .place-pill strong { color: var(--ink); font-weight: 700; }
+
+  /* —— Body: dump sheet; large view overlays in place —— */
+  .body {
+    flex: 1; min-height: 0; display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    position: relative;
+  }
+  .body.large-on {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 46vw);
+  }
+  @media (max-width: 900px) {
+    .body.large-on { grid-template-columns: 1fr; }
+    .body.large-on .viewer { position: absolute; inset: 0; z-index: 5; }
+  }
+
+  .canvas-wrap {
+    min-width: 0; min-height: 0; overflow: auto;
+    background: var(--fill); position: relative;
+    touch-action: pan-y;
+    cursor: default;
+  }
+  .canvas-wrap.scrubbing { cursor: ns-resize; }
+  .canvas-wrap.pinching { cursor: zoom-in; }
+
+  .canvas {
+    position: relative; min-height: 100%;
+    padding: 18px var(--pad-x) 28px 0;
+    transition: padding var(--dur) var(--ease-soft);
+  }
+
+  /* Scrubbable time rod */
+  .rod {
+    position: absolute; left: 14px; top: 18px; bottom: 28px;
+    width: 28px; margin-left: -8px; z-index: 2;
+    cursor: ns-resize; touch-action: none;
+  }
+  .rod::before {
+    content: ""; position: absolute; left: 12px; top: 0; bottom: 0;
+    width: 5px; border-radius: 3px;
+    background: light-dark(#B8B3AB, #8E8A83);
+    transition: background 120ms var(--ease-soft), width 120ms var(--ease-soft);
+  }
+  .rod:hover::before, .rod.scrubbing::before {
+    background: var(--amber); width: 6px;
+  }
+  .rod .playhead {
+    position: absolute; left: 6px; width: 16px; height: 16px;
+    margin-top: -8px; border-radius: 50%;
+    background: var(--ink); border: 2px solid light-dark(#fff, #141312);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    pointer-events: none;
+    transition: top 80ms linear;
+  }
+
+  .run {
+    position: relative; margin-bottom: var(--run-gap);
+    padding-left: var(--gut);
+    transition: margin-bottom var(--dur) var(--ease-soft),
+      padding-left var(--dur) var(--ease-soft);
+  }
+  .run.new-day::before {
+    content: ""; position: absolute; left: var(--gut); right: 16px; top: -10px;
+    height: 1px;
+    background: linear-gradient(90deg, var(--amber), transparent);
+  }
+  .run-mark {
+    position: absolute; left: 0; top: 0; width: var(--gut);
+    min-height: 56px; padding: 6px 12px 6px 36px;
+    display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+    text-align: left; z-index: 1;
+    transition: background var(--dur-fast) var(--ease-soft);
+  }
+  .run-mark:hover { background: var(--fill); border-radius: 8px; }
+  .run-mark .date {
+    font-size: 10px; font-weight: 750; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .run-mark .time {
+    font-size: 16px; font-weight: 750; color: var(--ink); line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .run-mark .meta { font-size: 10px; font-weight: 650; color: var(--mute); }
+  .run-mark .dot {
+    width: 9px; height: 9px; border-radius: 50%; margin-top: 4px;
+    background: light-dark(rgba(26,25,23,0.2), rgba(239,236,230,0.25));
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+  .run-mark.kept-all .dot { background: var(--keep); }
+
+  .run-tiles {
+    display: flex; flex-wrap: wrap; gap: var(--tile-gap);
+    transition: gap var(--dur) var(--ease-soft);
+  }
+  .clip-tile {
+    display: grid; gap: 6px; text-align: left; padding: 0;
+    width: var(--tw);
+    border-radius: 12px; border: 1.5px solid transparent; overflow: hidden;
+    background: light-dark(#fff, #1a1917); cursor: pointer;
+    animation: card-in var(--dur) var(--ease-out) both;
+    transition: width var(--dur) var(--ease-soft),
+      border-color var(--dur-fast) var(--ease-soft),
+      box-shadow var(--dur-fast) var(--ease-soft),
+      transform 100ms var(--ease-out);
+  }
+  .clip-tile:hover { border-color: var(--line); transform: translateY(-1px); }
+  .clip-tile.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .clip-tile.kept { box-shadow: inset 3px 0 0 var(--keep); }
+  .clip-tile.kept.on { box-shadow: inset 3px 0 0 var(--keep), inset 0 0 0 1px var(--ink); }
+  .clip-tile .thumb {
+    height: var(--ph); display: grid; place-items: center;
+    background: light-dark(rgba(26,25,23,0.08), rgba(239,236,230,0.08));
+    font-size: 11px; font-weight: 750; color: var(--mute); letter-spacing: 0.04em;
+    position: relative;
+    transition: height var(--dur) var(--ease-soft);
+  }
+  .clip-tile.kept .thumb { color: var(--keep); }
+  .clip-tile .cn {
+    padding: 0 10px; font-size: 13px; font-weight: 700;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .clip-tile .cm {
+    padding: 0 10px 10px; font-size: 11px; color: var(--mute); font-weight: 650;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* —— Large view (double-click toggle) —— */
+  .viewer {
+    display: none;
+    border-left: 1px solid var(--line);
+    flex-direction: column;
+    padding: clamp(14px, 2vw, 22px); gap: 14px;
+    min-width: 0; background: light-dark(#fff, #191816);
+  }
+  .body.large-on .viewer { display: flex; }
+  .cv-stage {
+    flex: 1; min-height: 180px; max-height: min(72vh, 720px);
+    border-radius: 14px;
+    background: light-dark(rgba(26,25,23,0.06), rgba(239,236,230,0.06));
+    display: grid; place-items: center; position: relative; overflow: hidden;
+    cursor: ew-resize; user-select: none; touch-action: none;
+  }
+  .cv-stage.kept { box-shadow: inset 0 0 0 2px var(--keep); }
+  .cv-stage .play-mark {
+    position: absolute; left: 12px; bottom: 12px;
+    width: 8px; height: 8px; border-radius: 50%; background: var(--amber);
+    animation: play-pulse 1.4s var(--ease-soft) infinite;
+    opacity: 0; pointer-events: none;
+  }
+  .cv-stage.playing .play-mark { opacity: 1; }
+  .cv-stage .skim-bar {
+    position: absolute; left: 12%; right: 12%; bottom: 18px; height: 3px;
+    border-radius: 2px; background: light-dark(rgba(26,25,23,0.15), rgba(239,236,230,0.2));
+    overflow: hidden; opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-soft);
+  }
+  .cv-stage.playing .skim-bar, .cv-stage:hover .skim-bar { opacity: 1; }
+  .cv-stage .skim-bar > i {
+    display: block; height: 100%; width: 0%;
+    background: var(--ink); border-radius: 2px;
+  }
+  .cv-mark {
+    font-size: 12px; font-weight: 750; letter-spacing: 0.04em;
+    padding: 7px 12px; border-radius: 7px;
+    background: light-dark(rgba(26,25,23,0.1), rgba(239,236,230,0.12));
+  }
+  .cv-name { font-family: var(--serif); font-size: clamp(20px, 2vw + 12px, 26px); }
+  .cv-info { color: var(--mute); font-size: 12px; font-weight: 600; }
+  .keep-btn[aria-pressed="true"] {
+    background: light-dark(rgba(46,120,64,0.14), rgba(169,209,142,0.18));
+    border-color: var(--keep); color: var(--keep);
+  }
+
+  /* —— Kept dock: always reserved height (Keep never reflows chrome) —— */
+  .dock {
+    flex: none; position: relative; z-index: 3;
+    display: flex; gap: 12px; align-items: stretch;
+    padding: 12px var(--pad-x) 14px;
+    background: light-dark(rgba(246,243,238,0.92), rgba(35,34,32,0.88));
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    backdrop-filter: blur(14px) saturate(1.2);
+    border-top: 1px solid var(--line);
+    height: 148px; min-height: 148px; max-height: 148px;
+    box-sizing: border-box;
+  }
+  .dock-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .dock-empty-ph {
+    flex: none; height: var(--dph, 98px); min-width: 176px;
+    border-radius: 4px;
+    border: 1.5px dashed light-dark(rgba(26,25,23,0.18), rgba(239,236,230,0.2));
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 650; color: var(--mute);
+  }
+  .dock-sum {
+    font-size: 12px; font-weight: 700; color: var(--mute);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dock-sum.foc { color: var(--amber); }
+  .dock-row {
+    display: flex; align-items: flex-start; gap: 6px;
+    overflow-x: auto; overflow-y: hidden; padding: 3px; margin: -3px;
+  }
+  .dock-tile {
+    flex: none; width: 176px;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 4px; border-radius: 8px; text-align: left;
+    transition: outline-color var(--dur-fast) var(--ease-soft);
+  }
+  .dock-tile:hover { background: var(--fill); }
+  .dock-tile.on { outline: 1.5px solid var(--amber); outline-offset: 0; }
+  .dock-tile .pic {
+    height: 98px; border-radius: 4px; overflow: hidden;
+    background: light-dark(rgba(26,25,23,0.08), #2A2826);
+    box-shadow: inset 0 0 0 2px var(--keep);
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 750; color: var(--keep); letter-spacing: 0.04em;
+  }
+  .dock-tile .lab {
+    display: flex; gap: 6px; white-space: nowrap; overflow: hidden;
+    font-size: 11px; font-weight: 650;
+  }
+  .dock-tile .lab .n {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink);
+  }
+  .dock-tile .lab .s { flex: none; margin-left: auto; color: var(--mute); }
+  .dock-gap { flex: none; width: 12px; }
+  .dock-side {
+    flex: none; display: flex; flex-direction: column; gap: 8px;
+    justify-content: center; align-items: stretch; min-width: 110px;
+  }
+
+  .foot {
+    flex: none; display: flex; align-items: center; gap: 12px;
+    padding: 8px var(--pad-x); border-top: 1px solid var(--line);
+    font-size: 12px; font-weight: 650; color: var(--mute);
+  }
+  .foot .grow { flex: 1; }
+
+  .scrim {
+    position: fixed; inset: 0;
+    background: light-dark(rgba(26,25,23,0.28), rgba(0,0,0,0.5));
+    z-index: 50; display: none; align-items: flex-end; justify-content: center;
+    padding: 24px;
+  }
+  .scrim.on { display: flex; }
+  .sheet {
+    width: min(440px, 100%);
+    background: light-dark(#fff, #1a1917);
+    border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+    display: grid; gap: 12px; animation: sheet-in var(--dur) var(--ease-out);
+    box-shadow: 0 18px 48px light-dark(rgba(26,25,23,0.12), rgba(0,0,0,0.5));
+  }
+  .sheet h1 { margin: 0; font-family: var(--serif); font-size: 22px; font-weight: 400; }
+  .sheet .sub { color: var(--mute); font-size: 12px; font-weight: 600; margin: 0; }
+  .ship-card {
+    border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+    display: grid; gap: 8px; background: light-dark(#fff, #141312);
+    animation: card-in var(--dur) var(--ease-out) both;
+  }
+  .ship-card.alt { background: var(--fill); }
+  .ship-hd { font-size: 13px; font-weight: 750; }
+  .ship-meta { color: var(--mute); font-size: 12px; font-weight: 600; line-height: 1.4; }
+  .nle { display: flex; gap: 8px; }
+  .nle button {
+    flex: 1; font-size: 12px; font-weight: 750; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--line); color: var(--mute);
+  }
+  .nle button.on { color: var(--ink); border-color: var(--ink); background: var(--fill); }
+  .sheet .actions { display: grid; gap: 8px; }
+  .sheet .warn { font-size: 12px; font-weight: 650; color: var(--amber); }
+
+  .stacks {
+    position: fixed; inset: 0; z-index: 60;
+    background: light-dark(#fff, #141312);
+    display: none; flex-direction: column;
+  }
+  .stacks.on { display: flex; }
+  .stacks-hd {
+    flex: none; display: flex; align-items: center; gap: 12px;
+    padding: 12px var(--pad-x); border-bottom: 1px solid var(--line);
+  }
+  .stacks-hd h1 { margin: 0; flex: 1; font-family: var(--serif); font-size: 20px; font-weight: 400; }
+  .stacks-body {
+    flex: 1; min-height: 0; overflow: auto; padding: 14px var(--pad-x);
+    display: grid; gap: 14px; align-content: start;
+  }
+  .stack-group {
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+    display: grid; gap: 10px; background: light-dark(#fff, #1a1917);
+    animation: card-in var(--dur) var(--ease-out) both;
+  }
+  .sg-hd { display: flex; justify-content: space-between; font-weight: 750; font-size: 13px; }
+  .sg-hd span { color: var(--mute); font-weight: 650; font-size: 11px; }
+  .stack-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center;
+    padding: 8px 10px; border-radius: 8px; background: var(--fill);
+  }
+  .sr-n { font-size: 12px; font-weight: 700; }
+  .sr-m { font-size: 11px; color: var(--mute); font-weight: 600; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 168px; transform: translateX(-50%);
+    z-index: 80; display: none; padding: 10px 16px; border-radius: 12px;
+    background: light-dark(#fff, #33312E); color: var(--ink);
+    border: 1px solid var(--line);
+    box-shadow: 0 8px 28px light-dark(rgba(26,25,23,0.12), rgba(0,0,0,0.45));
+    font-size: 13px; font-weight: 650; white-space: nowrap;
+    animation: toast-in 220ms var(--ease-out);
+  }
+  .toast.on { display: block; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="top">
+    <span class="brand">Lumina</span>
+    <div class="tabs">
+      <a href="import-wf.html">Import</a>
+      <button type="button" class="on">Sort</button>
+      <button type="button" id="tab-export">Export</button>
+    </div>
+    <span class="spacer" aria-hidden="true"></span>
+    <button type="button" class="rec-sw" id="rec-sw" role="switch" aria-checked="true"
+      aria-pressed="true" title="Rec.709 preview filter · ⇧R">
+      Rec.709<span class="knob" aria-hidden="true"></span>
+      <kbd class="rec-kbd">⇧R</kbd>
+    </button>
+  </div>
+
+  <div class="fold-bar">
+    <span class="title" id="shoot-name">Sort · day 1</span>
+    <span id="shoot-line">24 clips</span>
+    <span class="grow"></span>
+    <span class="place-pill">Place <strong id="place-path">~/Movies/Dump-Day1</strong></span>
+    <div class="ti-feed" id="ti-feed" aria-live="polite">
+      <span class="iv" id="ti-word">30 s</span>
+    </div>
+    <span class="say" id="ti-say">every 30 s</span>
+  </div>
+
+  <div class="body">
+    <div class="canvas-wrap" id="scroller">
+      <div class="canvas" id="canvas">
+        <div class="rod" id="rod" title="Drag to scrub time" aria-label="Time scrub">
+          <span class="playhead" id="playhead"></span>
+        </div>
+      </div>
+    </div>
+    <aside class="viewer">
+      <div class="cv-stage" id="v-frame" title="Drag to skim · Space play">
+        <span class="cv-mark" id="v-lab">preview</span>
+        <span class="play-mark" aria-hidden="true"></span>
+        <div class="skim-bar" aria-hidden="true"><i id="skim-fill"></i></div>
+      </div>
+      <div class="cv-name" id="v-title">—</div>
+      <div class="cv-info" id="v-info">—</div>
+      <button type="button" class="keep-btn" id="v-keep" aria-pressed="false">Keep · K</button>
+    </aside>
+  </div>
+
+  <div class="dock" id="dock" aria-label="Kept clips">
+    <div class="dock-main">
+      <div class="dock-sum" id="dock-sum">nothing yet · K keeps the clip you are on</div>
+      <div class="dock-row" id="dock-row"></div>
+    </div>
+    <div class="dock-side">
+      <button type="button" class="primary" id="dock-export" disabled>Export…</button>
+      <button type="button" class="ghost" id="dock-clean" disabled>Clean…</button>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span id="foot-keys">← → · Space · K · ⇧R</span>
+    <span class="grow"></span>
+    <span id="foot-right">not kept stay on Place</span>
+  </div>
+</div>
+
+<div class="scrim" id="export-scrim" role="dialog" aria-label="Export">
+  <div class="sheet">
+    <h1>Export</h1>
+    <p class="sub">Package selected · open in NLE</p>
+    <div class="ship-card">
+      <div class="ship-hd">Package</div>
+      <div class="ship-meta" id="export-pkg">—</div>
+      <div class="ship-meta">To <strong id="export-to">~/Movies/Dump-Day1/Package</strong></div>
+    </div>
+    <div class="ship-card alt">
+      <div class="ship-hd">Open in</div>
+      <div class="nle">
+        <button type="button" class="on" id="nle-premiere">Premiere</button>
+        <button type="button" id="nle-fcp">Final Cut</button>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" class="primary" id="export-go">Make package</button>
+      <button type="button" class="ghost" id="export-open" disabled>Open in Premiere</button>
+      <button type="button" class="ghost" id="export-cancel">Cancel</button>
+    </div>
+    <span class="ship-meta" style="color:var(--mute)">Kept live in the dock below</span>
+  </div>
+</div>
+
+<div class="scrim" id="clean-scrim" role="dialog" aria-label="Clean">
+  <div class="sheet">
+    <h1>Clean</h1>
+    <p class="sub">Trash only · never the card · after package</p>
+    <div class="ship-card">
+      <div class="ship-hd" id="clean-sum">—</div>
+      <div class="warn" id="clean-warn" hidden>Package first · Clean waits on Export</div>
+    </div>
+    <div class="actions">
+      <button type="button" class="danger" id="clean-go" disabled>Clean not kept</button>
+      <button type="button" class="ghost" id="clean-stacks">Review not kept…</button>
+      <button type="button" class="ghost" id="clean-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="stacks" id="stacks" aria-label="Not kept stacks">
+  <div class="stacks-hd">
+    <h1>Not kept</h1>
+    <button type="button" class="ghost" id="stacks-clean">Clean…</button>
+    <button type="button" class="ghost" id="stacks-done">Done</button>
+  </div>
+  <div class="stacks-body" id="stacks-body"></div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function () {
+  const GB = 1e9;
+  // Skim TI: [seconds, tile zl] — pinch folds this; no −/= buttons
+  const TI = [
+    [5, 4], [10, 4], [30, 3], [60, 3], [120, 2], [300, 2],
+    [600, 2], [1800, 1], [3600, 1], [10800, 1], [86400, 1],
+  ];
+  const TI_DEF = 2; // 30 s — tighter default grouping
+  const TW = [148, 176, 208, 248, 300]; // larger cards by zl
+  const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  const CLIPS = [
+    { id:"P01", name:"IMG_2041", src:"phone", log:false, dur:8.2,  bytes:0.18e9, soft:false, t:"2026-10-12T09:14:02" },
+    { id:"P02", name:"IMG_2042", src:"phone", log:false, dur:6.1,  bytes:0.14e9, soft:true,  t:"2026-10-12T09:14:18" },
+    { id:"P03", name:"IMG_2043", src:"phone", log:false, dur:7.0,  bytes:0.16e9, soft:false, t:"2026-10-12T09:14:41" },
+    { id:"P04", name:"IMG_2108", src:"phone", log:false, dur:12.4, bytes:0.28e9, soft:false, t:"2026-10-12T09:22:05" },
+    { id:"D01", name:"DJI_0012", src:"drone", log:true,  dur:22.0, bytes:1.1e9,  soft:false, t:"2026-10-12T10:03:10" },
+    { id:"D02", name:"DJI_0013", src:"drone", log:true,  dur:18.5, bytes:0.95e9, soft:false, t:"2026-10-12T10:03:48" },
+    { id:"D03", name:"DJI_0014", src:"drone", log:true,  dur:14.2, bytes:0.72e9, soft:true,  t:"2026-10-12T10:04:20" },
+    { id:"D04", name:"DJI_0020", src:"drone", log:true,  dur:31.0, bytes:1.6e9,  soft:false, t:"2026-10-12T10:18:02" },
+    { id:"C01", name:"C4815",    src:"card",  log:true,  dur:11.2, bytes:0.42e9, soft:false, t:"2026-10-12T11:02:00" },
+    { id:"C02", name:"C4816",    src:"card",  log:true,  dur:10.8, bytes:0.40e9, soft:false, t:"2026-10-12T11:02:22" },
+    { id:"C03", name:"C4817",    src:"card",  log:true,  dur:12.1, bytes:0.45e9, soft:true,  t:"2026-10-12T11:02:51" },
+    { id:"C04", name:"C4832",    src:"card",  log:true,  dur:13.5, bytes:0.51e9, soft:false, t:"2026-10-12T11:15:40" },
+    { id:"C05", name:"C4866",    src:"card",  log:true,  dur:9.4,  bytes:0.36e9, soft:false, t:"2026-10-12T12:40:05" },
+    { id:"C06", name:"C4867",    src:"card",  log:true,  dur:9.8,  bytes:0.37e9, soft:false, t:"2026-10-12T12:40:28" },
+    { id:"C07", name:"C4925",    src:"card",  log:true,  dur:14.0, bytes:0.55e9, soft:false, t:"2026-10-12T14:08:12" },
+    { id:"C08", name:"C4958",    src:"card",  log:false, dur:8.0,  bytes:0.22e9, soft:false, t:"2026-10-12T14:22:00" },
+    { id:"C09", name:"C4960",    src:"card",  log:true,  dur:16.2, bytes:0.61e9, soft:false, t:"2026-10-12T16:01:33" },
+    { id:"C10", name:"C4961",    src:"card",  log:true,  dur:7.5,  bytes:0.29e9, soft:true,  t:"2026-10-12T16:02:01" },
+    { id:"P05", name:"IMG_2201", src:"phone", log:false, dur:4.2,  bytes:0.09e9, soft:false, t:"2026-10-12T17:30:10" },
+    { id:"P06", name:"IMG_2202", src:"phone", log:false, dur:5.1,  bytes:0.11e9, soft:false, t:"2026-10-12T17:30:22" },
+    { id:"D05", name:"DJI_0033", src:"drone", log:true,  dur:40.0, bytes:2.0e9,  soft:false, t:"2026-10-12T18:05:00" },
+    { id:"C11", name:"C4970",    src:"card",  log:true,  dur:11.0, bytes:0.41e9, soft:false, t:"2026-10-13T09:10:00" },
+    { id:"C12", name:"C4971",    src:"card",  log:true,  dur:10.2, bytes:0.39e9, soft:false, t:"2026-10-13T09:10:18" },
+    { id:"C13", name:"C4980",    src:"card",  log:false, dur:6.6,  bytes:0.19e9, soft:false, t:"2026-10-13T09:45:40" },
+  ];
+
+  const state = {
+    ti: TI_DEF,
+    rec709: true,
+    cursor: CLIPS[0].id,
+    keeps: new Set(),
+    nle: "premiere",
+    packaged: false,
+    place: "~/Movies/Dump-Day1",
+    dockFoc: null,
+    toastTimer: null,
+    tiSayT: null,
+    pinchAcc: 0,
+    _cleanArmed: false,
+    playing: false,
+    skim: 0,
+    scrubbing: false,
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const must = (id) => { const el = $(id); if (!el) throw new Error("missing #" + id); return el; };
+  const fmtGB = (b) => (b / GB).toFixed(1) + " GB";
+  const fmtDur = (s) => (s < 60 ? Math.round(s) + " s" : Math.floor(s / 60) + ":" + String(Math.round(s % 60)).padStart(2, "0"));
+  const clipById = (id) => CLIPS.find((c) => c.id === id);
+  const keptList = () => CLIPS.filter((c) => state.keeps.has(c.id));
+  const notKept = () => CLIPS.filter((c) => !state.keeps.has(c.id));
+  const keptBytes = () => keptList().reduce((a, c) => a + c.bytes, 0);
+  const notKeptBytes = () => notKept().reduce((a, c) => a + c.bytes, 0);
+
+  function tiSec(t) {
+    const v = Date.parse(String(t || "").slice(0, 19) + "Z");
+    return isFinite(v) ? v / 1000 : NaN;
+  }
+  function tiWord(s) {
+    return s < 60 ? s + " s" : s < 3600 ? s / 60 + " min" : s < 86400 ? s / 3600 + " h" : "day";
+  }
+  function tiLabel(t, iv, prev) {
+    const d = String(t || ""), day = d.slice(0, 10);
+    const date = day.length === 10 ? MO[+day.slice(5, 7) - 1] + " " + +day.slice(8, 10) : "";
+    if (iv >= 86400) return { date, time: "" };
+    const sec = tiSec(d);
+    const at = isFinite(sec) ? Math.floor(sec / iv) * iv : null;
+    const hh = at == null ? d.slice(11, 16) : new Date(at * 1000).toISOString().slice(11, iv < 60 ? 19 : 16);
+    const newDay = !prev || String(prev).slice(0, 10) !== day;
+    return newDay && date ? { date, time: hh } : { date: "", time: hh };
+  }
+  function tiCuts(ts, iv) {
+    const out = [];
+    let last = null;
+    for (let i = 0; i < ts.length; i++) {
+      if (!isFinite(ts[i])) continue;
+      const b = Math.floor(ts[i] / iv);
+      if (last != null && b !== last) out.push(i - 1);
+      last = b;
+    }
+    return out;
+  }
+  function runsForTi() {
+    const iv = TI[state.ti][0];
+    const ts = CLIPS.map((c) => tiSec(c.t));
+    const cuts = new Set(tiCuts(ts, iv));
+    const runs = [];
+    let a = 0;
+    for (let i = 0; i < CLIPS.length; i++) {
+      if (i === CLIPS.length - 1 || cuts.has(i)) {
+        runs.push(CLIPS.slice(a, i + 1));
+        a = i + 1;
+      }
+    }
+    return { iv, runs };
+  }
+
+  function tileSize() {
+    const zl = TI[state.ti][1];
+    const tw0 = TW[Math.min(TW.length - 1, zl)];
+    const vw = Math.max(320, ($("scroller").clientWidth || 720) - 40);
+    // Fill width: fewer tiles per row when TI is tight → bigger cards
+    const cols = Math.max(2, Math.min(6, Math.floor(vw / (tw0 + 16))));
+    const gap = cols <= 3 ? 18 : cols <= 4 ? 16 : 14;
+    const tw = Math.min(320, Math.floor((vw - varGut() - gap * (cols - 1) - 8) / cols));
+    const w = Math.max(140, Math.min(320, Math.max(tw0, tw)));
+    return { tw: w, ph: Math.round(w * 9 / 16), gap, runGap: w > 220 ? 28 : 22 };
+  }
+  function varGut() {
+    const g = getComputedStyle(document.documentElement).getPropertyValue("--gut");
+    return parseFloat(g) || 120;
+  }
+  function dockSize() {
+    const n = state.keeps.size;
+    if (n === 0) return { dw: 0, dph: 0 };
+    if (n <= 3) return { dw: 208, dph: 116 };
+    if (n <= 8) return { dw: 176, dph: 98 };
+    return { dw: 140, dph: 78 };
+  }
+
+  function syncNle() {
+    const p = state.nle === "premiere";
+    $("nle-premiere").classList.toggle("on", p);
+    $("nle-fcp").classList.toggle("on", !p);
+    $("export-open").textContent = p ? "Open in Premiere" : "Open in Final Cut";
+  }
+
+  function setRecUI() {
+    $("rec-sw").setAttribute("aria-checked", state.rec709 ? "true" : "false");
+    $("rec-sw").setAttribute("aria-pressed", state.rec709 ? "true" : "false");
+  }
+
+  function setTi(ti, say) {
+    const top = TI.length - 1;
+    ti = Math.max(0, Math.min(top, ti | 0));
+    if (ti === state.ti) return;
+    state.ti = ti;
+    const w = tiWord(TI[ti][0]);
+    $("ti-word").textContent = w;
+    const feed = $("ti-feed");
+    feed.classList.add("flash");
+    clearTimeout(state._tiFlash);
+    state._tiFlash = setTimeout(() => feed.classList.remove("flash"), 420);
+    if (say !== false) {
+      $("ti-say").textContent = "every " + w;
+      $("ti-say").classList.add("on");
+      clearTimeout(state.tiSayT);
+      state.tiSayT = setTimeout(() => $("ti-say").classList.remove("on"), 1200);
+    }
+    renderCanvas();
+  }
+
+  function syncPlayhead() {
+    const ph = $("playhead");
+    const tile = document.querySelector('.clip-tile[data-id="' + state.cursor + '"]');
+    const canvas = $("canvas");
+    if (!tile || !ph) return;
+    const cr = canvas.getBoundingClientRect();
+    const tr = tile.getBoundingClientRect();
+    const top = tr.top - cr.top + tr.height / 2;
+    ph.style.top = Math.max(8, top) + "px";
+  }
+
+  function renderCanvas() {
+    const { iv, runs } = runsForTi();
+    const sz = tileSize();
+    const canvas = $("canvas");
+    const rod = $("rod");
+    $("ti-word").textContent = tiWord(iv);
+    canvas.style.setProperty("--tw", sz.tw + "px");
+    canvas.style.setProperty("--ph", sz.ph + "px");
+    canvas.style.setProperty("--tile-gap", sz.gap + "px");
+    canvas.style.setProperty("--run-gap", sz.runGap + "px");
+    document.documentElement.style.setProperty("--tw", sz.tw + "px");
+    document.documentElement.style.setProperty("--ph", sz.ph + "px");
+    document.documentElement.style.setProperty("--tile-gap", sz.gap + "px");
+    document.documentElement.style.setProperty("--run-gap", sz.runGap + "px");
+
+    let html = "";
+    let prevT = null;
+    runs.forEach((clips, ri) => {
+      const first = clips[0];
+      const lab = tiLabel(first.t, iv, prevT);
+      const newDay = lab.date !== "";
+      const allKept = clips.every((c) => state.keeps.has(c.id));
+      const someKept = clips.some((c) => state.keeps.has(c.id));
+      html +=
+        '<div class="run' + (newDay ? " new-day" : "") + '" data-run="' + ri + '">' +
+        '<button type="button" class="run-mark' + (allKept ? " kept-all" : "") +
+        '" data-run-sel="' + ri + '" title="Select run">' +
+        (lab.date ? '<span class="date">' + lab.date + "</span>" : "") +
+        (lab.time ? '<span class="time">' + lab.time + "</span>" : "") +
+        '<span class="meta">' + clips.length + (clips.length === 1 ? " clip" : " clips") + "</span>" +
+        '<span class="dot" style="' + (someKept && !allKept ? "box-shadow:inset 0 0 0 2px var(--keep)" : "") + '"></span>' +
+        "</button><div class=\"run-tiles\">";
+      for (const c of clips) {
+        const kept = state.keeps.has(c.id);
+        const on = c.id === state.cursor;
+        html +=
+          '<button type="button" class="clip-tile' + (kept ? " kept" : "") + (on ? " on" : "") +
+          '" data-id="' + c.id + '" style="animation-delay:' + Math.min(ri * 18 + 20, 160) + 'ms">' +
+          '<div class="thumb">' + c.src.toUpperCase() + "</div>" +
+          '<div class="cn">' + c.name + "</div>" +
+          '<div class="cm">' + fmtDur(c.dur) + " · " + fmtGB(c.bytes) +
+          (c.soft ? " · soft" : "") +
+          "</div></button>";
+      }
+      html += "</div></div>";
+      prevT = first.t;
+    });
+    canvas.innerHTML = "";
+    canvas.appendChild(rod);
+    const wrap = document.createElement("div");
+    wrap.innerHTML = html;
+    while (wrap.firstChild) canvas.appendChild(wrap.firstChild);
+    requestAnimationFrame(syncPlayhead);
+  }
+
+  function renderDock() {
+    const kept = keptList();
+    const dock = $("dock");
+    const sz = dockSize();
+    dock.style.setProperty("--dw", sz.dw + "px");
+    dock.style.setProperty("--dph", sz.dph + "px");
+
+    if (!kept.length) {
+      $("dock-sum").textContent = "Selected · drop here or K";
+      $("dock-sum").classList.remove("foc");
+      $("dock-row").innerHTML = '<div class="dock-empty-ph" aria-hidden="true">Drop to select</div>';
+    } else {
+      const foc = state.dockFoc && state.keeps.has(state.dockFoc) ? state.dockFoc : null;
+      $("dock-sum").textContent =
+        "Kept · " + kept.length + " clips · " + fmtDur(kept.reduce((a, c) => a + c.dur, 0)) +
+        " · " + fmtGB(keptBytes());
+      $("dock-sum").classList.toggle("foc", !!foc);
+      let html = "";
+      let prevDay = null;
+      for (const c of kept) {
+        const day = c.t.slice(0, 10);
+        if (prevDay && prevDay !== day) html += '<div class="dock-gap" aria-hidden="true"></div>';
+        prevDay = day;
+        const on = foc === c.id || (!foc && c.id === state.cursor);
+        html +=
+          '<button type="button" class="dock-tile' + (on ? " on" : "") + '" data-dock="' + c.id +
+          '" title="' + c.name + '">' +
+          '<div class="pic">' + c.src.toUpperCase() + "</div>" +
+          '<div class="lab"><span class="n">' + c.name + '</span><span class="s">' +
+          fmtDur(c.dur) + "</span></div></button>";
+      }
+      $("dock-row").innerHTML = html;
+    }
+    $("dock-export").disabled = kept.length === 0;
+    $("dock-clean").disabled = !state.packaged;
+  }
+
+  function renderViewer() {
+    const c = clipById(state.cursor);
+    if (!c) return;
+    const kept = state.keeps.has(c.id);
+    $("v-title").textContent = c.name;
+    $("v-frame").classList.toggle("kept", kept);
+    $("v-frame").classList.toggle("playing", state.playing);
+    $("v-lab").textContent = state.rec709 && c.log ? "Rec.709" : (c.log ? "as shot" : "preview");
+    $("v-info").textContent =
+      c.src + " · " + c.t.slice(11, 16) + " · " + fmtDur(c.dur) + " · " + fmtGB(c.bytes) +
+      (c.soft ? " · soft" : "");
+    $("v-keep").setAttribute("aria-pressed", kept ? "true" : "false");
+    $("v-keep").textContent = kept ? "Kept · K" : "Keep · K";
+    $("skim-fill").style.width = Math.round(state.skim * 100) + "%";
+  }
+
+  function renderFoot() {
+    $("foot-right").textContent = state.packaged
+      ? "package ready · " + (state.nle === "premiere" ? "Premiere" : "Final Cut")
+      : "not kept stay on Place";
+  }
+
+  function render() {
+    renderCanvas();
+    renderDock();
+    renderViewer();
+    renderFoot();
+    setRecUI();
+  }
+
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("on");
+    clearTimeout(state.toastTimer);
+    state.toastTimer = setTimeout(() => t.classList.remove("on"), 2600);
+  }
+
+  function toggleKeep(id) {
+    if (state.keeps.has(id)) {
+      state.keeps.delete(id);
+      if (state.dockFoc === id) state.dockFoc = null;
+    } else {
+      state.keeps.add(id);
+      state.dockFoc = id;
+    }
+    if (state.packaged) {
+      state.packaged = false;
+      $("export-open").disabled = true;
+      toast("Keeps changed · package again before Clean");
+    }
+    render();
+  }
+
+  function selectClip(id, fromDock) {
+    state.cursor = id;
+    state.skim = 0;
+    if (fromDock) state.dockFoc = id;
+    render();
+    const el = document.querySelector('.clip-tile[data-id="' + id + '"]');
+    if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  function scrubAtY(clientY) {
+    const tiles = [...document.querySelectorAll(".clip-tile[data-id]")];
+    if (!tiles.length) return;
+    let best = tiles[0], bestD = Infinity;
+    for (const t of tiles) {
+      const r = t.getBoundingClientRect();
+      const mid = r.top + r.height / 2;
+      const d = Math.abs(mid - clientY);
+      if (d < bestD) { bestD = d; best = t; }
+    }
+    const id = best.dataset.id;
+    if (id && id !== state.cursor) selectClip(id);
+    else syncPlayhead();
+  }
+
+  function openExport() {
+    if (!state.keeps.size) return;
+    $("export-pkg").textContent =
+      state.keeps.size + " keeps · " + fmtGB(keptBytes()) +
+      (state.packaged ? " · packaged" : "");
+    $("export-to").textContent = state.place + "/Package";
+    syncNle();
+    $("export-open").disabled = !state.packaged;
+    $("export-scrim").classList.add("on");
+  }
+  function closeExport() { $("export-scrim").classList.remove("on"); }
+
+  function openClean() {
+    const n = notKept().length;
+    $("clean-sum").textContent = n + " clips · " + fmtGB(notKeptBytes()) + " → Trash";
+    $("clean-warn").hidden = !!state.packaged;
+    $("clean-go").disabled = !state.packaged || n === 0;
+    $("clean-go").textContent = "Clean not kept";
+    state._cleanArmed = false;
+    $("clean-scrim").classList.add("on");
+  }
+  function closeClean() { $("clean-scrim").classList.remove("on"); state._cleanArmed = false; }
+
+  function doPackage() {
+    state.packaged = true;
+    $("export-open").disabled = false;
+    $("export-pkg").textContent =
+      state.keeps.size + " keeps · " + fmtGB(keptBytes()) + " · packaged";
+    toast("Package ready · media beside project file");
+    renderDock();
+    renderFoot();
+  }
+  function doOpenNle() {
+    if (!state.packaged) return;
+    toast("Open " + (state.nle === "premiere" ? "Premiere" : "Final Cut") + " · toast only");
+    closeExport();
+    renderFoot();
+  }
+  function doClean() {
+    if (!state.packaged) return;
+    const n = notKept().length;
+    if (!n) return;
+    if (!state._cleanArmed) {
+      state._cleanArmed = true;
+      $("clean-go").textContent = "Confirm · " + n + " to Trash";
+      return;
+    }
+    toast(n + " clips in Trash · empty in Finder when ready");
+    closeClean();
+  }
+
+  function openStacks() {
+    closeClean();
+    const soft = notKept().filter((c) => c.soft);
+    const rest = notKept().filter((c) => !c.soft);
+    function group(title, arr) {
+      if (!arr.length) return "";
+      return (
+        '<div class="stack-group"><div class="sg-hd">' + title +
+        " <span>" + arr.length + "</span></div>" +
+        arr.map((c) =>
+          '<div class="stack-row"><div><div class="sr-n">' + c.name +
+          '</div><div class="sr-m">' + c.t.slice(11, 16) + " · " + c.src +
+          '</div></div><button type="button" class="ghost" data-keep="' + c.id +
+          '">Keep</button></div>'
+        ).join("") +
+        "</div>"
+      );
+    }
+    $("stacks-body").innerHTML =
+      group("Soft", soft) + group("Rest", rest) ||
+      '<div class="ship-meta">Nothing left</div>';
+    $("stacks").classList.add("on");
+  }
+  function closeStacks() { $("stacks").classList.remove("on"); }
+
+  // —— Events ——
+  $("rec-sw").onclick = () => {
+    state.rec709 = !state.rec709;
+    setRecUI();
+    renderViewer();
+  };
+  $("tab-export").onclick = openShip;
+  $("dock-export").onclick = openShip;
+  $("dock-clean").onclick = openClean;
+
+  $("canvas").onclick = (e) => {
+    if (e.target.closest(".rod")) return;
+    const run = e.target.closest("[data-run-sel]");
+    if (run) {
+      const ri = +run.dataset.runSel;
+      const { runs } = runsForTi();
+      const clips = runs[ri] || [];
+      if (clips[0]) selectClip(clips[0].id);
+      return;
+    }
+    const tile = e.target.closest(".clip-tile[data-id]");
+    if (tile) selectClip(tile.dataset.id);
+  };
+  $("canvas").ondblclick = (e) => {
+    const tile = e.target.closest(".clip-tile[data-id]");
+    if (tile) toggleKeep(tile.dataset.id);
+  };
+
+  $("dock-row").onclick = (e) => {
+    const t = e.target.closest("[data-dock]");
+    if (t) selectClip(t.dataset.dock, true);
+  };
+
+  $("v-keep").onclick = () => toggleKeep(state.cursor);
+
+  // Viewer skim / play
+  const stage = $("v-frame");
+  let skimDrag = false;
+  stage.addEventListener("pointerdown", (e) => {
+    skimDrag = true;
+    stage.setPointerCapture(e.pointerId);
+    state.playing = true;
+    const r = stage.getBoundingClientRect();
+    state.skim = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    renderViewer();
+  });
+  stage.addEventListener("pointermove", (e) => {
+    if (!skimDrag) return;
+    const r = stage.getBoundingClientRect();
+    state.skim = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    renderViewer();
+  });
+  stage.addEventListener("pointerup", () => { skimDrag = false; });
+  stage.addEventListener("pointercancel", () => { skimDrag = false; });
+
+  $("export-cancel").onclick = closeShip;
+  $("export-scrim").onclick = (e) => { if (e.target === $("export-scrim")) closeExport(); };
+  $("export-go").onclick = doPackage;
+  $("export-open").onclick = doOpenNle;
+  $("nle-premiere").onclick = () => { state.nle = "premiere"; syncNle(); };
+  $("nle-fcp").onclick = () => { state.nle = "finalcut"; syncNle(); };
+  $("clean-cancel").onclick = closeClean;
+  $("clean-scrim").onclick = (e) => { if (e.target === $("clean-scrim")) closeClean(); };
+  $("clean-go").onclick = doClean;
+  $("clean-stacks").onclick = openStacks;
+  $("stacks-done").onclick = closeStacks;
+  $("stacks-clean").onclick = () => { closeStacks(); openClean(); };
+  $("stacks-body").onclick = (e) => {
+    const b = e.target.closest("[data-keep]");
+    if (!b) return;
+    toggleKeep(b.dataset.keep);
+    openStacks();
+  };
+
+  // Pinch → TI (trackpad ctrl+wheel + two-finger pinch)
+  const scroller = $("scroller");
+  scroller.addEventListener("wheel", (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    state.pinchAcc += -Math.sign(e.deltaY) * 0.18;
+    const P = 0.28, top = TI.length - 1;
+    scroller.classList.add("pinching");
+    clearTimeout(state._pinchCls);
+    state._pinchCls = setTimeout(() => scroller.classList.remove("pinching"), 200);
+    if (state.pinchAcc >= P && state.ti > 0) {
+      state.pinchAcc -= P;
+      setTi(state.ti - 1);
+    } else if (state.pinchAcc <= -P && state.ti < top) {
+      state.pinchAcc += P;
+      setTi(state.ti + 1);
+    }
+  }, { passive: false });
+
+  // Touch / pointer pinch on contact sheet
+  const pinch = { pts: new Map(), d0: 0, ti0: 0 };
+  scroller.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".rod")) return;
+    pinch.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch.pts.size === 2) {
+      const [a, b] = [...pinch.pts.values()];
+      pinch.d0 = Math.hypot(a.x - b.x, a.y - b.y);
+      pinch.ti0 = state.ti;
+      scroller.classList.add("pinching");
+    }
+  });
+  scroller.addEventListener("pointermove", (e) => {
+    if (!pinch.pts.has(e.pointerId)) return;
+    pinch.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch.pts.size === 2 && pinch.d0 > 0) {
+      e.preventDefault();
+      const [a, b] = [...pinch.pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      const ratio = d / pinch.d0;
+      // pinch out → shorter interval (smaller ti index); pinch in → longer
+      const steps = Math.round(Math.log2(ratio) * 2);
+      setTi(pinch.ti0 - steps, true);
+    }
+  }, { passive: false });
+  const endPinch = (e) => {
+    pinch.pts.delete(e.pointerId);
+    if (pinch.pts.size < 2) {
+      pinch.d0 = 0;
+      scroller.classList.remove("pinching");
+    }
+  };
+  scroller.addEventListener("pointerup", endPinch);
+  scroller.addEventListener("pointercancel", endPinch);
+
+  // Rod scrub
+  const rod = $("rod");
+  let rodDrag = false;
+  function rodStart(e) {
+    rodDrag = true;
+    state.scrubbing = true;
+    rod.classList.add("scrubbing");
+    scroller.classList.add("scrubbing");
+    rod.setPointerCapture(e.pointerId);
+    scrubAtY(e.clientY);
+  }
+  function rodMove(e) {
+    if (!rodDrag) return;
+    scrubAtY(e.clientY);
+  }
+  function rodEnd() {
+    rodDrag = false;
+    state.scrubbing = false;
+    rod.classList.remove("scrubbing");
+    scroller.classList.remove("scrubbing");
+  }
+  rod.addEventListener("pointerdown", rodStart);
+  rod.addEventListener("pointermove", rodMove);
+  rod.addEventListener("pointerup", rodEnd);
+  rod.addEventListener("pointercancel", rodEnd);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target.matches("input, textarea")) return;
+    const idx = CLIPS.findIndex((c) => c.id === state.cursor);
+    if ((e.key === "k" || e.key === "K") && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault();
+      toggleKeep(state.cursor);
+    } else if (e.key === " ") {
+      e.preventDefault();
+      state.playing = !state.playing;
+      if (state.playing) state.skim = Math.min(1, state.skim + 0.08);
+      renderViewer();
+    } else if (e.key === "ArrowRight" && idx < CLIPS.length - 1) {
+      e.preventDefault();
+      selectClip(CLIPS[idx + 1].id);
+    } else if (e.key === "ArrowLeft" && idx > 0) {
+      e.preventDefault();
+      selectClip(CLIPS[idx - 1].id);
+    } else if (e.key === "ArrowDown" && state.keeps.size) {
+      e.preventDefault();
+      const kept = keptList();
+      const i = Math.max(0, kept.findIndex((c) => c.id === state.cursor));
+      state.dockFoc = kept[Math.min(kept.length - 1, i)].id;
+      selectClip(state.dockFoc, true);
+    } else if (e.key === "ArrowUp" && state.dockFoc) {
+      e.preventDefault();
+      state.dockFoc = null;
+      renderDock();
+    } else if ((e.key === "r" || e.key === "R") && e.shiftKey) {
+      e.preventDefault();
+      state.rec709 = !state.rec709;
+      setRecUI();
+      renderViewer();
+    } else if (e.key === "Escape") {
+      if ($("stacks").classList.contains("on")) closeStacks();
+      else if ($("clean-scrim").classList.contains("on")) closeClean();
+      else if ($("export-scrim").classList.contains("on")) closeExport();
+      else if (state.dockFoc) { state.dockFoc = null; renderDock(); }
+    }
+  });
+
+  window.addEventListener("resize", () => renderCanvas());
+
+  // Unified Keep boot: dump Place + multi-device contact sheet
+  $("shoot-name").textContent = "Sort · day 1";
+  $("shoot-line").textContent = CLIPS.length + " clips · phone + drone + card";
+  $("place-path").textContent = state.place;
+  $("export-to").textContent = state.place + "/Package";
+  syncNle();
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1158 @@
+<div id="lumina-mvp" class="lm-root" role="region" aria-label="Lumina minimal MVP wireframes and designs">
+  <p class="vis-sr-only">Interactive Lumina MVP: switch between wireframe and hi-fi, three screens, and four creator scenarios. Checkpoint stacks are the unit of work.</p>
+
+  <style>
+    #lumina-mvp {
+      --bg: #141312;
+      --surf: #1E1D1B;
+      --surf2: #262523;
+      --ink: #EFECE6;
+      --mute: #9A958D;
+      --soft: #B8B3AB;
+      --line: rgba(239,236,230,0.10);
+      --line2: rgba(239,236,230,0.18);
+      --gold: #FFD27A;
+      --ok: #9ED7B0;
+      --warn: #E8B86D;
+      --serif: "Iowan Old Style", Palatino, Georgia, serif;
+      --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    #lumina-mvp * { box-sizing: border-box; }
+    #lumina-mvp button {
+      font: inherit;
+      color: inherit;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      padding: 0;
+    }
+    #lumina-mvp .lm-chrome {
+      background: var(--bg);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+    #lumina-mvp .lm-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 12px 14px;
+      background: var(--surf2);
+      border-bottom: 1px solid var(--line);
+    }
+    #lumina-mvp .lm-brand {
+      font-family: var(--serif);
+      font-size: 18px;
+      margin-right: 8px;
+    }
+    #lumina-mvp .lm-seg {
+      display: inline-flex;
+      padding: 2px;
+      border-radius: 8px;
+      background: rgba(239,236,230,0.08);
+      gap: 2px;
+    }
+    #lumina-mvp .lm-seg button {
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 6px;
+      color: var(--mute);
+      white-space: nowrap;
+    }
+    #lumina-mvp .lm-seg button[aria-pressed="true"] {
+      background: #5B5854;
+      color: var(--ink);
+      font-weight: 600;
+    }
+    #lumina-mvp .lm-grow { flex: 1; min-width: 8px; }
+    #lumina-mvp .lm-stage {
+      min-height: 520px;
+      background: var(--bg);
+      padding: 16px;
+    }
+    #lumina-mvp .lm-app {
+      background: var(--surf);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px var(--line);
+      min-height: 480px;
+      display: flex;
+      flex-direction: column;
+    }
+    #lumina-mvp .lm-top {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 14px;
+      background: var(--surf2);
+      border-bottom: 1px solid var(--line);
+    }
+    #lumina-mvp .lm-tabs {
+      display: inline-flex;
+      gap: 2px;
+      padding: 2px;
+      border-radius: 7px;
+      background: rgba(239,236,230,0.08);
+      margin: 0 auto;
+    }
+    #lumina-mvp .lm-tabs button {
+      height: 24px;
+      min-width: 84px;
+      padding: 0 12px;
+      border-radius: 5px;
+      color: var(--mute);
+      font-size: 12px;
+    }
+    #lumina-mvp .lm-tabs button[aria-current="page"] {
+      background: #5B5854;
+      color: var(--ink);
+      font-weight: 700;
+    }
+    #lumina-mvp .lm-body {
+      flex: 1;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 0;
+    }
+    #lumina-mvp .lm-title {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 400;
+    }
+    #lumina-mvp .lm-sub { color: var(--mute); font-size: 12px; }
+    #lumina-mvp .lm-prompt {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--surf2);
+      box-shadow: inset 0 0 0 1px var(--line2);
+    }
+    #lumina-mvp .lm-prompt input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 13px;
+    }
+    #lumina-mvp .lm-prompt input::placeholder { color: var(--mute); }
+    #lumina-mvp .lm-btn {
+      height: 28px;
+      padding: 0 12px;
+      border-radius: 7px;
+      background: var(--gold);
+      color: #1E1D1B;
+      font-weight: 700;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    #lumina-mvp .lm-btn.ghost {
+      background: rgba(239,236,230,0.08);
+      color: var(--ink);
+      font-weight: 600;
+      box-shadow: inset 0 0 0 1px var(--line2);
+    }
+    #lumina-mvp .lm-btn.soft {
+      background: rgba(255,210,122,0.14);
+      color: var(--gold);
+      box-shadow: inset 0 0 0 1px rgba(255,210,122,0.4);
+    }
+    #lumina-mvp .lm-sources {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    @media (max-width: 720px) {
+      #lumina-mvp .lm-sources { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    #lumina-mvp .lm-src {
+      padding: 12px;
+      border-radius: 10px;
+      background: var(--surf2);
+      box-shadow: inset 0 0 0 1px var(--line);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 92px;
+    }
+    #lumina-mvp .lm-src.on {
+      box-shadow: inset 0 0 0 1.5px rgba(255,210,122,0.55);
+    }
+    #lumina-mvp .lm-src .nm { font-weight: 700; font-size: 13px; }
+    #lumina-mvp .lm-src .meta { color: var(--mute); font-size: 11px; line-height: 1.35; }
+    #lumina-mvp .lm-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--ok); display: inline-block; margin-right: 6px;
+    }
+    #lumina-mvp .lm-stacks {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #lumina-mvp .lm-stack {
+      border-radius: 12px;
+      background: var(--surf2);
+      box-shadow: inset 0 0 0 1px var(--line);
+      overflow: hidden;
+    }
+    #lumina-mvp .lm-stack-hd {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: baseline;
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    #lumina-mvp .lm-stack-hd .chk {
+      font-family: var(--serif);
+      font-size: 17px;
+    }
+    #lumina-mvp .lm-pill {
+      display: inline-flex;
+      align-items: center;
+      height: 20px;
+      padding: 0 7px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(239,236,230,0.08);
+      color: var(--soft);
+      white-space: nowrap;
+    }
+    #lumina-mvp .lm-pill.ok {
+      background: rgba(158,215,176,0.16);
+      color: var(--ok);
+    }
+    #lumina-mvp .lm-pill.warn {
+      background: rgba(232,184,109,0.16);
+      color: var(--warn);
+    }
+    #lumina-mvp .lm-row {
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px;
+      overflow-x: auto;
+    }
+    #lumina-mvp .lm-tile {
+      flex: 0 0 88px;
+      width: 88px;
+      height: 66px;
+      border-radius: 7px;
+      background: #2A2927;
+      position: relative;
+      box-shadow: inset 0 0 0 1px var(--line);
+      overflow: hidden;
+    }
+    #lumina-mvp .lm-tile.kept {
+      box-shadow: inset 0 0 0 2px var(--gold);
+    }
+    #lumina-mvp .lm-tile .ph {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--mute);
+      font-size: 10px;
+      text-align: center;
+      padding: 4px;
+      line-height: 1.2;
+    }
+    #lumina-mvp .lm-tile .k {
+      position: absolute;
+      top: 4px; right: 4px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--gold);
+      color: #1E1D1B;
+      font-size: 10px;
+      font-weight: 800;
+      display: none;
+      place-items: center;
+    }
+    #lumina-mvp .lm-tile.kept .k { display: grid; }
+    #lumina-mvp .lm-write {
+      width: 100%;
+      min-height: 52px;
+      padding: 10px 12px;
+      border: 0;
+      border-top: 1px solid var(--line);
+      background: rgba(0,0,0,0.18);
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      resize: vertical;
+      outline: none;
+    }
+    #lumina-mvp .lm-write::placeholder { color: var(--mute); }
+    #lumina-mvp .lm-foot {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      background: #232220;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--soft);
+    }
+    #lumina-mvp .lm-polish {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 14px;
+    }
+    @media (max-width: 720px) {
+      #lumina-mvp .lm-polish { grid-template-columns: 1fr; }
+    }
+    #lumina-mvp .lm-preview {
+      aspect-ratio: 16 / 9;
+      border-radius: 10px;
+      background: #0f0e0d;
+      box-shadow: inset 0 0 0 1px var(--line);
+      display: grid;
+      place-items: center;
+      color: var(--mute);
+      font-size: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    #lumina-mvp .lm-preview .badge {
+      position: absolute;
+      left: 10px; bottom: 10px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(30,29,27,0.88);
+      color: var(--soft);
+      font-size: 11px;
+    }
+    #lumina-mvp .lm-tools {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    #lumina-mvp .lm-tool {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 9px;
+      background: var(--surf2);
+      box-shadow: inset 0 0 0 1px var(--line);
+      text-align: left;
+    }
+    #lumina-mvp .lm-tool .t { font-weight: 650; font-size: 12px; }
+    #lumina-mvp .lm-tool .d { color: var(--mute); font-size: 11px; margin-top: 2px; }
+    #lumina-mvp .lm-sw {
+      width: 30px; height: 16px; border-radius: 8px;
+      background: rgba(239,236,230,0.18);
+      position: relative;
+      flex: none;
+    }
+    #lumina-mvp .lm-tool.on .lm-sw { background: var(--gold); }
+    #lumina-mvp .lm-sw::after {
+      content: "";
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #F7F4EE;
+    }
+    #lumina-mvp .lm-tool.on .lm-sw::after { left: 16px; }
+    #lumina-mvp .lm-publish {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 720px) {
+      #lumina-mvp .lm-publish { grid-template-columns: 1fr; }
+    }
+    #lumina-mvp .lm-out {
+      border-radius: 10px;
+      background: var(--surf2);
+      box-shadow: inset 0 0 0 1px var(--line);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 180px;
+    }
+    #lumina-mvp .lm-out h3 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 16px;
+      font-weight: 400;
+    }
+    #lumina-mvp .lm-essay {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      color: var(--soft);
+      font-size: 11px;
+    }
+    #lumina-mvp .lm-essay .blk {
+      padding: 8px;
+      border-radius: 6px;
+      background: rgba(0,0,0,0.2);
+    }
+    #lumina-mvp .lm-essay .blk strong {
+      display: block;
+      color: var(--ink);
+      font-size: 12px;
+      margin-bottom: 4px;
+      font-weight: 650;
+    }
+    #lumina-mvp.wire .lm-app,
+    #lumina-mvp.wire .lm-src,
+    #lumina-mvp.wire .lm-stack,
+    #lumina-mvp.wire .lm-tool,
+    #lumina-mvp.wire .lm-out,
+    #lumina-mvp.wire .lm-prompt,
+    #lumina-mvp.wire .lm-preview {
+      background: transparent !important;
+      box-shadow: inset 0 0 0 1.5px rgba(239,236,230,0.35) !important;
+    }
+    #lumina-mvp.wire .lm-top,
+    #lumina-mvp.wire .lm-foot,
+    #lumina-mvp.wire .lm-stack-hd {
+      background: transparent !important;
+      border-color: rgba(239,236,230,0.28) !important;
+    }
+    #lumina-mvp.wire .lm-tile {
+      background: transparent !important;
+      box-shadow: inset 0 0 0 1.5px rgba(239,236,230,0.4) !important;
+    }
+    #lumina-mvp.wire .lm-tile.kept {
+      box-shadow: inset 0 0 0 2px var(--gold) !important;
+    }
+    #lumina-mvp.wire .lm-btn {
+      background: transparent !important;
+      color: var(--ink) !important;
+      box-shadow: inset 0 0 0 1.5px rgba(239,236,230,0.45);
+    }
+    #lumina-mvp.wire .lm-write {
+      background: transparent !important;
+      border-top-color: rgba(239,236,230,0.28) !important;
+    }
+    #lumina-mvp.wire .lm-pill {
+      background: transparent !important;
+      box-shadow: inset 0 0 0 1px rgba(239,236,230,0.35);
+    }
+    #lumina-mvp .lm-cut {
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 10px;
+      background: var(--surf);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+    #lumina-mvp .lm-cut h2 {
+      margin: 0 0 8px;
+      font-family: var(--serif);
+      font-size: 16px;
+      font-weight: 400;
+    }
+    #lumina-mvp .lm-cut table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    #lumina-mvp .lm-cut th,
+    #lumina-mvp .lm-cut td {
+      text-align: left;
+      padding: 7px 8px;
+      border-top: 1px solid var(--line);
+      vertical-align: top;
+    }
+    #lumina-mvp .lm-cut th { color: var(--mute); font-weight: 600; }
+    #lumina-mvp .lm-cut .cut { color: var(--mute); text-decoration: line-through; }
+    #lumina-mvp .lm-cut .keep { color: var(--ok); }
+    #lumina-mvp .lm-note {
+      margin-top: 10px;
+      color: var(--mute);
+      font-size: 12px;
+    }
+  </style>
+
+  <div class="lm-chrome">
+    <div class="lm-bar">
+      <span class="lm-brand">Lumina</span>
+      <div class="lm-seg" role="group" aria-label="Fidelity">
+        <button type="button" data-mode="wire" aria-pressed="false">Wireframe</button>
+        <button type="button" data-mode="hifi" aria-pressed="true">Hi-fi</button>
+      </div>
+      <div class="lm-seg" role="group" aria-label="Scenario">
+        <button type="button" data-scene="essay" aria-pressed="true">Coffee essay</button>
+        <button type="button" data-scene="road" aria-pressed="false">Road video</button>
+        <button type="button" data-scene="uday" aria-pressed="false">Uday</button>
+        <button type="button" data-scene="harrison" aria-pressed="false">Harrison</button>
+      </div>
+      <span class="lm-grow"></span>
+      <span class="lm-sub" id="lm-scene-label">You · exposure.co essay</span>
+    </div>
+
+    <div class="lm-stage">
+      <div class="lm-app" id="lm-app">
+        <div class="lm-top">
+          <span class="lm-brand" style="font-size:16px">Lumina</span>
+          <div class="lm-tabs" role="tablist" aria-label="Screens">
+            <button type="button" role="tab" data-screen="1" aria-current="page">Sources</button>
+            <button type="button" role="tab" data-screen="2" aria-current="false">Stacks</button>
+            <button type="button" role="tab" data-screen="3" aria-current="false">Ship</button>
+          </div>
+          <span class="lm-sub" id="lm-pass">Pass 3 · MVP</span>
+        </div>
+
+        <div class="lm-body" id="lm-screen-1">
+          <div>
+            <div class="lm-title" id="lm-s1-title">Sources</div>
+            <div class="lm-sub" id="lm-s1-sub">Tether cards, T7, phone, and Lightroom folders. Nothing is copied.</div>
+          </div>
+          <div class="lm-prompt">
+            <input id="lm-prompt" type="text" aria-label="Intent prompt" value="Group into one stack per coffee shop for an exposure.co review" />
+            <button type="button" class="lm-btn" id="lm-run">Build stacks</button>
+          </div>
+          <div class="lm-sources" id="lm-sources"></div>
+          <div class="lm-foot">
+            <span id="lm-s1-foot">4 sources tethered · 0 GB copied · Precompute idle</span>
+            <span class="lm-grow"></span>
+            <button type="button" class="lm-btn soft" data-goto="2">Open stacks</button>
+          </div>
+        </div>
+
+        <div class="lm-body" id="lm-screen-2" hidden>
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap">
+            <div>
+              <div class="lm-title">Checkpoint stacks</div>
+              <div class="lm-sub" id="lm-s2-sub">One stack per sub-topic. Keep with P. Write the section or chapter title on the stack.</div>
+            </div>
+            <button type="button" class="lm-btn ghost" id="lm-add-stack">Add stack</button>
+          </div>
+          <div class="lm-stacks" id="lm-stacks"></div>
+          <div class="lm-foot">
+            <span id="lm-s2-foot">3 stacks · 7 kept</span>
+            <span class="lm-grow"></span>
+            <button type="button" class="lm-btn ghost" data-goto="1">Sources</button>
+            <button type="button" class="lm-btn" data-goto="3">Polish ship</button>
+          </div>
+        </div>
+
+        <div class="lm-body" id="lm-screen-3" hidden>
+          <div>
+            <div class="lm-title" id="lm-s3-title">Polish and ship</div>
+            <div class="lm-sub" id="lm-s3-sub">Match exposure, stabilize, heal, then export essay or video. Optional FCPXML for Uday and Harrison.</div>
+          </div>
+          <div class="lm-polish">
+            <div class="lm-preview" id="lm-preview">
+              <span id="lm-preview-label">Selected keep · live preview</span>
+              <span class="badge" id="lm-preview-badge">4240×2832 · Exposure 2500px ✓</span>
+            </div>
+            <div class="lm-tools" id="lm-tools"></div>
+          </div>
+          <div class="lm-publish" id="lm-publish"></div>
+          <div class="lm-foot">
+            <span id="lm-s3-foot">Music · ambient −18 dB</span>
+            <span class="lm-grow"></span>
+            <button type="button" class="lm-btn ghost" id="lm-sweep">Sweep rest</button>
+            <button type="button" class="lm-btn" id="lm-export">Export</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lm-cut">
+    <h2>Feature cut to MVP</h2>
+    <div class="lm-seg" role="group" aria-label="Cut pass" style="margin-bottom:10px">
+      <button type="button" data-pass="1" aria-pressed="false">Pass 1 · Wish</button>
+      <button type="button" data-pass="2" aria-pressed="false">Pass 2 · Trim</button>
+      <button type="button" data-pass="3" aria-pressed="true">Pass 3 · MVP</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>You</th>
+          <th>Uday</th>
+          <th>Harrison</th>
+          <th id="lm-cut-status">Status</th>
+        </tr>
+      </thead>
+      <tbody id="lm-cut-body"></tbody>
+    </table>
+    <p class="lm-note" id="lm-cut-note">Pass 3 keeps only what finishes an essay or video without Lightroom or Final Cut, plus an optional FCPXML door.</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const root = document.getElementById("lumina-mvp");
+  if (!root) return;
+
+  const state = {
+    mode: "hifi",
+    scene: "essay",
+    screen: "1",
+    pass: 3,
+    tools: { match: true, stabilize: true, heal: false, music: true }
+  };
+
+  const scenes = {
+    essay: {
+      label: "You · exposure.co essay",
+      prompt: "Group into one stack per coffee shop for an exposure.co review",
+      s1Title: "Sources",
+      s1Sub: "Tether cards, T7, phone, and Lightroom folders. Nothing is copied.",
+      s1Foot: "4 sources · 186 photos · 0 GB copied",
+      s2Sub: "One stack per shop. Keep the frames. Write the review paragraph on the stack.",
+      s3Title: "Polish and ship",
+      s3Sub: "Match exposure, heal dust, check Exposure.co and portfolio size, export essay.",
+      sources: [
+        { on: true, nm: "Sony α7 IV · Card", meta: "142 ARW · tethered" },
+        { on: true, nm: "T7 · Portland", meta: "Granted · essays folder" },
+        { on: true, nm: "iPhone AirDrop", meta: "28 HEIC · 6 MP4" },
+        { on: true, nm: "Lightroom folder", meta: "16 selects · XMP read" }
+      ],
+      stacks: [
+        {
+          title: "Heart Roasters",
+          pills: [
+            { t: "18 frames", c: "" },
+            { t: "4240×2832 · Exposure ✓ · Portfolio ✓", c: "ok" }
+          ],
+          tiles: [
+            { label: "Counter", kept: true },
+            { label: "Cup", kept: true },
+            { label: "Window", kept: false },
+            { label: "Sign", kept: false },
+            { label: "Seat", kept: false }
+          ],
+          write: "Heart Roasters · quiet light, clean pour, soft wood. The window seat carried the afternoon."
+        },
+        {
+          title: "Coava SE",
+          pills: [
+            { t: "22 frames", c: "" },
+            { t: "Phone 3024×4032 · Crop to 4:5 ✓", c: "warn" }
+          ],
+          tiles: [
+            { label: "Facade", kept: true },
+            { label: "Latte", kept: true },
+            { label: "Bag", kept: false },
+            { label: "Street", kept: false }
+          ],
+          write: "Coava SE · sharper roast, busier room. Keep the facade and the cup."
+        },
+        {
+          title: "Proud Mary",
+          pills: [
+            { t: "14 frames", c: "" },
+            { t: "6000×4000 · Exposure ✓", c: "ok" }
+          ],
+          tiles: [
+            { label: "Pour", kept: true },
+            { label: "Hands", kept: false },
+            { label: "Shelf", kept: true },
+            { label: "Door", kept: false }
+          ],
+          write: "Proud Mary · brighter, faster. Two frames carry the section."
+        }
+      ],
+      preview: "Heart Roasters · cup",
+      badge: "4240×2832 · Exposure 2500px ✓ · Portfolio 4K ✓",
+      tools: [
+        { id: "match", t: "Match exposure", d: "ToneAnchor across kept frames" },
+        { id: "heal", t: "Instant heal", d: "Brush dust or a distraction" },
+        { id: "music", t: "Music", d: "Off for essay", hide: true }
+      ],
+      outs: [
+        {
+          h: "exposure.co essay",
+          body: [
+            ["Heart Roasters", "Paragraph + 2 photos"],
+            ["Coava SE", "Paragraph + 2 photos"],
+            ["Proud Mary", "Paragraph + 2 photos"]
+          ],
+          btn: "Export essay"
+        },
+        {
+          h: "Portfolio set",
+          body: [
+            ["7 kept", "All ≥ 4K long edge"],
+            ["Sidecars", "Optional XMP for Lightroom"],
+            ["Ghost footage", "Sweep unpicked to T7"]
+          ],
+          btn: "Export set"
+        }
+      ],
+      foot3: "7 kept · sizes verified · no Lightroom needed"
+    },
+    road: {
+      label: "You · road-trip video",
+      prompt: "Group car and phone clips by stop and time of day for a 2-minute slice-of-life video",
+      s1Title: "Sources",
+      s1Sub: "Sony MP4s, phone clips, drone if any. Match phone to Sony on the way in.",
+      s1Foot: "3 sources · 1,200 clips · proxies only",
+      s2Sub: "One stack per stop or time of day. Keep the steady window. Write the chapter title on the stack.",
+      s3Title: "Polish and ship",
+      s3Sub: "Stabilize car shake, match phone to Sony, heal windshield spots, add music, export 4K.",
+      sources: [
+        { on: true, nm: "Sony · Car card", meta: "820 MP4 · S-Log3" },
+        { on: true, nm: "iPhone · Trip", meta: "310 MOV · HLG" },
+        { on: true, nm: "T7 · Archive", meta: "Cold sweep target" },
+        { on: false, nm: "Lightroom", meta: "Not used" }
+      ],
+      stacks: [
+        {
+          title: "Morning highway",
+          pills: [
+            { t: "Steady 4.2s", c: "ok" },
+            { t: "Phone HLG → Rec.709 ✓", c: "ok" }
+          ],
+          tiles: [
+            { label: "Fog", kept: true },
+            { label: "Dash", kept: false },
+            { label: "Phone", kept: true },
+            { label: "Bump", kept: false }
+          ],
+          write: "Morning highway"
+        },
+        {
+          title: "Desert noon",
+          pills: [
+            { t: "16:9 conform", c: "ok" },
+            { t: "Phone 9:16 → diptych", c: "warn" }
+          ],
+          tiles: [
+            { label: "Road", kept: true },
+            { label: "Sky", kept: true },
+            { label: "Pass", kept: false },
+            { label: "Hand", kept: false }
+          ],
+          write: "Desert noon"
+        },
+        {
+          title: "Night dashboard",
+          pills: [
+            { t: "Rigid stabilize", c: "ok" },
+            { t: "EV matched", c: "ok" }
+          ],
+          tiles: [
+            { label: "Lights", kept: true },
+            { label: "Talk", kept: true },
+            { label: "Blur", kept: false }
+          ],
+          write: "Night dashboard"
+        }
+      ],
+      preview: "Desert noon · road",
+      badge: "3840×2160 · Phone matched · Stabilize on",
+      tools: [
+        { id: "match", t: "Match phone to Sony", d: "HLG + ToneAnchor" },
+        { id: "stabilize", t: "Rigid stabilize", d: "Car vibration, no jelly" },
+        { id: "heal", t: "Instant heal", d: "Windshield spots" },
+        { id: "music", t: "Add music", d: "Ambient −18 dB" }
+      ],
+      outs: [
+        {
+          h: "4K YouTube",
+          body: [
+            ["Titles", "From stack names"],
+            ["Credits", "End card"],
+            ["Music", "One track mixed"]
+          ],
+          btn: "Export video"
+        },
+        {
+          h: "Optional handoff",
+          body: [
+            ["FCPXML", "Only if you want Final Cut"],
+            ["Unpicked", "Sweep to T7"],
+            ["No library", "0 GB ghost files"]
+          ],
+          btn: "Write FCPXML"
+        }
+      ],
+      foot3: "Music on · ambient −18 dB · 40 kept windows"
+    },
+    uday: {
+      label: "Uday · hike film",
+      prompt: "Group tripod landscape clips by overlook and remove hikers on locked-off shots",
+      s1Title: "Sources",
+      s1Sub: "Camera card + drone card on one sheet. Tripod shots get clean-plate remove.",
+      s1Foot: "2 cards · 410 clips · clocks shifted",
+      s2Sub: "One stack per overlook. Keep the steady takes. Title the chapter.",
+      s3Title: "Polish and ship",
+      s3Sub: "Clean-plate remove, one base look, then FCPXML or direct MP4.",
+      sources: [
+        { on: true, nm: "Sony · Trail", meta: "280 MP4 · tripod" },
+        { on: true, nm: "Mavic · Day 2", meta: "130 MP4 · D-Log" },
+        { on: false, nm: "Phone", meta: "Optional" },
+        { on: false, nm: "Lightroom", meta: "Not used" }
+      ],
+      stacks: [
+        {
+          title: "Ridge morning",
+          pills: [
+            { t: "Tripod · clean plate", c: "ok" },
+            { t: "Steady 6.1s", c: "ok" }
+          ],
+          tiles: [
+            { label: "Wide", kept: true },
+            { label: "Hiker", kept: false },
+            { label: "Detail", kept: true }
+          ],
+          write: "Ridge morning"
+        },
+        {
+          title: "Lake overlook",
+          pills: [
+            { t: "Remove ready", c: "ok" },
+            { t: "Drone matched", c: "ok" }
+          ],
+          tiles: [
+            { label: "Lake", kept: true },
+            { label: "Wind", kept: false },
+            { label: "Air", kept: true }
+          ],
+          write: "Lake overlook"
+        }
+      ],
+      preview: "Ridge morning · wide",
+      badge: "Tripod · clean plate · dust:1",
+      tools: [
+        { id: "match", t: "Match grade", d: "Camera + drone look" },
+        { id: "heal", t: "Clean plate remove", d: "Locked-off hikers" },
+        { id: "music", t: "Music", d: "Optional" }
+      ],
+      outs: [
+        {
+          h: "Direct MP4",
+          body: [
+            ["Chapters", "Stack titles"],
+            ["Remove", "Patch on keepers"],
+            ["Look", "One base grade"]
+          ],
+          btn: "Export video"
+        },
+        {
+          h: "Final Cut",
+          body: [
+            ["FCPXML", "Kept ranges only"],
+            ["Patch", "Clean plate above clip"],
+            ["Matte", "If masked"]
+          ],
+          btn: "Open Final Cut"
+        }
+      ],
+      foot3: "Clean plate on · optional FCPXML"
+    },
+    harrison: {
+      label: "Harrison · doc day",
+      prompt: "Align A-cam, B-cam, and drone by time and build a chronological stringout of selects",
+      s1Title: "Sources",
+      s1Sub: "Multi-cam + drone. Shift clocks once. Phone VFR is converted on tether.",
+      s1Foot: "3 bodies · clocks shifted · 640 clips",
+      s2Sub: "One stack per scene or interview beat. Keep usable ranges. Title the beat.",
+      s3Title: "Polish and ship",
+      s3Sub: "Match color across bodies, then hand Final Cut or Premiere a stringout.",
+      sources: [
+        { on: true, nm: "A-cam Sony", meta: "220 clips" },
+        { on: true, nm: "B-cam", meta: "180 clips · −7 min" },
+        { on: true, nm: "Drone", meta: "90 clips · no audio" },
+        { on: false, nm: "Lightroom", meta: "Not used" }
+      ],
+      stacks: [
+        {
+          title: "Interview · kitchen",
+          pills: [
+            { t: "A+B synced", c: "ok" },
+            { t: "VFR fixed", c: "ok" }
+          ],
+          tiles: [
+            { label: "A wide", kept: true },
+            { label: "B tight", kept: true },
+            { label: "Cutaway", kept: false }
+          ],
+          write: "Interview · kitchen"
+        },
+        {
+          title: "Drive to site",
+          pills: [
+            { t: "Drone + car", c: "ok" },
+            { t: "Clocks aligned", c: "ok" }
+          ],
+          tiles: [
+            { label: "Car", kept: true },
+            { label: "Air", kept: true },
+            { label: "Arrive", kept: false }
+          ],
+          write: "Drive to site"
+        }
+      ],
+      preview: "Interview · B tight",
+      badge: "Bodies matched · stringout ready",
+      tools: [
+        { id: "match", t: "Match bodies", d: "EV and WB across cams" },
+        { id: "stabilize", t: "Stabilize", d: "Hand cams only" },
+        { id: "music", t: "Music", d: "Usually off until NLE" }
+      ],
+      outs: [
+        {
+          h: "Stringout",
+          body: [
+            ["Chronological", "Kept ranges only"],
+            ["Color matched", "Across bodies"],
+            ["Titles", "Scene cards"]
+          ],
+          btn: "Export MP4"
+        },
+        {
+          h: "NLE handoff",
+          body: [
+            ["FCPXML", "Final Cut"],
+            ["Premiere XML", "Same selects"],
+            ["No bins to sort", "Clocks already shifted"]
+          ],
+          btn: "Open Final Cut"
+        }
+      ],
+      foot3: "Multi-cam matched · FCPXML ready"
+    }
+  };
+
+  const cuts = {
+    1: {
+      note: "Pass 1 is the full wish list before cutting.",
+      rows: [
+        ["Sources", "Cards + T7 + phone + LR + cloud APIs", "Same", "Same + Camera to Cloud", "wish"],
+        ["Grouping", "Prompt stacks + auto essay writer", "Prompt stacks", "Prompt + AI story edit", "wish"],
+        ["Edit", "Heal, grade, masks, generative fill, captions", "Remove, grade, masks", "Magic Mask, Object Remove", "wish"],
+        ["Video", "Stabilize, conform, titles, credits, music, Reels", "Stabilize, FCPXML", "Multicam timeline", "wish"],
+        ["Output", "Essay + MP4 + FCPXML + Premiere + iMovie", "MP4 + FCPXML", "FCPXML + Premiere", "wish"]
+      ]
+    },
+    2: {
+      note: "Pass 2 drops cloud APIs, generative fill, Reels, and auto essay writing.",
+      rows: [
+        ["Sources", "Cards + T7 + phone + LR folder (read)", "Cards + drone", "A/B + drone + phone", "trim"],
+        ["Grouping", "Prompt or manual Checkpoint stacks", "Stacks by overlook", "Stacks by scene", "trim"],
+        ["Edit", "Match EV, heal, Subject/Sky mask", "Clean plate + grade", "Match bodies + grade", "trim"],
+        ["Video", "Stabilize, 16:9/diptych, titles, music", "Stabilize optional", "Stringout only", "trim"],
+        ["Output", "Essay + MP4 + optional FCPXML", "MP4 + FCPXML", "FCPXML primary", "trim"]
+      ]
+    },
+    3: {
+      note: "Pass 3 MVP: three screens, Checkpoint stacks as the unit, calculator polish, essay or MP4 first, FCPXML as a door.",
+      rows: [
+        ["Sources", "Tether only · no catalog copy", "Tether only", "Tether + clock shift", "keep"],
+        ["Grouping", "Prompt/manual stacks + write on stack", "Stacks + titles", "Stacks + titles", "keep"],
+        ["Size check", "Exposure.co + portfolio resolution pills", "Steady window pill", "Sync / VFR pills", "keep"],
+        ["Edit", "Match, heal, Subject/Sky", "Clean plate remove", "Match bodies", "keep"],
+        ["Video", "Stabilize, phone↔Sony, titles, music", "Optional stabilize", "Stringout handoff", "keep"],
+        ["Output", "Essay or 4K MP4 · Sweep rest · optional FCPXML", "MP4 or FCPXML", "FCPXML or MP4", "keep"],
+        ["Cut", "No Maybe/Cut · no cloud APIs · no generative fill · no CapCut captions · no LR develop parity", "No EdgeTAM lab", "No full NLE", "cut"]
+      ]
+    }
+  };
+
+  function $(sel) { return root.querySelector(sel); }
+  function $all(sel) { return Array.from(root.querySelectorAll(sel)); }
+
+  function renderSources() {
+    const sc = scenes[state.scene];
+    const box = $("#lm-sources");
+    box.innerHTML = "";
+    sc.sources.forEach((s) => {
+      const el = document.createElement("div");
+      el.className = "lm-src" + (s.on ? " on" : "");
+      el.innerHTML = `<div class="nm"><span class="lm-dot" style="background:${s.on ? "var(--ok)" : "var(--mute)"}"></span>${s.nm}</div><div class="meta">${s.meta}</div>`;
+      box.appendChild(el);
+    });
+  }
+
+  function renderStacks() {
+    const sc = scenes[state.scene];
+    const box = $("#lm-stacks");
+    box.innerHTML = "";
+    let kept = 0;
+    sc.stacks.forEach((st, si) => {
+      const wrap = document.createElement("div");
+      wrap.className = "lm-stack";
+      const pills = st.pills.map((p) => `<span class="lm-pill ${p.c}">${p.t}</span>`).join("");
+      const tiles = st.tiles.map((t, ti) => {
+        if (t.kept) kept += 1;
+        return `<button type="button" class="lm-tile${t.kept ? " kept" : ""}" data-si="${si}" data-ti="${ti}" aria-pressed="${t.kept}" aria-label="${t.label}"><span class="ph">${t.label}</span><span class="k">P</span></button>`;
+      }).join("");
+      wrap.innerHTML = `
+        <div class="lm-stack-hd">
+          <span class="chk">${st.title}</span>
+          ${pills}
+        </div>
+        <div class="lm-row">${tiles}</div>
+        <textarea class="lm-write" data-si="${si}" aria-label="Stack writing">${st.write}</textarea>`;
+      box.appendChild(wrap);
+    });
+    $("#lm-s2-foot").textContent = `${sc.stacks.length} stacks · ${kept} kept`;
+    box.querySelectorAll(".lm-tile").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const si = Number(btn.getAttribute("data-si"));
+        const ti = Number(btn.getAttribute("data-ti"));
+        const tile = scenes[state.scene].stacks[si].tiles[ti];
+        tile.kept = !tile.kept;
+        renderStacks();
+      });
+    });
+    box.querySelectorAll(".lm-write").forEach((ta) => {
+      ta.addEventListener("input", () => {
+        const si = Number(ta.getAttribute("data-si"));
+        scenes[state.scene].stacks[si].write = ta.value;
+      });
+    });
+  }
+
+  function renderTools() {
+    const sc = scenes[state.scene];
+    const box = $("#lm-tools");
+    box.innerHTML = "";
+    sc.tools.filter((t) => !t.hide).forEach((t) => {
+      const on = !!state.tools[t.id];
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "lm-tool" + (on ? " on" : "");
+      el.setAttribute("aria-pressed", on ? "true" : "false");
+      el.innerHTML = `<div><div class="t">${t.t}</div><div class="d">${t.d}</div></div><span class="lm-sw" aria-hidden="true"></span>`;
+      el.addEventListener("click", () => {
+        state.tools[t.id] = !state.tools[t.id];
+        renderTools();
+      });
+      box.appendChild(el);
+    });
+  }
+
+  function renderPublish() {
+    const sc = scenes[state.scene];
+    const box = $("#lm-publish");
+    box.innerHTML = "";
+    sc.outs.forEach((o) => {
+      const el = document.createElement("div");
+      el.className = "lm-out";
+      const lines = o.body.map(([a, b]) => `<div class="blk"><strong>${a}</strong>${b}</div>`).join("");
+      el.innerHTML = `<h3>${o.h}</h3><div class="lm-essay">${lines}</div><button type="button" class="lm-btn" style="align-self:flex-start;margin-top:auto">${o.btn}</button>`;
+      box.appendChild(el);
+    });
+  }
+
+  function renderCuts() {
+    const c = cuts[state.pass];
+    $("#lm-cut-note").textContent = c.note;
+    const body = $("#lm-cut-body");
+    body.innerHTML = "";
+    c.rows.forEach((r) => {
+      const tr = document.createElement("tr");
+      const statusClass = r[4] === "keep" ? "keep" : r[4] === "cut" ? "cut" : "";
+      const statusLabel = r[4] === "keep" ? "Keep" : r[4] === "cut" ? "Cut" : r[4] === "trim" ? "Trim" : "Wish";
+      tr.innerHTML = `<td>${r[0]}</td><td class="${r[4] === "cut" ? "cut" : ""}">${r[1]}</td><td class="${r[4] === "cut" ? "cut" : ""}">${r[2]}</td><td class="${r[4] === "cut" ? "cut" : ""}">${r[3]}</td><td class="${statusClass}">${statusLabel}</td>`;
+      body.appendChild(tr);
+    });
+    $("#lm-pass").textContent = `Pass ${state.pass} · ${state.pass === 3 ? "MVP" : state.pass === 2 ? "Trim" : "Wish"}`;
+  }
+
+  function showScreen(n) {
+    state.screen = String(n);
+    ["1", "2", "3"].forEach((id) => {
+      const el = $(`#lm-screen-${id}`);
+      if (el) el.hidden = id !== state.screen;
+    });
+    $all('.lm-tabs [data-screen]').forEach((btn) => {
+      btn.setAttribute("aria-current", btn.getAttribute("data-screen") === state.screen ? "page" : "false");
+    });
+  }
+
+  function applyScene() {
+    const sc = scenes[state.scene];
+    $("#lm-scene-label").textContent = sc.label;
+    $("#lm-prompt").value = sc.prompt;
+    $("#lm-s1-title").textContent = sc.s1Title;
+    $("#lm-s1-sub").textContent = sc.s1Sub;
+    $("#lm-s1-foot").textContent = sc.s1Foot;
+    $("#lm-s2-sub").textContent = sc.s2Sub;
+    $("#lm-s3-title").textContent = sc.s3Title;
+    $("#lm-s3-sub").textContent = sc.s3Sub;
+    $("#lm-preview-label").textContent = sc.preview;
+    $("#lm-preview-badge").textContent = sc.badge;
+    $("#lm-s3-foot").textContent = sc.foot3;
+    renderSources();
+    renderStacks();
+    renderTools();
+    renderPublish();
+  }
+
+  function applyMode() {
+    root.classList.toggle("wire", state.mode === "wire");
+    $all("[data-mode]").forEach((btn) => {
+      btn.setAttribute("aria-pressed", btn.getAttribute("data-mode") === state.mode ? "true" : "false");
+    });
+  }
+
+  $all("[data-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.mode = btn.getAttribute("data-mode");
+      applyMode();
+    });
+  });
+  $all("[data-scene]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.scene = btn.getAttribute("data-scene");
+      $all("[data-scene]").forEach((b) => b.setAttribute("aria-pressed", b === btn ? "true" : "false"));
+      applyScene();
+    });
+  });
+  $all("[data-pass]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.pass = Number(btn.getAttribute("data-pass"));
+      $all("[data-pass]").forEach((b) => b.setAttribute("aria-pressed", b === btn ? "true" : "false"));
+      renderCuts();
+    });
+  });
+  $all(".lm-tabs [data-screen]").forEach((btn) => {
+    btn.addEventListener("click", () => showScreen(btn.getAttribute("data-screen")));
+  });
+  root.addEventListener("click", (e) => {
+    const go = e.target.closest("[data-goto]");
+    if (go) showScreen(go.getAttribute("data-goto"));
+  });
+  $("#lm-run").addEventListener("click", () => showScreen(2));
+  $("#lm-add-stack").addEventListener("click", () => {
+    const sc = scenes[state.scene];
+    sc.stacks.push({
+      title: "New checkpoint",
+      pills: [{ t: "Empty", c: "warn" }],
+      tiles: [{ label: "Drop", kept: false }, { label: "Drop", kept: false }],
+      write: "Write this sub-topic"
+    });
+    renderStacks();
+  });
+  $("#lm-export").addEventListener("click", () => {
+    $("#lm-s3-foot").textContent = "Exported · ready";
+  });
+  $("#lm-sweep").addEventListener("click", () => {
+    $("#lm-s3-foot").textContent = "Unpicked swept to T7";
+  });
+
+  applyMode();
+  applyScene();
+  renderCuts();
+  showScreen(1);
+})();
+</script>
