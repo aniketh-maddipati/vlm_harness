@@ -1,0 +1,539 @@
+<div id="lumina-input-wf2" class="liw" role="region" aria-label="Lumina input page wireframe with destination footer">
+  <p class="vis-sr-only">Wireframe for Sources. Growing tile grid grouped by destination. Footer lists destinations plus size totals and quick file-type counts for Log, MP4, and HEIF.</p>
+
+  <style>
+    #lumina-input-wf2 {
+      --ink: light-dark(#1a1917, #EFECE6);
+      --mute: light-dark(#6b6760, #9A958D);
+      --line: light-dark(rgba(26,25,23,0.35), rgba(239,236,230,0.35));
+      --fill: light-dark(rgba(26,25,23,0.04), rgba(239,236,230,0.04));
+      --serif: "Iowan Old Style", Palatino, Georgia, serif;
+      --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    #lumina-input-wf2 * { box-sizing: border-box; }
+    #lumina-input-wf2 button {
+      font: inherit;
+      color: inherit;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      padding: 0;
+    }
+    #lumina-input-wf2 .frame {
+      border: 1.5px solid var(--line);
+      border-radius: 10px;
+      min-height: 520px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #lumina-input-wf2 .top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1.5px solid var(--line);
+    }
+    #lumina-input-wf2 .brand {
+      font-family: var(--serif);
+      font-size: 18px;
+    }
+    #lumina-input-wf2 .tabs {
+      display: flex;
+      gap: 16px;
+      margin: 0 auto;
+      font-size: 12px;
+      color: var(--mute);
+    }
+    #lumina-input-wf2 .tabs .on {
+      color: var(--ink);
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+    #lumina-input-wf2 .body {
+      flex: 1;
+      padding: 20px 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 0;
+      overflow: auto;
+    }
+    #lumina-input-wf2 .head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 12px;
+    }
+    #lumina-input-wf2 .title {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 400;
+    }
+    #lumina-input-wf2 .sub {
+      color: var(--mute);
+      font-size: 12px;
+    }
+    #lumina-input-wf2 .grow { flex: 1; min-width: 8px; }
+    #lumina-input-wf2 .add {
+      height: 32px;
+      padding: 0 14px;
+      border: 1.5px solid var(--line);
+      border-radius: 8px;
+      font-weight: 650;
+      font-size: 12px;
+    }
+    #lumina-input-wf2 .add:hover { background: var(--fill); }
+    #lumina-input-wf2 .empty {
+      flex: 1;
+      min-height: 280px;
+      border: 1.5px dashed var(--line);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--mute);
+      text-align: center;
+      padding: 24px;
+    }
+    #lumina-input-wf2 .empty strong {
+      color: var(--ink);
+      font-weight: 650;
+      font-size: 14px;
+    }
+    #lumina-input-wf2 .lanes {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    #lumina-input-wf2 .lane {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #lumina-input-wf2 .lane-hd {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px;
+    }
+    #lumina-input-wf2 .lane-name {
+      font-weight: 700;
+      font-size: 13px;
+    }
+    #lumina-input-wf2 .lane-meta {
+      color: var(--mute);
+      font-size: 11px;
+    }
+    #lumina-input-wf2 .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    #lumina-input-wf2 .tile {
+      aspect-ratio: 4 / 3;
+      border: 1.5px solid var(--line);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 10px;
+      gap: 2px;
+      background: var(--fill);
+      text-align: left;
+      min-height: 110px;
+    }
+    #lumina-input-wf2 .tile .nm {
+      font-weight: 650;
+      font-size: 12px;
+    }
+    #lumina-input-wf2 .tile .mt {
+      color: var(--mute);
+      font-size: 11px;
+    }
+    #lumina-input-wf2 .tile.add-tile {
+      border-style: dashed;
+      align-items: center;
+      justify-content: center;
+      color: var(--mute);
+      font-weight: 650;
+      font-size: 12px;
+      text-align: center;
+    }
+    #lumina-input-wf2 .foot {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px 14px;
+      padding: 12px 16px;
+      border-top: 1.5px solid var(--line);
+      font-size: 12px;
+      color: var(--ink);
+      line-height: 1.45;
+    }
+    #lumina-input-wf2 .foot .dests {
+      font-weight: 650;
+    }
+    #lumina-input-wf2 .foot .sep {
+      color: var(--mute);
+    }
+    #lumina-input-wf2 .foot .stats {
+      color: var(--mute);
+    }
+    #lumina-input-wf2 .rules {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border: 1.5px solid var(--line);
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--mute);
+    }
+    #lumina-input-wf2 .rules strong {
+      color: var(--ink);
+      font-weight: 650;
+    }
+    #lumina-input-wf2 .rules ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+    #lumina-input-wf2 .rules li { margin: 4px 0; }
+    #lumina-input-wf2 .demos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    #lumina-input-wf2 .demos button {
+      height: 26px;
+      padding: 0 10px;
+      border: 1.5px solid var(--line);
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--mute);
+    }
+    #lumina-input-wf2 .demos button[aria-pressed="true"] {
+      color: var(--ink);
+      background: var(--fill);
+    }
+  </style>
+
+  <div class="frame">
+    <div class="top">
+      <span class="brand">Lumina</span>
+      <div class="tabs" aria-hidden="true">
+        <span class="on">Sources</span>
+        <span>Stacks</span>
+        <span>Ship</span>
+      </div>
+      <span class="sub">wireframe</span>
+    </div>
+
+    <div class="body">
+      <div class="head">
+        <span class="title">Sources</span>
+        <span class="sub" id="liw2-count">No sources yet</span>
+        <span class="grow"></span>
+        <button type="button" class="add" id="liw2-add">Add source</button>
+      </div>
+
+      <div class="empty" id="liw2-empty">
+        <strong>Add a folder, card, or drive</strong>
+        <span>Drop anywhere, or use Add source. Lanes appear only when something is added from that destination.</span>
+        <button type="button" class="add" id="liw2-add-empty">Add source</button>
+      </div>
+
+      <div class="lanes" id="liw2-lanes" hidden></div>
+    </div>
+
+    <div class="foot" id="liw2-foot" aria-live="polite">
+      <span class="dests">No sources</span>
+    </div>
+  </div>
+
+  <div class="rules">
+    <strong>Footer</strong>
+    <ul>
+      <li>List destinations only: Phone · SD card · T7 · …</li>
+      <li>Then totals: file count and size.</li>
+      <li>Then quick process counts: Log · MP4 · HEIF (and RAW if present).</li>
+    </ul>
+    <div class="demos" role="group" aria-label="Demo states">
+      <button type="button" data-demo="empty" aria-pressed="true">Empty</button>
+      <button type="button" data-demo="one" aria-pressed="false">One card</button>
+      <button type="button" data-demo="multi" aria-pressed="false">Card + T7 + phone</button>
+      <button type="button" data-demo="dup" aria-pressed="false">Two T7 folders</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const root = document.getElementById("lumina-input-wf2");
+  if (!root) return;
+
+  const catalog = [
+    {
+      id: "sony-card",
+      dest: "SD card",
+      destKey: "card-sony",
+      name: "100MSDCF",
+      meta: "480 ARW · read-only",
+      files: 480,
+      gb: 18.4,
+      raw: 480, log: 0, mp4: 0, heif: 0
+    },
+    {
+      id: "sony-card-2",
+      dest: "SD card",
+      destKey: "card-sony",
+      name: "101MSDCF",
+      meta: "120 ARW · new",
+      files: 120,
+      gb: 4.6,
+      raw: 120, log: 0, mp4: 0, heif: 0
+    },
+    {
+      id: "t7-portland",
+      dest: "T7",
+      destKey: "t7",
+      name: "Portland / Coffee",
+      meta: "86 files · granted",
+      files: 86,
+      gb: 12.1,
+      raw: 64, log: 0, mp4: 8, heif: 14
+    },
+    {
+      id: "t7-road",
+      dest: "T7",
+      destKey: "t7",
+      name: "Road trip / Clips",
+      meta: "1,200 MP4 · granted",
+      files: 1200,
+      gb: 186.0,
+      raw: 0, log: 820, mp4: 380, heif: 0
+    },
+    {
+      id: "phone",
+      dest: "Phone",
+      destKey: "phone",
+      name: "Downloads batch",
+      meta: "28 HEIC · 6 MP4",
+      files: 34,
+      gb: 2.8,
+      raw: 0, log: 0, mp4: 6, heif: 28
+    },
+    {
+      id: "lr",
+      dest: "Lightroom",
+      destKey: "lr",
+      name: "~/Pictures/Selects",
+      meta: "16 RAW + XMP",
+      files: 16,
+      gb: 1.9,
+      raw: 16, log: 0, mp4: 0, heif: 0
+    },
+    {
+      id: "drone",
+      dest: "Drone card",
+      destKey: "drone",
+      name: "101MEDIA",
+      meta: "38 DNG · 14 MP4",
+      files: 52,
+      gb: 6.4,
+      raw: 38, log: 14, mp4: 0, heif: 0
+    }
+  ];
+
+  const demos = {
+    empty: [],
+    one: ["sony-card"],
+    multi: ["sony-card", "t7-portland", "phone"],
+    dup: ["sony-card", "t7-portland", "t7-road", "phone"]
+  };
+
+  let selected = [];
+  let demo = "empty";
+
+  const emptyEl = root.querySelector("#liw2-empty");
+  const lanesEl = root.querySelector("#liw2-lanes");
+  const countEl = root.querySelector("#liw2-count");
+  const footEl = root.querySelector("#liw2-foot");
+
+  function byId(id) {
+    return catalog.find((c) => c.id === id);
+  }
+
+  function fmtN(n) {
+    return new Intl.NumberFormat("en-US").format(n);
+  }
+
+  function fmtGb(n) {
+    if (n < 1) return (n * 1024).toFixed(0) + " MB";
+    return n.toFixed(n >= 100 ? 0 : 1) + " GB";
+  }
+
+  function grouped() {
+    const map = new Map();
+    selected.forEach((id) => {
+      const s = byId(id);
+      if (!s) return;
+      if (!map.has(s.destKey)) map.set(s.destKey, { dest: s.dest, items: [] });
+      map.get(s.destKey).items.push(s);
+    });
+    return Array.from(map.values()).filter((g) => g.items.length > 0);
+  }
+
+  function totals() {
+    let files = 0, gb = 0, raw = 0, log = 0, mp4 = 0, heif = 0;
+    selected.forEach((id) => {
+      const s = byId(id);
+      if (!s) return;
+      files += s.files;
+      gb += s.gb;
+      raw += s.raw;
+      log += s.log;
+      mp4 += s.mp4;
+      heif += s.heif;
+    });
+    return { files, gb, raw, log, mp4, heif };
+  }
+
+  function renderFooter() {
+    const groups = grouped();
+    footEl.innerHTML = "";
+
+    if (groups.length === 0) {
+      const d = document.createElement("span");
+      d.className = "dests";
+      d.textContent = "No sources";
+      footEl.appendChild(d);
+      return;
+    }
+
+    const dests = document.createElement("span");
+    dests.className = "dests";
+    dests.textContent = groups.map((g) => g.dest).join(" · ");
+    footEl.appendChild(dests);
+
+    const sep1 = document.createElement("span");
+    sep1.className = "sep";
+    sep1.textContent = "·";
+    footEl.appendChild(sep1);
+
+    const t = totals();
+    const stats = document.createElement("span");
+    stats.className = "stats";
+    const parts = [fmtN(t.files) + " files", fmtGb(t.gb)];
+    if (t.raw) parts.push(fmtN(t.raw) + " RAW");
+    if (t.log) parts.push(fmtN(t.log) + " Log");
+    if (t.mp4) parts.push(fmtN(t.mp4) + " MP4");
+    if (t.heif) parts.push(fmtN(t.heif) + " HEIF");
+    stats.textContent = parts.join(" · ");
+    footEl.appendChild(stats);
+  }
+
+  function render() {
+    const groups = grouped();
+    const n = selected.length;
+    countEl.textContent = n === 0 ? "No sources yet" : n + " source" + (n === 1 ? "" : "s");
+
+    if (groups.length === 0) {
+      emptyEl.hidden = false;
+      lanesEl.hidden = true;
+      lanesEl.innerHTML = "";
+      renderFooter();
+      return;
+    }
+
+    emptyEl.hidden = true;
+    lanesEl.hidden = false;
+    lanesEl.innerHTML = "";
+
+    groups.forEach((g) => {
+      const lane = document.createElement("section");
+      lane.className = "lane";
+      lane.setAttribute("aria-label", g.dest);
+
+      const files = g.items.reduce((a, i) => a + i.files, 0);
+      const gb = g.items.reduce((a, i) => a + i.gb, 0);
+
+      const hd = document.createElement("div");
+      hd.className = "lane-hd";
+      hd.innerHTML = "<span class=\"lane-name\">" + g.dest + "</span><span class=\"lane-meta\">" + g.items.length + " source" + (g.items.length === 1 ? "" : "s") + " · " + fmtN(files) + " files · " + fmtGb(gb) + "</span>";
+      lane.appendChild(hd);
+
+      const grid = document.createElement("div");
+      grid.className = "grid";
+
+      g.items.forEach((item) => {
+        const tile = document.createElement("div");
+        tile.className = "tile";
+        tile.innerHTML = "<span class=\"nm\">" + item.name + "</span><span class=\"mt\">" + item.meta + "</span>";
+        grid.appendChild(tile);
+      });
+
+      const addTile = document.createElement("button");
+      addTile.type = "button";
+      addTile.className = "tile add-tile";
+      addTile.textContent = "Add here";
+      addTile.addEventListener("click", () => addFromDest(g.items[0].destKey));
+      grid.appendChild(addTile);
+
+      lane.appendChild(grid);
+      lanesEl.appendChild(lane);
+    });
+
+    renderFooter();
+  }
+
+  function addNext() {
+    const unused = catalog.filter((c) => !selected.includes(c.id));
+    if (unused.length) selected.push(unused[0].id);
+    demo = "custom";
+    syncDemoButtons();
+    render();
+  }
+
+  function addFromDest(destKey) {
+    const next = catalog.find((c) => c.destKey === destKey && !selected.includes(c.id));
+    if (next) selected.push(next.id);
+    else {
+      const any = catalog.find((c) => !selected.includes(c.id));
+      if (any) selected.push(any.id);
+    }
+    demo = "custom";
+    syncDemoButtons();
+    render();
+  }
+
+  function setDemo(name) {
+    demo = name;
+    selected = (demos[name] || []).slice();
+    syncDemoButtons();
+    render();
+  }
+
+  function syncDemoButtons() {
+    root.querySelectorAll("[data-demo]").forEach((btn) => {
+      btn.setAttribute("aria-pressed", btn.getAttribute("data-demo") === demo ? "true" : "false");
+    });
+  }
+
+  root.querySelector("#liw2-add").addEventListener("click", addNext);
+  root.querySelector("#liw2-add-empty").addEventListener("click", addNext);
+  root.querySelectorAll("[data-demo]").forEach((btn) => {
+    btn.addEventListener("click", () => setDemo(btn.getAttribute("data-demo")));
+  });
+
+  render();
+})();
+</script>
+</div>
