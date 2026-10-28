@@ -16,8 +16,8 @@ Source runs under `/Volumes/LuminaFactory/masklab-davis/runs/20261023-sam2/`
 | sam2.1-large | 0.843 | 1.2 | reference only |
 
 **Gap to live target (≥0.75 J&F @ ≥15 fps):** EdgeTAM already clears J&F on the clicked path
-but is at **9 fps**. Next: Core ML conversion keeping video memory (`/Volumes/LuminaFactory/ref/EdgeTAM/coreml/`
-has conversion scaffolding), optionally run EdgeTAM only on shaky/lost stretches.
+but is at **9 fps**. Core ML conversion attempted 2026-10-28 and **failed** (coremltools `int`
+op — see `2026-10-28-edgetam-coreml.md`).
 
 **E2 sureness:** factory `calibrate-*.json` fits that hit ≤20–35% bad-sure also collapse sure share
 to ~2–4% (unusable). Still open: a rule that keeps usable sure share with bad-sure ≤5%.
