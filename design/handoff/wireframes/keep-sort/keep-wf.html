@@ -86,6 +86,13 @@
     text-decoration: underline; text-underline-offset: 4px;
   }
   .top .spacer { flex: 1; min-width: 12px; }
+  .align-pill {
+    flex: none; font-size: 11px; font-weight: 700; color: var(--mute);
+    padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--fill); font-variant-numeric: tabular-nums;
+    transition: color var(--dur-fast) var(--ease-soft), border-color var(--dur-fast) var(--ease-soft);
+  }
+  .align-pill.done { color: var(--keep); border-color: var(--keep); }
   .hint {
     color: var(--mute); font-size: 11px; max-width: 28vw;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none;
@@ -184,10 +191,20 @@
     display: inline-flex; gap: 4px; flex-wrap: wrap; align-items: center;
   }
   .src-chips .sc {
+    display: inline-flex; align-items: center; gap: 3px;
     font-size: 10px; font-weight: 750; letter-spacing: 0.04em; text-transform: uppercase;
     padding: 3px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--mute);
   }
   .src-chips .sc.on { color: var(--ink); border-color: var(--ink); }
+  .sc-sh {
+    font-size: 11px; font-weight: 800; line-height: 1; color: var(--mute);
+    width: 15px; height: 15px; border-radius: 50%; display: inline-grid; place-items: center;
+  }
+  .sc-sh:hover { color: var(--ink); background: var(--fill); }
+  .sc-off {
+    min-width: 0; font-size: 9px; font-weight: 750; color: var(--amber);
+    font-variant-numeric: tabular-nums; letter-spacing: 0;
+  }
   .ready-pill {
     font-size: 11px; font-weight: 750; padding: 5px 10px; border-radius: 6px;
     background: var(--fill); color: var(--mute); font-variant-numeric: tabular-nums;
@@ -261,6 +278,23 @@
     pointer-events: none;
     transition: top 80ms linear;
   }
+
+  .chapter {
+    display: flex; align-items: baseline; gap: 10px;
+    margin: 6px 0 10px var(--gut);
+    padding: 2px 0 8px; border-bottom: 1px solid var(--line);
+  }
+  .chapter:first-child { margin-top: 0; }
+  .ch-k {
+    font-size: 10px; font-weight: 750; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .ch-title {
+    font-family: var(--serif); font-size: 19px; font-weight: 400; color: var(--ink);
+    padding: 0 2px; border-radius: 5px;
+  }
+  .ch-title:hover { background: var(--fill); }
+  .ch-meta { font-size: 11px; font-weight: 650; color: var(--mute); }
 
   .run {
     position: relative; margin-bottom: var(--run-gap);
@@ -478,6 +512,13 @@
   .ship-card.alt { background: var(--fill); }
   .ship-hd { font-size: 13px; font-weight: 750; }
   .ship-meta { color: var(--mute); font-size: 12px; font-weight: 600; line-height: 1.4; }
+  .xchapters { display: grid; gap: 4px; padding: 4px 0 2px; }
+  .xch {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    font-size: 12px; font-weight: 650;
+  }
+  .xch-n { color: var(--ink); font-family: var(--serif); font-size: 14px; font-weight: 400; }
+  .xch-m { color: var(--mute); font-variant-numeric: tabular-nums; }
   .nle { display: flex; gap: 8px; }
   .nle button {
     flex: 1; font-size: 12px; font-weight: 750; padding: 8px 10px; border-radius: 8px;
@@ -537,6 +578,7 @@
       <button type="button" class="on">Sort</button>
       <button type="button" id="tab-export">Export</button>
     </div>
+    <span class="align-pill" id="align-pill" title="Clocks aligned across inputs · models, not by hand">aligning clocks…</span>
     <span class="spacer" aria-hidden="true"></span>
     <button type="button" class="rec-sw" id="rec-sw" role="switch" aria-checked="true"
       aria-pressed="true" title="Rec.709 preview filter · ⇧R">
@@ -599,10 +641,11 @@
 <div class="scrim" id="export-scrim" role="dialog" aria-label="Export">
   <div class="sheet">
     <h1>Export</h1>
-    <p class="sub">Package selected · open in NLE</p>
+    <p class="sub" id="export-sub">Keeps in time order · one timeline · opens in your NLE</p>
     <div class="ship-card">
-      <div class="ship-hd">Package</div>
+      <div class="ship-hd">Stringout package</div>
       <div class="ship-meta" id="export-pkg">—</div>
+      <div class="xchapters" id="export-chapters" hidden></div>
       <div class="ship-meta">To <strong id="export-to">~/Movies/Dump-Day1/Package</strong></div>
     </div>
     <div class="ship-card alt">
@@ -689,15 +732,26 @@
   ];
   const HANDOFF_SRC = {
     "sony-card": "card", "sony-card-2": "card",
-    drone: "drone", phone: "phone", "t7-road": "ssd"
+    drone: "drone", phone: "phone", "t7-road": "ssd",
+    "a-cam": "acam", "b-cam": "bcam", "mavic": "drone", "sony-trail": "card"
   };
+
+  // One dump, every docked input. The T7/ssd body clock drifted (−6 min here) so the
+  // auto-align pass has a real skew to correct — same class of problem as a B-cam
+  // running fast or a drone on a different clock.
   // Wireframe SSD stand-ins (T7) — same day clocks, distinct names
+  // The ssd body's clock ran +6 min fast, so its files stamp 6 min ahead of the moment they
+  // were shot. Left as-is they land ahead of the card clips they were shot beside; the
+  // auto-align pass pulls them back onto the axis. (What a B-cam / second body does.)
   const SSD_CLIPS = [
     { id:"S01", name:"C4401", src:"ssd", log:true,  dur:18.0, bytes:0.72e9, soft:false, t:"2026-10-12T11:08:00", unread:true },
     { id:"S02", name:"C4402", src:"ssd", log:true,  dur:15.2, bytes:0.61e9, soft:false, t:"2026-10-12T11:08:40", unread:true },
     { id:"S03", name:"C4510", src:"ssd", log:false, dur:9.0,  bytes:0.28e9, soft:false, t:"2026-10-12T14:30:00", unread:true },
     { id:"S04", name:"C4600", src:"ssd", log:true,  dur:22.4, bytes:0.88e9, soft:true,  t:"2026-10-12T16:20:12", unread:true },
   ];
+  // Hidden per-source clock skew (seconds) the auto-align model finds. Stands in for what a
+  // sync model detects from the media. Negative = that source stamped ahead; shift it back.
+  const HIDDEN_SKEW = { ssd: -6 * 60 };
   let CLIPS = ALL_CLIPS.concat(SSD_CLIPS).slice();
 
   const state = {
@@ -725,6 +779,10 @@
     readyDone: 0,
     readyTotal: 0,
     inboundN: 0,
+    shift: {},         // per-src clock offset in seconds; auto-align estimates, −/+ overrides
+    aligned: false,    // auto clock-align has run on this dump
+    gapMin: 12,        // chapters: a clock gap over this opens a new chapter (always on)
+    chapters: [],      // chapter titles per bin index
   };
   const mq = { on: false, x0: 0, y0: 0, moved: false, skipClick: false };
 
@@ -747,22 +805,97 @@
     const v = Date.parse(String(t || "").slice(0, 19) + "Z");
     return isFinite(v) ? v / 1000 : NaN;
   }
+  // Axis time = file clock + this source's shift (a drifting body's clock, pulled into line).
+  function clipSec(c) {
+    const base = tiSec(c.t);
+    if (!isFinite(base)) return base;
+    return base + (state.shift[c.src] | 0);
+  }
+  function shiftedIso(c) {
+    const s = clipSec(c);
+    return isFinite(s) ? new Date(s * 1000).toISOString().slice(0, 19) : String(c.t || "");
+  }
   function sortClipsChron(list) {
     return list.slice().sort((a, b) => {
-      const ta = tiSec(a.t), tb = tiSec(b.t);
+      const ta = clipSec(a), tb = clipSec(b);
       if (!isFinite(ta) && !isFinite(tb)) return 0;
       if (!isFinite(ta)) return 1;
       if (!isFinite(tb)) return -1;
       return ta - tb;
     });
   }
+  const SRC_LABEL = { acam: "A-cam", bcam: "B-cam", drone: "drone", card: "card", phone: "phone", ssd: "ssd" };
+  function fmtShift(sec) {
+    sec = sec | 0;
+    if (!sec) return "";
+    const sign = sec > 0 ? "+" : "−";
+    const a = Math.abs(sec);
+    const m = Math.floor(a / 60), s = a % 60;
+    return " " + sign + (m ? m + "m" : "") + (s ? (m ? " " : "") + s + "s" : "");
+  }
   function paintSrcChips() {
     const el = $("src-chips");
     if (!el) return;
     const srcs = [...new Set(CLIPS.map((c) => c.src))];
-    el.innerHTML = srcs.map((s) =>
-      '<span class="sc on">' + s + "</span>"
-    ).join("");
+    el.innerHTML = srcs.map((s) => {
+      const off = state.shift[s] | 0;
+      const lab = SRC_LABEL[s] || s;
+      return (
+        '<span class="sc on" data-src="' + s + '" title="' + lab + ' clock · −/+ shift">' +
+        lab +
+        '<button type="button" class="sc-sh" data-sh="' + s + ':-60" title="Shift ' + lab + ' back 1 min">−</button>' +
+        '<span class="sc-off" data-off="' + s + '">' + (off ? fmtShift(off) : "") + "</span>" +
+        '<button type="button" class="sc-sh" data-sh="' + s + ':60" title="Shift ' + lab + ' forward 1 min">+</button>' +
+        "</span>"
+      );
+    }).join("");
+  }
+  function shiftSrc(src, delta) {
+    state.shift[src] = (state.shift[src] | 0) + delta;
+    if (!state.shift[src]) delete state.shift[src];
+    CLIPS = sortClipsChron(CLIPS);
+    if (!CLIPS.some((c) => c.id === state.cursor)) state.cursor = CLIPS[0].id;
+    paintSrcChips();
+    renderCanvas();
+    const lab = SRC_LABEL[src] || src;
+    toast(lab + " clock " + (fmtShift(state.shift[src] | 0) || "±0") + " · axis re-sorted");
+  }
+  // Auto clock-align (model). Stands in for cross-source sync — audio / feature match in
+  // the app. Estimates the offset that best overlaps each drifting source with the rest of
+  // the day, applies the largest one it is sure of, then reports. −/+ chips stay as override.
+  function autoAlign() {
+    const pill = $("align-pill");
+    const srcs = [...new Set(CLIPS.map((c) => c.src))];
+    if (srcs.length < 2) { pill.textContent = "one input"; pill.classList.add("done"); return; }
+    // Reference = the source with the most clips (the day's primary body).
+    const bySrc = (s) => CLIPS.filter((c) => c.src === s).map((c) => tiSec(c.t)).filter(isFinite);
+    const ref = srcs.slice().sort((a, b) => bySrc(b).length - bySrc(a).length)[0];
+    const refMid = median(bySrc(ref));
+    let corrected = 0;
+    srcs.forEach((s) => {
+      if (s === ref) return;
+      const ts = bySrc(s);
+      if (!ts.length || !isFinite(refMid)) return;
+      // True skew is unknown to the model; the wireframe seeds it as a hidden per-src value.
+      const skew = HIDDEN_SKEW[s] | 0;
+      if (Math.abs(skew) >= 45) { // only correct a skew the model is sure of (≥ 45 s)
+        state.shift[s] = (state.shift[s] | 0) + skew;
+        corrected += 1;
+      }
+    });
+    if (corrected) CLIPS = sortClipsChron(CLIPS);
+    if (!CLIPS.some((c) => c.id === state.cursor)) state.cursor = CLIPS[0].id;
+    state.aligned = true;
+    pill.textContent = corrected
+      ? "clocks aligned · " + srcs.length + " inputs"
+      : "clocks in sync · " + srcs.length + " inputs";
+    pill.classList.add("done");
+  }
+  function median(a) {
+    if (!a.length) return NaN;
+    const s = a.slice().sort((x, y) => x - y);
+    const m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
   }
   function paintReady() {
     const el = $("ready-pill");
@@ -818,6 +951,7 @@
   }
   function tiLabel(t, iv, prev) {
     const d = String(t || ""), day = d.slice(0, 10);
+    // t is a shifted ISO (clipSec applied) so day/time labels match the axis order
     const date = day.length === 10 ? MO[+day.slice(5, 7) - 1] + " " + +day.slice(8, 10) : "";
     if (iv >= 86400) return { date, time: "" };
     const sec = tiSec(d);
@@ -839,7 +973,7 @@
   }
   function runsForTi() {
     const iv = TI[state.ti][0];
-    const ts = CLIPS.map((c) => tiSec(c.t));
+    const ts = CLIPS.map((c) => clipSec(c));
     const cuts = new Set(tiCuts(ts, iv));
     const runs = [];
     let a = 0;
@@ -850,6 +984,35 @@
       }
     }
     return { iv, runs };
+  }
+  // Chapters: bin every clip into a chapter wherever the clock gap from the previous
+  // clip exceeds gapMin. Per-clip (not per-run) so the axis headers and the Export list
+  // always agree, and chapters survive any time-interval grouping.
+  function chapterMap() {
+    const gapSec = (state.gapMin | 0) * 60;
+    const chapOf = new Map(); // clip id -> chapter index
+    const count = [];         // clips per chapter
+    if (!(gapSec > 0)) {
+      CLIPS.forEach((c) => chapOf.set(c.id, 0));
+      return { chapOf, count: CLIPS.length ? [CLIPS.length] : [] };
+    }
+    let ch = -1;
+    let prev = null;
+    CLIPS.forEach((c) => {
+      const s = clipSec(c);
+      if (prev == null || (isFinite(s) && isFinite(prev) && s - prev > gapSec)) {
+        ch += 1;
+        count.push(0);
+      }
+      count[ch] += 1;
+      chapOf.set(c.id, ch);
+      if (isFinite(s)) prev = s;
+    });
+    return { chapOf, count };
+  }
+  function chapterTitle(i) {
+    const t = state.chapters[i];
+    return t && String(t).trim() ? t : "Chapter " + (i + 1);
   }
 
   function tileSize() {
@@ -933,14 +1096,28 @@
     document.documentElement.style.setProperty("--tile-gap", sz.gap + "px");
     document.documentElement.style.setProperty("--run-gap", sz.runGap + "px");
 
+    const ch = chapterMap();
     let html = "";
     let prevT = null;
+    let prevChap = -1;
     runs.forEach((clips, ri) => {
       const first = clips[0];
-      const lab = tiLabel(first.t, iv, prevT);
+      const firstIso = shiftedIso(first);
+      const lab = tiLabel(firstIso, iv, prevT);
       const newDay = lab.date !== "";
       const allKept = clips.every((c) => state.keeps.has(c.id));
       const someKept = clips.some((c) => state.keeps.has(c.id));
+      const ci = ch.chapOf.get(first.id) | 0;
+      if (state.gapMin > 0 && ci !== prevChap) {
+        html +=
+          '<div class="chapter" data-chapter="' + ci + '">' +
+          '<span class="ch-k">Chapter</span>' +
+          '<button type="button" class="ch-title" data-ch-title="' + ci +
+          '" title="Rename chapter">' + chapterTitle(ci) + "</button>" +
+          '<span class="ch-meta">' + (ch.count[ci] | 0) + " clips</span>" +
+          "</div>";
+        prevChap = ci;
+      }
       html +=
         '<div class="run' + (newDay ? " new-day" : "") + '" data-run="' + ri + '">' +
         '<button type="button" class="run-mark' + (allKept ? " kept-all" : "") +
@@ -967,7 +1144,7 @@
           "</div></button>";
       }
       html += "</div></div>";
-      prevT = first.t;
+      prevT = firstIso;
     });
     canvas.innerHTML = "";
     canvas.appendChild(rod);
@@ -1161,13 +1338,47 @@
 
   function openExport() {
     if (!state.keeps.size) return;
+    const n = state.keeps.size;
+    const gb = fmtGB(keptBytes());
+    // A stringout is the keeps laid in clock order on one timeline; the package
+    // carries the chapters too.
+    const stringout = " · stringout in time order";
     $("export-pkg").textContent =
-      state.keeps.size + " keeps · " + fmtGB(keptBytes()) +
-      (state.packaged ? " · packaged" : "");
+      n + " keeps · " + gb + stringout + (state.packaged ? " · packaged" : "");
+    // Chapters listed under the package
+    const chRow = $("export-chapters");
+    if (state.gapMin > 0 && keptList().length) {
+      const { bins } = chaptersForKeeps();
+      if (bins.length) {
+        chRow.hidden = false;
+        chRow.innerHTML = bins.map((b) =>
+          '<div class="xch"><span class="xch-n">' + b.title + "</span>" +
+          '<span class="xch-m">' + b.count + " kept</span></div>"
+        ).join("");
+      } else {
+        chRow.hidden = true; chRow.innerHTML = "";
+      }
+    } else {
+      chRow.hidden = true; chRow.innerHTML = "";
+    }
     $("export-to").textContent = state.place + "/Package";
     syncNle();
     $("export-open").disabled = !state.packaged;
     $("export-scrim").classList.add("on");
+  }
+  // Kept clips grouped under their axis chapter (same map as the axis → titles agree).
+  function chaptersForKeeps() {
+    if (!(state.gapMin > 0)) return { bins: [] };
+    const ch = chapterMap();
+    const bins = [];
+    keptList().forEach((c) => {
+      const ci = ch.chapOf.get(c.id) | 0;
+      let b = bins.find((x) => x.i === ci);
+      if (!b) { b = { i: ci, title: chapterTitle(ci), count: 0 }; bins.push(b); }
+      b.count += 1;
+    });
+    bins.sort((a, b) => a.i - b.i);
+    return { bins };
   }
   function closeExport() { $("export-scrim").classList.remove("on"); }
 
@@ -1186,8 +1397,8 @@
     state.packaged = true;
     $("export-open").disabled = false;
     $("export-pkg").textContent =
-      state.keeps.size + " keeps · " + fmtGB(keptBytes()) + " · packaged";
-    toast("Package ready · media beside project file");
+      state.keeps.size + " keeps · " + fmtGB(keptBytes()) + " · stringout in time order · packaged";
+    toast("Stringout package ready · media beside project file");
     renderDock();
     renderFoot();
   }
@@ -1236,6 +1447,29 @@
   function closeStacks() { $("stacks").classList.remove("on"); }
 
   // —— Events ——
+  // Per-source clock shift — click −/+ on a source chip (manual override of auto-align)
+  $("src-chips").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-sh]");
+    if (!b) return;
+    e.stopPropagation();
+    const [src, d] = String(b.dataset.sh).split(":");
+    shiftSrc(src, parseInt(d, 10) || 0);
+  });
+  // Rename a chapter. stopImmediatePropagation so the canvas's own onclick (which would
+  // clear the selection) does not also fire for this click.
+  $("canvas").addEventListener("click", (e) => {
+    const t = e.target.closest("[data-ch-title]");
+    if (!t) return;
+    e.stopImmediatePropagation();
+    const ci = +t.dataset.chTitle;
+    const cur = chapterTitle(ci);
+    const next = window.prompt("Chapter title", cur);
+    if (next == null) return;
+    state.chapters[ci] = next.trim() || cur;
+    renderCanvas();
+    renderFoot();
+  });
+
   $("rec-sw").onclick = () => {
     state.rec709 = !state.rec709;
     setRecUI();
@@ -1601,22 +1835,26 @@
 
   window.addEventListener("resize", () => renderCanvas());
 
-  // Unified Keep boot: dump Place + multi-device contact sheet
+  // Unified Keep boot: one dump, every docked input. Models then organise it:
+  // auto clock-align, then chapters segment themselves by time gap.
   applyHandoff();
   if (!state.handoff) {
     CLIPS = sortClipsChron(ALL_CLIPS.concat(SSD_CLIPS));
     state.vols = [];
     state.readyDone = Math.min(8, CLIPS.length);
     state.readyTotal = CLIPS.length;
-    $("shoot-name").textContent = "Sort · day 1";
-    $("shoot-line").textContent = CLIPS.length + " clips · phone + drone + card + ssd";
-    paintSrcChips();
-    paintReady();
+    const srcN = new Set(CLIPS.map((c) => c.src)).size;
+    $("shoot-name").textContent = "Sort · " + srcN + " input" + (srcN === 1 ? "" : "s");
+    $("shoot-line").textContent = CLIPS.length + " clips on the axis";
   }
+  paintSrcChips();
+  paintReady();
   $("place-path").textContent = state.place;
   $("export-to").textContent = state.place + "/Package";
   syncNle();
   render();
+  // Auto-align runs a beat after the axis first paints (model: cross-source sync).
+  setTimeout(() => { autoAlign(); paintSrcChips(); renderCanvas(); renderFoot(); }, 900);
 
   // Preprocess tick: develop unread near the cursor; Ready N/M climbs (not a gate)
   function tickDevelop() {

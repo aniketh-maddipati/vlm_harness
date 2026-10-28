@@ -27,34 +27,25 @@ python3 design/handoff/wireframes/keep-sort/hotserve.py --port 8788
 
 ---
 
-## Harrison · doc day
+## Consolidated: one product, model-organised
 
-| Need | Status in live wf |
+Harrison (A/B-cam + drone, clocks off) and Uday (cam + drone, group by place) are the **same dump with the same needs**, so Sort serves both with models instead of modes. **The scene toggle is gone.** One chronological axis for every docked input, then:
+
+| Need (both users) | How Sort covers it |
 |---|---|
-| A + B + drone in dock → one chron | Spine yes; seed/demo as 3 vols |
-| Clock shift that sticks | **Gap** — wire next |
-| Keep → chron stringout / FCP package | Export shell; **stringout labeling gap** |
-| Match / stabilize / Premiere | Out of MVP wire |
+| Everything on one time axis | Union chron axis for all docked inputs (existing spine) |
+| Clocks agree across bodies | **Auto clock-align** on load — sync model snaps a drifting source onto the axis; pill reads "clocks aligned · N inputs". −/+ chip steppers = manual override |
+| Structure that matches the day | **Chapters auto-segment** at a clock-gap threshold (12 min); click a title to rename |
+| Keep → package that opens in NLE | **Stringout package** — keeps in time order, chapters listed with kept counts |
 
-**Effort reason:** open FCP on selects already in time order, not three cards.
+**Effort reason (shared):** open the NLE on selects already in time order and grouped, not a flat dump.
+
+**Demo mechanics (wireframe stands the models in):** `HIDDEN_SKEW` is the skew the sync model is told to find (the ssd body stamps +6 min fast; auto-align pulls it back beside the card clips). `state.gapMin` sets the chapter gap. No real sync / segmentation model runs in the wireframe.
 
 ---
 
-## Uday · hike film
+## Done this pass
 
-| Need | Status in live wf |
-|---|---|
-| Sony + Mavic on one axis | Spine yes; seed 2 vols |
-| Overlook / chapter stacks | **Gap** — wire next |
-| Keep → FCPXML package | Export shell |
-| Clean-plate / match grade / MP4 | Out of MVP wire |
-
-**Effort reason:** hike structure (chapters) before the cut, not flat dump in FCP.
-
----
-
-## Next chat job
-
-1. Demo path for Harrison (3 vols + clock-shift UI + stringout export copy).  
-2. Demo path for Uday (2 vols + chapter/stack on axis).  
-3. Optional scene switcher on Import/Sort seeded to each — do not resurrect full archive app.
+1. **Consolidated** the Harrison/Uday scene-toggle demos into one self-organising Sort: removed `SCENES`, the toggle UI, and `?scene=`; one dump covers both users.
+2. **Auto clock-align** (`autoAlign()`): estimates + applies a per-source offset a beat after the axis paints; pill reports "clocks aligned · N inputs". Per-source −/+ steppers kept as override.
+3. **Chapters always on** (`chapterMap()`): per-clip time-gap binning, renamable titles, listed in Export. Fixed a vet-flagged bug where Export's chapter titles could disagree with the axis (now one shared map).
