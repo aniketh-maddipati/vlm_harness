@@ -148,7 +148,8 @@ def score(out_dir, holes_dir, truth_dir=None, src_dir=None, ring=8):
         f = {"frame": n, "hole": float(hole.mean())}
         g = grey(out)
         gr = grad(g)
-        edge = dilate(hole, 1) & ~dilate(~hole, 1) if hole.any() else hole
+        # the band across the hole's edge: a pixel either side of it (in the hole next to the outside, or outside next to the hole)
+        edge = dilate(hole, 1) & dilate(~hole, 1) if hole.any() else hole
         f["seam"] = (float(gr[edge].mean()) / max(1e-6, float(gr[band].mean()))) if edge.any() and band.any() else None
         if n in T:
             tr = load_rgb(T[n], size)

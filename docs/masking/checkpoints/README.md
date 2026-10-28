@@ -13,3 +13,4 @@ owner's footage.
 | 08-prompted-follow.jpg | DAVIS 2017 val: skim vs skim-prompted (a clicked outline kept with the prompted segmenter) on five objects, with the frame where the outline jumps to a neighbour marked |
 
 Frames: DAVIS 2017, CC BY 4.0 (davischallenge.org).
+| 09-healing-davis.jpg | DAVIS 2017 val: hole, skim-plate, LaMa, MI-GAN, flow-lama, truth (3 frames × 4 clips) |
