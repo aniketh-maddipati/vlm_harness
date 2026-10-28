@@ -1,6 +1,6 @@
 # Keep / Import / Sort wireframes
 
-Interactive product wireframes for Lumina’s Import → Sort → Export spine (Harrison dump→sort keepers).
+Interactive product wireframes for Lumina’s Import → Sort → Export spine (multi-vol dump → chron Keep → package).
 
 ## Run locally
 
@@ -42,3 +42,7 @@ python3 design/handoff/wireframes/keep-sort/hotserve.py
 - Double-click a tile (or a Kept tile) for large view; double-click the viewer or Escape to close
 
 See `MODEL-EVAL.md` for Rec.709 / model claim boundaries (measured vs wireframe-only).
+
+## Handoff
+
+New chat: see [`CONTINUATION.md`](CONTINUATION.md) / paste [`CONTINUATION-PROMPT.md`](CONTINUATION-PROMPT.md). Plan: [`PLAN-input-dock-chron.md`](PLAN-input-dock-chron.md).
