@@ -1,73 +1,60 @@
-# Continuation — keep-sort wireframes + strategy handoff
+# Continuation — keep-sort wireframes (Harrison + Uday)
 
 **Worktree:** `/Users/aniketh/vlm_harness/.claude/worktrees/keep-input-dock-chron`  
-**Branch:** `design/keep-input-dock-chron` @ `23023d20`  
-**Paste prompt for a new chat:** [`CONTINUATION-PROMPT.md`](CONTINUATION-PROMPT.md)  
-**Plan (implemented):** [`PLAN-input-dock-chron.md`](PLAN-input-dock-chron.md)
-
-Main checkout often has the same HTML dirties without PLAN/CONTINUATION — prefer this worktree or copy these markdown files over.
-
----
-
-## Locked (do not re-litigate)
-
-- No Cards & volumes / `sd*` chip strip under Drop
-- Files not Phone; Rec.709 default for Log; no “matches FCP” / ΔE in shipping UI
-- Do not pop `stash@{0}` SetsPrecompute unless owner asks
-- Page is the product (`AGENTS.md`); wireframes live only under `design/handoff/wireframes/keep-sort/`
+**Branch:** `design/keep-input-dock-chron`  
+**Paste prompt:** [`CONTINUATION-PROMPT.md`](CONTINUATION-PROMPT.md)  
+**Plan (Input dock — done):** [`PLAN-input-dock-chron.md`](PLAN-input-dock-chron.md)  
+**Archetype sketch:** `archive/lumina-minimal-mvp.html` (`harrison`, `uday`)
 
 ---
 
-## Wireframe done on this branch
+## Locked
 
-- Click-to-enable sensed cards → always-present **Input dock**
-- Drop / AirDrop / Android → dock tiles; **Sort now** multi-vol `sessionStorage` handoff
-- Sort: **union chron axis**, Ready N/M (not a gate), unread→develop, inbound append demo
-- README + MODEL-EVAL lock-ins
-- Prior rename: export ship helpers → `openExport` / `closeExport` (not ship)
+- No chip strip under Drop; Files not Phone; Rec.709 default for Log; no FCP/ΔE in shipping UI
+- Wireframes only under `design/handoff/wireframes/keep-sort/` unless owner promotes
 
-### Run
+---
+
+## Done (shared spine)
+
+- Click-enable → Input dock; Drop / AirDrop / Android; Sort now multi-vol handoff
+- Sort: union chron, Ready N/M, Kept dock, Export package shell
+- README + MODEL-EVAL
 
 ```bash
-cd /Users/aniketh/vlm_harness/.claude/worktrees/keep-input-dock-chron
 python3 design/handoff/wireframes/keep-sort/hotserve.py --port 8788
-# → http://127.0.0.1:8788/import-wf.html
-# Sort: http://127.0.0.1:8788/keep-wf.html
 ```
 
-### Files
+---
 
-| File | Role |
+## Harrison · doc day
+
+| Need | Status in live wf |
 |---|---|
-| `import-wf.html` | Sensed rail → dock → Drop / inbound |
-| `keep-wf.html` | Union chron Sort, Kept dock, Export |
-| `README.md` | Lock-ins + flow |
-| `MODEL-EVAL.md` | Rec.709 / claim hygiene |
-| `hotserve.py` | Local static server |
-| `archive/` | Older experiments (incl. named-scene MVP archive — not the live path) |
+| A + B + drone in dock → one chron | Spine yes; seed/demo as 3 vols |
+| Clock shift that sticks | **Gap** — wire next |
+| Keep → chron stringout / FCP package | Export shell; **stringout labeling gap** |
+| Match / stabilize / Premiere | Out of MVP wire |
 
-### Wireframe next (if iterating UX)
-
-Polish Input dock, inbound demo, Sort fold-bar, chron/preprocess copy — stay in these wireframes. Do not promote to `lumina-cull` / Skim / app Web unless owner asks.
+**Effort reason:** open FCP on selects already in time order, not three cards.
 
 ---
 
-## Strategy locked (same thread; for product/MVP chats)
+## Uday · hike film
 
-- **SPC** = South Park Commons; **SFP** = Solo Founders Program (not product names).
-- **Engine:** media graph — identity · chron · display-ready · decide/place → serialize. Sources / destinations / archetypes / AI = adapters. Hard prep (stitch/fix/audio/Edit) = bound node ops.
-- **VC vision:** offline creative OS before the NLE; wedge = dump → Keep → package (Rec.709-ready + FCPXML and/or stills XMP).
-- **Exist → compete → win:** package beats Finder+card → whole night job beats step tools → default home before editor.
-- **Compete filter:** graph-native · trust (offline/card-safe) · incumbent hole · dogfood/reuse. Refuse: captions/CRM/CapCut-core/cloud-required/“any workflow” chat.
-- **Dogfood:** recreate features is cheap; one graph is scarce. Escape log ranks modules. Monogram = job + selection bind modules.
-- **Related demand not shipped:** verify dual-copy, proxies/CFR, phone HDR→Rec.709, stringout/browse (Kyno gap) — adopt only on the graph.
-- **Tight MVP spine (generic, no named betas):** multi-vol chron + display-ready + Keep + Place off card + one package that opens (FCPXML and/or XMP). Clock-shift / chapter stacks only if a real shooter won’t switch without them.
-- Research: `research_notes/Creator multi device problems/`.
+| Need | Status in live wf |
+|---|---|
+| Sony + Mavic on one axis | Spine yes; seed 2 vols |
+| Overlook / chapter stacks | **Gap** — wire next |
+| Keep → FCPXML package | Export shell |
+| Clean-plate / match grade / MP4 | Out of MVP wire |
+
+**Effort reason:** hike structure (chapters) before the cut, not flat dump in FCP.
 
 ---
 
-## New chat — pick a lane
+## Next chat job
 
-1. **Wireframes:** polish Import/Sort per PLAN; spot-check in browser.  
-2. **Strategy / MVP:** continue exist·compete·win and 30-day dogfood — use `CONTINUATION-PROMPT.md`.  
-3. **App:** only if owner says promote keep-sort into Skim/Sets — then follow `AGENTS.md` (edit handoff pages, sync, checks).
+1. Demo path for Harrison (3 vols + clock-shift UI + stringout export copy).  
+2. Demo path for Uday (2 vols + chapter/stack on axis).  
+3. Optional scene switcher on Import/Sort seeded to each — do not resurrect full archive app.

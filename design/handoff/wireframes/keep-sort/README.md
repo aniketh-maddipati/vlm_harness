@@ -43,6 +43,7 @@ python3 design/handoff/wireframes/keep-sort/hotserve.py
 
 See `MODEL-EVAL.md` for Rec.709 / model claim boundaries (measured vs wireframe-only).
 
-## Handoff
+## Handoff (Harrison + Uday wireframes)
 
-New chat: see [`CONTINUATION.md`](CONTINUATION.md) / paste [`CONTINUATION-PROMPT.md`](CONTINUATION-PROMPT.md). Plan: [`PLAN-input-dock-chron.md`](PLAN-input-dock-chron.md).
+New chat: paste [`CONTINUATION-PROMPT.md`](CONTINUATION-PROMPT.md) · context [`CONTINUATION.md`](CONTINUATION.md) · plan [`PLAN-input-dock-chron.md`](PLAN-input-dock-chron.md).  
+Archive scenes: `archive/lumina-minimal-mvp.html` (`harrison`, `uday`).
