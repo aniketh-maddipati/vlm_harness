@@ -12,6 +12,7 @@
 
 - No chip strip under Drop; Files not Phone; Rec.709 default for Log; no FCP/ΔE in shipping UI
 - Wireframes only under `design/handoff/wireframes/keep-sort/` unless owner promotes
+- **Fidelity:** ink/boxes/labels like live Import/Sort — no hi-fi, no photo thumbs, no new palette (see CONTINUATION-PROMPT “Visual fidelity”)
 
 ---
 
@@ -35,12 +36,11 @@ Harrison (A/B-cam + drone, clocks off) and Uday (cam + drone, group by place) ar
 |---|---|
 | Everything on one time axis | Union chron axis for all docked inputs (existing spine) |
 | Clocks agree across bodies | **Auto clock-align** on load — sync model snaps a drifting source onto the axis; pill reads "clocks aligned · N inputs". −/+ chip steppers = manual override |
-| Structure that matches the day | **Chapters auto-segment** at a clock-gap threshold (12 min); click a title to rename |
-| Keep → package that opens in NLE | **Stringout package** — keeps in time order, chapters listed with kept counts |
+| Keep → package that opens in NLE | **Stringout package** — keeps in time order, one timeline, opens in your NLE |
 
-**Effort reason (shared):** open the NLE on selects already in time order and grouped, not a flat dump.
+**Effort reason (shared):** open the NLE on selects already in time order, not a flat dump.
 
-**Demo mechanics (wireframe stands the models in):** `HIDDEN_SKEW` is the skew the sync model is told to find (the ssd body stamps +6 min fast; auto-align pulls it back beside the card clips). `state.gapMin` sets the chapter gap. No real sync / segmentation model runs in the wireframe.
+**Demo mechanics (wireframe stands the model in):** `HIDDEN_SKEW` is the skew the sync model is told to find (the ssd body stamps +6 min fast; auto-align pulls it back beside the card clips). No real sync model runs in the wireframe.
 
 ---
 
@@ -48,4 +48,4 @@ Harrison (A/B-cam + drone, clocks off) and Uday (cam + drone, group by place) ar
 
 1. **Consolidated** the Harrison/Uday scene-toggle demos into one self-organising Sort: removed `SCENES`, the toggle UI, and `?scene=`; one dump covers both users.
 2. **Auto clock-align** (`autoAlign()`): estimates + applies a per-source offset a beat after the axis paints; pill reports "clocks aligned · N inputs". Per-source −/+ steppers kept as override.
-3. **Chapters always on** (`chapterMap()`): per-clip time-gap binning, renamable titles, listed in Export. Fixed a vet-flagged bug where Export's chapter titles could disagree with the axis (now one shared map).
+3. **Removed the chapter feature entirely** (owner correction — simplify): no axis chapter headers, no `chapterMap`/binning, no Export chapter list, no rename handler, no `gapMin`/`chapters` state or `.chapter`/`.ch-*`/`.xch` CSS. The axis is just time-stamped runs; the contact sheet keeps the frame.
