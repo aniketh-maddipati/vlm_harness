@@ -101,6 +101,8 @@ on the owner's M4 Pro).
 - Mask lab runs: `MASKLAB_EVIDENCE` → `/Volumes/T7/Lumina/masklab` (inside the bundle in practice:
   `masklab/runs/<date-time>/`, `masklab-davis/runs/...`).
 
+**Data, weights and exact commands:** see `docs/masking/HANDOFF-GEMINI-ARGON-DATA.md` (also on the T7 beside this file).
+
 ## 4. Current state (all merged to `main` as of 2026-10-26)
 
 - **#258** (merged): outlines, Follow, Final Cut matte, the mask lab.
