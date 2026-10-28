@@ -1419,6 +1419,71 @@
   .dump-ask-sheet h1 { margin: 0; font-family: var(--serif); font-size: 22px; font-weight: 400; }
   .dump-ask-sheet .sub { margin: 0; color: var(--mute); font-size: 12px; font-weight: 600; }
 
+  /* Input dock — always reserved; enabled volumes live here */
+  .input-dock {
+    flex: none; display: flex; gap: 12px; align-items: stretch;
+    padding: 10px 16px 12px;
+    border-top: 1px solid var(--line);
+    background: light-dark(rgba(246,243,238,0.92), rgba(35,34,32,0.88));
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    backdrop-filter: blur(14px) saturate(1.2);
+    height: 132px; min-height: 132px; max-height: 132px;
+    box-sizing: border-box;
+  }
+  .input-dock-main {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;
+  }
+  .input-dock-sum {
+    font-size: 12px; font-weight: 700; color: var(--mute);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .input-dock-row {
+    display: flex; align-items: stretch; gap: 8px;
+    overflow-x: auto; overflow-y: hidden; padding: 2px; margin: -2px;
+  }
+  .input-dock-empty {
+    flex: none; min-width: 220px; height: 78px;
+    border-radius: 10px;
+    border: 1.5px dashed light-dark(rgba(26,25,23,0.18), rgba(239,236,230,0.2));
+    display: grid; place-items: center; padding: 0 14px;
+    font-size: 11px; font-weight: 650; color: var(--mute); text-align: center;
+  }
+  .in-tile {
+    flex: none; width: 168px; text-align: left;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 8px 10px; border-radius: 10px;
+    border: 1px solid var(--line);
+    background: light-dark(#fff, #1a1917);
+    cursor: pointer;
+  }
+  .in-tile:hover { border-color: var(--ink); }
+  .in-tile.inbound {
+    border-color: light-dark(#8B6B20, #FFD27A);
+    animation: toast-in 220ms var(--ease-out);
+  }
+  .in-tile .ik {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    color: light-dark(#8B6B20, #FFD27A);
+  }
+  .in-tile .in { font-size: 14px; font-weight: 750; color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .in-tile .im { font-size: 11px; font-weight: 650; color: var(--mute); }
+  .in-tile .ibar {
+    height: 3px; border-radius: 2px; margin-top: 4px;
+    background: light-dark(rgba(26,25,23,0.1), rgba(239,236,230,0.12));
+    overflow: hidden;
+  }
+  .in-tile .ibar > i {
+    display: block; height: 100%; width: 0%;
+    background: light-dark(#2E7840, #A9D18E);
+  }
+  .input-dock-side {
+    flex: none; display: flex; flex-direction: column; gap: 8px;
+    justify-content: center; align-items: stretch; min-width: 118px;
+  }
+  #sources-cta { display: none !important; }
+  .dump-hero { min-height: min(36vh, 300px); }
+
 </style>
 </head>
 <body>
@@ -1431,19 +1496,8 @@
     </div>
   </div>
 
-  <div class="scrim" id="dump-ask" role="alertdialog" aria-labelledby="dump-ask-h" hidden>
-    <div class="sheet dump-ask-sheet">
-      <h1 id="dump-ask-h">Sort this card?</h1>
-      <p class="sub" id="dump-ask-sub">Opens Sort on the time axis · Rec.709 for Log.</p>
-      <div class="actions" style="display:grid;gap:8px">
-        <button type="button" class="primary" id="dump-ask-yes">Sort now</button>
-        <button type="button" class="ghost" id="dump-ask-no">Stay on Import</button>
-      </div>
-    </div>
-  </div>
-
   <div class="pane on" id="pane-sources" role="tabpanel">
-    <!-- Sensed volumes — funnel onto Drop (not a chip strip under Drop) -->
+    <!-- Sensed volumes — click to enable into Input dock (not a chip strip under Drop) -->
     <div class="sd-rail" id="sd-rail" aria-label="Sensed volumes"></div>
     <div class="split" id="split">
       <div class="left" id="drop">
@@ -1455,7 +1509,7 @@
         </div>
         <button type="button" class="dump-hero" id="dump-drop" aria-label="Drop">
           <span class="dh-lab">Drop</span>
-          <span class="dh-sub">Drag a sensed volume · Sort opens on the time axis</span>
+          <span class="dh-sub">Click a card · Drop · AirDrop / Android land in the dock</span>
         </button>
         <button type="button" class="phone-card" id="phone-card" aria-pressed="false"
           title="Arm inbox — AirDrop opens the phone volume automatically"
@@ -1513,9 +1567,21 @@
       </aside>
     </div>
     <div class="foot" id="foot" aria-live="polite"></div>
-    <div class="step-cta" id="sources-cta">
+    <div class="step-cta" id="sources-cta" hidden>
       <button type="button" class="primary" id="btn-open-select">Open in Sort</button>
       <span class="cta-note" id="sources-cta-note">Keep-only skim · Rec.709 for Log</span>
+    </div>
+    <div class="input-dock" id="input-dock" aria-label="Inputs">
+      <div class="input-dock-main">
+        <div class="input-dock-sum" id="input-dock-sum">Click a card or Drop · AirDrop and Android land here</div>
+        <div class="input-dock-row" id="input-dock-row">
+          <div class="input-dock-empty" aria-hidden="true">Nothing enabled yet</div>
+        </div>
+      </div>
+      <div class="input-dock-side">
+        <button type="button" class="primary" id="dock-sort" disabled>Sort now</button>
+        <span class="cta-note" style="font-size:11px;font-weight:650;color:var(--mute);text-align:center">Rec.709 for Log</span>
+      </div>
     </div>
   </div>
 
@@ -2790,6 +2856,7 @@
     preEl.classList.toggle("mute", preMute);
     barEl.style.width = pct + "%";
     fillPreCard(preCard);
+    renderInputDock();
   }
 
   function renderLanes() {
@@ -3511,17 +3578,62 @@
       const meta = (c.name || "") + (c.files != null ? " · " + c.files : "");
       return (
         '<button type="button" class="sd-card' + (on ? " on" : "") +
-        '" draggable="true" data-vol="' + c.id + '" aria-pressed="' + (on ? "true" : "false") + '">' +
+        '" draggable="true" data-vol="' + c.id + '" aria-pressed="' + (on ? "true" : "false") +
+        '" title="' + (on ? "Click to open in Files · double-click to turn off" : "Click to enable") + '">' +
         '<span class="sd-k">' + funnelKick(c) + "</span>" +
         '<span class="sd-n">' + (c.volume || c.name || c.id) + "</span>" +
         '<span class="sd-m">' + meta + "</span></button>"
       );
     }).join("");
   }
+  function volReady(id) {
+    const e = preCache.get(id);
+    if (!e || e.held) return { done: 0, total: 0, pct: 0, inbound: false };
+    return {
+      done: e.done || 0,
+      total: e.total || 0,
+      pct: e.total ? Math.min(100, Math.round((e.done / e.total) * 100)) : 0,
+      inbound: !!(e.inbound || phoneInbound && id === "phone")
+    };
+  }
+  function renderInputDock() {
+    const row = document.getElementById("input-dock-row");
+    const sum = document.getElementById("input-dock-sum");
+    const sortBtn = document.getElementById("dock-sort");
+    if (!row || !sum) return;
+    const vols = selected.map((s) => byId(s.id)).filter(Boolean);
+    if (!vols.length) {
+      sum.textContent = "Click a card or Drop · AirDrop and Android land here";
+      row.innerHTML = '<div class="input-dock-empty" aria-hidden="true">Nothing enabled yet</div>';
+      if (sortBtn) sortBtn.disabled = true;
+      return;
+    }
+    const mem = memStats();
+    sum.textContent = vols.length + " input" + (vols.length === 1 ? "" : "s") +
+      " · Ready " + fmtN(mem.done) + "/" + fmtN(mem.total) +
+      (mem.running ? " · working" : "");
+    row.innerHTML = vols.map((c) => {
+      const r = volReady(c.id);
+      const readyLab = r.total
+        ? ("Ready " + fmtN(r.done) + "/" + fmtN(r.total))
+        : (fmtN(c.files || 0) + " files");
+      return (
+        '<button type="button" class="in-tile' + (r.inbound ? " inbound" : "") +
+        '" data-in="' + c.id + '" title="Open in Files">' +
+        '<span class="ik">' + funnelKick(c) + "</span>" +
+        '<span class="in">' + (c.volume || c.name || c.id) + "</span>" +
+        '<span class="im">' + readyLab + (c.name && c.volume ? " · " + c.name : "") + "</span>" +
+        '<div class="ibar" aria-hidden="true"><i style="width:' + r.pct + '%"></i></div>' +
+        "</button>"
+      );
+    }).join("");
+    if (sortBtn) sortBtn.disabled = false;
+  }
   function renderAll() {
     renderFunnel();
     renderLanes();
     renderFs();
+    renderInputDock();
   }
 
   function setTab(name) {
@@ -3677,7 +3789,8 @@
     return fsRoots.find((n) => n.key === "home-downloads");
   }
   function setPhoneCardChrome(state) {
-    // state: closed | listening | open | arrived | acking
+    // state: closed | listening | open | arrived | acking — chrome may be CSS-hidden
+    if (!phoneCard) return;
     phoneCard.classList.toggle("listening", state === "listening");
     phoneCard.classList.toggle("open", state === "open" || state === "arrived" || state === "acking");
     phoneCard.classList.toggle("arrived", state === "arrived");
@@ -3784,23 +3897,41 @@
     openPhoneVolume({ scroll: false });
     followPhoneInboxLink({ scroll: false });
     phoneSessionReady = true;
+    const pe = preCache.get("phone");
+    if (pe) { pe.inbound = true; preCache.set("phone", pe); }
+    renderFunnel();
+    renderInputDock();
     let i = 0;
     function next() {
       if (i >= list.length) {
         phoneInbound = false;
         setPhoneCardChrome("open");
+        const done = preCache.get("phone");
+        if (done) { done.inbound = false; preCache.set("phone", done); }
         // Single quiet Files refresh after the stream — no per-file tree rebuild
         renderFs({ quiet: true });
         renderLanes();
+        renderFunnel();
+        renderInputDock();
         fsQuiet = false;
         toast("AirDrop · " + list.length + " file" + (list.length === 1 ? "" : "s"));
         return;
       }
       const name = list[i];
       ingestOnePhoneFile(name);
+      // Grow preprocess total as files land so Ready N/M ticks
+      const entry = preCache.get("phone");
+      const ph = byId("phone");
+      if (entry && ph) {
+        entry.total = ph.files || entry.total;
+        entry.label = "iPhone";
+        if (!entry.running && entry.done < entry.total) entry.running = true;
+        preCache.set("phone", entry);
+        tickPrecompute();
+      }
       i += 1;
       showPhoneAck(name, i, list.length);
-      // Feedback stays on the phone card only while files land
+      renderInputDock();
       phoneArriveTimer = setTimeout(next, 480);
     }
     next();
@@ -3820,49 +3951,49 @@
         phoneInbound = false;
         fsQuiet = false;
       }
-      setPhoneCardChrome(phoneCard.classList.contains("open") ? "open" : "closed");
+      setPhoneCardChrome(phoneCard && phoneCard.classList.contains("open") ? "open" : "closed");
     }
   }
-  phoneCard.addEventListener("click", () => {
-    // Card only arms / disarms listening. Volume open is automatic on arrival.
-    setPhoneListening(!phoneListening);
-  });
-  // OS / internal file drops onto the open card = AirDrop received
-  ["dragenter", "dragover"].forEach((ev) => {
-    phoneCard.addEventListener(ev, (e) => {
+  if (phoneCard) {
+    phoneCard.addEventListener("click", () => {
+      // Card only arms / disarms listening. Volume open is automatic on arrival.
+      setPhoneListening(!phoneListening);
+    });
+    // OS / internal file drops onto the open card = AirDrop received
+    ["dragenter", "dragover"].forEach((ev) => {
+      phoneCard.addEventListener(ev, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        phoneCard.classList.add("drag-over");
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+      });
+    });
+    phoneCard.addEventListener("dragleave", (e) => {
+      if (!phoneCard.contains(e.relatedTarget)) phoneCard.classList.remove("drag-over");
+    });
+    phoneCard.addEventListener("drop", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      phoneCard.classList.add("drag-over");
-      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
-    });
-  });
-  phoneCard.addEventListener("dragleave", (e) => {
-    if (!phoneCard.contains(e.relatedTarget)) phoneCard.classList.remove("drag-over");
-  });
-  phoneCard.addEventListener("drop", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    phoneCard.classList.remove("drag-over");
-    const names = [];
-    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
-      for (let i = 0; i < e.dataTransfer.files.length; i++) {
-        const f = e.dataTransfer.files[i];
-        if (f && f.name) names.push(f.name);
+      phoneCard.classList.remove("drag-over");
+      const names = [];
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        for (let i = 0; i < e.dataTransfer.files.length; i++) {
+          const f = e.dataTransfer.files[i];
+          if (f && f.name) names.push(f.name);
+        }
       }
-    }
-    if (!names.length) {
-      const plain = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || "";
-      if (plain && /\.\w{2,5}$/.test(plain.split("/").pop())) names.push(plain.split("/").pop());
-    }
-    receiveAirDrop(names.length ? names : null);
-  });
-  setPhoneCardChrome("closed");
+      if (!names.length) {
+        const plain = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || "";
+        if (plain && /\.\w{2,5}$/.test(plain.split("/").pop())) names.push(plain.split("/").pop());
+      }
+      receiveAirDrop(names.length ? names : null);
+    });
+    setPhoneCardChrome("closed");
+  }
   if (location.hash === PHONE_LINK) followPhoneInboxLink();
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      const ask = document.getElementById("dump-ask");
-      if (ask && !ask.hidden) { closeDumpAsk(); return; }
       if (previewFile) { closePreview(); return; }
       const addWrap = document.getElementById("import-add");
       if (addWrap && addWrap.classList.contains("open")) { closeAddSheet(); return; }
@@ -3988,51 +4119,49 @@
   });
 
 
-  // —— Dump hero → confirm → Sort ——
-  let dumpAskPending = null;
+  // —— Click-to-enable → Input dock → Sort (multi-vol handoff) ——
   function renderVolStrip() { /* no-op — chip strip stays deleted */ }
-  let funnelFocus = null;
-  function dumpSrc() {
-    const focus = funnelFocus && byId(funnelFocus);
-    if (focus && focus.sensed) return focus;
-    const fromSel = selected.map((s) => byId(s.id)).find(Boolean);
-    return fromSel || catalog.find((c) => c.sensed) || null;
-  }
-  function openDumpAsk(src) {
-    if (!src) return;
-    dumpAskPending = src;
-    funnelFocus = src.id;
-    if (!isSelected(src.id)) {
-      activate(src.id, { quiet: true });
-      renderAll();
+  let funnelClickTimer = 0;
+  function enableVol(id, { quiet } = {}) {
+    const src = byId(id);
+    if (!src) return false;
+    src.sensed = true;
+    if (isSelected(id)) {
+      if (!quiet) toast("Already in dock");
+      return false;
     }
-    const h = document.getElementById("dump-ask-h");
-    const sub = document.getElementById("dump-ask-sub");
-    if (h) h.textContent = "Sort " + (src.volume || src.name || "this card") + "?";
-    if (sub) {
-      const n = src.files != null ? src.files : 0;
-      sub.textContent = n + " files · " + (src.name || src.volume || "") + " · Rec.709 for Log.";
-    }
-    const ask = document.getElementById("dump-ask");
-    if (ask) ask.hidden = false;
+    activate(id, { quiet: true });
+    renderAll();
+    if (!quiet) toast("Enabled · " + (src.volume || src.name || id));
+    return true;
   }
-  function closeDumpAsk() {
-    const ask = document.getElementById("dump-ask");
-    if (ask) ask.hidden = true;
-    dumpAskPending = null;
-  }
-  function goSortFromDump(src) {
+  function goSortFromDock() {
+    const vols = selected.map((s) => s.id).filter((id) => byId(id));
+    if (!vols.length) { toast("Enable an input first"); return; }
+    const mem = memStats();
     const payload = {
-      vol: src && src.id || "",
-      volume: src && src.volume || "",
-      name: src && src.name || "",
-      files: src && src.files || 0,
-      dest: src && src.dest || "",
+      vols: vols.slice(),
+      vol: vols[0] || "",
+      volume: vols.map((id) => {
+        const s = byId(id); return s && (s.volume || s.name) || id;
+      }).join(" · "),
+      name: vols.length + " input" + (vols.length === 1 ? "" : "s"),
+      files: mem.total || vols.reduce((a, id) => a + ((byId(id) && byId(id).files) || 0), 0),
+      readyDone: mem.done || 0,
+      readyTotal: mem.total || 0,
       place: "~/Movies/Dump-Day1"
     };
     try { sessionStorage.setItem("lumina-keep-handoff", JSON.stringify(payload)); }
     catch (_) {}
     location.href = "keep-wf.html";
+  }
+  function landOsDrop(names) {
+    // OS / Android / AirDrop onto hero Drop → phone inbox in the Input dock
+    const list = (names && names.length) ? names.slice() : ["IMG_9201.HEIC", "VID_9203.MOV"];
+    receiveAirDrop(list);
+    const e = preCache.get("phone");
+    if (e) { e.inbound = true; preCache.set("phone", e); }
+    renderInputDock();
   }
   const sdRail = document.getElementById("sd-rail");
   if (sdRail) {
@@ -4052,8 +4181,30 @@
     sdRail.addEventListener("click", (e) => {
       const card = e.target.closest(".sd-card[data-vol]");
       if (!card) return;
-      const src = byId(card.getAttribute("data-vol"));
-      if (src) openDumpAsk(src);
+      if (e.detail > 1) return;
+      const id = card.getAttribute("data-vol");
+      clearTimeout(funnelClickTimer);
+      funnelClickTimer = setTimeout(() => {
+        if (!isSelected(id)) {
+          enableVol(id);
+          return;
+        }
+        focusSourceInFs(id);
+        toast("In Files");
+      }, 220);
+    });
+    sdRail.addEventListener("dblclick", (e) => {
+      const card = e.target.closest(".sd-card[data-vol]");
+      if (!card) return;
+      e.preventDefault();
+      clearTimeout(funnelClickTimer);
+      const id = card.getAttribute("data-vol");
+      if (isSelected(id)) {
+        deactivate(id);
+        renderAll();
+      } else {
+        enableVol(id);
+      }
     });
   }
   const dumpDrop = document.getElementById("dump-drop");
@@ -4079,34 +4230,37 @@
         e.dataTransfer.getData("text/plain")
       )) || "";
       const src = byId(vol);
-      if (src) { openDumpAsk(src); return; }
-      toast("Drop a sensed volume");
+      if (src) { enableVol(src.id); return; }
+      const names = [];
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        for (let i = 0; i < e.dataTransfer.files.length; i++) {
+          const f = e.dataTransfer.files[i];
+          if (f && f.name) names.push(f.name);
+        }
+      }
+      landOsDrop(names.length ? names : null);
     });
     dumpDrop.addEventListener("click", (e) => {
       e.preventDefault();
-      const src = dumpSrc();
-      if (src) openDumpAsk(src);
-      else toast("Drop a sensed volume");
+      // Demo: arm a quiet inbound so the dock grows without a real OS drop
+      landOsDrop(null);
     });
   }
-  const askYes = document.getElementById("dump-ask-yes");
-  const askNo = document.getElementById("dump-ask-no");
-  if (askYes) askYes.onclick = () => { const s = dumpAskPending; closeDumpAsk(); if (s) goSortFromDump(s); };
-  if (askNo) askNo.onclick = () => closeDumpAsk();
-  const askScrim = document.getElementById("dump-ask");
-  if (askScrim) askScrim.addEventListener("click", (e) => { if (e.target === askScrim) closeDumpAsk(); });
+  const dockSort = document.getElementById("dock-sort");
+  if (dockSort) dockSort.onclick = goSortFromDock;
   const openSort = document.getElementById("btn-open-select");
-  if (openSort) {
-    openSort.onclick = () => {
-      const src = dumpSrc();
-      if (src && !isSelected(src.id)) { activate(src.id, { quiet: true }); renderAll(); }
-      goSortFromDump(src);
-    };
+  if (openSort) openSort.onclick = goSortFromDock;
+  const inputDockRow = document.getElementById("input-dock-row");
+  if (inputDockRow) {
+    inputDockRow.addEventListener("click", (e) => {
+      const t = e.target.closest("[data-in]");
+      if (!t) return;
+      focusSourceInFs(t.getAttribute("data-in"));
+      toast("In Files");
+    });
   }
 
-  const _renderAll = typeof renderAll === "function" ? renderAll : null;
-  // Boot: sensed cards/volumes appear available but NOT selected until chosen.
-  // Boot: sensed cards/volumes appear available but NOT selected until chosen.
+  // Boot: sensed cards appear available but NOT selected until click-enabled.
   selected = [];
   tethered = new Set();
   renderAll();

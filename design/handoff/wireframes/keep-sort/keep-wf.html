@@ -180,6 +180,26 @@
     max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .place-pill strong { color: var(--ink); font-weight: 700; }
+  .src-chips {
+    display: inline-flex; gap: 4px; flex-wrap: wrap; align-items: center;
+  }
+  .src-chips .sc {
+    font-size: 10px; font-weight: 750; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 3px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--mute);
+  }
+  .src-chips .sc.on { color: var(--ink); border-color: var(--ink); }
+  .ready-pill {
+    font-size: 11px; font-weight: 750; padding: 5px 10px; border-radius: 6px;
+    background: var(--fill); color: var(--mute); font-variant-numeric: tabular-nums;
+  }
+  .ready-pill.hot { color: var(--ink); }
+  .clip-tile.unread .thumb {
+    background: light-dark(rgba(26,25,23,0.14), rgba(239,236,230,0.12));
+    color: var(--mute);
+  }
+  .clip-tile.inbound {
+    outline: 1.5px solid var(--amber); outline-offset: 0;
+  }
 
   /* —— Body: dump sheet; large view overlays in place —— */
   .body {
@@ -528,7 +548,9 @@
   <div class="fold-bar">
     <span class="title" id="shoot-name">Sort · day 1</span>
     <span id="shoot-line">24 clips</span>
+    <span class="src-chips" id="src-chips" aria-label="Inputs"></span>
     <span class="grow"></span>
+    <span class="ready-pill" id="ready-pill" title="Preprocess finished · not a gate">Ready 0/0</span>
     <span class="place-pill">Place <strong id="place-path">~/Movies/Dump-Day1</strong></span>
     <div class="ti-feed" id="ti-feed" aria-live="polite">
       <span class="iv" id="ti-word">30 s</span>
@@ -665,8 +687,18 @@
     { id:"C12", name:"C4971",    src:"card",  log:true,  dur:10.2, bytes:0.39e9, soft:false, t:"2026-10-13T09:10:18" },
     { id:"C13", name:"C4980",    src:"card",  log:false, dur:6.6,  bytes:0.19e9, soft:false, t:"2026-10-13T09:45:40" },
   ];
-  const HANDOFF_SRC = { "sony-card": "card", "sony-card-2": "card", drone: "drone", phone: "phone" };
-  let CLIPS = ALL_CLIPS.slice();
+  const HANDOFF_SRC = {
+    "sony-card": "card", "sony-card-2": "card",
+    drone: "drone", phone: "phone", "t7-road": "ssd"
+  };
+  // Wireframe SSD stand-ins (T7) — same day clocks, distinct names
+  const SSD_CLIPS = [
+    { id:"S01", name:"C4401", src:"ssd", log:true,  dur:18.0, bytes:0.72e9, soft:false, t:"2026-10-12T11:08:00", unread:true },
+    { id:"S02", name:"C4402", src:"ssd", log:true,  dur:15.2, bytes:0.61e9, soft:false, t:"2026-10-12T11:08:40", unread:true },
+    { id:"S03", name:"C4510", src:"ssd", log:false, dur:9.0,  bytes:0.28e9, soft:false, t:"2026-10-12T14:30:00", unread:true },
+    { id:"S04", name:"C4600", src:"ssd", log:true,  dur:22.4, bytes:0.88e9, soft:true,  t:"2026-10-12T16:20:12", unread:true },
+  ];
+  let CLIPS = ALL_CLIPS.concat(SSD_CLIPS).slice();
 
   const state = {
     ti: TI_DEF,
@@ -689,6 +721,10 @@
     skim: 0,
     scrubbing: false,
     handoff: null,
+    vols: [],
+    readyDone: 0,
+    readyTotal: 0,
+    inboundN: 0,
   };
   const mq = { on: false, x0: 0, y0: 0, moved: false, skipClick: false };
 
@@ -703,24 +739,6 @@
     const extra = CLIPS.filter((c) => state.keeps.has(c.id) && !state.keepOrder.includes(c.id));
     return ordered.concat(extra);
   };
-  function applyHandoff() {
-    let h = null;
-    try { h = JSON.parse(sessionStorage.getItem("lumina-keep-handoff") || "null"); }
-    catch (_) { h = null; }
-    if (!h || typeof h !== "object") return;
-    state.handoff = h;
-    if (h.place) state.place = h.place;
-    const src = HANDOFF_SRC[h.vol];
-    if (src) {
-      const cut = ALL_CLIPS.filter((c) => c.src === src);
-      if (cut.length) CLIPS = cut;
-    }
-    if (!CLIPS.some((c) => c.id === state.cursor)) state.cursor = CLIPS[0].id;
-    const label = h.volume || h.name || "dump";
-    $("shoot-name").textContent = "Sort · " + label;
-    const n = h.files || CLIPS.length;
-    $("shoot-line").textContent = CLIPS.length + " on the axis · " + n + " from " + (h.name || label);
-  }
   const notKept = () => CLIPS.filter((c) => !state.keeps.has(c.id));
   const keptBytes = () => keptList().reduce((a, c) => a + c.bytes, 0);
   const notKeptBytes = () => notKept().reduce((a, c) => a + c.bytes, 0);
@@ -728,6 +746,72 @@
   function tiSec(t) {
     const v = Date.parse(String(t || "").slice(0, 19) + "Z");
     return isFinite(v) ? v / 1000 : NaN;
+  }
+  function sortClipsChron(list) {
+    return list.slice().sort((a, b) => {
+      const ta = tiSec(a.t), tb = tiSec(b.t);
+      if (!isFinite(ta) && !isFinite(tb)) return 0;
+      if (!isFinite(ta)) return 1;
+      if (!isFinite(tb)) return -1;
+      return ta - tb;
+    });
+  }
+  function paintSrcChips() {
+    const el = $("src-chips");
+    if (!el) return;
+    const srcs = [...new Set(CLIPS.map((c) => c.src))];
+    el.innerHTML = srcs.map((s) =>
+      '<span class="sc on">' + s + "</span>"
+    ).join("");
+  }
+  function paintReady() {
+    const el = $("ready-pill");
+    if (!el) return;
+    const tot = state.readyTotal || CLIPS.length;
+    const done = Math.min(tot, state.readyDone | 0);
+    el.textContent = "Ready " + done + "/" + tot;
+    el.classList.toggle("hot", done > 0 && done < tot);
+  }
+  function applyHandoff() {
+    let h = null;
+    try { h = JSON.parse(sessionStorage.getItem("lumina-keep-handoff") || "null"); }
+    catch (_) { h = null; }
+    if (!h || typeof h !== "object") return;
+    state.handoff = h;
+    if (h.place) state.place = h.place;
+    const vols = Array.isArray(h.vols) && h.vols.length
+      ? h.vols.slice()
+      : (h.vol ? [h.vol] : []);
+    state.vols = vols;
+    state.readyDone = h.readyDone | 0;
+    state.readyTotal = h.readyTotal | 0;
+    const pool = ALL_CLIPS.concat(SSD_CLIPS);
+    if (vols.length) {
+      const srcs = new Set();
+      vols.forEach((id) => {
+        const s = HANDOFF_SRC[id];
+        if (s) srcs.add(s);
+      });
+      // Unknown vol ids → keep full pool so a dump never goes empty
+      const cut = srcs.size
+        ? pool.filter((c) => srcs.has(c.src))
+        : pool.slice();
+      if (cut.length) CLIPS = sortClipsChron(cut);
+    } else {
+      CLIPS = sortClipsChron(pool);
+    }
+    // Fresh dump tiles start unread until a rest tick "develops" them
+    CLIPS.forEach((c, i) => {
+      if (c.unread == null) c.unread = i > 2;
+    });
+    if (!CLIPS.some((c) => c.id === state.cursor)) state.cursor = CLIPS[0].id;
+    const nIn = vols.length || 1;
+    $("shoot-name").textContent = "Sort · " + nIn + " input" + (nIn === 1 ? "" : "s");
+    $("shoot-line").textContent =
+      CLIPS.length + " on the axis" +
+      (h.files ? " · " + h.files + " from Import" : "");
+    paintSrcChips();
+    paintReady();
   }
   function tiWord(s) {
     return s < 60 ? s + " s" : s < 3600 ? s / 60 + " min" : s < 86400 ? s / 3600 + " h" : "day";
@@ -870,14 +954,16 @@
         const kept = state.keeps.has(c.id);
         const on = c.id === state.cursor;
         const pick = state.picked.has(c.id);
+        const unread = !!c.unread;
+        const inbound = !!c.inbound;
         html +=
           '<button type="button" class="clip-tile' + (kept ? " kept" : "") + (on ? " on" : "") +
-          (pick ? " pick" : "") +
+          (pick ? " pick" : "") + (unread ? " unread" : "") + (inbound ? " inbound" : "") +
           '" data-id="' + c.id + '" draggable="true" style="animation-delay:' + Math.min(ri * 18 + 20, 160) + 'ms">' +
-          '<div class="thumb">' + c.src.toUpperCase() + "</div>" +
+          '<div class="thumb">' + (unread ? "…" : c.src.toUpperCase()) + "</div>" +
           '<div class="cn">' + c.name + "</div>" +
           '<div class="cm">' + fmtDur(c.dur) + " · " + fmtGB(c.bytes) +
-          (c.soft ? " · soft" : "") +
+          (c.soft ? " · soft" : "") + (unread ? " · unread" : "") +
           "</div></button>";
       }
       html += "</div></div>";
@@ -1518,14 +1604,80 @@
   // Unified Keep boot: dump Place + multi-device contact sheet
   applyHandoff();
   if (!state.handoff) {
+    CLIPS = sortClipsChron(ALL_CLIPS.concat(SSD_CLIPS));
+    state.vols = [];
+    state.readyDone = Math.min(8, CLIPS.length);
+    state.readyTotal = CLIPS.length;
     $("shoot-name").textContent = "Sort · day 1";
-    $("shoot-line").textContent = CLIPS.length + " clips · phone + drone + card";
+    $("shoot-line").textContent = CLIPS.length + " clips · phone + drone + card + ssd";
+    paintSrcChips();
+    paintReady();
   }
   $("place-path").textContent = state.place;
   $("export-to").textContent = state.place + "/Package";
   syncNle();
   render();
-  window.__keep = { state, clips: () => CLIPS, keptList, toggleKeepSel, reorderKeep, setLarge, setTi, paintSelection, render };
+
+  // Preprocess tick: develop unread near the cursor; Ready N/M climbs (not a gate)
+  function tickDevelop() {
+    const idx = CLIPS.findIndex((c) => c.id === state.cursor);
+    const order = CLIPS.map((c, i) => ({ c, d: Math.abs(i - Math.max(0, idx)) }))
+      .sort((a, b) => a.d - b.d);
+    const next = order.find((x) => x.c.unread);
+    if (next) {
+      next.c.unread = false;
+      state.readyDone = Math.min(
+        state.readyTotal || CLIPS.length,
+        (state.readyDone | 0) + 1
+      );
+      paintReady();
+      renderCanvas();
+      renderViewer();
+    } else if ((state.readyDone | 0) < (state.readyTotal || CLIPS.length)) {
+      state.readyDone = Math.min(
+        state.readyTotal || CLIPS.length,
+        (state.readyDone | 0) + Math.max(1, Math.ceil((state.readyTotal || CLIPS.length) / 40))
+      );
+      paintReady();
+    }
+  }
+  setInterval(tickDevelop, 900);
+
+  // Demo inbound: AirDrop / Android while Sort is open — append by clock
+  function appendInbound() {
+    state.inboundN += 1;
+    const n = state.inboundN;
+    const base = Date.parse("2026-10-12T17:35:00Z") + n * 14000;
+    const iso = new Date(base).toISOString().slice(0, 19);
+    const clip = {
+      id: "IN" + String(n).padStart(2, "0"),
+      name: "IMG_9" + String(200 + n),
+      src: "phone",
+      log: false,
+      dur: 4 + (n % 5),
+      bytes: 0.08e9 + n * 0.01e9,
+      soft: false,
+      t: iso,
+      unread: true,
+      inbound: true
+    };
+    CLIPS = sortClipsChron(CLIPS.concat([clip]));
+    state.readyTotal = (state.readyTotal || CLIPS.length) + 1;
+    if (!state.vols.includes("phone")) state.vols.push("phone");
+    paintSrcChips();
+    paintReady();
+    render();
+    toast("AirDrop · " + clip.name + " on the axis");
+    setTimeout(() => { clip.inbound = false; renderCanvas(); }, 2400);
+  }
+  // First inbound after a beat, then occasional
+  setTimeout(appendInbound, 2800);
+  setInterval(appendInbound, 14000);
+
+  window.__keep = {
+    state, clips: () => CLIPS, keptList, toggleKeepSel, reorderKeep,
+    setLarge, setTi, render, appendInbound, paintReady
+  };
 })();
 </script>
 </body>
