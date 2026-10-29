@@ -230,6 +230,17 @@ Owner: "large view needs to be done via space and space again to click out. hold
 - **Half height:** the active pane is at least 50vh and Light's rows spread to fill it; rail children no longer shrink, so a tall group (Grade) scrolls the rail instead of running under Keep.
 - Gone: `G_IDS`, `G_MAX`, `syncGradeUI`, `setG`, the four static rows.
 
+## Import without the file system (2026-10-29)
+
+Owner: "ditch the file system, just sensed volumes and big drop and airdrop live. drop opens finder and enter for sorting now."
+
+- **No Files side:** the Files tree, its divider and the preview pane are hidden (`#divider, #files-drop, #preview-pane`); Import is one centred column (≤ 880 px): sensed volumes on top, a **big Drop** that fills what the column leaves, **AirDrop** under it, then Included / dock.
+- **Sensed volumes:** a click includes the volume, a second click takes it out (it used to open it in Files). Drag onto Drop or the dock still works.
+- **Drop opens Finder:** a click opens the browser's folder picker (`#drop-pick`, `webkitdirectory`). A picked folder whose name is a sensed volume includes that volume; otherwise its media go in the way an OS drop does (today: as Phone, through the AirDrop path), the rest left out quietly; no media → the "can't read" sheet. Drag and drop onto Drop is unchanged.
+- **AirDrop live:** on from load ("Live · wireless arrivals land as Phone in the dock", a dot by the label), no click to arm. A click while live stands in for one arrival (wireframe).
+- **⏎ sorts:** Enter is Sort now whenever the dock holds something, also with Drop or AirDrop focused; with nothing in it, "Add a volume, Drop or AirDrop first".
+- Not done: a Finder-picked folder that is not a sensed volume still lands labelled Phone (the page's one route for loose files); it should land as its own input named after the folder.
+
 ## Pending (owner — next paste)
 
 Nothing open from the last brief. Candidates: a real frame under the loupe once there is one; heal spot pick + per-spot size after placing (today: size only while placing); paste a look onto a range of clips from the large view's strip.

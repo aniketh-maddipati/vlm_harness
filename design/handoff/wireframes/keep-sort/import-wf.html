@@ -364,168 +364,7 @@
   .head-meta .hm.strong { color: var(--ink); font-weight: 700; }
   .grow { flex: 1; min-width: 8px; }
 
-  /* iPhone open inbox — stylized landing pad for AirDrop / wireless */
-  .phone-card {
-    flex: none;
-    margin: 0 var(--pad-x) 16px;
-    width: calc(100% - 2 * var(--pad-x));
-    position: relative;
-    display: grid;
-    gap: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    text-align: left;
-    font: inherit;
-  }
-  .phone-card .pc-shell {
-    position: relative;
-    border-radius: 18px;
-    border: 1.5px solid var(--line);
-    background:
-      linear-gradient(
-        165deg,
-        light-dark(rgba(26,25,23,0.03), rgba(239,236,230,0.05)) 0%,
-        light-dark(rgba(26,25,23,0.07), rgba(239,236,230,0.1)) 100%
-      );
-    overflow: hidden;
-    min-height: 118px;
-    transition:
-      border-color var(--dur-fast) var(--ease-soft),
-      box-shadow var(--dur) var(--ease-out),
-      transform var(--dur-fast) var(--ease-soft);
-  }
-  .phone-card:hover .pc-shell {
-    border-color: var(--ink);
-    transform: translateY(-1px);
-  }
-  .phone-card.listening .pc-shell,
-  .phone-card.open .pc-shell {
-    border-color: var(--ink);
-    border-style: solid;
-    box-shadow: 0 0 0 1px var(--ink);
-  }
-  .phone-card.drag-over .pc-shell {
-    border-style: dashed;
-    border-color: var(--ink);
-    background: var(--drop);
-  }
-  .phone-card.arrived .pc-shell,
-  .phone-card.acking .pc-shell {
-    animation: phone-arrive 420ms var(--ease-spring);
-  }
-  @keyframes phone-arrive {
-    0% { transform: scale(0.985); }
-    40% { transform: scale(1.015); }
-    100% { transform: none; }
-  }
-  .phone-card .pc-ack {
-    display: none;
-    margin-top: 2px;
-    font-size: 11px;
-    font-weight: 750;
-    letter-spacing: 0.01em;
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .phone-card.acking .pc-ack,
-  .phone-card.arrived .pc-ack,
-  .phone-card.open .pc-ack.on {
-    display: block;
-  }
-  .phone-card.acking .pc-ack {
-    animation: phone-ack-flash 420ms var(--ease-soft);
-  }
-  @keyframes phone-ack-flash {
-    0% { opacity: 0.35; }
-    35% { opacity: 1; }
-    100% { opacity: 1; }
-  }
-  .phone-card .pc-lid {
-    height: 11px;
-    margin: 10px 22% 0;
-    border-radius: 6px 6px 2px 2px;
-    background: light-dark(rgba(26,25,23,0.12), rgba(239,236,230,0.14));
-    position: relative;
-  }
-  .phone-card .pc-lid::after {
-    content: "";
-    position: absolute;
-    left: 50%; top: 3px;
-    width: 28px; height: 3px;
-    margin-left: -14px;
-    border-radius: 2px;
-    background: light-dark(rgba(26,25,23,0.22), rgba(239,236,230,0.28));
-  }
-  .phone-card.listening .pc-lid,
-  .phone-card.open .pc-lid {
-    transform: translateY(-2px) rotateX(18deg);
-    transform-origin: top center;
-  }
-  .phone-card .pc-body {
-    display: grid;
-    gap: 6px;
-    padding: 14px 18px 16px;
-    justify-items: start;
-  }
-  .phone-card .pc-kicker {
-    font-size: 10px;
-    font-weight: 750;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--mute);
-  }
-  .phone-card .pc-title {
-    font-family: var(--serif);
-    font-size: clamp(20px, 1.8vw + 12px, 26px);
-    font-weight: 400;
-    line-height: 1.15;
-  }
-  .phone-card .pc-sub {
-    color: var(--mute);
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.35;
-    max-width: 36em;
-  }
-  .phone-card .pc-pulse {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0;
-    background:
-      radial-gradient(
-        ellipse 70% 55% at 50% 100%,
-        light-dark(rgba(26,25,23,0.1), rgba(239,236,230,0.14)),
-        transparent 70%
-      );
-  }
-  .phone-card.listening .pc-pulse {
-    opacity: 1;
-    animation: phone-pulse 1.6s var(--ease-soft) infinite;
-  }
-  @keyframes phone-pulse {
-    0%, 100% { opacity: 0.35; }
-    50% { opacity: 0.9; }
-  }
-  .phone-card .pc-status {
-    position: absolute;
-    right: 14px;
-    top: 12px;
-    font-size: 10px;
-    font-weight: 750;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--mute);
-  }
-  .phone-card.listening .pc-status,
-  .phone-card.open .pc-status { color: var(--ink); }
+  /* (phone-card chrome removed — AirDrop pane under Drop) */
 
   .lanes {
     flex: 1; min-height: 0; overflow: auto;
@@ -959,7 +798,9 @@
   .src-type-chip.on { background: var(--ink); color: var(--bg); }
   .src-more {
     font-size: 11px; color: var(--mute); font-weight: 600;
+    cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px;
   }
+  .src-more:hover { color: var(--ink); }
 
   .time-chip {
     display: inline-flex; align-items: center; justify-content: center;
@@ -980,7 +821,7 @@
   .right-hd .row { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
   .right-hd .title { font-size: 16px; }
   .fs {
-    --fs-zoom: 1;
+    --fs-zoom: 1; --fs-tile: 120px;
     flex: 1; min-height: 0; overflow: auto;
     padding: 4px 0 8px;
     font-size: calc(15px * var(--fs-zoom));
@@ -999,6 +840,35 @@
   .fs-row.picked { background: light-dark(rgba(26,25,23,0.12), rgba(239,236,230,0.16)); }
   .fs-row.in .name { opacity: 0.55; }
   .fs-row.more { color: var(--mute); font-style: italic; }
+
+  /* Pinch Files in → previews on previewable media files only (RAW / stills / video).
+     Volumes, folders, sidecars stay plain tree rows. Consecutive media files flow into a
+     Finder-like grid: grey 16:9 frame, name centred under; frames grow with pinch. */
+  .fs-pv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, var(--fs-tile));
+    gap: 10px 10px; padding: 6px 12px 10px 8px;
+    font-size: 12px;
+  }
+  .fs-pv-grid .fs-row.pv {
+    flex-direction: column; align-items: center; gap: 5px;
+    padding: 4px 2px !important; min-height: 0; border-radius: 6px; width: auto;
+  }
+  .fs-row.pv .chev, .fs-row.pv .ftype, .fs-row.pv .fs-pills, .fs-row.pv .meta { display: none; }
+  .fs-row.pv .dot {
+    width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 3px;
+    border: 1px solid var(--line); background: light-dark(#E4E1DB, #2C2B28);
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--mute); font-style: normal;
+  }
+  .fs-row.pv .dot::after { content: attr(data-ext); }
+  .fs-row.pv.more .dot { border-style: dashed; background: transparent; }
+  .fs-row.pv.more .dot::after { content: "…"; font-size: 16px; }
+  .fs-row.pv.picked { background: transparent; }
+  .fs-row.pv.picked .dot { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .fs-row.pv.picked .name { background: var(--ink); color: var(--bg); border-radius: 4px; padding: 0 5px; }
+  .fs-row.pv .name { flex: none; text-align: center; font-size: 12px; font-weight: 600; max-width: 100%; }
+
   .fs-row[draggable="true"] { cursor: grab; }
   .fs-row.focus-target {
     background: light-dark(rgba(26,25,23,0.1), rgba(239,236,230,0.14));
@@ -1040,6 +910,20 @@
     border: 1px solid var(--line); color: var(--ink);
     background: light-dark(#fff, #1C1B19);
   }
+  /* Log prep stamps — profile · body · Log|709|RAW once the Log step has read the file */
+  .fs-pills {
+    display: flex; gap: 4px; flex: none; min-width: 0; max-width: 48%;
+    overflow: hidden;
+  }
+  .fs-pills i {
+    flex: none; font-style: normal; font-size: calc(9px * var(--fs-zoom, 1)); font-weight: 700;
+    padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--mute); white-space: nowrap;
+  }
+  .fs-pills i.log { color: var(--ink); border-color: var(--ink); }
+  .fs-pills i.wait { opacity: 0.45; border-style: dashed; }
+  /* Peripheral sense — still imported; muted note, never a reject class */
+  .fs-pills i.edge { opacity: 0.7; border-style: dashed; color: var(--mute); }
   .pathline {
     flex: none; width: 100%; padding: 0 12px 6px 38px;
     font-size: calc(12px * var(--fs-zoom, 1)); color: var(--mute);
@@ -1218,10 +1102,6 @@
   .pre-card .pc-step.done {
     border-color: light-dark(rgba(26,25,23,0.2), rgba(239,236,230,0.25));
   }
-  .pre-card .pc-step.offloaded {
-    opacity: 0.55;
-    border-style: dashed;
-  }
   .pre-card .pc-step .bar {
     height: 3px; border-radius: 2px; margin: 0;
     background: light-dark(rgba(26,25,23,0.08), rgba(239,236,230,0.1));
@@ -1232,38 +1112,6 @@
     background: var(--ink);
     transition: width 180ms ease;
   }
-  .pre-card .pc-mem {
-    display: grid; gap: 4px;
-    margin-top: 2px;
-  }
-  .pre-card .pc-mem-hd {
-    font-size: 10px; font-weight: 750; color: var(--mute);
-    text-transform: uppercase; letter-spacing: 0.04em;
-  }
-  .pre-card .pc-mem-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 8px; align-items: center;
-    font-size: 11px; font-weight: 650;
-  }
-  .pre-card .pc-mem-row .mn {
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .pre-card .pc-mem-row .mm {
-    color: var(--mute); font-variant-numeric: tabular-nums; flex: none;
-  }
-  .pre-card .pc-mem-row button {
-    font-size: 10px; font-weight: 750;
-    padding: 3px 8px; border-radius: 6px;
-    border: 1px solid var(--line); color: var(--mute);
-  }
-  .pre-card .pc-mem-row button:hover {
-    color: var(--ink); border-color: var(--ink); background: var(--fill);
-  }
-  .pre-card .pc-mem-row button:disabled {
-    opacity: 0.35; cursor: default;
-  }
-  .pre-card .pc-mem-row.off .mn { color: var(--mute); }
   .pre-card .pc-empty { color: var(--mute); font-weight: 600; font-size: 12px; }
   .pre-card {
     width: min(380px, 84vw);
@@ -1371,7 +1219,53 @@
     background: light-dark(rgba(26,25,23,0.08), rgba(239,236,230,0.1));
   }
   /* Locked: no Phone card, lanes, Add, or chip strip under Drop */
-  #phone-card, #lanes, #import-add { display: none !important; }
+  #lanes, #import-add { display: none !important; }
+  /* AirDrop pane under Drop — same wireframe idiom as dump-hero */
+  .airdrop-pane {
+    flex: none;
+    display: grid;
+    place-items: center;
+    grid-template-rows: auto auto 1.2em;
+    margin: 0 14px 12px;
+    padding: 18px 16px;
+    min-height: 96px;
+    box-sizing: border-box;
+    border-radius: 14px;
+    border: 2px dotted light-dark(rgba(26,25,23,0.35), rgba(239,236,230,0.4));
+    background: light-dark(rgba(26,25,23,0.03), rgba(239,236,230,0.04));
+    cursor: pointer;
+    text-align: center;
+    color: inherit; font: inherit;
+    /* color only — no size/position transitions */
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+  .airdrop-pane:hover, .airdrop-pane.drag-over, .airdrop-pane.listening {
+    border-color: var(--ink);
+    background: light-dark(rgba(26,25,23,0.06), rgba(239,236,230,0.08));
+  }
+  .airdrop-pane .ap-lab {
+    font-family: var(--serif);
+    font-size: 22px; font-weight: 400;
+  }
+  .airdrop-pane .ap-sub {
+    margin-top: 4px;
+    font-size: 12px; font-weight: 650; color: var(--mute);
+    max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .airdrop-pane .ap-ack {
+    margin-top: 4px;
+    font-size: 11px; font-weight: 750; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    height: 1.2em; line-height: 1.2em;
+    max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .input-dock.drag-over {
+    outline: 1.5px dashed var(--ink);
+    outline-offset: -4px;
+    background: light-dark(rgba(26,25,23,0.06), rgba(239,236,230,0.1));
+  }
   /* Large SD designation cards — top only, drag onto Drop */
   .sd-top {
     flex: none;
@@ -1400,7 +1294,6 @@
     font-family: var(--serif); font-size: 20px; font-weight: 400; color: var(--ink);
   }
   .sd-card .sd-m { font-size: 11px; font-weight: 650; }
-  .phone-card { opacity: 0.9; transform: scale(0.92); transform-origin: top center; }
   .left > .head { display: none; }
   .pane-sources, #pane-sources { display: flex; flex-direction: column; flex: 1; min-height: 0; }
   .scrim[hidden] { display: none !important; }
@@ -1458,8 +1351,8 @@
   }
   .in-tile:hover { border-color: var(--ink); }
   .in-tile.inbound {
-    border-color: light-dark(#8B6B20, #FFD27A);
-    animation: toast-in 220ms var(--ease-out);
+    border-color: var(--ink);
+    border-style: dashed;
   }
   .in-tile .ik {
     font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
@@ -1481,8 +1374,54 @@
     flex: none; display: flex; flex-direction: column; gap: 8px;
     justify-content: center; align-items: stretch; min-width: 118px;
   }
+  .dock-key { font-size: 11px; color: var(--mute); font-weight: 600; text-align: center; }
+  /* Whole-page drop: one dashed ink edge + one line. No fill, no colour. */
+  body.page-drop::before {
+    content: ""; position: fixed; inset: 6px; z-index: 900; pointer-events: none;
+    border: 1.5px dashed var(--ink); border-radius: 10px;
+  }
+  body.page-drop::after {
+    content: attr(data-drop-line); position: fixed; z-index: 901; pointer-events: none;
+    top: 14px; left: 50%; transform: translateX(-50%);
+    padding: 4px 10px; border-radius: 6px; border: 1px solid var(--ink);
+    background: var(--bg); color: var(--ink); font-size: 12px; font-weight: 650; white-space: nowrap;
+  }
+  /* Drop consent sheet — not valid / has subfolders */
+  .drop-sheet-wrap {
+    position: fixed; inset: 0; z-index: 950; display: grid; place-items: center;
+    background: light-dark(rgba(26,25,23,0.16), rgba(0,0,0,0.4));
+  }
+  .drop-sheet-wrap[hidden] { display: none; }
+  .drop-sheet {
+    width: min(420px, calc(100vw - 32px)); max-height: min(72vh, 560px); overflow: auto;
+    background: var(--bg); color: var(--ink); border: 1.5px solid var(--ink); border-radius: 10px;
+    padding: 16px; display: grid; gap: 12px; font-size: 13px;
+  }
+  .drop-sheet h3 { margin: 0; font-size: 14px; }
+  .drop-sheet .ds-note { color: var(--mute); font-weight: 600; }
+  .drop-sheet .ds-dir { display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .drop-sheet .ds-sub { display: flex; gap: 8px; align-items: center; font-weight: 600; min-height: 26px; }
+  .drop-sheet .ds-sub.top { font-weight: 700; }
+  .drop-sheet .ds-sub .n { color: var(--mute); margin-left: auto; font-variant-numeric: tabular-nums; }
+  .drop-sheet .ds-more { color: var(--mute); font-style: italic; cursor: pointer; padding-left: 24px; user-select: none; }
+  .drop-sheet .ds-more:hover { color: var(--ink); }
+  .drop-sheet input[type="checkbox"] { accent-color: var(--ink); margin: 0; }
+  .drop-sheet .ds-acts { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
   #sources-cta { display: none !important; }
-  .dump-hero { min-height: min(36vh, 300px); }
+  /* 2026-10-29 (owner): no file system on Import — sensed volumes, a big Drop, AirDrop live, ⏎ sorts. */
+  #divider, #files-drop, #preview-pane { display: none !important; }
+  .split, .split.preview-open {
+    grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: minmax(0, 1fr) !important;
+    grid-template-areas: "left" !important;
+  }
+  .split > .left { width: min(100%, 880px); justify-self: center; }
+  .dump-hero { flex: 1 1 auto; min-height: 200px; }  /* fills what the column leaves; AirDrop stays in view */
+  .dump-hero .dh-lab { font-size: clamp(36px, 6vw, 64px); }
+  .airdrop-pane { min-height: 120px; }
+  .airdrop-pane.listening .ap-lab::before {
+    content: ""; display: inline-block; width: 8px; height: 8px; margin: 0 8px 3px 0; border-radius: 50%;
+    background: var(--ink); vertical-align: middle;
+  }
 
 </style>
 </head>
@@ -1497,8 +1436,8 @@
   </div>
 
   <div class="pane on" id="pane-sources" role="tabpanel">
-    <!-- Sensed volumes — click to enable into Input dock (not a chip strip under Drop) -->
-    <div class="sd-rail" id="sd-rail" aria-label="Sensed volumes"></div>
+    <!-- Suggested volumes — sensed/valid; click or drag onto Drop / dock -->
+    <div class="sd-rail" id="sd-rail" aria-label="Suggested volumes"></div>
     <div class="split" id="split">
       <div class="left" id="drop">
         <div class="head">
@@ -1507,24 +1446,16 @@
             <div class="hm">No volumes</div>
           </div>
         </div>
-        <button type="button" class="dump-hero" id="dump-drop" aria-label="Drop">
+        <input type="file" id="drop-pick" multiple webkitdirectory hidden tabindex="-1" aria-hidden="true">
+        <button type="button" class="dump-hero" id="dump-drop" aria-label="Drop · click opens Finder">
           <span class="dh-lab">Drop</span>
-          <span class="dh-sub">Click a card · Drop · AirDrop / Android land in the dock</span>
+          <span class="dh-sub">Click to choose in Finder · or drop a volume, folder or clips · or drag a suggested card here</span>
         </button>
-        <button type="button" class="phone-card" id="phone-card" aria-pressed="false"
-          title="Arm inbox — AirDrop opens the phone volume automatically"
-          data-link="#phone-inbox">
-          <span class="pc-shell" aria-hidden="true">
-            <span class="pc-pulse"></span>
-            <span class="pc-status" id="phone-card-status">Closed</span>
-            <span class="pc-lid"></span>
-            <span class="pc-body">
-              <span class="pc-kicker">iPhone · open card</span>
-              <span class="pc-title">AirDrop inbox</span>
-              <span class="pc-sub">Accepts every wireless drop. Lands in Downloads and opens the phone volume on its own.</span>
-              <span class="pc-ack" id="phone-card-ack" aria-live="polite"></span>
-            </span>
-          </span>
+        <button type="button" class="airdrop-pane" id="airdrop-pane" aria-pressed="false"
+          title="AirDrop is live — wireless arrivals land in the dock as Phone">
+          <span class="ap-lab">AirDrop</span>
+          <span class="ap-sub" id="airdrop-sub">Waiting · click to arm · Android / wireless land here</span>
+          <span class="ap-ack" id="airdrop-ack" aria-live="polite"></span>
         </button>
         <div class="lanes" id="lanes"></div>
         <div class="import-add" id="import-add">
@@ -1569,18 +1500,18 @@
     <div class="foot" id="foot" aria-live="polite"></div>
     <div class="step-cta" id="sources-cta" hidden>
       <button type="button" class="primary" id="btn-open-select">Open in Sort</button>
-      <span class="cta-note" id="sources-cta-note">Keep-only skim · Rec.709 for Log</span>
+      <span class="cta-note" id="sources-cta-note">Keep-only skim</span>
     </div>
     <div class="input-dock" id="input-dock" aria-label="Inputs">
       <div class="input-dock-main">
-        <div class="input-dock-sum" id="input-dock-sum">Click a card or Drop · AirDrop and Android land here</div>
+        <div class="input-dock-sum" id="input-dock-sum">Suggested · Drop · AirDrop · or drop here · ⏎ sorts</div>
         <div class="input-dock-row" id="input-dock-row">
           <div class="input-dock-empty" aria-hidden="true">Nothing enabled yet</div>
         </div>
       </div>
       <div class="input-dock-side">
-        <button type="button" class="primary" id="dock-sort" disabled>Sort now</button>
-        <span class="cta-note" style="font-size:11px;font-weight:650;color:var(--mute);text-align:center">Rec.709 for Log</span>
+        <button type="button" class="primary" id="dock-sort" disabled title="Sort now · ⏎">Sort now</button>
+        <span class="dock-key" aria-hidden="true">⏎</span>
       </div>
     </div>
   </div>
@@ -1589,10 +1520,9 @@
     <div class="uday-bar">
       <div class="uday-bar-l">
         <span class="title">Select</span>
-        <span class="sub" id="select-sub">Phone · drone · Log → Rec.709</span>
+        <span class="sub" id="select-sub">Phone · drone · card · SSD</span>
         <div class="chips" id="select-chips" role="toolbar" aria-label="Filters">
-          <button type="button" class="chip on" data-filter="suggested">Suggested</button>
-          <button type="button" class="chip" data-filter="all">All clips</button>
+          <button type="button" class="chip on" data-filter="all">All clips</button>
           <button type="button" class="chip" data-filter="log">Log</button>
           <button type="button" class="chip" data-filter="kept">Kept</button>
         </div>
@@ -1720,6 +1650,76 @@
   function canPreviewType(t) {
     return PREVIEWABLE.has(String(t || "").toLowerCase());
   }
+  // Media the Log prep step can stamp with profile / body. Sidecars stay unlabeled.
+  const PREP_MEDIA = new Set(["arw", "dng", "mp4", "mov", "heif", "heic", "jpg", "jpeg"]);
+  function isPrepMedia(nameOrType) {
+    const t = nameOrType.includes(".") ? fileTypeOf(nameOrType) : String(nameOrType || "").toLowerCase();
+    return PREP_MEDIA.has(t);
+  }
+  function pickLogSlot(logs, index) {
+    const total = logs.reduce((a, l) => a + (l.files || 1), 0) || 1;
+    let x = ((index % total) + total) % total;
+    for (const l of logs) {
+      x -= (l.files || 1);
+      if (x < 0) return l;
+    }
+    return logs[logs.length - 1];
+  }
+  // Wireframe stand-in for what Log prep reads off the file: Log? which profile? which body?
+  function describeFileMeta(name, src, index) {
+    if (!src) return {};
+    const body = (src.bodies && src.bodies[0] && src.bodies[0].name) || src.volume || "";
+    const t = fileTypeOf(name);
+    if (!isPrepMedia(t)) return { body, profile: "", logKind: "sidecar", isLog: false };
+    if (t === "arw" || t === "dng") {
+      return { body, profile: "RAW", gamut: "", logKind: "raw", isLog: false };
+    }
+    if (src.logs && src.logs.length) {
+      const slot = pickLogSlot(src.logs, index);
+      return {
+        body: slot.body || body,
+        profile: slot.profile || "",
+        gamut: slot.gamut || "",
+        logKind: slot.kind || "log",
+        isLog: slot.kind === "log"
+      };
+    }
+    return { body, profile: "Rec.709", gamut: "", logKind: "rec709", isLog: false };
+  }
+  function walkFs(nodes, fn) {
+    (nodes || []).forEach((n) => {
+      fn(n);
+      if (n.children) walkFs(n.children, fn);
+    });
+  }
+  function findFsBySource(sourceId) {
+    let hit = null;
+    walkFs(fsRoots, (n) => {
+      if (!hit && n.sourceId === sourceId) hit = n;
+    });
+    return hit;
+  }
+  // As Log prep advances, the first `done` media files under that volume get stamped.
+  function stampVolumePrep(sourceId, done) {
+    const root = findFsBySource(sourceId);
+    if (!root) return false;
+    let i = 0;
+    let changed = false;
+    walkFs([root], (n) => {
+      if (n.kind !== "file" || !isPrepMedia(n.label || "")) return;
+      const src = byId(n.sourceId || sourceId);
+      if (!n.profile && src) Object.assign(n, describeFileMeta(n.label, src, i));
+      if (!n.body && src) {
+        const m = describeFileMeta(n.label, src, i);
+        Object.assign(n, m);
+      }
+      n.sourceId = n.sourceId || sourceId;
+      const want = i < done;
+      if (!!n.prepped !== want) { n.prepped = want; changed = true; }
+      i += 1;
+    });
+    return changed;
+  }
 
   // Sensed = present. Active = tethered / included. dest = source type (SD card / SSD / HD / Phone).
   const catalog = [
@@ -1829,11 +1829,20 @@
     { id: "lr", label: "Pictures / Selects", path: "~/Pictures/Selects" }
   ];
 
-  function files(samples, moreCount, whenStart) {
-    const kids = samples.map((name, i) => ({
-      key: "f-" + name, label: name, kind: "file",
-      fileType: fileTypeOf(name), when: fmtDT(whenStart + i * 2)
-    }));
+  function files(samples, moreCount, whenStart, sourceId) {
+    // catalog is in scope; byId is declared later — look up directly at tree build time
+    const src = sourceId ? catalog.find((c) => c.id === sourceId) : null;
+    const kids = samples.map((name, i) => {
+      const f = {
+        key: "f-" + name, label: name, kind: "file",
+        fileType: fileTypeOf(name), when: fmtDT(whenStart + i * 2),
+        sourceId: sourceId || undefined,
+        prepped: false,
+        fileIndex: i
+      };
+      Object.assign(f, describeFileMeta(name, src, i));
+      return f;
+    });
     if (moreCount > 0) {
       kids.push({
         key: "more-" + samples[0],
@@ -1842,7 +1851,8 @@
         moreCount,
         sample: samples[samples.length - 1] || samples[0],
         whenStart: whenStart + samples.length * 2,
-        shown: samples.length
+        shown: samples.length,
+        sourceId: sourceId || undefined
       });
     }
     return kids;
@@ -1875,17 +1885,29 @@
     let deep = parent.children.find((c) => c.key === deepKey);
     if (!deep) {
       const samples = parent.children.filter((c) => c.kind === "file");
+      const sid = moreNode.sourceId || parent.sourceId || samples[0] && samples[0].sourceId;
+      const src = sid ? catalog.find((c) => c.id === sid) : null;
+      const prepDone = (() => {
+        const e = sid && preCache.get(sid);
+        return e ? e.done : 0;
+      })();
       const expanded = [];
       for (let i = 1; i <= count; i++) {
         const name = nextFileName(sample, i);
-        expanded.push({
+        const idx = shown + i - 1;
+        const f = {
           key: "f-exp-" + parent.key + "-" + i + "-" + name,
           label: name,
           kind: "file",
           fileType: fileTypeOf(name),
           when: fmtDT(whenStart + i * 2),
-          expanded: true
-        });
+          expanded: true,
+          sourceId: sid || undefined,
+          fileIndex: idx,
+          prepped: idx < prepDone
+        };
+        Object.assign(f, describeFileMeta(name, src, idx));
+        expanded.push(f);
       }
       const total = shown + count;
       deep = {
@@ -1895,7 +1917,14 @@
         open: true,
         tag: total.toLocaleString("en-US"),
         path: (parent.path || "") + "/All files",
-        children: samples.concat(expanded)
+        children: samples.concat(expanded),
+        // Stash so double-click can furl back to samples + "… N more"
+        _moreMeta: {
+          count, sample, whenStart, shown,
+          sampleKeys: samples.map((s) => s.key),
+          moreKey: node.key,
+          sourceId: sid || undefined
+        }
       };
       // Drop samples + "… more" at this level; full set lives one level deeper
       parent.children = parent.children
@@ -1933,6 +1962,39 @@
     toast("All " + (shown + count).toLocaleString("en-US") + " files");
     return true;
   }
+  // Double-click furl: put samples + "… N more" back where the All-files folder was.
+  function collapseMoreNode(deepNode) {
+    const trail = findNodeByKey(deepNode.key);
+    if (!trail || !trail.length) return false;
+    const deep = trail[trail.length - 1];
+    if (!deep || !deep._moreMeta) return false;
+    const parent = trail.length >= 2 ? trail[trail.length - 2] : null;
+    if (!parent || !parent.children) return false;
+    const meta = deep._moreMeta;
+    const samples = (deep.children || []).filter((c) =>
+      c.kind === "file" && (meta.sampleKeys || []).includes(c.key)
+    );
+    const more = {
+      key: meta.moreKey || ("more-" + ((samples[0] && samples[0].label) || "file")),
+      label: "… " + meta.count.toLocaleString("en-US") + " more",
+      kind: "more",
+      moreCount: meta.count,
+      sample: meta.sample,
+      whenStart: meta.whenStart,
+      shown: meta.shown,
+      sourceId: meta.sourceId
+    };
+    parent.children = parent.children
+      .filter((c) => c.key !== deep.key)
+      .concat(samples)
+      .concat([more]);
+    fsPicked = new Set([more.key]);
+    fsAnchorKey = more.key;
+    fsAnim = null;
+    renderFs();
+    toast("Furled · " + meta.count.toLocaleString("en-US") + " hidden");
+    return true;
+  }
 
   // Default: everything furled. Order at paint: sensed volumes first, then other places.
   const fsRoots = [
@@ -1947,13 +2009,13 @@
               key: "sony-100", label: "100MSDCF", kind: "folder", open: false,
               sourceId: "sony-card", tag: "480 ARW", when: fmtRange(540, 720),
               path: "/Volumes/Untitled/DCIM/100MSDCF",
-              children: files(["DSC01201.ARW", "DSC01202.ARW", "DSC01203.ARW"], 477, 540)
+              children: files(["DSC01201.ARW", "DSC01202.ARW", "DSC01203.ARW"], 477, 540, "sony-card")
             },
             {
               key: "sony-101", label: "101MSDCF", kind: "folder", open: false,
               sourceId: "sony-card-2", tag: "120 ARW", when: fmtRange(780, 900),
               path: "/Volumes/Untitled/DCIM/101MSDCF",
-              children: files(["DSC01801.ARW", "DSC01802.ARW"], 118, 780)
+              children: files(["DSC01801.ARW", "DSC01802.ARW"], 118, 780, "sony-card-2")
             }
           ]
         }
@@ -1971,7 +2033,7 @@
               key: "t7-clips", label: "Clips", kind: "folder", open: false,
               sourceId: "t7-road", tag: "1,200 MP4", when: fmtRange(-1440 * 2, 1440),
               path: "/Volumes/T7/Road trip/Clips",
-              children: files(["C0101.MP4", "C0102.MP4"], 1198, -1440 * 2 + 480)
+              children: files(["C0101.MP4", "C0102.MP4"], 1198, -1440 * 2 + 480, "t7-road")
             }
           ]
         }
@@ -1984,7 +2046,7 @@
         {
           key: "phone-recents", label: "Recents", kind: "folder", open: false,
           when: fmtRange(660, 780), path: "iPhone/Recents",
-          children: files(["IMG_8841.HEIC", "IMG_8842.HEIC", "VID_8843.MP4"], 31, 660)
+          children: files(["IMG_8841.HEIC", "IMG_8842.HEIC", "VID_8843.MP4"], 31, 660, "phone")
         }
       ]
     },
@@ -1998,7 +2060,7 @@
           path: "/Volumes/DJI/DCIM/101MEDIA",
           children: files([
             "DJI_0011.DNG", "DJI_0012.MP4", "DJI_0012.LRV", "DJI_0012.SRT", "DJI_0013.MOV"
-          ], 47, 700)
+          ], 47, 700, "drone")
         }
       ]
     },
@@ -2010,29 +2072,40 @@
           key: "lr-selects", label: "Selects", kind: "folder", open: false,
           sourceId: "lr", tag: "16 RAW", when: fmtRange(540, 700),
           path: "~/Pictures/Selects",
-          children: files(["_DSC1201.ARW", "_DSC1201.xmp"], 14, 540)
+          children: files(["_DSC1201.ARW", "_DSC1201.xmp"], 14, 540, "lr")
         }
       ]
     },
     {
       key: "home-downloads", label: "Downloads", tag: "folder", kind: "folder", open: false,
       sourceId: "downloads", path: "~/Downloads",
-      children: files(["IMG_2201.HEIC", "clip.mp4", "scan.pdf"], 83, 400)
+      children: files(["IMG_2201.HEIC", "clip.mp4", "scan.pdf"], 83, 400, "downloads")
     },
     {
       key: "home-desktop", label: "Desktop", tag: "folder", kind: "folder", open: false,
       sourceId: "desktop", path: "~/Desktop",
-      children: files(["shot.ARW", "note.txt"], 22, 200)
+      children: files(["shot.ARW", "note.txt"], 22, 200, "desktop")
     },
     {
       key: "home-pictures", label: "Pictures", tag: "folder", kind: "folder", open: false,
       sourceId: "pictures", path: "~/Pictures",
-      children: files(["roll.ARW", "roll.HEIC"], 208, 300)
+      children: [
+        { key: "pic-family", label: "Family", kind: "folder", open: false, path: "~/Pictures/Family",
+          children: files(["FAM_2001.HEIC", "FAM_2002.HEIC"], 88, 310, "pictures") },
+        { key: "pic-exports", label: "Exports", kind: "folder", open: false, path: "~/Pictures/Exports",
+          children: files(["EXP_0101.JPG", "EXP_0102.JPG"], 40, 320, "pictures") },
+        { key: "pic-scans", label: "Scans", kind: "folder", open: false, path: "~/Pictures/Scans",
+          children: files(["receipt-01.pdf", "receipt-02.pdf"], 6, 330, "pictures") },
+        { key: "pic-shots", label: "Screenshots", kind: "folder", open: false, path: "~/Pictures/Screenshots",
+          children: files(["Screen Shot 01.png", "Screen Shot 02.png"], 12, 340, "pictures") },
+        { key: "pic-wall", label: "Wallpapers", kind: "folder", open: false, path: "~/Pictures/Wallpapers",
+          children: files(["wall-01.jpg"], 9, 350, "pictures") }
+      ].concat(files(["roll.ARW", "roll.HEIC"], 208, 300, "pictures"))
     },
     {
       key: "home-documents", label: "Documents", tag: "folder", kind: "folder", open: false,
       sourceId: "documents", path: "~/Documents",
-      children: files(["brief.pdf"], 11, 100)
+      children: files(["brief.pdf"], 11, 100, "documents")
     }
   ];
 
@@ -2060,24 +2133,12 @@
   let fsClickTimer = null;
   let toastTimer = 0;
   // Session preprocess cache: keep through Exclude → Include. Cleared only on refresh.
-  // Priority: Log first, then RAW engine + local-model AI (masks/near/dust), then display grades.
-  const PRE_STEPS = ["log", "raw", "masks", "near", "dust", "rec709", "grade"];
+  // Prep is Log only — Rec.709-ready Log material. RAW / masks / grade stay out of Import.
+  const PRE_STEPS = ["log"];
   const PRE_STEP_LABEL = {
-    log: "Log",
-    raw: "RAW",
-    masks: "Masks",
-    near: "Near",
-    dust: "Dust",
-    rec709: "Rec.709",
-    grade: "Grade"
+    log: "Log"
   };
-  // Working-memory share per subunit (of that volume's resident MB when done)
-  const PRE_STEP_SHARE = {
-    log: 0.16, raw: 0.22, masks: 0.16, near: 0.10, dust: 0.12,
-    rec709: 0.12, grade: 0.12
-  };
-  const MEM_BUDGET_MB = 2048;
-  // id -> { total, done, held, running, mb, step, per, units: { step: { mb, off, was } } }
+  // Thin session prep progress (no RAM / offload UI). id -> { total, done, held, running, step, label, inbound }
   const preCache = new Map();
   let preTimer = 0;
 
@@ -2112,6 +2173,10 @@
     previewMark.textContent = (file.type || "FILE").toUpperCase();
     const bits = [];
     if (file.type) bits.push(file.type.toUpperCase());
+    if (file.isLog) bits.push("Log");
+    if (file.profile) bits.push(file.profile);
+    if (file.body) bits.push(file.body);
+    if (file.gamut) bits.push(file.gamut);
     if (file.path) bits.push(file.path);
     previewInfo.textContent = bits.join(" · ");
     previewPane.hidden = false;
@@ -2171,97 +2236,29 @@
     return true;
   }
 
-  function mbPerFile(src) {
-    // Preview + cull prep + Log / Rec.709 / grade working set
-    let n = 1.6;
-    if (src.profile === "video") n = 4.2;
-    else if ((src.bodies || []).some((b) => (b.dng || 0) > 0 || (b.heif || 0) > 0)) n = 2.4;
-    const sum = logSummary(src);
-    if (sum.need || sum.hdr) n += 1.1;
-    return n;
-  }
-  function emptyUnits() {
-    const u = {};
-    PRE_STEPS.forEach((s) => { u[s] = { mb: 0, off: false, was: 0 }; });
-    return u;
-  }
-  function syncUnitMemory(entry) {
-    if (!entry.units) entry.units = emptyUnits();
-    const frac = entry.done / Math.max(1, entry.total);
-    const n = PRE_STEPS.length;
-    const cur = PRE_STEPS.indexOf(entry.step);
-    const gross = entry.done * entry.per;
-    let resident = 0;
-    PRE_STEPS.forEach((step, i) => {
-      const u = entry.units[step] || (entry.units[step] = { mb: 0, off: false, was: 0 });
-      let fill = 0;
-      if (frac >= 1 || entry.step === "ready" || (cur >= 0 && i < cur)) fill = 1;
-      else if (entry.running && i === cur) {
-        const lo = i / n, hi = (i + 1) / n;
-        fill = Math.max(0, Math.min(1, (frac - lo) / Math.max(0.001, hi - lo)));
-      }
-      const raw = Math.round(gross * (PRE_STEP_SHARE[step] || (1 / n)) * fill * 10) / 10;
-      if (u.off) {
-        u.was = Math.max(u.was || 0, raw);
-        u.mb = 0;
-      } else {
-        u.mb = raw;
-        if (raw > 0) u.was = raw;
-      }
-      resident += u.mb;
-    });
-    entry.mb = Math.round(resident * 10) / 10;
-  }
   function stepFromFrac(frac) {
     if (frac >= 1) return "ready";
     const i = Math.min(PRE_STEPS.length - 1, Math.floor(frac * PRE_STEPS.length));
     return PRE_STEPS[i];
   }
-  function offloadUnit(id, step) {
-    const entry = preCache.get(id);
-    if (!entry || !entry.units || !entry.units[step]) return;
-    const u = entry.units[step];
-    if (u.off || u.mb <= 0) return;
-    u.was = u.mb;
-    u.mb = 0;
-    u.off = true;
-    syncUnitMemory(entry);
-    preCache.set(id, entry);
-    toast("Offloaded " + (PRE_STEP_LABEL[step] || step));
-    renderFooter();
-  }
-  function reloadUnit(id, step) {
-    const entry = preCache.get(id);
-    if (!entry || !entry.units || !entry.units[step]) return;
-    const u = entry.units[step];
-    if (!u.off) return;
-    u.off = false;
-    u.mb = u.was || 0;
-    syncUnitMemory(entry);
-    preCache.set(id, entry);
-    toast("Reloaded " + (PRE_STEP_LABEL[step] || step));
-    renderFooter();
-  }
   function enqueuePrecompute(id) {
     const src = byId(id); if (!src) return "miss";
     let entry = preCache.get(id);
-    // Fully done this session — reuse, don't replay
     if (entry && entry.done >= entry.total && entry.total > 0) {
       entry.held = false;
       entry.running = false;
       entry.step = "ready";
-      if (!entry.units) entry.units = emptyUnits();
-      syncUnitMemory(entry);
       preCache.set(id, entry);
       renderFooter();
       return "cached";
     }
-    // Partial progress from earlier Include — continue, don't reset
     if (entry) {
       entry.held = false;
       entry.running = entry.done < entry.total;
-      if (!entry.step || entry.step === "ready") entry.step = PRE_STEPS[0];
-      if (!entry.units) entry.units = emptyUnits();
+      if (!entry.step || entry.step === "ready" || PRE_STEPS.indexOf(entry.step) < 0) {
+        entry.step = entry.done >= entry.total ? "ready"
+          : stepFromFrac(entry.done / Math.max(1, entry.total));
+      }
       preCache.set(id, entry);
       tickPrecompute();
       return entry.done > 0 ? "resume" : "start";
@@ -2271,11 +2268,8 @@
       done: 0,
       held: false,
       running: true,
-      mb: 0,
       step: PRE_STEPS[0],
-      per: mbPerFile(src),
-      label: src.volume || src.name || src.dest,
-      units: emptyUnits()
+      label: src.volume || src.name || src.dest
     };
     preCache.set(id, entry);
     tickPrecompute();
@@ -2290,14 +2284,9 @@
     tickPrecompute();
   }
   function memStats() {
-    let usedMb = 0, done = 0, total = 0, running = 0, ready = 0, held = 0, offloaded = 0;
+    let done = 0, total = 0, running = 0, ready = 0, held = 0;
     let liveId = null, liveStep = null, liveLabel = null;
     preCache.forEach((e, id) => {
-      syncUnitMemory(e);
-      usedMb += e.mb;
-      if (e.units) {
-        PRE_STEPS.forEach((s) => { if (e.units[s] && e.units[s].off) offloaded++; });
-      }
       if (!e.held) {
         done += e.done;
         total += e.total;
@@ -2314,19 +2303,67 @@
       }
       if (!e.held && e.done >= e.total && e.total > 0) ready++;
     });
-    return { usedMb, done, total, running, ready, held, offloaded, liveId, liveStep, liveLabel };
+    return { done, total, running, ready, held, liveId, liveStep, liveLabel };
   }
+
+  // Suggested volumes prep first (SD, then SSD, then others). New uncached arrivals join the queue.
+  function prepPriorityIds() {
+    const rank = { sd: 0, ssd: 1, hd: 2, phone: 9 };
+    return catalog
+      .filter((c) => c.sensed && c.destKey !== "phone")
+      .slice()
+      .sort((a, b) => {
+        const ra = rank[a.destKey] ?? 5, rb = rank[b.destKey] ?? 5;
+        if (ra !== rb) return ra - rb;
+        return (b.files || 0) - (a.files || 0);
+      })
+      .map((c) => c.id);
+  }
+  function ensureSuggestedPrep() {
+    prepPriorityIds().forEach((id) => {
+      const e = preCache.get(id);
+      if (e && e.done >= e.total && e.total > 0) return; // already cached
+      enqueuePrecompute(id);
+    });
+    // Re-order running: only the highest-priority incomplete entry should run
+    const order = prepPriorityIds();
+    let started = false;
+    order.forEach((id) => {
+      const e = preCache.get(id);
+      if (!e || e.held || e.done >= e.total) return;
+      if (!started) { e.running = true; started = true; }
+      else e.running = false;
+      preCache.set(id, e);
+    });
+    tickPrecompute();
+  }
+  function evictPrepNotIn(vols) {
+    const keep = new Set(vols || []);
+    [...preCache.keys()].forEach((id) => {
+      if (keep.has(id)) return;
+      preCache.delete(id);
+      // Clear file stamps for that volume in the Files tree
+      const root = findFsBySource(id);
+      if (root) walkFs([root], (n) => { if (n.kind === "file") n.prepped = false; });
+    });
+  }
+
   function tickPrecompute() {
     clearTimeout(preTimer);
     let any = false;
-    // Process one included source at a time (skip held)
-    const live = [...preCache.entries()].find(([, e]) => e.running && !e.held);
+    // One volume at a time — prefer suggested priority order when several are running
+    const prio = prepPriorityIds();
+    let live = null;
+    for (const id of prio) {
+      const e = preCache.get(id);
+      if (e && e.running && !e.held) { live = [id, e]; break; }
+    }
+    if (!live) live = [...preCache.entries()].find(([, e]) => e.running && !e.held);
     if (live) {
       const [id, e] = live;
       if (e.done >= e.total) {
         e.running = false;
         e.step = "ready";
-        syncUnitMemory(e);
         preCache.set(id, e);
       } else {
         any = true;
@@ -2338,8 +2375,9 @@
           e.running = false;
           e.step = "ready";
         }
-        syncUnitMemory(e);
         preCache.set(id, e);
+        // Log prep stamps Files-tree media with profile · body · Log|RAW|709
+        if (stampVolumePrep(id, e.done)) renderFs({ quiet: true });
       }
     }
     if (!any) {
@@ -2514,14 +2552,21 @@
     const src = byId(sourceId);
     if (!src?.fsKey) return;
     const trail = findNodeByKey(src.fsKey);
-    if (!trail) return;
-    trail.forEach((n) => { if (n.children) n.open = true; });
-    fsPicked = new Set([src.fsKey]);
-    fsAnchorKey = src.fsKey;
+    if (!trail || !trail.length) return;
+    // Furled elsewhere; open the volume TOP so subdirs / files that hold media show
+    walkFs(fsRoots, (n) => { if (n.children) n.open = false; });
+    const root = trail[0];
+    root.open = true;
+    // One level in when the root is only a wrapper (card → DCIM)
+    if (root.children && root.children.length === 1 && root.children[0].children) {
+      root.children[0].open = true;
+    }
+    fsPicked = new Set([root.key]);
+    fsAnchorKey = root.key;
     renderFs({ quiet: !scroll });
     if (!scroll) return;
     requestAnimationFrame(() => {
-      const el = fsEl.querySelector('[data-key="' + src.fsKey + '"]');
+      const el = fsEl.querySelector('[data-key="' + root.key + '"]');
       if (!el) return;
       el.classList.add("focus-target");
       el.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -2530,14 +2575,36 @@
   }
 
 
+  // "… N more" anywhere outside the tree rows: click (timer) → expandMoreNode,
+  // dblclick → collapseMoreNode. Reuses the Files model; no second list.
+  let moreClickTimer = 0;
+  function bindMoreClick(el, getMore, getAll, after) {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (e.detail > 1) return;
+      clearTimeout(moreClickTimer);
+      const m = getMore();
+      if (!m) return;
+      moreClickTimer = setTimeout(() => { expandMoreNode(m); if (after) after(); }, 220);
+    });
+    el.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      clearTimeout(moreClickTimer);
+      const a = getAll();
+      if (a) { collapseMoreNode(a); if (after) after(); }
+    });
+  }
+
   function bucketParts(src) {
     const trail = findNodeByKey(src.fsKey);
     if (!trail) return { node: null, folders: [], files: [], moreCount: 0, siblings: [] };
     const node = trail[trail.length - 1];
     const kids = node.children || [];
-    const folders = kids.filter((c) => c.kind === "folder" || (c.children && c.kind !== "file" && c.kind !== "more"));
+    const folders = kids.filter((c) => !c._moreMeta && (c.kind === "folder" || (c.children && c.kind !== "file" && c.kind !== "more")));
     const files = kids.filter((c) => c.kind === "file");
     const more = kids.find((c) => c.kind === "more");
+    const allNode = kids.find((c) => c._moreMeta) || null;
     let moreCount = 0;
     if (more) {
       const m = String(more.label).replace(/[^0-9]/g, "");
@@ -2550,7 +2617,7 @@
         c.key !== node.key && (c.kind === "folder" || c.sourceId || c.children)
       );
     }
-    return { node, folders, files, moreCount, siblings };
+    return { node, folders, files, moreCount, siblings, moreNode: more || null, allNode };
   }
 
   function typeChipsFor(src) {
@@ -2648,9 +2715,8 @@
     const frac = entry.done / Math.max(1, entry.total);
     const n = PRE_STEPS.length;
     const i = PRE_STEPS.indexOf(step);
-    const cur = entry.step === "ready" || frac >= 1 ? n : PRE_STEPS.indexOf(entry.step);
-    const u = entry.units && entry.units[step];
-    if (u && u.off) return { cls: "offloaded", pct: 0, lab: "offloaded" };
+    let cur = entry.step === "ready" || frac >= 1 ? n : PRE_STEPS.indexOf(entry.step);
+    if (cur < 0) cur = Math.min(n - 1, Math.floor(frac * n)); // stale step from an older PRE_STEPS list
     if (frac >= 1 || cur > i) return { cls: "done", pct: 100, lab: "done" };
     if (entry.running && cur === i) {
       const lo = i / n, hi = (i + 1) / n;
@@ -2663,43 +2729,37 @@
     if (!card) return;
     const rows = [...preCache.entries()];
     if (!rows.length) {
-      const empty = "<div class=\"pc-hd\">Preprocess</div>"
-        + "<div class=\"pc-empty\">Nothing running — Include a volume.</div>";
+      const empty = "<div class=\"pc-hd\">Prep</div>"
+        + "<div class=\"pc-empty\">Nothing running — enable a volume.</div>";
       if (card.dataset.sig !== "empty") {
         card.innerHTML = empty;
         card.dataset.sig = "empty";
       }
       return;
     }
-    // Live first, then ready, then waiting
     rows.sort((a, b) => {
       const ra = a[1].running ? 0 : (a[1].done >= a[1].total ? 2 : 1);
       const rb = b[1].running ? 0 : (b[1].done >= b[1].total ? 2 : 1);
       return ra - rb;
     });
-    // Signature: skip DOM rewrite when nothing meaningful changed (keeps Offload clickable)
-    const sig = rows.map(([id, e]) => {
-      syncUnitMemory(e);
-      const u = PRE_STEPS.map((s) => {
-        const x = e.units[s];
-        return s + ":" + (x.off ? "o" : Math.round(x.mb)) + ":" + stepState(e, s).cls;
-      }).join(",");
-      return id + "|" + e.done + "|" + e.step + "|" + (e.held ? 1 : 0) + "|" + Math.round(e.mb) + "|" + u;
-    }).join(";");
+    const sig = rows.map(([id, e]) =>
+      id + "|" + e.done + "|" + e.step + "|" + (e.held ? 1 : 0) + "|" +
+      PRE_STEPS.map((st) => stepState(e, st).cls).join(",")
+    ).join(";");
     if (card.dataset.sig === sig) return;
     card.dataset.sig = sig;
 
-    let html = "<div class=\"pc-hd\">Preprocess · log · raw · masks · near · dust · rec709 · grade</div>";
+    let html = "<div class=\"pc-hd\">Prep · Log</div>";
     rows.forEach(([id, e]) => {
       const src = byId(id);
       const name = e.label || (src && (src.volume || src.name || src.dest)) || id;
-      const status = e.held ? "cached (off)"
+      const status = e.held ? "held"
         : e.running ? "running"
-        : (e.done >= e.total ? "ready" : "waiting");
+        : (e.done >= e.total ? "done" : "waiting");
       html += "<div class=\"pc-vol\" data-vol=\"" + id + "\">"
         + "<div class=\"pc-name\">" + name + "</div>"
         + "<div class=\"pc-meta\">" + status + " · " + fmtN(e.done) + " / " + fmtN(e.total)
-        + " · " + Math.round((e.done / Math.max(1, e.total)) * 100) + "% ready</div>"
+        + " · " + Math.round((e.done / Math.max(1, e.total)) * 100) + "%</div>"
         + "<div class=\"pc-steps\">";
       PRE_STEPS.forEach((step) => {
         const st = stepState(e, step);
@@ -2708,26 +2768,6 @@
           + "<span>" + st.lab + "</span>"
           + "<div class=\"bar\" aria-hidden=\"true\"><i style=\"width:" + st.pct + "%\"></i></div>"
           + "</div>";
-      });
-      html += "</div>"
-        + "<div class=\"pc-mem\">"
-        + "<div class=\"pc-mem-hd\">Preprocess steps (wireframe)</div>";
-      PRE_STEPS.forEach((step) => {
-        const u = (e.units && e.units[step]) || { mb: 0, off: false, was: 0 };
-        const show = u.off ? (u.was || 0) : u.mb;
-        const canOff = !u.off && u.mb > 0;
-        const canReload = !!u.off;
-        html += "<div class=\"pc-mem-row" + (u.off ? " off" : "") + "\">"
-          + "<span class=\"mn\">" + (PRE_STEP_LABEL[step] || step) + "</span>"
-          + "<span class=\"mm\">" + (u.off ? "0 · was " + Math.round(show) : Math.round(show)) + " MB</span>";
-        if (canReload) {
-          html += "<button type=\"button\" data-act=\"reload\" data-id=\"" + id
-            + "\" data-step=\"" + step + "\">Reload</button>";
-        } else {
-          html += "<button type=\"button\" data-act=\"offload\" data-id=\"" + id
-            + "\" data-step=\"" + step + "\"" + (canOff ? "" : " disabled") + ">Offload</button>";
-        }
-        html += "</div>";
       });
       html += "</div></div>";
     });
@@ -2742,20 +2782,15 @@
           "<div class=\"il\">Nothing included</div>" +
         "</div>" +
       "</div>" +
-      "<div class=\"col\">" +
-        "<div class=\"k\">Ready</div>" +
-        "<div class=\"v\" id=\"foot-mem\">0 / 0 ready</div>" +
-        "<div class=\"bar\" aria-hidden=\"true\"><i id=\"foot-bar\"></i></div>" +
-      "</div>" +
       "<div class=\"col pre\" id=\"foot-pre-col\" role=\"button\" tabindex=\"0\" " +
-        "aria-expanded=\"false\" title=\"Preprocess details\">" +
-        "<div class=\"k\">Preprocess</div>" +
-        "<div class=\"v mute\" id=\"foot-pre\">Idle — Include a volume to start</div>" +
-        "<div class=\"pre-card\" id=\"pre-card\" role=\"dialog\" aria-label=\"Preprocess\"></div>" +
+        "aria-expanded=\"false\" title=\"Prep details\">" +
+        "<div class=\"k\">Prep</div>" +
+        "<div class=\"v mute\" id=\"foot-pre\">Idle — enable a volume</div>" +
+        "<div class=\"bar\" aria-hidden=\"true\"><i id=\"foot-bar\"></i></div>" +
+        "<div class=\"pre-card\" id=\"pre-card\" role=\"dialog\" aria-label=\"Prep\"></div>" +
       "</div>";
     footEl.dataset.ready = "1";
     const col = document.getElementById("foot-pre-col");
-    const preCard = document.getElementById("pre-card");
     col.addEventListener("click", (e) => {
       if (e.target.closest(".pre-card")) return;
       const open = col.dataset.open === "true";
@@ -2777,27 +2812,14 @@
         col.setAttribute("aria-expanded", "false");
       }
     });
-    // Per-subunit Offload / Reload (delegation so ticks don't rebind)
-    preCard.addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-act]");
-      if (!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const id = btn.getAttribute("data-id");
-      const step = btn.getAttribute("data-step");
-      const act = btn.getAttribute("data-act");
-      if (act === "offload") offloadUnit(id, step);
-      else if (act === "reload") reloadUnit(id, step);
-    });
   }
   function renderFooter() {
     ensureFoot();
     const includeEl = document.getElementById("foot-include");
-    const memEl = document.getElementById("foot-mem");
     const preEl = document.getElementById("foot-pre");
     const barEl = document.getElementById("foot-bar");
     const preCard = document.getElementById("pre-card");
-    if (!includeEl || !memEl || !preEl || !barEl) return;
+    if (!includeEl || !preEl || !barEl) return;
 
     const t = selected.length ? totals() : null;
     const mem = memStats();
@@ -2827,38 +2849,30 @@
       });
     }
 
-    // Ready = preprocess units finished (files ready to skim) — not a RAM meter
     const pct = mem.total ? Math.min(100, Math.round((mem.done / mem.total) * 100)) : 0;
-    const memV = !mem.total
-      ? "Nothing included"
-      : (fmtN(mem.done) + " / " + fmtN(mem.total) + " ready"
-        + (mem.running ? " · working" : "")
-        + (mem.ready ? " · " + mem.ready + " vol" : ""));
-
-    let preV = "Idle — Include a volume to start";
+    let preV = "Idle — enable a volume";
     let preMute = true;
     if (mem.running) {
       preMute = false;
-      const stepLab = PRE_STEP_LABEL[mem.liveStep] || mem.liveStep || "Masks";
+      const stepLab = PRE_STEP_LABEL[mem.liveStep] || mem.liveStep || "Log";
       preV = (mem.liveLabel || "Volume") + " · " + stepLab
         + " · " + fmtN(mem.done) + " / " + fmtN(mem.total);
     } else if (mem.total && mem.done >= mem.total) {
       preMute = false;
-      preV = "Ready · " + fmtN(mem.done) + " across "
+      preV = "Done · " + fmtN(mem.done) + " across "
         + mem.ready + " volume" + (mem.ready === 1 ? "" : "s");
     } else if (mem.done) {
       preMute = false;
       preV = fmtN(mem.done) + " / " + fmtN(mem.total);
     }
 
-    memEl.textContent = memV;
     preEl.textContent = preV;
     preEl.classList.toggle("mute", preMute);
     barEl.style.width = pct + "%";
     fillPreCard(preCard);
-    renderInputDock();
+    // AirDrop stream patches the dock in place — a full rebuild here restarts layout every prep tick
+    if (!phoneInbound) renderInputDock();
   }
-
   function renderLanes() {
     const groups = laneGroups();
     const n = selected.length;
@@ -3024,10 +3038,16 @@
         list.textContent = subFolders.map((f) => f.label).join(" · ");
         bucket.appendChild(list);
       }
-      if (parts.moreCount) {
+      if (parts.moreNode || parts.allNode) {
+        // Same grammar as Files: one click unfurls all files, double-click furls back
         const more = document.createElement("div");
         more.className = "src-more";
-        more.textContent = fmtN(parts.moreCount) + " more";
+        more.setAttribute("role", "button");
+        more.textContent = parts.moreNode
+          ? "… " + fmtN(parts.moreCount) + " more"
+          : "All " + (parts.allNode.tag || "") + " files";
+        more.title = parts.moreNode ? "Click to show all files" : "Double-click to furl";
+        bindMoreClick(more, () => parts.moreNode, () => parts.allNode, renderLanes);
         bucket.appendChild(more);
       }
       const pBodies = document.createElement("div");
@@ -3085,6 +3105,9 @@
         }
       });
       box.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && active && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
+          return; // ⏎ on an included volume → document handler → Sort now
+        }
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           volumeFocus = id;
@@ -3224,11 +3247,25 @@
     if (!hit) return "";
     return hit.node.path || hit.path.join("/");
   }
+  // Resolve a Files-tree node (file or whole directory) to a catalog volume id.
+  function sourceIdForNode(node) {
+    if (!node) return null;
+    if (node.sourceId && byId(node.sourceId)) return node.sourceId;
+    const trail = findNodeByKey(node.key);
+    if (trail) {
+      for (let i = trail.length - 1; i >= 0; i--) {
+        if (trail[i].sourceId && byId(trail[i].sourceId)) return trail[i].sourceId;
+      }
+    }
+    const hit = matchImportableName(node.label) || matchImportableName(node.path || "");
+    return hit ? hit.id : null;
+  }
   function sourceIdsFromPicked() {
     const ids = [];
     fsPicked.forEach((k) => {
       const hit = findNode(k);
-      if (hit?.node.sourceId && !ids.includes(hit.node.sourceId)) ids.push(hit.node.sourceId);
+      const id = hit && sourceIdForNode(hit.node);
+      if (id && !ids.includes(id)) ids.push(id);
     });
     return ids;
   }
@@ -3267,7 +3304,12 @@
       name: n.label,
       type,
       when: n.when || "",
-      path: pathForKey(n.key) || n.path || ""
+      path: pathForKey(n.key) || n.path || "",
+      profile: n.profile || "",
+      body: n.body || "",
+      gamut: n.gamut || "",
+      isLog: !!n.isLog,
+      logKind: n.logKind || ""
     });
     return true;
   }
@@ -3373,7 +3415,13 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.tabIndex = 0;
+        const peripheral = node.kind === "file" && node.pull === "edge";
+        // Previews (pinched in): previewable media files + their "… N more" become frames
+        const pvType = node.kind === "file" ? (node.fileType || fileTypeOf(node.label) || "") : "";
+        const pv = fsEl.classList.contains("previews")
+          && (node.kind === "more" || (node.kind === "file" && PRIMARY_EXT.has(pvType.toLowerCase())));
         btn.className = "fs-row"
+          + (pv ? " pv" : "")
           + (isFile ? " file" : "")
           + (node.kind === "more" ? " more" : "")
           + (inShoot ? " in" : "")
@@ -3382,6 +3430,7 @@
         btn.dataset.key = node.key;
         fsVisibleKeys.push(node.key);
         if (addable) btn.dataset.source = node.sourceId;
+        if (peripheral && node.edgeWhy) btn.title = "Also pulled · " + node.edgeWhy;
 
         const chev = document.createElement("span");
         if (hasKids) {
@@ -3403,6 +3452,7 @@
         const kind = node.kind === "folder" ? "folder"
           : (node.kind === "file" || node.kind === "more" ? "file" : node.kind);
         dot.className = "dot " + kind;
+        if (pv && node.kind === "file") dot.dataset.ext = pvType.toUpperCase();
         btn.appendChild(dot);
 
         const name = document.createElement("span");
@@ -3423,21 +3473,97 @@
           btn.appendChild(tag);
         }
 
+        // Log prep stamps; peripheral sense is a muted "also" note (still imported)
+        if (node.kind === "file") {
+          const pills = document.createElement("span");
+          pills.className = "fs-pills";
+          const addPill = (lab, cls) => {
+            if (!lab) return;
+            const i = document.createElement("i");
+            if (cls) i.className = cls;
+            i.textContent = lab;
+            pills.appendChild(i);
+          };
+          if (peripheral) addPill("also", "edge");
+          if (node.profile || node.body || node.logKind) {
+            if (!node.prepped && isPrepMedia(node.label || "")) {
+              addPill("prep", "wait");
+            } else {
+              if (node.isLog) addPill("Log", "log");
+              else if (node.logKind === "raw") addPill("RAW");
+              else if (node.logKind === "hdr") addPill("HDR");
+              else if (node.logKind === "rec709") addPill("709");
+              addPill(node.profile);
+              addPill(node.body);
+            }
+          }
+          if (pills.childNodes.length) btn.appendChild(pills);
+        }
 
-        btn.draggable = node.kind !== "more";
+        // Whole directories, volume rows, AND every file are drag-droppable onto Drop / dock
+        const resolvedId = sourceIdForNode(node);
+        const isDir = hasKids || (node.kind !== "file" && node.kind !== "more");
+        const fileDrag = node.kind === "file";
+        btn.draggable = node.kind !== "more" && (fileDrag || isDir || !!resolvedId);
+        if (btn.draggable) {
+          btn.title = (btn.title ? btn.title + " · " : "") +
+            (isDir ? "Drag this directory onto Drop or the dock to enable"
+              : fileDrag ? "Drag onto Drop or the dock"
+              : "Drag onto Drop or the dock to enable");
+        }
         btn.addEventListener("dragstart", (e) => {
+          if (!btn.draggable) { e.preventDefault(); return; }
           if (!fsPicked.has(node.key)) {
             fsPicked = new Set([node.key]);
             fsAnchorKey = node.key;
           }
-          const ids = sourceIdsFromPicked();
-          if (node.sourceId && !ids.includes(node.sourceId)) ids.push(node.sourceId);
-          dragKind = "include";
-          dragId = ids[0] || "";
-          e.dataTransfer.setData("text/plain", dragId);
-          e.dataTransfer.setData("application/x-lumina-sources", JSON.stringify(ids));
-          e.dataTransfer.effectAllowed = "copyMove";
-          renderFs();
+          // Every picked row rides along; drop runs the pull + consent on the set
+          {
+            const dragKeys = [...fsPicked].filter((k) => { const h = findNode(k); return h && h.node.kind !== "more"; });
+            e.dataTransfer.setData("application/x-lumina-nodes", JSON.stringify(dragKeys.length ? dragKeys : [node.key]));
+            const n = dragPullCount(dragKeys.length ? dragKeys : [node.key]);
+            pageDropLine = "Drop anywhere · " + fmtN(n) + (n === 1 ? " file" : " files");
+          }
+          let ids = sourceIdsFromPicked().filter((id) => byId(id));
+          const sid = sourceIdForNode(node);
+          if (sid && !ids.includes(sid)) ids.push(sid);
+          if (ids.length) {
+            dragKind = "include";
+            dragId = ids[0] || "";
+            e.dataTransfer.setData("text/plain", dragId);
+            e.dataTransfer.setData("application/x-lumina-sources", JSON.stringify(ids));
+            // Also name the directory so Drop can match folder drops
+            if (isDir) {
+              e.dataTransfer.setData("application/x-lumina-dir", node.label || node.key);
+              if (node.path) e.dataTransfer.setData("application/x-lumina-path", node.path);
+            }
+            e.dataTransfer.effectAllowed = "copyMove";
+            renderFs();
+            return;
+          }
+          if (fileDrag) {
+            // Loose file → Drop/dock as media (AirDrop / Phone path)
+            dragKind = "files";
+            dragId = node.label;
+            e.dataTransfer.setData("text/plain", node.label);
+            e.dataTransfer.setData("application/x-lumina-files", JSON.stringify([node.label]));
+            e.dataTransfer.effectAllowed = "copy";
+            renderFs();
+            return;
+          }
+          if (isDir) {
+            // Directory without a known volume — try name match at drop time
+            dragKind = "dir";
+            dragId = node.label;
+            e.dataTransfer.setData("text/plain", node.label);
+            e.dataTransfer.setData("application/x-lumina-dir", node.label || node.key);
+            if (node.path) e.dataTransfer.setData("application/x-lumina-path", node.path);
+            e.dataTransfer.effectAllowed = "copy";
+            renderFs();
+            return;
+          }
+          e.preventDefault();
+          toast("Not a valid import");
         });
         btn.addEventListener("dragend", (e) => {
           if (e.dataTransfer.dropEffect === "none") {
@@ -3478,6 +3604,11 @@
           const meta = !!(e.metaKey || e.ctrlKey);
           const shift = !!e.shiftKey;
           clearTimeout(fsClickTimer);
+          // "… N more" — one click unfurls (timer so a double-click can cancel + furl)
+          if (node.kind === "more" && !shift && !meta) {
+            fsClickTimer = setTimeout(() => expandMoreNode(node), 220);
+            return;
+          }
           if (hasKids && !shift && !meta) {
             // Click folder → select + smooth unfurl / furl
             toggleFolderOpen(node);
@@ -3489,8 +3620,10 @@
         btn.addEventListener("dblclick", (e) => {
           e.preventDefault();
           clearTimeout(fsClickTimer);
-          if (node.kind === "more") {
-            expandMoreNode(node);
+          // "… N more" / "All files" — double-click furls the expanded listing
+          if (node.kind === "more") return; // still furled; dblclick is a no-op
+          if (node._moreMeta) {
+            collapseMoreNode(node);
             return;
           }
           if (hasKids) {
@@ -3512,7 +3645,18 @@
           }
         });
 
-        host.appendChild(btn);
+        if (pv) {
+          let grid = host.lastElementChild;
+          if (!grid || !grid.classList.contains("fs-pv-grid")) {
+            grid = document.createElement("div");
+            grid.className = "fs-pv-grid";
+            grid.style.paddingLeft = (8 + depth * 14) + "px";
+            host.appendChild(grid);
+          }
+          grid.appendChild(btn);
+        } else {
+          host.appendChild(btn);
+        }
 
         if (depth === 0 && node.path) {
           const pl = document.createElement("div");
@@ -3565,21 +3709,35 @@
   function funnelKick(src) {
     if (src.destKey === "sd") return "SD";
     if (src.destKey === "ssd") return "SSD";
-    if (src.destKey === "phone") return "Inbox";
+    if (src.destKey === "phone") return "Phone";
     if (src.destKey === "hd") return "HD";
     return (src.dest || "Vol").toUpperCase();
   }
   function renderFunnel() {
     const rail = document.getElementById("sd-rail");
     if (!rail) return;
-    const sensed = catalog.filter((c) => c.sensed);
+    // Suggested volumes: sensed cards/dirs valid to import — not the Phone/AirDrop path
+    const sensed = catalog.filter((c) => c.sensed && c.destKey !== "phone");
     rail.innerHTML = sensed.map((c) => {
       const on = isSelected(c.id);
-      const meta = (c.name || "") + (c.files != null ? " · " + c.files : "");
+      const path = c.path || (c.fsKey ? ("/" + String(c.fsKey).replace(/-/g, "/")) : "");
+      // Prefer real volume path from the Files tree when we know it
+      let dirHint = path;
+      try {
+        const trail = c.fsKey && findNodeByKey(c.fsKey);
+        if (trail && trail[0] && trail[0].path) dirHint = trail[0].path;
+        else if (trail && trail.length && trail[trail.length - 1].path) dirHint = trail[0] ? trail[0].path : trail[trail.length - 1].path;
+      } catch (_) {}
+      const bits = [];
+      if (c.name) bits.push(c.name);
+      if (c.files != null) bits.push(fmtN(c.files) + " files");
+      if (c.gb != null) bits.push(fmtGb(c.gb));
+      if (dirHint) bits.push(dirHint);
+      const meta = bits.join(" · ");
       return (
         '<button type="button" class="sd-card' + (on ? " on" : "") +
         '" draggable="true" data-vol="' + c.id + '" aria-pressed="' + (on ? "true" : "false") +
-        '" title="' + (on ? "Click to open in Files · double-click to turn off" : "Click to enable") + '">' +
+        '" title="Click to open in Files · double-click to enable/disable · or drag onto Drop / dock">' +
         '<span class="sd-k">' + funnelKick(c) + "</span>" +
         '<span class="sd-n">' + (c.volume || c.name || c.id) + "</span>" +
         '<span class="sd-m">' + meta + "</span></button>"
@@ -3603,27 +3761,37 @@
     if (!row || !sum) return;
     const vols = selected.map((s) => byId(s.id)).filter(Boolean);
     if (!vols.length) {
-      sum.textContent = "Click a card or Drop · AirDrop and Android land here";
-      row.innerHTML = '<div class="input-dock-empty" aria-hidden="true">Nothing enabled yet</div>';
+      const emptySig = "empty";
+      if (row.dataset.sig !== emptySig) {
+        sum.textContent = "Drop · AirDrop · or drop a volume here";
+        row.innerHTML = '<div class="input-dock-empty" aria-hidden="true">Drop a volume here</div>';
+        row.dataset.sig = emptySig;
+      }
       if (sortBtn) sortBtn.disabled = true;
       return;
     }
-    const mem = memStats();
-    sum.textContent = vols.length + " input" + (vols.length === 1 ? "" : "s") +
-      " · Ready " + fmtN(mem.done) + "/" + fmtN(mem.total) +
-      (mem.running ? " · working" : "");
+    const sumText = vols.length + " input" + (vols.length === 1 ? "" : "s") +
+      " · " + fmtN(vols.reduce((a, c) => a + (c.files || 0), 0)) + " files";
+    const sig = vols.map((c) => {
+      const r = volReady(c.id);
+      return c.id + ":" + (c.files || 0) + ":" + (r.inbound ? 1 : 0) + ":" + (c.name || "") + ":" + (c.volume || "");
+    }).join("|");
+    // Prep ticks used to rebuild identical dock HTML every 180 ms — skip when unchanged
+    if (row.dataset.sig === sig) {
+      if (sum.textContent !== sumText) sum.textContent = sumText;
+      if (sortBtn) sortBtn.disabled = false;
+      return;
+    }
+    row.dataset.sig = sig;
+    sum.textContent = sumText;
     row.innerHTML = vols.map((c) => {
       const r = volReady(c.id);
-      const readyLab = r.total
-        ? ("Ready " + fmtN(r.done) + "/" + fmtN(r.total))
-        : (fmtN(c.files || 0) + " files");
       return (
         '<button type="button" class="in-tile' + (r.inbound ? " inbound" : "") +
         '" data-in="' + c.id + '" title="Open in Files">' +
         '<span class="ik">' + funnelKick(c) + "</span>" +
         '<span class="in">' + (c.volume || c.name || c.id) + "</span>" +
-        '<span class="im">' + readyLab + (c.name && c.volume ? " · " + c.name : "") + "</span>" +
-        '<div class="ibar" aria-hidden="true"><i style="width:' + r.pct + '%"></i></div>' +
+        '<span class="im">' + fmtN(c.files || 0) + " files" + (c.name && c.volume ? " · " + c.name : "") + "</span>" +
         "</button>"
       );
     }).join("");
@@ -3691,9 +3859,13 @@
   }, { passive: false });
   window.addEventListener("touchend", endResize);
 
+  function isNodeDrag(e) {
+    return Array.from((e.dataTransfer && e.dataTransfer.types) || []).includes("application/x-lumina-nodes");
+  }
   function bindDropTarget(el, kind) {
     ["dragenter", "dragover"].forEach((ev) => {
       el.addEventListener(ev, (e) => {
+        if (kind === "exclude" && isNodeDrag(e)) return; // Files rows over Files: not a drop
         e.preventDefault();
         el.classList.add("drag-over");
         if (e.dataTransfer) e.dataTransfer.dropEffect = kind === "include" ? "copy" : "move";
@@ -3703,12 +3875,21 @@
       if (!el.contains(e.relatedTarget)) el.classList.remove("drag-over");
     });
     el.addEventListener("drop", (e) => {
+      if (kind === "exclude" && isNodeDrag(e)) return;
       e.preventDefault();
       el.classList.remove("drag-over");
       dropEl.classList.remove("drag-over");
       filesDrop.classList.remove("drag-over");
 
       if (kind === "include") {
+        e.stopPropagation();
+        hidePageDrop();
+        if (isNodeDrag(e)) {
+          let keys = [];
+          try { keys = JSON.parse(e.dataTransfer.getData("application/x-lumina-nodes") || "[]"); } catch (_) { keys = []; }
+          handleNodeDrop(keys);
+          return;
+        }
         let ids = [];
         try { ids = JSON.parse(e.dataTransfer.getData("application/x-lumina-sources") || "[]"); }
         catch (_) { ids = []; }
@@ -3722,8 +3903,9 @@
           activate(id, { quiet: true });
           added++;
         });
-        if (added) { renderAll(); toast(added === 1 ? "In use" : added + " in use"); }
-        else if (ids.length) toast("Already in use");
+        if (added) { renderAll(); toast(added === 1 ? "Enabled" : added + " enabled"); }
+        else if (ids.length) toast("Already in dock");
+        else toast("Not a valid import");
         return;
       }
 
@@ -3748,11 +3930,55 @@
   bindDropTarget(filesDrop, "exclude");
 
   document.addEventListener("dragover", (e) => {
-    if (!dropEl.contains(e.target) && !filesDrop.contains(e.target)) {
+    const dock = document.getElementById("input-dock");
+    const dump = document.getElementById("dump-drop");
+    const air = document.getElementById("airdrop-pane");
+    const ok = (dropEl && dropEl.contains(e.target))
+      || (filesDrop && filesDrop.contains(e.target))
+      || (dock && dock.contains(e.target))
+      || (dump && dump.contains(e.target))
+      || (air && air.contains(e.target));
+    if (!ok) {
       e.preventDefault();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+      // The whole page takes Files rows, suggested cards and OS files; nothing else
+      if (e.dataTransfer) e.dataTransfer.dropEffect = pageDropKind(e.dataTransfer) ? "copy" : "none";
     }
   });
+  document.addEventListener("drop", (e) => {
+    if (filesDrop && filesDrop.contains(e.target)) return;
+    e.preventDefault();
+    if (!pageDropKind(e.dataTransfer)) { hidePageDrop(); return; }
+    acceptImportDrop(e);
+  });
+  // One quiet whole-page state while a droppable drag is live (capture: zones stop bubbling)
+  let pageDropLine = "";
+  let pageDropTimer = 0;
+  function hidePageDrop() {
+    clearTimeout(pageDropTimer);
+    document.body.classList.remove("page-drop");
+  }
+  function pageDropKind(dt) {
+    const t = Array.from((dt && dt.types) || []);
+    if (t.includes("application/x-lumina-exclude")) return "";
+    if (t.includes("application/x-lumina-nodes") || t.includes("application/x-lumina-dump")) return "lumina";
+    if (t.includes("Files")) return "os";
+    return "";
+  }
+  document.addEventListener("dragover", (e) => {
+    const k = pageDropKind(e.dataTransfer);
+    if (!k) return;
+    const n = (e.dataTransfer.items && e.dataTransfer.items.length) || 1;
+    document.body.dataset.dropLine = k === "os"
+      ? "Drop anywhere · " + n + (n === 1 ? " item" : " items")
+      : (pageDropLine || "Drop anywhere");
+    document.body.classList.add("page-drop");
+    clearTimeout(pageDropTimer);
+    pageDropTimer = setTimeout(hidePageDrop, 350);
+  }, true);
+  // Rows re-render on dragstart, so their own dragend may never fire — clear drag state here
+  function endPageDrag() { hidePageDrop(); dragId = null; dragKind = null; }
+  document.addEventListener("dragend", endPageDrag, true);
+  document.addEventListener("drop", () => { setTimeout(endPageDrag, 0); }, true);
 
   fsFinder.addEventListener("click", () => {
     openFinder();
@@ -3761,107 +3987,161 @@
   document.querySelectorAll("[data-tab]").forEach((btn) => {
     btn.addEventListener("click", () => setTab(btn.getAttribute("data-tab")));
   });
-  // Files text size — ⌘+ / ⌘− / ⌘0 like Finder & most Mac apps
+  // Files size — ⌘+ / ⌘− / ⌘0 like Finder. One ladder: list text size, then past
+  // FS_ICON_AT previews on media files (16:9 frames) that keep growing. Tree stays a list.
   let fsZoom = 1;
-  const FS_ZOOM_MIN = 0.85, FS_ZOOM_MAX = 1.6, FS_ZOOM_STEP = 0.1;
+  const FS_ZOOM_MIN = 0.85, FS_ZOOM_MAX = 3, FS_ZOOM_STEP = 0.1;
+  const FS_LIST_MAX = 1.3, FS_ICON_AT = 1.35;
+  const FS_TILE_BASE = 120; // preview frame width (px) at FS_ICON_AT
+  let fsIcons = false;
   function applyFsZoom() {
-    fsEl.style.setProperty("--fs-zoom", String(fsZoom));
+    const wasIcons = fsIcons;
+    fsIcons = fsZoom >= FS_ICON_AT;
+    if (fsIcons) fsEl.style.setProperty("--fs-tile", Math.round(FS_TILE_BASE * fsZoom / FS_ICON_AT) + "px");
+    else fsEl.style.setProperty("--fs-zoom", String(Math.round(fsZoom * 1000) / 1000));
+    if (wasIcons !== fsIcons) {
+      fsEl.classList.toggle("previews", fsIcons);
+      renderFs({ quiet: true });
+    }
     const hint = document.getElementById("fs-zoom-hint");
-    if (hint) hint.textContent = "⌘+/− · " + Math.round(fsZoom * 100) + "%";
+    if (hint) hint.textContent = (fsIcons ? "previews · " + Math.round(fsZoom / FS_ICON_AT * 100) : "⌘+/− · " + Math.round(fsZoom * 100)) + "%";
   }
   function bumpFsZoom(delta) {
     fsZoom = Math.round(Math.min(FS_ZOOM_MAX, Math.max(FS_ZOOM_MIN, fsZoom + delta)) * 100) / 100;
     applyFsZoom();
   }
   applyFsZoom();
+  // Pinch (ctrl-wheel / Safari gesture) over Files only: continuous inside a view,
+  // magnitude-accumulated push past the edge to flip list ↔ icons. Accumulator resets
+  // on every flip + a short lock, so it can't flap.
+  const PINCH_K = 0.006;   // zoom per px of deltaY
+  const PINCH_CROSS = 70;  // px of push past a view's edge to flip
+  let pinchAcc = 0, pinchLockUntil = 0;
+  let fsListZoom = 1; // text size to return to on pinch-out (pinch never resizes list text)
+  function pinchFs(dy) {
+    const d = -dy; // pinch in → deltaY < 0 → bigger
+    if (!d) return;
+    if (fsIcons) {
+      // Inside previews: frames grow / shrink continuously
+      const next = fsZoom + d * PINCH_K;
+      if (next >= FS_ICON_AT && next <= FS_ZOOM_MAX) { fsZoom = next; pinchAcc = 0; applyFsZoom(); return; }
+      fsZoom = Math.min(FS_ZOOM_MAX, Math.max(FS_ICON_AT, next));
+      applyFsZoom();
+    }
+    const canFlip = fsIcons ? d < 0 : d > 0;
+    if (!canFlip || performance.now() < pinchLockUntil) { pinchAcc = 0; return; }
+    if (pinchAcc && Math.sign(pinchAcc) !== Math.sign(d)) pinchAcc = 0;
+    pinchAcc += d;
+    if (Math.abs(pinchAcc) < PINCH_CROSS) return;
+    pinchAcc = 0;
+    pinchLockUntil = performance.now() + 320;
+    if (fsIcons) fsZoom = fsListZoom;
+    else { fsListZoom = fsZoom; fsZoom = FS_ICON_AT; }
+    applyFsZoom();
+    const el = fsAnchorKey && fsEl.querySelector('[data-key="' + CSS.escape(fsAnchorKey) + '"]');
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }
+  // Only the Files panel zooms — never the page, the volume row, Drop or the dock.
+  filesDrop.addEventListener("wheel", (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+    pinchFs(dy);
+  }, { passive: false });
+  let gestureScale = 1;
+  filesDrop.addEventListener("gesturestart", (e) => { e.preventDefault(); gestureScale = 1; });
+  filesDrop.addEventListener("gesturechange", (e) => {
+    e.preventDefault();
+    pinchFs(-(e.scale - gestureScale) * 300);
+    gestureScale = e.scale;
+  });
+  filesDrop.addEventListener("gestureend", (e) => { e.preventDefault(); });
 
-  // iPhone open card — live per-file ack here; Files tree stays still during inbound.
-  const phoneCard = document.getElementById("phone-card");
-  const phoneCardStatus = document.getElementById("phone-card-status");
-  const phoneCardAck = document.getElementById("phone-card-ack");
-  const PHONE_LINK = "#phone-inbox";
+  // AirDrop pane under Drop — wireless arrivals land as Phone in the dock (no Inbox).
+  const airdropPane = document.getElementById("airdrop-pane");
+  const airdropSub = document.getElementById("airdrop-sub");
+  const airdropAck = document.getElementById("airdrop-ack");
+  const PHONE_LINK = "#phone-airdrop";
   let phoneListening = false;
   let phoneTimer = 0;
   let phoneArriveTimer = 0;
   let phoneAckTimer = 0;
-  let phoneSessionReady = false;
   function downloadsNode() {
     return fsRoots.find((n) => n.key === "home-downloads");
   }
-  function setPhoneCardChrome(state) {
-    // state: closed | listening | open | arrived | acking — chrome may be CSS-hidden
-    if (!phoneCard) return;
-    phoneCard.classList.toggle("listening", state === "listening");
-    phoneCard.classList.toggle("open", state === "open" || state === "arrived" || state === "acking");
-    phoneCard.classList.toggle("arrived", state === "arrived");
-    phoneCard.classList.toggle("acking", state === "acking");
-    phoneCard.setAttribute("aria-pressed", state === "listening" || state === "open" || state === "arrived" || state === "acking" ? "true" : "false");
-    if (phoneCardStatus) {
-      phoneCardStatus.textContent =
-        state === "listening" ? "Listening"
-        : state === "acking" ? "Ack"
-        : state === "arrived" ? "Received"
-        : state === "open" ? "Open"
-        : "Closed";
+  function setAirDropChrome(state) {
+    if (!airdropPane) return;
+    const on = state !== "closed";
+    airdropPane.classList.toggle("listening", on);
+    airdropPane.setAttribute("aria-pressed", on ? "true" : "false");
+    // Sub line is stable for the whole receive — only ack row ticks (no layout thrash)
+    if (airdropSub) {
+      airdropSub.textContent =
+        state === "closed" ? "Off · click to turn on · Android / wireless land here"
+        : state === "listening" ? "Live · wireless arrivals land as Phone in the dock"
+        : "Receiving · Phone lands in the dock";
     }
   }
-  function showPhoneAck(name, index, total) {
-    if (!phoneCardAck) return;
-    phoneCardAck.textContent = "Ack " + index + "/" + total + " · " + name;
-    phoneCardAck.classList.add("on");
-    // Retrigger pulse without touching Files
-    phoneCard.classList.remove("acking");
-    void phoneCard.offsetWidth;
-    setPhoneCardChrome("acking");
-    clearTimeout(phoneAckTimer);
-    phoneAckTimer = setTimeout(() => {
-      phoneCard.classList.remove("acking");
-      if (phoneInbound) setPhoneCardChrome("open");
-    }, 380);
+  function patchAirDropAck(name, index, total) {
+    if (airdropAck) airdropAck.textContent = index + "/" + total + " · " + name;
+    const tile = document.querySelector('.in-tile[data-in="phone"]');
+    const ph = byId("phone");
+    if (tile && ph) {
+      tile.classList.add("inbound");
+      const im = tile.querySelector(".im");
+      if (im) im.textContent = fmtN(ph.files || 0) + " files" + (ph.name ? " · " + ph.name : "");
+      const inn = tile.querySelector(".in");
+      if (inn) inn.textContent = ph.volume || ph.name || "iPhone";
+    }
+    const sum = document.getElementById("input-dock-sum");
+    if (sum && selected.length) {
+      const vols = selected.map((s) => byId(s.id)).filter(Boolean);
+      sum.textContent = vols.length + " input" + (vols.length === 1 ? "" : "s") +
+        " · " + fmtN(vols.reduce((a, c) => a + (c.files || 0), 0)) + " files";
+    }
   }
   function openPhoneVolume({ toastMsg, scroll } = {}) {
-    // Automatic after a drop — hash is the deep link, not a UI control.
     try {
-      if (location.hash !== PHONE_LINK) {
-        // Set a flag so hashchange won't scroll during inbound
-        if (scroll === false) phoneInbound = true;
+      if (phoneInbound && location.hash === PHONE_LINK) {
+        // Already linked for this stream — no hash thrash
+      } else if (location.hash !== PHONE_LINK) {
         location.hash = PHONE_LINK;
       } else {
-        followPhoneInboxLink({ scroll: scroll !== false && !phoneInbound });
+        followPhoneLink({ scroll: scroll !== false && !phoneInbound });
       }
     } catch (_) {
-      location.hash = PHONE_LINK;
+      try { location.hash = PHONE_LINK; } catch (__) {}
     }
     if (toastMsg) toast(toastMsg);
   }
-  function followPhoneInboxLink({ scroll = true } = {}) {
+  function followPhoneLink({ scroll = true } = {}) {
+    // AirDrop lands as Phone in the dock — open the phone volume in Files, never Downloads
     const ph = byId("phone");
     if (ph) ph.sensed = true;
     if (!isSelected("phone")) activate("phone", { quiet: true });
     volumeFocus = "phone";
-    const dl = downloadsNode();
-    // Open Downloads once; never thrash open state during inbound acks
-    if (dl && !dl.open) dl.open = true;
-    if (dl) dl.tag = "AirDrop";
-    const trail = findNodeByKey("home-downloads");
-    if (trail) trail.forEach((n) => { if (n.children && !n.open) n.open = true; });
+    const phoneRoot = fsRoots.find((n) => n.key === "phone");
+    if (phoneRoot && !phoneRoot.open) phoneRoot.open = true;
     focusSourceInFs("phone", { scroll: scroll && !phoneInbound });
     renderLanes();
     renderFs({ quiet: !scroll || phoneInbound });
     if (!scroll || phoneInbound) return;
     requestAnimationFrame(() => {
-      const el = fsEl.querySelector('[data-key="home-downloads"]');
+      const el = fsEl.querySelector('[data-key="phone"]') ||
+        fsEl.querySelector('[data-source="phone"]');
       if (el) {
         el.classList.add("focus-target");
         el.scrollIntoView({ block: "center", behavior: "smooth" });
         setTimeout(() => el.classList.remove("focus-target"), 900);
       }
-      const box = lanesEl.querySelector('.src-box[data-id="phone"]');
-      if (box) box.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
   }
   window.addEventListener("hashchange", () => {
-    if (location.hash === PHONE_LINK) followPhoneInboxLink({ scroll: !phoneInbound });
+    // Don't re-enter follow during an AirDrop stream — that re-rendered Files/lanes every drop
+    if (phoneInbound) return;
+    if (location.hash === PHONE_LINK || location.hash === "#phone-inbox") {
+      followPhoneLink({ scroll: true });
+    }
   });
   function ingestOnePhoneFile(name) {
     const dl = downloadsNode();
@@ -3871,7 +4151,6 @@
       label: name, kind: "file",
       fileType: fileTypeOf(name), when: "AirDrop · just now", phoneIn: true
     };
-    // Prepend without rewriting the whole folder open state
     const rest = (dl.children || []).filter((c) => !c.phoneIn || c.key !== node.key);
     dl.children = [node].concat(rest);
     if (!dl.open) dl.open = true;
@@ -3880,7 +4159,7 @@
     if (ph) {
       ph.sensed = true;
       ph.files = (ph.files || 34) + 1;
-      ph.name = "Just now";
+      ph.name = "AirDrop";
       ph.volume = "iPhone";
     }
     return node;
@@ -3888,50 +4167,54 @@
   function receiveAirDrop(names) {
     clearTimeout(phoneTimer);
     clearTimeout(phoneArriveTimer);
+    clearTimeout(phoneAckTimer);
     phoneListening = false;
     const list = (names && names.length) ? names.slice() : ["IMG_9201.HEIC", "IMG_9202.HEIC", "VID_9203.MOV"];
     phoneInbound = true;
     fsQuiet = true;
-    phoneSessionReady = false;
-    // One quiet volume open at session start — no Files scroll/jitter
     openPhoneVolume({ scroll: false });
-    followPhoneInboxLink({ scroll: false });
-    phoneSessionReady = true;
+    followPhoneLink({ scroll: false });
     const pe = preCache.get("phone");
     if (pe) { pe.inbound = true; preCache.set("phone", pe); }
-    renderFunnel();
+    // One dock paint at stream start — ticks only patch ack + file counts in place
     renderInputDock();
+    setAirDropChrome("open");
+    if (airdropAck) airdropAck.textContent = "0/" + list.length + " · …";
     let i = 0;
     function next() {
       if (i >= list.length) {
         phoneInbound = false;
-        setPhoneCardChrome("open");
+        if (airdropAck) airdropAck.textContent = list.length + " landed · Phone";
+        setAirDropChrome("open");
         const done = preCache.get("phone");
         if (done) { done.inbound = false; preCache.set("phone", done); }
-        // Single quiet Files refresh after the stream — no per-file tree rebuild
+        // Single quiet refresh after the stream — not per file
         renderFs({ quiet: true });
-        renderLanes();
-        renderFunnel();
         renderInputDock();
+        const entry = preCache.get("phone");
+        if (entry && entry.done < entry.total) {
+          entry.running = true;
+          preCache.set("phone", entry);
+          tickPrecompute();
+        } else {
+          renderFooter();
+        }
         fsQuiet = false;
-        toast("AirDrop · " + list.length + " file" + (list.length === 1 ? "" : "s"));
+        toast("AirDrop · " + list.length + " file" + (list.length === 1 ? "" : "s") + " · Phone");
         return;
       }
       const name = list[i];
       ingestOnePhoneFile(name);
-      // Grow preprocess total as files land so Ready N/M ticks
       const entry = preCache.get("phone");
       const ph = byId("phone");
       if (entry && ph) {
         entry.total = ph.files || entry.total;
         entry.label = "iPhone";
-        if (!entry.running && entry.done < entry.total) entry.running = true;
+        // Defer prep ticks until the stream ends — each tick used to rebuild the dock
         preCache.set("phone", entry);
-        tickPrecompute();
       }
       i += 1;
-      showPhoneAck(name, i, list.length);
-      renderInputDock();
+      patchAirDropAck(name, i, list.length);
       phoneArriveTimer = setTimeout(next, 480);
     }
     next();
@@ -3942,39 +4225,40 @@
     clearTimeout(phoneArriveTimer);
     if (on) {
       phoneInbound = false;
-      setPhoneCardChrome("listening");
-      if (phoneCardAck) { phoneCardAck.textContent = ""; phoneCardAck.classList.remove("on"); }
-      toast("Inbox open · waiting for AirDrop…");
+      setAirDropChrome("listening");
+      if (airdropAck) airdropAck.textContent = "";
+      toast("AirDrop armed · waiting…");
       phoneTimer = setTimeout(() => receiveAirDrop(null), 1400);
     } else {
       if (phoneInbound) {
         phoneInbound = false;
         fsQuiet = false;
       }
-      setPhoneCardChrome(phoneCard && phoneCard.classList.contains("open") ? "open" : "closed");
+      setAirDropChrome("closed");
+      if (airdropAck) airdropAck.textContent = "";
     }
   }
-  if (phoneCard) {
-    phoneCard.addEventListener("click", () => {
-      // Card only arms / disarms listening. Volume open is automatic on arrival.
-      setPhoneListening(!phoneListening);
+  if (airdropPane) {
+    airdropPane.addEventListener("click", () => {
+      // Live from the start. A click stands in for something arriving over the air (wireframe).
+      if (phoneListening) { clearTimeout(phoneTimer); receiveAirDrop(null); return; }
+      setPhoneListening(true);
     });
-    // OS / internal file drops onto the open card = AirDrop received
     ["dragenter", "dragover"].forEach((ev) => {
-      phoneCard.addEventListener(ev, (e) => {
+      airdropPane.addEventListener(ev, (e) => {
         e.preventDefault();
         e.stopPropagation();
-        phoneCard.classList.add("drag-over");
+        airdropPane.classList.add("drag-over");
         if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
       });
     });
-    phoneCard.addEventListener("dragleave", (e) => {
-      if (!phoneCard.contains(e.relatedTarget)) phoneCard.classList.remove("drag-over");
+    airdropPane.addEventListener("dragleave", (e) => {
+      if (!airdropPane.contains(e.relatedTarget)) airdropPane.classList.remove("drag-over");
     });
-    phoneCard.addEventListener("drop", (e) => {
+    airdropPane.addEventListener("drop", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      phoneCard.classList.remove("drag-over");
+      airdropPane.classList.remove("drag-over");
       const names = [];
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
         for (let i = 0; i < e.dataTransfer.files.length; i++) {
@@ -3988,12 +4272,38 @@
       }
       receiveAirDrop(names.length ? names : null);
     });
-    setPhoneCardChrome("closed");
+    setAirDropChrome("closed");
   }
-  if (location.hash === PHONE_LINK) followPhoneInboxLink();
+  // Boot stays collapsed at the top of Files — do not auto-follow #phone-airdrop / Downloads.
+  // Hash follow still works after a user click (hashchange), or via openPhoneVolume during receive.
 
   document.addEventListener("keydown", (e) => {
+    // ⏎ — Sort now when the dock holds something (exactly the dock button)
+    if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey
+        && !e.isComposing && !e.defaultPrevented && !e.repeat) {
+      const ae = document.activeElement;
+      const typing = !!(ae && (/^(input|textarea|select)$/i.test(ae.tagName) || ae.isContentEditable));
+      const addWrapE = document.getElementById("import-add");
+      const preCol = document.getElementById("foot-pre-col");
+      const sheetOpen = !!(dropSheetOpen() || previewFile
+        || (addWrapE && addWrapE.classList.contains("open"))
+        || (preCol && preCol.dataset.open === "true")
+        || document.querySelector("dialog[open]"));
+      // Other buttons (Open Finder, AirDrop, Add source…) keep their own Enter
+      const otherCtl = !!(ae && ae !== document.body && ae.closest
+        && ae.closest("button, a[href], [role=button], [tabindex]")
+        && !ae.closest(".fs-row, .src-box, .sd-card, .in-tile, #dock-sort, #fs, #input-dock-row, #dump-drop, #airdrop-pane"));
+      if (!typing && !sheetOpen && !otherCtl) {
+        if (selected.length) {
+          e.preventDefault();
+          goSortFromDock();
+          return;
+        }
+        if (!ae || ae === document.body || ae.closest("#dump-drop, #airdrop-pane")) { e.preventDefault(); toast("Add a volume, Drop or AirDrop first"); return; }
+      }
+    }
     if (e.key === "Escape") {
+      if (dropSheetOpen()) { closeDropSheet(); toast("Nothing added"); return; }
       if (previewFile) { closePreview(); return; }
       const addWrap = document.getElementById("import-add");
       if (addWrap && addWrap.classList.contains("open")) { closeAddSheet(); return; }
@@ -4127,18 +4437,55 @@
     if (!src) return false;
     src.sensed = true;
     if (isSelected(id)) {
-      if (!quiet) toast("Already in dock");
+      // Re-scan so a second drop still reports pulled / also / left
+      pullVolume(id, { quiet });
+      if (!quiet && !src.pull) toast("Already in dock");
       return false;
     }
     activate(id, { quiet: true });
     renderAll();
-    if (!quiet) toast("Enabled · " + (src.volume || src.name || id));
+    // Pull acceptable files; sense peripheral ones (still imported); leave non-accept
+    const report = pullVolume(id, { quiet: true });
+    if (!quiet) {
+      if (report) pullReportToast(src, report);
+      else toast("Enabled · " + (src.volume || src.name || id));
+    }
     return true;
+  }
+  let addPlace = "~/Movies/Dump-Day1";
+  let addingMore = false;
+  function applyAddResume() {
+    // + Add clips from Sort: restore already-included vols; user only enables more.
+    let r = null;
+    try { r = JSON.parse(sessionStorage.getItem("lumina-import-add") || "null"); }
+    catch (_) { r = null; }
+    if (!r || typeof r !== "object") return false;
+    try { sessionStorage.removeItem("lumina-import-add"); } catch (_) {}
+    addingMore = true;
+    if (r.place) addPlace = r.place;
+    const vols = Array.isArray(r.vols) ? r.vols : [];
+    vols.forEach((id) => {
+      const src = byId(id);
+      if (!src) return;
+      src.sensed = true;
+      activate(id, { quiet: true });
+    });
+    const btn = document.getElementById("dock-sort");
+    if (btn) {
+      btn.textContent = "Back to Sort";
+      btn.title = "Return to Sort with everything included so far";
+    }
+    const sum = document.getElementById("input-dock-sum");
+    if (sum && vols.length) {
+      sum.dataset.addHint = "1";
+    }
+    return vols.length;
   }
   function goSortFromDock() {
     const vols = selected.map((s) => s.id).filter((id) => byId(id));
     if (!vols.length) { toast("Enable an input first"); return; }
-    const mem = memStats();
+    // Evict prep cache for volumes that are not coming into Sort
+    evictPrepNotIn(vols);
     const payload = {
       vols: vols.slice(),
       vol: vols[0] || "",
@@ -4146,22 +4493,560 @@
         const s = byId(id); return s && (s.volume || s.name) || id;
       }).join(" · "),
       name: vols.length + " input" + (vols.length === 1 ? "" : "s"),
-      files: mem.total || vols.reduce((a, id) => a + ((byId(id) && byId(id).files) || 0), 0),
-      readyDone: mem.done || 0,
-      readyTotal: mem.total || 0,
-      place: "~/Movies/Dump-Day1"
+      files: vols.reduce((a, id) => a + ((byId(id) && byId(id).files) || 0), 0),
+      place: addPlace || "~/Movies/Dump-Day1"
     };
     try { sessionStorage.setItem("lumina-keep-handoff", JSON.stringify(payload)); }
     catch (_) {}
     location.href = "keep-wf.html";
   }
+  const MEDIA_DROP_RE = /\.(arw|dng|raw|nef|cr2|cr3|heic|heif|jpg|jpeg|png|tif|tiff|mp4|mov|m4v|lrv|srt|xmp)$/i;
+  // Accept = pulled into the import. Non-accept is left quietly (no file class).
+  const ACCEPT_EXT = new Set([
+    "arw", "dng", "raw", "nef", "cr2", "cr3",
+    "heic", "heif", "jpg", "jpeg", "png", "tif", "tiff",
+    "mp4", "mov", "m4v", "mxf",
+    "lrv", "srt", "xmp" // proxies / sidecars — accepted, often peripheral
+  ]);
+  // Primary shoot media (dominant-set sensing). Sidecars ride along but are never "primary".
+  const PRIMARY_EXT = new Set([
+    "arw", "dng", "raw", "nef", "cr2", "cr3",
+    "heic", "heif", "jpg", "jpeg", "tif", "tiff",
+    "mp4", "mov", "m4v", "mxf"
+  ]);
+  const SIDECAR_EXT = new Set(["lrv", "srt", "xmp"]);
+  // Path segments that usually hold the main shoot on camera cards / dump drives
+  const PRIMARY_PATH_RE = /(?:^|\/)(DCIM|PRIVATE|Clips|MEDIA|\d{3}MSDCF|\d{3}MEDIA)(?:\/|$)/i;
+  function isAcceptedType(nameOrType) {
+    const t = String(nameOrType || "").includes(".")
+      ? fileTypeOf(nameOrType)
+      : String(nameOrType || "").toLowerCase();
+    return ACCEPT_EXT.has(t);
+  }
+  /*
+   * Peripheral sense (still imported) — objective criteria, not a reject class:
+   *  1. Sidecar / proxy that rides with media (lrv, srt, xmp)
+   *  2. Path outside the volume's primary DCIM / PRIVATE / Clips / MEDIA folder
+   *     when that folder tree exists on the volume
+   *  3. Extension not in the volume's dominant primary-media set
+   *     (e.g. JPEG next to a mostly-ARW card; HEIC on a RAW+video dump)
+   *  4. Tiny helper next to media (wireframe: *.xml / *.html / thumbs under ACCEPT)
+   * Shown as a muted "also" pill + toast note — never "off" / skip / strike-through.
+   */
+  function dominantPrimaryExts(files) {
+    const counts = {};
+    files.forEach((n) => {
+      const ext = (n.fileType || fileTypeOf(n.label) || "").toLowerCase();
+      if (!PRIMARY_EXT.has(ext)) return;
+      counts[ext] = (counts[ext] || 0) + 1;
+    });
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    if (!entries.length) return new Set();
+    const top = entries[0][1];
+    // Mode only (ties keep both — e.g. equal ARW+MP4). A lone JPEG next to MP4s is peripheral.
+    return new Set(entries.filter(([, n]) => n === top).map(([e]) => e));
+  }
+  function volumeHasPrimaryPath(rootNode) {
+    let hit = false;
+    walkFs([rootNode], (n) => {
+      if (hit) return;
+      const p = n.path || "";
+      if (PRIMARY_PATH_RE.test(p)) hit = true;
+    });
+    return hit;
+  }
+  function edgeWhyFor(n, { dominant, hasPrimaryPath }) {
+    const ext = (n.fileType || fileTypeOf(n.label) || "").toLowerCase();
+    const path = n.path || "";
+    if (SIDECAR_EXT.has(ext)) return "sidecar / proxy with the media";
+    if (hasPrimaryPath && path && !PRIMARY_PATH_RE.test(path)) {
+      return "outside DCIM / Clips / MEDIA";
+    }
+    if (PRIMARY_EXT.has(ext) && dominant.size && !dominant.has(ext)) {
+      return ext.toUpperCase() + " · not the volume's main media set";
+    }
+    const lab = String(n.label || "").toLowerCase();
+    if (/\.(xml|html|htm)$/i.test(lab) || /^thumbs?\./i.test(lab)) {
+      return "helper next to media";
+    }
+    return "";
+  }
+  // Walk a volume / directory; pull ACCEPT_EXT; sense peripheral among pulls; leave the rest.
+  function scanPull(rootNode, { seedDemo } = {}) {
+    const pulled = [];
+    const left = [];
+    const leftExt = {};
+    const edgeExt = {};
+    // Pass 1 — accept vs leave
+    walkFs([rootNode], (n) => {
+      if (n.kind !== "file") return;
+      delete n.edgeWhy;
+      if (n.skip) { delete n.pull; return; } // subfolder left out at drop consent
+      const ext = (n.fileType || fileTypeOf(n.label) || "").toLowerCase();
+      if (isAcceptedType(ext || n.label)) {
+        n.pull = "ok";
+        pulled.push(n);
+      } else {
+        delete n.pull;
+        left.push(n);
+        if (ext) leftExt[ext] = (leftExt[ext] || 0) + 1;
+      }
+    });
+    // Wireframe: seed a couple non-accept leftovers so the "left" toast is demoable
+    if (seedDemo && !left.length && pulled.length && rootNode.children) {
+      const already = rootNode.children.some((c) => String(c.key || "").startsWith("left-"));
+      if (!already) {
+        ["NOTES.txt", "Thumbs.db", "capture.log"].forEach((name, i) => {
+          const fake = {
+            key: "left-" + (rootNode.key || "dir") + "-" + i,
+            label: name,
+            kind: "file",
+            fileType: fileTypeOf(name),
+            path: (rootNode.path || "") + "/" + name,
+            when: "not pulled"
+          };
+          left.push(fake);
+          leftExt[fake.fileType || "other"] = (leftExt[fake.fileType || "other"] || 0) + 1;
+          rootNode.children.push(fake);
+        });
+      }
+    }
+    // Wireframe: seed one accepted-but-peripheral JPEG when the volume is RAW/video-only
+    if (seedDemo && pulled.length && rootNode.children) {
+      const dominant0 = dominantPrimaryExts(pulled);
+      const hasJpg = pulled.some((n) => /jpe?g/i.test(n.fileType || n.label || ""));
+      if (!hasJpg && dominant0.size && ![...dominant0].some((e) => /jpe?g/.test(e))) {
+        const already = rootNode.children.some((c) => String(c.key || "").startsWith("edge-"));
+        if (!already) {
+          const jpg = {
+            key: "edge-" + (rootNode.key || "dir") + "-jpg",
+            label: "Preview.JPG",
+            kind: "file",
+            fileType: "jpg",
+            path: (rootNode.path || "") + "/Preview.JPG",
+            when: "also"
+          };
+          rootNode.children.push(jpg);
+          jpg.pull = "ok";
+          pulled.push(jpg);
+        }
+      }
+    }
+    // Pass 2 — sense peripheral among pulled (still imported)
+    const dominant = dominantPrimaryExts(pulled);
+    const hasPrimaryPath = volumeHasPrimaryPath(rootNode);
+    const edge = [];
+    pulled.forEach((n) => {
+      const why = edgeWhyFor(n, { dominant, hasPrimaryPath });
+      if (!why) { n.pull = "ok"; delete n.edgeWhy; return; }
+      n.pull = "edge";
+      n.edgeWhy = why;
+      edge.push(n);
+      const ext = (n.fileType || fileTypeOf(n.label) || "").toLowerCase() || "other";
+      edgeExt[ext] = (edgeExt[ext] || 0) + 1;
+    });
+    return { pulled, edge, left, edgeExt, leftExt };
+  }
+  function pullReportToast(src, report) {
+    const p = report.pulledLength != null ? report.pulledLength
+      : (report.pulled && report.pulled.length) || 0;
+    const e = report.edgeLength != null ? report.edgeLength
+      : (report.edge && report.edge.length) || 0;
+    const l = report.leftLength != null ? report.leftLength
+      : (report.left && report.left.length) || 0;
+    const edgeTypes = Object.keys(report.edgeExt || {}).sort().slice(0, 4).join(", ");
+    const leftTypes = Object.keys(report.leftExt || {}).sort().slice(0, 4).join(", ");
+    const lab = (src && (src.volume || src.name)) || "Directory";
+    if (!p && !l) { toast(lab + " · nothing to pull"); return; }
+    let msg = lab + " · pulled " + fmtN(p);
+    if (e) {
+      msg += " · " + fmtN(e) + " also" + (edgeTypes ? " (" + edgeTypes + ")" : "") +
+        " · may be outside main shoot";
+    }
+    if (l) {
+      msg += " · " + fmtN(l) + " left" + (leftTypes ? " (" + leftTypes + ")" : "");
+    }
+    toast(msg);
+  }
+  function pullVolume(id, { quiet, seedDemo } = {}) {
+    const src = byId(id);
+    const root = findFsBySource(id);
+    if (!root) {
+      if (!quiet) toast("No files tree for that volume");
+      return null;
+    }
+    const report = scanPull(root, { seedDemo: seedDemo !== false });
+    if (src) {
+      src.pull = {
+        ok: report.pulled.length,
+        edge: report.edge.length,
+        left: report.left.length,
+        edgeExt: report.edgeExt,
+        leftExt: report.leftExt
+      };
+    }
+    if (!quiet) pullReportToast(src, report);
+    renderFs({ quiet: true });
+    return report;
+  }
+  function matchImportableName(name) {
+    // Exact / whole-segment only — never bidirectional substring (id "lr" must not hit "DJI_0012.LRV").
+    const raw = String(name || "").replace(/\/$/, "");
+    if (!raw) return null;
+    const low = raw.toLowerCase();
+    const base = low.split("/").pop();
+    const segs = low.split("/").filter(Boolean);
+    const scored = [];
+    catalog.forEach((c) => {
+      if (!c || c.destKey === "phone") return;
+      const cands = [c.id, c.name, c.volume, c.fsKey, c.path]
+        .filter(Boolean)
+        .map((x) => String(x).toLowerCase());
+      let hit = null;
+      for (const x of cands) {
+        if (x === low || x === base) { hit = x; break; }
+        if (segs.includes(x)) { hit = x; break; }
+        // Full path equality / trailing segment of a multi-segment cand
+        if (x.includes("/") && (low === x || low.endsWith("/" + x) || x.endsWith("/" + base))) {
+          hit = x; break;
+        }
+      }
+      if (hit) scored.push({ c, n: hit.length });
+    });
+    scored.sort((a, b) => b.n - a.n);
+    return scored.length ? scored[0].c : null;
+  }
   function landOsDrop(names) {
-    // OS / Android / AirDrop onto hero Drop → phone inbox in the Input dock
+    // Wireless / media onto Drop or dock → Phone in the Input dock (AirDrop path)
     const list = (names && names.length) ? names.slice() : ["IMG_9201.HEIC", "VID_9203.MOV"];
     receiveAirDrop(list);
     const e = preCache.get("phone");
     if (e) { e.inbound = true; preCache.set("phone", e); }
     renderInputDock();
+  }
+  // ---- Drop any Files row (file / directory / selection) onto Drop, the dock, or the page ----
+  // Pull = ACCEPT_EXT in, the rest left out quietly. Consent sheet only when a directory
+  // is not valid (no readable media) or holds loose subfolders. Camera trees = one shoot.
+  const CAMERA_DIR_RE = /^(DCIM|PRIVATE|Clips|MEDIA|\d{3}MSDCF|\d{3}MEDIA)$/i;
+  function isDirNode(n) { return !!n && n.kind !== "file" && n.kind !== "more"; }
+  function countPull(node, skip) {
+    const out = { ok: 0, left: 0 };
+    (function visit(n) {
+      if (!n || (skip && skip.has(n.key))) return;
+      if (n.kind === "file" || n.kind === "more") {
+        const c = n.kind === "more" ? (n.moreCount || 0) : 1;
+        const ext = (n.kind === "more" ? fileTypeOf(n.sample || "")
+          : (n.fileType || fileTypeOf(n.label || ""))).toLowerCase();
+        if (ext && isAcceptedType(ext)) out.ok += c; else out.left += c;
+        return;
+      }
+      (n.children || []).forEach(visit);
+    })(node);
+    return out;
+  }
+  function isCameraTree(n) {
+    return n.kind === "card" || n.kind === "drone" || n.kind === "phone"
+      || CAMERA_DIR_RE.test(n.label || "") || PRIMARY_PATH_RE.test(n.path || "");
+  }
+  // Loose subfolders worth asking about (camera-tree internals never asked)
+  function optionalSubs(n) {
+    if (isCameraTree(n)) return [];
+    return (n.children || []).filter((c) => isDirNode(c) && !c._moreMeta && !isCameraTree(c));
+  }
+  function topNodes(keys) {
+    const nodes = [];
+    (keys || []).forEach((k) => {
+      const hit = findNode(k);
+      if (hit && hit.node.kind !== "more" && !nodes.includes(hit.node)) nodes.push(hit.node);
+    });
+    return nodes.filter((n) => {
+      const trail = findNodeByKey(n.key) || [];
+      return !trail.slice(0, -1).some((a) => nodes.includes(a));
+    });
+  }
+  function dragPullCount(keys) {
+    return topNodes(keys).reduce((a, n) => a + countPull(n).ok, 0);
+  }
+  function setSkip(node, on) {
+    walkFs([node], (n) => { if (on) n.skip = true; else delete n.skip; });
+  }
+  function commitNodeDrop(items) {
+    let added = 0, left = 0;
+    const loose = [];
+    const sids = [];
+    items.forEach(({ node, skip }) => {
+      setSkip(node, false);
+      if (skip) skip.forEach((k) => { const h = findNode(k); if (h) setSkip(h.node, true); });
+      const c = countPull(node, skip);
+      added += c.ok; left += c.left;
+      if (!c.ok) return;
+      if (!isDirNode(node)) {
+        const sid = sourceIdForNode(node);
+        if (sid) { if (!sids.includes(sid)) sids.push(sid); } else loose.push(node.label);
+        return;
+      }
+      let found = false;
+      walkFs([node], (n) => {
+        if (n.skip || !n.sourceId || !byId(n.sourceId)) return;
+        found = true;
+        if (!sids.includes(n.sourceId)) sids.push(n.sourceId);
+      });
+      if (!found) {
+        const sid = sourceIdForNode(node);
+        if (sid && !sids.includes(sid)) sids.push(sid);
+      }
+    });
+    sids.forEach((id) => enableVol(id, { quiet: true }));
+    if (loose.length) landOsDrop(loose);
+    renderAll();
+    toast(added || left
+      ? "Added " + fmtN(added) + (left ? " · left " + fmtN(left) + " out (not media)" : "")
+      : "Nothing added");
+  }
+  function handleNodeDrop(keys) {
+    const nodes = topNodes(keys);
+    if (!nodes.length) { toast("Nothing to add"); return; }
+    const ok = [], invalid = [], asks = [];
+    nodes.forEach((n) => {
+      if (!isDirNode(n)) { ok.push({ node: n }); return; }
+      if (!countPull(n).ok) { invalid.push(n); return; }
+      const subs = optionalSubs(n);
+      if (subs.length) asks.push({ node: n, subs });
+      else ok.push({ node: n });
+    });
+    if (!invalid.length && !asks.length) { commitNodeDrop(ok); return; }
+    openDropSheet({ ok, invalid, asks });
+  }
+  // One small B&W sheet for the whole drop (grouped), never a native alert()
+  let dropSheetEl = null;
+  let dropSheetMoreTimer = 0;
+  const DS_FOLD = 3;
+  function dropSheetOpen() { return !!(dropSheetEl && !dropSheetEl.hidden); }
+  function closeDropSheet() { if (dropSheetEl) dropSheetEl.hidden = true; }
+  function openDropSheet({ ok, invalid, asks }) {
+    if (!dropSheetEl) {
+      dropSheetEl = document.createElement("div");
+      dropSheetEl.className = "drop-sheet-wrap";
+      dropSheetEl.id = "drop-sheet";
+      dropSheetEl.hidden = true;
+      dropSheetEl.addEventListener("mousedown", (e) => {
+        if (e.target === dropSheetEl) { closeDropSheet(); toast("Nothing added"); }
+      });
+      document.body.appendChild(dropSheetEl);
+    }
+    const unfurled = new Set();
+    const checks = new Map();
+    asks.forEach((a) => a.subs.forEach((s) => checks.set(s.key, countPull(s).ok > 0)));
+    const el = (tag, cls, text) => {
+      const x = document.createElement(tag);
+      if (cls) x.className = cls;
+      if (text != null) x.textContent = text;
+      return x;
+    };
+    function finish(mode) {
+      closeDropSheet();
+      if (mode === "cancel") { toast("Nothing added"); return; }
+      const items = ok.slice();
+      asks.forEach((a) => {
+        const skip = new Set(a.subs.filter((s) => mode === "only" || !checks.get(s.key)).map((s) => s.key));
+        items.push({ node: a.node, skip });
+      });
+      if (items.length) commitNodeDrop(items);
+    }
+    function paint() {
+      dropSheetEl.innerHTML = "";
+      const box = el("div", "drop-sheet");
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-modal", "true");
+      box.appendChild(el("h3", "", asks.length
+        ? (asks.length === 1 ? asks[0].node.label + " has subfolders" : asks.length + " folders have subfolders")
+        : "Nothing Lumina can read"));
+      invalid.forEach((n) => {
+        box.appendChild(el("div", "ds-note", (n.label || "That folder") + " has no clips or photos Lumina can read"));
+      });
+      asks.forEach((a) => {
+        const sec = el("div", "ds-dir");
+        const own = countPull(a.node, new Set(a.subs.map((s) => s.key)));
+        const top = el("div", "ds-sub top", a.node.label);
+        top.appendChild(el("span", "n", own.ok ? fmtN(own.ok) + " here" : "nothing at top"));
+        sec.appendChild(top);
+        const open = unfurled.has(a.node.key);
+        (open ? a.subs : a.subs.slice(0, DS_FOLD)).forEach((s) => {
+          const c = countPull(s);
+          const row = el("label", "ds-sub");
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = !!checks.get(s.key);
+          cb.addEventListener("change", () => checks.set(s.key, cb.checked));
+          row.appendChild(cb);
+          row.appendChild(el("span", "", s.label));
+          row.appendChild(el("span", "n", c.ok ? fmtN(c.ok) + " can come in" : "no media"));
+          sec.appendChild(row);
+        });
+        if (a.subs.length > DS_FOLD) {
+          // Same grammar as Files: click unfurls, double-click furls (timer guards the dblclick)
+          const more = el("div", "ds-more", open
+            ? "All " + a.subs.length + " subfolders"
+            : "… " + (a.subs.length - DS_FOLD) + " more");
+          more.setAttribute("role", "button");
+          more.addEventListener("click", (e) => {
+            if (e.detail > 1) return;
+            clearTimeout(dropSheetMoreTimer);
+            if (unfurled.has(a.node.key)) return;
+            dropSheetMoreTimer = setTimeout(() => { unfurled.add(a.node.key); paint(); }, 220);
+          });
+          more.addEventListener("dblclick", (e) => {
+            e.preventDefault();
+            clearTimeout(dropSheetMoreTimer);
+            if (unfurled.delete(a.node.key)) paint();
+          });
+          sec.appendChild(more);
+        }
+        box.appendChild(sec);
+      });
+      const acts = el("div", "ds-acts");
+      const btn = (cls, text, mode) => {
+        const b = el("button", cls, text);
+        b.type = "button";
+        b.dataset.mode = mode;
+        b.addEventListener("click", () => finish(mode));
+        acts.appendChild(b);
+        return b;
+      };
+      let primary;
+      if (asks.length) {
+        btn("ghost", "Cancel", "cancel");
+        btn("ghost", "Only this folder", "only");
+        primary = btn("primary", "Include subfolders", "subs");
+      } else {
+        primary = btn("primary", "OK", "ok");
+      }
+      box.appendChild(acts);
+      dropSheetEl.appendChild(box);
+      if (primary) primary.focus();
+    }
+    dropSheetEl.hidden = false;
+    paint();
+  }
+  function clearImportDropOver() {
+    const dump = document.getElementById("dump-drop");
+    const dock = document.getElementById("input-dock");
+    if (dump) dump.classList.remove("drag-over");
+    if (dock) dock.classList.remove("drag-over");
+    if (dropEl) dropEl.classList.remove("drag-over");
+  }
+  // Shared Drop + Input dock acceptor — same enable/include path, valid-to-import only
+  function acceptImportDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    clearImportDropOver();
+    hidePageDrop();
+    const dt = e.dataTransfer;
+    if (!dt) return;
+
+    let nodeKeys = [];
+    try { nodeKeys = JSON.parse(dt.getData("application/x-lumina-nodes") || "[]"); }
+    catch (_) { nodeKeys = []; }
+    if (nodeKeys.length) { handleNodeDrop(nodeKeys); return; }
+
+    let srcIds = [];
+    try { srcIds = JSON.parse(dt.getData("application/x-lumina-sources") || "[]"); }
+    catch (_) { srcIds = []; }
+    if (srcIds.length) {
+      let added = 0;
+      let lastReport = null, lastSrc = null;
+      srcIds.forEach((id) => {
+        if (!byId(id)) return;
+        const was = isSelected(id);
+        enableVol(id, { quiet: true });
+        lastSrc = byId(id);
+        if (lastSrc && lastSrc.pull) {
+          lastReport = {
+            pulledLength: lastSrc.pull.ok || 0,
+            edgeLength: lastSrc.pull.edge || 0,
+            leftLength: lastSrc.pull.left || 0,
+            edgeExt: lastSrc.pull.edgeExt || {},
+            leftExt: lastSrc.pull.leftExt || {}
+          };
+        }
+        if (!was && isSelected(id)) added++;
+      });
+      if (lastSrc && lastReport) pullReportToast(lastSrc, lastReport);
+      else if (added) toast(added === 1 ? "Enabled" : added + " enabled");
+      else toast(srcIds.some((id) => isSelected(id)) ? "Already in dock" : "Not a valid import");
+      return;
+    }
+
+    const dumpId = dt.getData("application/x-lumina-dump") || "";
+    if (dumpId && byId(dumpId)) { enableVol(dumpId); return; }
+
+    const plain = dt.getData("text/plain") || dragId || "";
+    if (plain && byId(plain)) { enableVol(plain); return; }
+
+    const dirName = dt.getData("application/x-lumina-dir") || "";
+    const dirPath = dt.getData("application/x-lumina-path") || "";
+    if (dirName || dirPath) {
+      const hit = matchImportableName(dirPath) || matchImportableName(dirName) || matchImportableName(plain);
+      if (hit) { enableVol(hit.id); return; }
+      toast("Can't import that directory");
+      return;
+    }
+
+    let luminaFiles = [];
+    try { luminaFiles = JSON.parse(dt.getData("application/x-lumina-files") || "[]"); }
+    catch (_) { luminaFiles = []; }
+    if (luminaFiles.length) {
+      // File dragged from Files → enable its parent volume if known, else Phone/media path
+      const hit = matchImportableName(luminaFiles[0]);
+      if (hit) { enableVol(hit.id); return; }
+      landOsDrop(luminaFiles);
+      return;
+    }
+
+    const names = [];
+    if (dt.files && dt.files.length) {
+      for (let i = 0; i < dt.files.length; i++) {
+        const f = dt.files[i];
+        if (f && f.name) names.push(f.name);
+      }
+    }
+    if (names.length) {
+      for (const name of names) {
+        const hit = matchImportableName(name);
+        if (hit) { enableVol(hit.id); return; }
+      }
+      const acc = names.filter((n) => isAcceptedType(n));
+      const leftN = names.length - acc.length;
+      if (acc.length) {
+        landOsDrop(acc);
+        toast("Added " + fmtN(acc.length) + (leftN ? " · left " + fmtN(leftN) + " out (not media)" : ""));
+        return;
+      }
+      openDropSheet({ ok: [], asks: [], invalid: names.slice(0, 3).map((n) => ({ label: n })) });
+      return;
+    }
+    if (plain) {
+      const hit = matchImportableName(plain);
+      if (hit) { enableVol(hit.id); return; }
+      toast("Not a valid import");
+      return;
+    }
+    toast("Drop a volume or folder");
+  }
+  function bindImportDropTarget(el) {
+    if (!el) return;
+    ["dragenter", "dragover"].forEach((ev) => {
+      el.addEventListener(ev, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        el.classList.add("drag-over");
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+      });
+    });
+    el.addEventListener("dragleave", (e) => {
+      if (!el.contains(e.relatedTarget)) el.classList.remove("drag-over");
+    });
+    el.addEventListener("drop", acceptImportDrop);
   }
   const sdRail = document.getElementById("sd-rail");
   if (sdRail) {
@@ -4172,6 +5057,10 @@
       e.dataTransfer.setData("text/plain", vol);
       e.dataTransfer.setData("application/x-lumina-dump", vol);
       e.dataTransfer.effectAllowed = "copy";
+      {
+        const sv = byId(vol);
+        pageDropLine = "Drop anywhere · " + fmtN((sv && sv.files) || 0) + " files";
+      }
       card.classList.add("dragging");
     });
     sdRail.addEventListener("dragend", (e) => {
@@ -4182,68 +5071,42 @@
       const card = e.target.closest(".sd-card[data-vol]");
       if (!card) return;
       if (e.detail > 1) return;
+      // No Files any more: a click includes the sensed volume, or takes it back out.
       const id = card.getAttribute("data-vol");
       clearTimeout(funnelClickTimer);
-      funnelClickTimer = setTimeout(() => {
-        if (!isSelected(id)) {
-          enableVol(id);
-          return;
-        }
-        focusSourceInFs(id);
-        toast("In Files");
-      }, 220);
-    });
-    sdRail.addEventListener("dblclick", (e) => {
-      const card = e.target.closest(".sd-card[data-vol]");
-      if (!card) return;
-      e.preventDefault();
-      clearTimeout(funnelClickTimer);
-      const id = card.getAttribute("data-vol");
       if (isSelected(id)) {
         deactivate(id);
         renderAll();
+        toast((byId(id) && (byId(id).volume || byId(id).name) || id) + " · out");
       } else {
         enableVol(id);
       }
     });
   }
   const dumpDrop = document.getElementById("dump-drop");
-  if (dumpDrop) {
-    ["dragenter", "dragover"].forEach((ev) => {
-      dumpDrop.addEventListener(ev, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dumpDrop.classList.add("drag-over");
-        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
-      });
-    });
-    dumpDrop.addEventListener("dragleave", (e) => {
-      if (!dumpDrop.contains(e.relatedTarget)) dumpDrop.classList.remove("drag-over");
-    });
-    dumpDrop.addEventListener("drop", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dumpDrop.classList.remove("drag-over");
-      dropEl.classList.remove("drag-over");
-      const vol = (e.dataTransfer && (
-        e.dataTransfer.getData("application/x-lumina-dump") ||
-        e.dataTransfer.getData("text/plain")
-      )) || "";
-      const src = byId(vol);
-      if (src) { enableVol(src.id); return; }
-      const names = [];
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
-        for (let i = 0; i < e.dataTransfer.files.length; i++) {
-          const f = e.dataTransfer.files[i];
-          if (f && f.name) names.push(f.name);
-        }
-      }
-      landOsDrop(names.length ? names : null);
-    });
+  const inputDock = document.getElementById("input-dock");
+  bindImportDropTarget(dumpDrop);
+  bindImportDropTarget(inputDock);
+  // Drop opens Finder (the browser's own folder picker); what comes back goes the drop's way:
+  // a sensed volume by its folder name, otherwise its media, the rest left out quietly.
+  const dropPick = document.getElementById("drop-pick");
+  if (dumpDrop && dropPick) {
     dumpDrop.addEventListener("click", (e) => {
       e.preventDefault();
-      // Demo: arm a quiet inbound so the dock grows without a real OS drop
-      landOsDrop(null);
+      dropPick.value = "";
+      dropPick.click();
+    });
+    dropPick.addEventListener("change", () => {
+      const files = Array.from(dropPick.files || []);
+      if (!files.length) return;
+      const top = String(files[0].webkitRelativePath || files[0].name).split("/")[0];
+      const hit = matchImportableName(top);
+      if (hit) { enableVol(hit.id); toast(top + " · added"); return; }
+      const names = files.map((f) => f.name);
+      const acc = names.filter((n) => isAcceptedType(n)), leftN = names.length - acc.length;
+      if (!acc.length) { openDropSheet({ ok: [], asks: [], invalid: [{ label: top }] }); return; }
+      landOsDrop(acc);
+      toast(top + " · " + fmtN(acc.length) + " added" + (leftN ? " · left " + fmtN(leftN) + " out (not media)" : "") + " · ⏎ sorts");
     });
   }
   const dockSort = document.getElementById("dock-sort");
@@ -4255,15 +5118,33 @@
     inputDockRow.addEventListener("click", (e) => {
       const t = e.target.closest("[data-in]");
       if (!t) return;
-      focusSourceInFs(t.getAttribute("data-in"));
-      toast("In Files");
+      const src = byId(t.getAttribute("data-in"));
+      toast((src && (src.name || src.dest)) || "Included");
     });
   }
 
-  // Boot: sensed cards appear available but NOT selected until click-enabled.
+  // Boot: Files tree at top, everything collapsed; no Downloads / phone auto-open.
   selected = [];
   tethered = new Set();
+  walkFs(fsRoots, (n) => { if (n.children) n.open = false; });
+  fsPicked = new Set();
+  fsAnchorKey = "";
+  volumeFocus = "";
+  try {
+    if (location.hash === PHONE_LINK || location.hash === "#phone-inbox" || location.hash === "#downloads") {
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+  } catch (_) {}
+  const resumed = applyAddResume();
   renderAll();
+  phoneListening = true; setAirDropChrome("listening");
+  ensureSuggestedPrep();
+  if (resumed) {
+    const n = typeof resumed === "number" ? resumed : selected.length;
+    toast("Add more · " + n + " already included");
+    const sum = document.getElementById("input-dock-sum");
+    if (sum) sum.textContent = n + " already included · enable more, then Back to Sort";
+  }
 })();
 </script>
 </body>
