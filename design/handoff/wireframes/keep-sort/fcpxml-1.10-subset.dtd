@@ -1,0 +1,28 @@
+<!-- Hand-written subset of Final Cut Pro's FCPXML 1.10 DTD: only the elements Lumina's stringout writes, with the
+     declarations as Apple publishes them (FCPXML DTD 1.7 on developer.apple.com, asset src moved to media-rep in 1.9+).
+     Not Apple's file; the real check is an import into Final Cut. -->
+<!ENTITY % time "CDATA">
+<!ELEMENT fcpxml (import-options?, resources?, library)>
+<!ATTLIST fcpxml version CDATA #FIXED "1.10">
+<!ELEMENT import-options (option*)>
+<!ELEMENT option EMPTY>
+<!ATTLIST option key CDATA #REQUIRED value CDATA #REQUIRED>
+<!ELEMENT resources (format | asset)*>
+<!ELEMENT format EMPTY>
+<!ATTLIST format id ID #REQUIRED name CDATA #IMPLIED frameDuration %time; #IMPLIED fieldOrder CDATA #IMPLIED width CDATA #IMPLIED height CDATA #IMPLIED paspH CDATA #IMPLIED paspV CDATA #IMPLIED colorSpace CDATA #IMPLIED>
+<!ELEMENT asset (media-rep+, metadata?)>
+<!ATTLIST asset id ID #REQUIRED name CDATA #IMPLIED uid CDATA #IMPLIED start %time; #IMPLIED duration %time; #IMPLIED hasVideo CDATA #IMPLIED format IDREF #IMPLIED hasAudio CDATA #IMPLIED audioSources CDATA #IMPLIED audioChannels CDATA #IMPLIED audioRate CDATA #IMPLIED customLUTOverride CDATA #IMPLIED colorSpaceOverride CDATA #IMPLIED>
+<!ELEMENT media-rep EMPTY>
+<!ATTLIST media-rep kind (original-media | proxy-media) "original-media" sig CDATA #IMPLIED src CDATA #REQUIRED suggestedFilename CDATA #IMPLIED>
+<!ELEMENT metadata EMPTY>
+<!ELEMENT library (event*)>
+<!ATTLIST library location CDATA #IMPLIED colorProcessing (standard | wide | wide-hdr) #IMPLIED>
+<!ELEMENT event (asset-clip | project)*>
+<!ATTLIST event name CDATA #IMPLIED uid CDATA #IMPLIED>
+<!ELEMENT project (sequence)>
+<!ATTLIST project name CDATA #IMPLIED uid CDATA #IMPLIED id ID #IMPLIED modDate CDATA #IMPLIED>
+<!ELEMENT sequence (spine)>
+<!ATTLIST sequence format IDREF #REQUIRED duration %time; #IMPLIED tcStart %time; #IMPLIED tcFormat (DF | NDF) #IMPLIED audioLayout (mono | stereo | surround) #IMPLIED audioRate CDATA #IMPLIED>
+<!ELEMENT spine (asset-clip)*>
+<!ELEMENT asset-clip EMPTY>
+<!ATTLIST asset-clip ref IDREF #REQUIRED lane CDATA #IMPLIED offset %time; #IMPLIED name CDATA #IMPLIED start %time; #IMPLIED duration %time; #IMPLIED enabled (0 | 1) "1" format IDREF #IMPLIED tcStart %time; #IMPLIED tcFormat (DF | NDF) #IMPLIED audioRole CDATA #IMPLIED videoRole CDATA #IMPLIED>
