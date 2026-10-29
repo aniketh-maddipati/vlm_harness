@@ -560,12 +560,18 @@
     pointer-events: none; display: none;
   }
   .cv-stage.mask-on .mask-box { display: block; }
-  .cv-stage .heal-dot {
-    position: absolute; width: 14px; height: 14px; margin: -7px;
+  /* Heal spots: a ring the size of the patch, a dot at its centre; each follows through the take. */
+  .cv-stage .heal-spots { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+  .cv-stage .heal-spot {
+    position: absolute; aspect-ratio: 1; transform: translate(-50%, -50%);
     border-radius: 50%; border: 1.5px solid var(--ink);
-    background: light-dark(#fff, #1a1917); pointer-events: none; display: none;
+    background: light-dark(rgba(255,255,255,0.28), rgba(26,25,23,0.28));
   }
-  .cv-stage.heal-on .heal-dot { display: block; }
+  .cv-stage .heal-spot::after {
+    content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px;
+    border-radius: 50%; background: var(--ink);
+  }
+  .cv-stage.tool-heal .heal-spot { pointer-events: auto; cursor: move; }
   /* —— Masks: Lightroom-mobile grammar on video. Outlines are interactive (drag points,
      click an edge to add one); each edit is a key on the clip's timeline and the outline
      glides between keys while you scrub. B&W: outline in ink, overlay is an ink wash. —— */
@@ -1139,7 +1145,7 @@
   .mk-svg .mk-body.inv { fill-rule: evenodd; }
   /* Loupe at the pen tip: a magnified bubble so the line lands where the edge is. */
   .pen-loupe {
-    position: absolute; width: 132px; height: 132px; margin: -152px 0 0 -66px;
+    position: absolute; width: 132px; height: 132px; margin: -66px 0 0 -66px;
     border-radius: 50%; border: 1.5px solid var(--ink); overflow: hidden; z-index: 3;
     background: light-dark(#f4f2ee, #1f1e1b); box-shadow: 0 6px 20px rgba(0,0,0,0.35);
     display: none; pointer-events: none;
@@ -1230,8 +1236,8 @@
             <div class="skim-bar" aria-hidden="true"><i id="skim-fill"></i></div>
             <svg class="mk-svg" id="v-mk" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-label="Layers"></svg>
             <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><pattern id="mk-hatch" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)"><rect width="10" height="10" fill="rgba(128,128,128,0.18)"/><line x1="0" y1="0" x2="0" y2="10" stroke="rgba(128,128,128,0.7)" stroke-width="1.5"/></pattern></defs></svg>
-            <div class="heal-dot" id="v-heal-dot" style="left:58%;top:42%" aria-hidden="true"></div>
-            <div class="pen-loupe" id="pen-loupe" aria-hidden="true"><svg id="pen-loupe-svg" viewBox="0 0 1600 900"></svg></div>
+            <div class="heal-spots" id="v-heals" aria-hidden="true"></div>
+            <div class="pen-loupe" id="pen-loupe" aria-hidden="true"><svg id="pen-loupe-svg" viewBox="0 0 1600 900" preserveAspectRatio="none"></svg></div>
           </div>
           <div class="lv-scrub" aria-hidden="true">
             <div class="lv-track" id="v-track"><span class="lv-keys" id="v-keys"></span><i class="lv-ph" id="v-ph"></i></div>
@@ -1268,7 +1274,11 @@
               <span class="sl-l">Color</span><span class="sl-v" id="g-sat-v">0</span>
               <div class="sl-t"><i class="sl-f"></i><b class="sl-k"></b></div>
             </div>
-            <button type="button" class="ed-link" id="g-reset">Reset all</button>
+            <div class="ed-row">
+              <button type="button" class="ed-link" id="g-copy" title="⌘C">Copy look</button>
+              <button type="button" class="ed-link" id="g-paste" title="⌘V" hidden>Paste</button>
+              <button type="button" class="ed-link" id="g-reset">Reset all</button>
+            </div>
           </section>
           <section class="ed-pane" data-pane="mask">
             <button type="button" class="ed-find" id="mk-find" title="Outline every object in the frame as a layer">Find everything</button>
@@ -1519,7 +1529,8 @@
     mkOverlay: false,  // ink wash over masked areas
     mkDraw: null,      // unused: in Outline the pen is always live
     snap: true,        // pen snaps to nearby edges
-    healOn: {},        // per-clip heal stand-in shown
+    heals: {},         // per-clip heal spots [{ id, x, y, r, t0, dx, dy }] — stand-in, each drifts with the take
+    lookClip: null,    // copied look { from, L } for ⌘V
     filesFurled: true, // right-rail file list truncated to FILE_FURL_N
     filesOpen: true,   // Files furl section open (header toggle sticks across renders)
     skews: {},         // detected skews after auto-align { src: sec }
@@ -1837,6 +1848,14 @@
     // Shift stays so the axis order holds; do not restore aligned / stampAnchors —
     // those are pixel proof for the three-beat story on first open, not a re-entry replay.
     if (s.shift && typeof s.shift === "object") state.shift = Object.assign({}, s.shift);
+    // Edits ride along too: looks, layers and heal spots.
+    if (s.looks && typeof s.looks === "object") state.looks = s.looks;
+    if (s.masks && typeof s.masks === "object") {
+      state.masks = s.masks;
+    }
+    if (s.heals && typeof s.heals === "object") state.heals = s.heals;
+    // (Runs at boot, after the editor's counters exist.) Ids continue past what came back.
+    mkSeq = maxSeq(state.masks); healSeq = maxSeq(state.heals);
   }
   // + Add clips → Import with docked vols held; user enables more, then Back to Sort
   function goAddClips() {
@@ -1856,7 +1875,8 @@
       place: state.place,
       shift: Object.assign({}, state.shift || {}),
       aligned: !!state.aligned,
-      vols: vols.slice()
+      vols: vols.slice(),
+      looks: state.looks, masks: state.masks, heals: state.heals
     };
     try {
       sessionStorage.setItem("lumina-import-add", JSON.stringify(add));
@@ -2239,6 +2259,7 @@
     });
   }
   // ——— Masks (Lightroom mobile, applied to video) ———
+  const maxSeq = (lists) => Object.values(lists).reduce((a, l) => (l || []).reduce((b, x) => Math.max(b, +String(x.id).slice(1) || 0), a), 0);
   let mkSeq = 0;
   const MK_NAME = { subject: "Subject", sky: "Sky", lasso: "Drawn", linear: "Linear", radial: "Radial" };
   function clipMasks(id) { return state.masks[id] || (state.masks[id] = []); }
@@ -2336,21 +2357,36 @@
     renderViewer();
   }
   // Draw over a bad run and the stroke replaces it: the shorter arc between the outline
-  // points nearest the stroke's ends. The other keys keep their shape, moved with their centre.
+  // points nearest the stroke's ends. In every other key the new run is carried by that key's
+  // own run ends (start and end offsets, blended along the stroke), so the rest of the outline
+  // keeps the shape it has there and point counts stay matched — the outline still glides.
   function redrawRun(m, stroke) {
-    const k = keyAt(m, state.skim), P = k.g.pts, n = P.length;
+    const k = keyAt(m, state.skim), P = k.g.pts, n = P.length, L = stroke.length;
     const near = (p) => { let bi = 0, bd = 9; P.forEach((q, i) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; bi = i; } }); return bi; };
-    const i = near(stroke[0]), j0 = near(stroke[stroke.length - 1]);
-    const R = P.slice(i).concat(P.slice(0, i)), j = (j0 - i + n) % n;
-    const next = j <= n / 2 ? stroke.concat(R.slice(j + 1)) : R.slice(1, j).concat(stroke.slice().reverse());
+    const i = near(stroke[0]), j0 = near(stroke[L - 1]), j = (j0 - i + n) % n, fwd = j <= n / 2;
+    const splice = (Q, S) => {
+      const R = Q.slice(i).concat(Q.slice(0, i));
+      return fwd ? S.concat(R.slice(j + 1)) : R.slice(1, j).concat(S.slice().reverse());
+    };
     const cen = (pts) => pts.reduce((a, p) => [a[0] + p[0] / pts.length, a[1] + p[1] / pts.length], [0, 0]);
-    const c0 = cen(P), c1 = cen(next);
+    const c0 = cen(P), next = splice(P, stroke);
     m.keys.forEach((kk) => {
-      if (kk === k) { kk.g = { pts: next }; return; }
-      const ck = cen(kk.g.pts), dx = ck[0] - c0[0], dy = ck[1] - c0[1];
-      kk.g = { pts: next.map((p) => [cl(p[0] + dx), cl(p[1] + dy)]) };
+      if (kk === k) return;
+      const Q = kk.g.pts;
+      if (Q.length !== n) {
+        // Unmatched key (shouldn't happen): fall back to the new shape moved with its centre.
+        const ck = cen(Q), dx = ck[0] - c0[0], dy = ck[1] - c0[1];
+        kk.g = { pts: next.map((p) => [cl(p[0] + dx), cl(p[1] + dy)]) };
+        return;
+      }
+      const da = [Q[i][0] - P[i][0], Q[i][1] - P[i][1]], db = [Q[j0][0] - P[j0][0], Q[j0][1] - P[j0][1]];
+      const S = stroke.map((q, u) => {
+        const f = L > 1 ? u / (L - 1) : 0;
+        return [cl(q[0] + da[0] + (db[0] - da[0]) * f), cl(q[1] + da[1] + (db[1] - da[1]) * f)];
+      });
+      kk.g = { pts: splice(Q, S) };
     });
-    void c1;
+    k.g = { pts: next };
     m.hand = true;
   }
   // ⇧-draw grows a layer, ⌥-draw carves it: outline points under the brush move out from
@@ -2430,11 +2466,30 @@
     // Loupe at the pen tip: the same picture, 3× around the tip.
     const lp = $("pen-loupe");
     if (mkDrag && mkDrag.pen && mkDrag.pts.length > 1) {
-      const tip = mkDrag.pts[mkDrag.pts.length - 1];
+      const P = mkDrag.pts, tip = P[P.length - 1], back = P[Math.max(0, P.length - 6)];
+      const fr = $("v-frame").getBoundingClientRect(), D = 132, R = D / 2;
+      // Behind the pen: the loupe sits on the side the stroke came from, so the leading edge
+      // stays clear. The direction is eased so the bubble doesn't swing on a wobble.
+      let vx = (back[0] - tip[0]) * fr.width, vy = (back[1] - tip[1]) * fr.height;
+      const vl = Math.hypot(vx, vy);
+      if (vl > 3) { vx /= vl; vy /= vl; } else { vx = 0; vy = -1; }
+      const ld = mkDrag.ld || [vx, vy];
+      let ux = ld[0] * 0.75 + vx * 0.25, uy = ld[1] * 0.75 + vy * 0.25;
+      const ul = Math.hypot(ux, uy) || 1; ux /= ul; uy /= ul;
+      mkDrag.ld = [ux, uy];
+      const tx = tip[0] * fr.width, ty = tip[1] * fr.height, off = R + 30;
+      let lx = tx + ux * off, ly = ty + uy * off;
+      const fits = (x, y) => x >= R && x <= fr.width - R && y >= R && y <= fr.height - R;
+      // Near a frame edge: swing round the tip until it fits, never over it.
+      for (let a = 0; a < 8 && !fits(lx, ly); a++) {
+        const th = Math.atan2(uy, ux) + (a % 2 ? -1 : 1) * Math.ceil((a + 1) / 2) * Math.PI / 4;
+        lx = tx + Math.cos(th) * off; ly = ty + Math.sin(th) * off;
+      }
       lp.classList.add("on");
-      lp.style.left = (tip[0] * 100) + "%"; lp.style.top = (tip[1] * 100) + "%";
-      const sv = $("pen-loupe-svg");
-      sv.setAttribute("viewBox", (tip[0] * 1600 - 110).toFixed(0) + " " + (tip[1] * 900 - 110 * 9 / 16).toFixed(0) + " 220 " + (220 * 9 / 16).toFixed(0));
+      lp.style.left = lx + "px"; lp.style.top = ly + "px";
+      // 3× around the tip: the bubble shows D/3 px of frame each way.
+      const sv = $("pen-loupe-svg"), vw = (D / 3) * 1600 / fr.width, vh = (D / 3) * 900 / fr.height;
+      sv.setAttribute("viewBox", (tip[0] * 1600 - vw / 2).toFixed(1) + " " + (tip[1] * 900 - vh / 2).toFixed(1) + " " + vw.toFixed(1) + " " + vh.toFixed(1));
       sv.innerHTML = body + lines;
     } else lp.classList.remove("on");
     $("v-frame").classList.toggle("pen", state.ed === "mask" && !selMask());
@@ -2462,6 +2517,23 @@
     $("v-keys").innerHTML = kh;
   }
   let mkDrag = null;
+  // ——— Heal: several spots per clip, each a dot that follows (stand-in drift), sized by drag ———
+  let healSeq = 0, healDrag = null;
+  const healsOf = (id) => state.heals[id] || (state.heals[id] = []);
+  const spotAt = (s, t) => [cl(s.x + (t - s.t0) * s.dx), cl(s.y + (t - s.t0) * s.dy)];
+  function paintHeals(c) {
+    const list = state.heals[c.id] || [];
+    $("v-heals").innerHTML = list.map((s) => {
+      const p = spotAt(s, state.skim);
+      return '<i class="heal-spot" data-heal="' + s.id + '" style="left:' + (p[0] * 100).toFixed(2) + "%;top:" +
+        (p[1] * 100).toFixed(2) + "%;width:" + (s.r * 200).toFixed(2) + '%"></i>';
+    }).join("");
+    $("heal-hint").textContent = list.length
+      ? list.length + (list.length === 1 ? " spot" : " spots") + " · each follows through the clip · click to add · drag out to size · drag a spot to move · ⌥-click removes"
+      : "Click a spot on the frame · drag out to size it";
+    $("heal-clear").hidden = !list.length;
+    $("heal-clear").textContent = list.length > 1 ? "Clear all" : "Clear";
+  }
 
   function setTool( wh ) {
     state.tool = state.tool === wh ? null : wh;
@@ -2502,7 +2574,6 @@
     frame.classList.toggle("tool-mask", state.tool === "mask");
     frame.classList.toggle("tool-heal", state.tool === "heal");
     frame.classList.toggle("mask-on", !!state.maskOn[c.id]);
-    frame.classList.toggle("heal-on", !!state.healOn[c.id]);
     $("v-lab").textContent = state.rec709 && c.log ? "Rec.709" : (c.log ? "as shot" : "preview");
     $("v-keep").setAttribute("aria-pressed", kept ? "true" : "false");
     $("v-keep").textContent = kept ? "Kept ✓ · K" : "Keep · K";
@@ -2522,9 +2593,11 @@
     tg.textContent = sm ? sm.name : "Whole clip";
     tg.classList.toggle("mask", !!sm);
 
-    $("heal-hint").textContent = state.healOn[c.id] ? "1 spot healed · click to move it" : "Click a spot on the frame";
-    $("heal-clear").hidden = !state.healOn[c.id];
+    paintHeals(c);
     syncGradeUI(gradeKey());
+    const gp = $("g-paste");
+    gp.hidden = !state.lookClip;
+    if (state.lookClip) { gp.textContent = "Paste"; gp.title = "⌘V · from " + state.lookClip.from + " · " + lookWords(state.lookClip.L); }
     paintMasks(c);
   }
 
@@ -2728,7 +2801,7 @@
     keeps.forEach((c) => {
       const ms = state.masks[c.id];
       if (ms && ms.length) maskN += ms.length;
-      if (state.healOn[c.id]) healN += 1;
+      healN += (state.heals[c.id] || []).length;
       const L = state.looks[c.id];
       if (L && (L.ev || L.wb || L.con)) graded += 1;
       Object.keys(state.looks).forEach((k) => {
@@ -3204,7 +3277,28 @@
     if (i >= 0) { list.splice(i, 1); state.maskSel = null; renderViewer(); }
   }
   $("g-reset").onclick = () => { delete state.looks[gradeKey()]; renderViewer(); };
-  $("heal-clear").onclick = () => { delete state.healOn[state.cursor]; renderViewer(); };
+  // Copy / paste a look, shot to shot (⌘C / ⌘V). In the large view it lands on the target
+  // (whole clip or the picked layer); on the sheet it lands on every picked clip.
+  const lookWords = (L) => G_IDS.filter((k) => L[k]).map((k) => ({ ev: "ev", con: "con", wb: "warm", sat: "color" })[k] + " " + fmtG(k, L[k])).join(" · ") || "flat";
+  function copyLook() {
+    const key = state.large ? gradeKey() : state.cursor, L = Object.assign({}, lookOf(key));
+    const c = clipById(state.cursor);
+    state.lookClip = { from: (c ? c.name : key) + (key.indexOf("#") > 0 && selMask() ? " · " + selMask().name : ""), L };
+    toast("Look copied · " + lookWords(L));
+    renderViewer();
+  }
+  function pasteLook() {
+    const lc = state.lookClip;
+    if (!lc) { toast("Copy a look first · ⌘C"); return; }
+    const keys = state.large ? [gradeKey()]
+      : state.picked && state.picked.size ? Array.from(state.picked) : [state.cursor];
+    keys.forEach((k) => { state.looks[k] = Object.assign({}, lc.L); });
+    toast("Look pasted · " + (keys.length > 1 ? keys.length + " clips" : (state.large && selMask() ? selMask().name : (clipById(keys[0]) || {}).name || keys[0])) + " · " + lookWords(lc.L));
+    renderViewer();
+  }
+  $("g-copy").onclick = copyLook;
+  $("g-paste").onclick = pasteLook;
+  $("heal-clear").onclick = () => { delete state.heals[state.cursor]; renderViewer(); };
   $("mk-list").onclick = (e) => {
     const io = e.target.closest("[data-mk-io]");
     if (io) {
@@ -3320,17 +3414,20 @@
     if (pick) { state.maskSel = pick.dataset.mkPick; renderViewer(); return; }
     if (m) { state.maskSel = null; renderViewer(); return; } // click off the mask: back to the clip
     if (state.tool === "heal") {
-      const r = stage.getBoundingClientRect();
-      const x = ((e.clientX - r.left) / r.width) * 100;
-      const y = ((e.clientY - r.top) / r.height) * 100;
-      const id = state.cursor;
-      {
-        state.healOn[id] = true;
-        const dot = $("v-heal-dot");
-        dot.style.left = Math.max(2, Math.min(98, x)) + "%";
-        dot.style.top = Math.max(2, Math.min(98, y)) + "%";
-        toast("Heal · spot stand-in");
+      const list = healsOf(state.cursor), hit = e.target.closest("[data-heal]");
+      const s0 = hit && list.find((s) => s.id === hit.dataset.heal);
+      if (s0 && e.altKey) { list.splice(list.indexOf(s0), 1); renderViewer(); return; }
+      if (s0) {
+        const p = spotAt(s0, state.skim);
+        healDrag = { s: s0, move: true, off: [p[0] - pt[0], p[1] - pt[1]] };
+      } else {
+        // A new spot: it drifts a little with the take (stand-in for following the dust / blemish).
+        const n = ++healSeq, a = n * 2.4;
+        const s = { id: "h" + n, x: pt[0], y: pt[1], r: 0.025, t0: state.skim, dx: Math.cos(a) * 0.05, dy: Math.sin(a) * 0.02 };
+        list.push(s);
+        healDrag = { s, move: false, from: pt };
       }
+      stage.setPointerCapture(e.pointerId);
       renderViewer();
       return;
     }
@@ -3342,6 +3439,19 @@
     renderViewer();
   });
   stage.addEventListener("pointermove", (e) => {
+    if (healDrag) {
+      const pt = stagePt(e), s = healDrag.s, fr = stage.getBoundingClientRect();
+      if (healDrag.move) {
+        const t = state.skim, q = [pt[0] + healDrag.off[0], pt[1] + healDrag.off[1]];
+        s.x = q[0] - (t - s.t0) * s.dx; s.y = q[1] - (t - s.t0) * s.dy;
+      } else {
+        // Drag out from the centre: radius in frame widths.
+        const d = Math.hypot((pt[0] - healDrag.from[0]) * fr.width, (pt[1] - healDrag.from[1]) * fr.height) / fr.width;
+        s.r = Math.max(0.012, Math.min(0.2, d || 0.025));
+      }
+      paintHeals(clipById(state.cursor));
+      return;
+    }
     if (mkDrag) {
       const pt = stagePt(e);
       if (mkDrag.pen) {
@@ -3382,6 +3492,13 @@
   });
   stage.addEventListener("pointerup", () => {
     skimDrag = false;
+    if (healDrag) {
+      const s = healDrag.s, isNew = !healDrag.move;
+      healDrag = null;
+      if (isNew) toast("Heal · spot " + healsOf(state.cursor).length + " · follows through the clip");
+      renderViewer();
+      return;
+    }
     if (mkDrag && mkDrag.pen) {
       const P = mkDrag.pts, d = mkDrag, id = state.cursor;
       mkDrag = null;
@@ -3434,7 +3551,7 @@
     }
     if (mkDrag) { mkDrag = null; renderViewer(); }
   });
-  stage.addEventListener("pointercancel", () => { skimDrag = false; });
+  stage.addEventListener("pointercancel", () => { skimDrag = false; healDrag = null; });
 
   $("export-cancel").onclick = closeExport;
   $("export-scrim").onclick = (e) => { if (e.target === $("export-scrim")) closeExport(); };
@@ -3931,6 +4048,10 @@
     }
     if (state.large && !e.metaKey && !e.ctrlKey && (e.key === "1" || e.key === "2" || e.key === "3")) {
       e.preventDefault(); setEd(["color", "mask", "heal"][+e.key - 1]); return;
+    }
+    if ((e.key === "c" || e.key === "C" || e.key === "v" || e.key === "V") && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+      const sel = window.getSelection && String(window.getSelection());
+      if (!sel) { e.preventDefault(); (e.key === "c" || e.key === "C" ? copyLook : pasteLook)(); return; }
     }
     if (state.large && (e.key === "Backspace" || e.key === "Delete") && selMask()) {
       e.preventDefault(); delMask(); return;

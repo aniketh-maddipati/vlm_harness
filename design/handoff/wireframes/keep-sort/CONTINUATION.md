@@ -204,6 +204,16 @@ Owner: "simplify … pare it down and put the frame front and center", "go minim
 - **Heal:** unchanged stand-in (one dot per clip), now its own pane with Clear.
 - Gone: `paintFacts`, `paintFileList`, the furls, `#v-mask` / `#v-heal` / `#mk-track` / `#mk-add`, `addMask(kind)`, `state.mkDraw`, `<input type="range">`.
 
+## Editor stand-ins made honest (2026-10-28, eighth pass)
+
+NEXT 1 (continuous pinch) and NEXT 2 (fill-frame cards + hover play) had already landed (third pass, then the pinch model); checked, not touched.
+
+- **Redraw a run, by shape:** `redrawRun` replaces the run at this frame, then in every other key carries the same stroke by that key's own run ends (start / end offsets blended along the stroke). The rest of each key keeps its own outline; point counts stay matched, so it still glides. Verified: a bulge drawn at 0.0 shows at the clip's end with the same shape, moved +252 / −20 units with that key; the other points unchanged.
+- **Loupe:** really 3× now (viewBox = 44 px of frame for a 132 px bubble; it was ~1×). It sits **behind the pen** — on the side the stroke came from, direction eased — and swings round the tip near a frame edge instead of covering it.
+- **Heal, several spots:** `state.heals[clip] = [{ id, x, y, r, t0, dx, dy }]`. Click adds a spot, drag out sizes it, drag a spot moves it, ⌥-click removes, Clear / Clear all. Each spot is a ring the patch's size with a centre dot and drifts with the take (stand-in follow). Export facts count spots. `healOn` and the single `#v-heal-dot` are gone.
+- **Copy / paste look:** ⌘C / ⌘V (and Copy look · Paste in the Color pane). Large view: copies / pastes the target (whole clip or the picked layer). Sheet: ⌘C copies the cursor clip's look, ⌘V pastes onto every picked clip. Toasts name the look (`ev +0.50 · warm +12`); not taken while text is selected.
+- **Edits survive + Add clips:** looks, layers and heal spots ride the `lumina-keep-session` handoff; layer / spot ids continue past what came back.
+
 ## Pending (owner — next paste)
 
-Large-view editor stand-ins to make honest (see CONTINUATION-PROMPT.md NEXT 3): redraw-a-run across keys, loupe placement, several heal spots, copy / paste look across clips. Keep minimal/elegant; do not regress clock-proof vertical-on-axis language.
+Nothing open from the last brief. Candidates: a real frame under the loupe once there is one; heal spot pick + per-spot size after placing (today: size only while placing); paste a look onto a range of clips from the large view's strip.
