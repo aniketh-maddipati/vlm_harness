@@ -208,6 +208,42 @@ nonisolated final class LookKernels: @unchecked Sendable {
     /// compiles and runs exactly the programs it did before.
     static let moreSource = """
 
+    // sky blue (LookMath.skyBlue, the `blu` key inside a mask; LookSky). In Oklab, L held: the hue turned
+    // toward the target, then chroma raised toward a cap along the target hue.
+    // k1 = (amount 0…1, target hue in degrees, capShare, 0), k2 = (cuspL, cuspC, turnFull, turnNone), k3 = (greyFull, greyNone, 0, 0)
+    [[ stitchable ]] float4 lookSkyBlue(coreimage::sample_t s, float4 k1, float4 k2, float4 k3) {
+        float3 c = s.rgb;
+        float l = lk_cbrt(0.4122214708f * c.r + 0.5363325363f * c.g + 0.0514459929f * c.b);
+        float m = lk_cbrt(0.2119034982f * c.r + 0.6806995451f * c.g + 0.1073969566f * c.b);
+        float sc = lk_cbrt(0.0883024619f * c.r + 0.2817188376f * c.g + 0.6299787005f * c.b);
+        float L = 0.2104542553f * l + 0.7936177850f * m - 0.0040720468f * sc;
+        float A = 1.9779984951f * l - 2.4285922050f * m + 0.4505937099f * sc;
+        float B = 0.0259040371f * l + 0.7827717662f * m - 0.8086757660f * sc;
+        float C = length(float2(A, B));
+        float turn = 0.0f;
+        if (C > 1e-9f) {
+            float dh = fmod(k1.y - atan2(B, A) * 57.29577951308232f, 360.0f);
+            if (dh > 180.0f) dh -= 360.0f; else if (dh <= -180.0f) dh += 360.0f;
+            turn = 1.0f - lk_smooth(k2.z, k2.w, fabs(dh));
+            float r = k1.x * turn * dh * 0.017453292519943295f;
+            float cr = cos(r), sr = sin(r);
+            float A2 = A * cr - B * sr; B = A * sr + B * cr; A = A2;
+        }
+        float lc = clamp(L, 0.0f, 1.0f);
+        float cap = k1.z * (lc <= k2.x ? k2.y * lc / k2.x : k2.y * (1.0f - lc) / (1.0f - k2.x));
+        float add = k1.x * max(turn, 1.0f - lk_smooth(k3.x, k3.y, C)) * max(0.0f, cap - length(float2(A, B)));
+        float ht = k1.y * 0.017453292519943295f;
+        A += add * cos(ht); B += add * sin(ht);
+        float l_ = L + 0.3963377774f * A + 0.2158037573f * B;
+        float m_ = L - 0.1055613458f * A - 0.0638541728f * B;
+        float s_ = L - 0.0894841775f * A - 1.2914855480f * B;
+        l = l_ * l_ * l_; m = m_ * m_ * m_; sc = s_ * s_ * s_;
+        float3 o = float3(4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * sc,
+                          -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * sc,
+                          -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * sc);
+        return float4(max(o, float3(0.0f)), s.a);
+    }
+
     // vignette (LookMath.vignette: the amount and its four shape sliders). k = (amountStops, edge0, edge1, highlights kept 0…1),
     // sh = (sx·2/width, sy·2/height, power, 1/corner distance), hl = (highlightsPower, invGamma, 0, 0), c = centre in pixels
     [[ stitchable ]] float4 lookVignette(coreimage::sample_t s, float4 k, float4 sh, float4 hl, float4 lum, float2 c, coreimage::destination dest) {
