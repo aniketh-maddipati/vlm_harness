@@ -241,6 +241,16 @@ Owner: "ditch the file system, just sensed volumes and big drop and airdrop live
 - **⏎ sorts:** Enter is Sort now whenever the dock holds something, also with Drop or AirDrop focused; with nothing in it, "Add a volume, Drop or AirDrop first".
 - Not done: a Finder-picked folder that is not a sensed volume still lands labelled Phone (the page's one route for loose files); it should land as its own input named after the folder.
 
+## Polish: spacing, feedback, ARIA, selection undo, no subtitles (2026-10-29)
+
+Owner: "good spacing, elasticity … padding and margins and button responsiveness and reaction. good arias and fluid drag and drop and drag select with easy undo with clicking anywhere. Remove any fluff language, no need for subtitles everywhere."
+
+- **Copy:** Import's Drop has no subtitle (the hint is its `title` / `aria-label`); AirDrop says only Live / Receiving / Off; volume cards say `480 files · 18.4 GB` (no folder, no path); the dock says Included / Empty; Prep idles as "Idle"; the duplicate Included column is gone. Sort's dock says Keep / Empty, the key legend and "not kept stay in the folder" footer are gone, and the Outline and Heal hints are one short line.
+- **Feedback:** one polish block per page: a 4 / 8 / 12 / 16 / 24 spacing scale, colour changes in 100 ms, a 0.97 press on every button (0.992 on Drop and AirDrop, the frame of a card on the sheet), a 2 px ink ring on keyboard focus, disabled at 40 %, 34–36 px minimum buttons, reduced motion drops the press.
+- **ARIA:** sheet cards carry `aria-label` (name, kept, soft) and `aria-pressed` = picked (kept in step while drag-selecting); volume cards `aria-label` with their counts; Drop and AirDrop labelled; Sort now `aria-keyshortcuts="Enter"`.
+- **Selection:** a plain click anywhere that isn't a control (bars, footer, dock, gaps) clears the picks, as Esc does; ⌘Z / ⌘⇧Z undo and redo keeps (K, the dock drop, Clear), one step per gesture.
+- **Elastic:** one column on a phone keeps a 14 px gap between cards (it was 0); the Keep dock shrinks its tiles under 560 px.
+
 ## Pending (owner — next paste)
 
 Nothing open from the last brief. Candidates: a real frame under the loupe once there is one; heal spot pick + per-spot size after placing (today: size only while placing); paste a look onto a range of clips from the large view's strip.

@@ -1423,6 +1423,35 @@
     background: var(--ink); vertical-align: middle;
   }
 
+  /* —— Polish (2026-10-29): one spacing scale, quick feedback, no subtitles ——
+     Every control answers in ≤ 120 ms: colour on hover, a slight press on :active, a ring on keyboard focus. */
+  :root { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --dur-fast: 100ms; --dur: 140ms; --dur-slow: 200ms; }
+  .foot .col.inc { display: none; }                 /* the dock already lists what is included */
+  .airdrop-pane .ap-sub { font-size: 12px; font-weight: 650; color: var(--mute); }
+  .airdrop-pane.listening .ap-sub { color: var(--ink); }
+  .split > .left { padding: var(--s3) var(--s4) 0; gap: var(--s3); box-sizing: border-box; }
+  .split > .left > .head { padding: 0; }
+  .dump-hero, .airdrop-pane { margin: 0; }
+  .sd-rail { gap: var(--s3); padding: var(--s3) var(--s4); }
+  .input-dock { padding: var(--s3) var(--s4); gap: var(--s4); }
+  button, [role="button"], .sd-card, .in-tile {
+    transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease,
+      box-shadow var(--dur-fast) ease, opacity var(--dur-fast) ease, transform 80ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:not(:disabled):active, [role="button"]:active, .sd-card:active, .in-tile:active { transform: scale(0.97); }
+  .dump-hero:not(:disabled):active, .airdrop-pane:not(:disabled):active { transform: scale(0.992); }
+  button:focus-visible, [role="button"]:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--ink); outline-offset: 2px;
+  }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .primary { min-height: 36px; padding-inline: var(--s4); }
+  .sd-card { min-height: 64px; }
+  .sd-card.dragging, .in-tile.dragging { opacity: 0.4; }
+  .dump-hero.drag-over, .airdrop-pane.drag-over, .input-dock.drag-over { border-style: solid; }
+  @media (prefers-reduced-motion: reduce) {
+    button:active, [role="button"]:active, .sd-card:active, .in-tile:active, .dump-hero:active, .airdrop-pane:active { transform: none; }
+  }
 </style>
 </head>
 <body>
@@ -1447,12 +1476,11 @@
           </div>
         </div>
         <input type="file" id="drop-pick" multiple webkitdirectory hidden tabindex="-1" aria-hidden="true">
-        <button type="button" class="dump-hero" id="dump-drop" aria-label="Drop · click opens Finder">
+        <button type="button" class="dump-hero" id="dump-drop" aria-label="Drop: click to choose in Finder, or drop a volume, folder or clips" title="Click to choose in Finder">
           <span class="dh-lab">Drop</span>
-          <span class="dh-sub">Click to choose in Finder · or drop a volume, folder or clips · or drag a suggested card here</span>
         </button>
         <button type="button" class="airdrop-pane" id="airdrop-pane" aria-pressed="false"
-          title="AirDrop is live — wireless arrivals land in the dock as Phone">
+          aria-label="AirDrop" title="AirDrop: arrivals land in the dock as Phone">
           <span class="ap-lab">AirDrop</span>
           <span class="ap-sub" id="airdrop-sub">Waiting · click to arm · Android / wireless land here</span>
           <span class="ap-ack" id="airdrop-ack" aria-live="polite"></span>
@@ -1504,13 +1532,13 @@
     </div>
     <div class="input-dock" id="input-dock" aria-label="Inputs">
       <div class="input-dock-main">
-        <div class="input-dock-sum" id="input-dock-sum">Suggested · Drop · AirDrop · or drop here · ⏎ sorts</div>
+        <div class="input-dock-sum" id="input-dock-sum">Included</div>
         <div class="input-dock-row" id="input-dock-row">
           <div class="input-dock-empty" aria-hidden="true">Nothing enabled yet</div>
         </div>
       </div>
       <div class="input-dock-side">
-        <button type="button" class="primary" id="dock-sort" disabled title="Sort now · ⏎">Sort now</button>
+        <button type="button" class="primary" id="dock-sort" disabled title="Sort now · ⏎" aria-keyshortcuts="Enter">Sort now</button>
         <span class="dock-key" aria-hidden="true">⏎</span>
       </div>
     </div>
@@ -2785,7 +2813,7 @@
       "<div class=\"col pre\" id=\"foot-pre-col\" role=\"button\" tabindex=\"0\" " +
         "aria-expanded=\"false\" title=\"Prep details\">" +
         "<div class=\"k\">Prep</div>" +
-        "<div class=\"v mute\" id=\"foot-pre\">Idle — enable a volume</div>" +
+        "<div class=\"v mute\" id=\"foot-pre\">Idle</div>" +
         "<div class=\"bar\" aria-hidden=\"true\"><i id=\"foot-bar\"></i></div>" +
         "<div class=\"pre-card\" id=\"pre-card\" role=\"dialog\" aria-label=\"Prep\"></div>" +
       "</div>";
@@ -3729,15 +3757,13 @@
         else if (trail && trail.length && trail[trail.length - 1].path) dirHint = trail[0] ? trail[0].path : trail[trail.length - 1].path;
       } catch (_) {}
       const bits = [];
-      if (c.name) bits.push(c.name);
       if (c.files != null) bits.push(fmtN(c.files) + " files");
       if (c.gb != null) bits.push(fmtGb(c.gb));
-      if (dirHint) bits.push(dirHint);
       const meta = bits.join(" · ");
       return (
         '<button type="button" class="sd-card' + (on ? " on" : "") +
         '" draggable="true" data-vol="' + c.id + '" aria-pressed="' + (on ? "true" : "false") +
-        '" title="Click to open in Files · double-click to enable/disable · or drag onto Drop / dock">' +
+        '" aria-label="' + (c.volume || c.name || c.id) + ', ' + meta + '" title="Click to include · drag onto Drop">' +
         '<span class="sd-k">' + funnelKick(c) + "</span>" +
         '<span class="sd-n">' + (c.volume || c.name || c.id) + "</span>" +
         '<span class="sd-m">' + meta + "</span></button>"
@@ -3763,8 +3789,8 @@
     if (!vols.length) {
       const emptySig = "empty";
       if (row.dataset.sig !== emptySig) {
-        sum.textContent = "Drop · AirDrop · or drop a volume here";
-        row.innerHTML = '<div class="input-dock-empty" aria-hidden="true">Drop a volume here</div>';
+        sum.textContent = "Included";
+        row.innerHTML = '<div class="input-dock-empty" aria-hidden="true">Empty</div>';
         row.dataset.sig = emptySig;
       }
       if (sortBtn) sortBtn.disabled = true;
@@ -4077,9 +4103,9 @@
     // Sub line is stable for the whole receive — only ack row ticks (no layout thrash)
     if (airdropSub) {
       airdropSub.textContent =
-        state === "closed" ? "Off · click to turn on · Android / wireless land here"
-        : state === "listening" ? "Live · wireless arrivals land as Phone in the dock"
-        : "Receiving · Phone lands in the dock";
+        state === "closed" ? "Off"
+        : state === "listening" ? "Live"
+        : "Receiving";
     }
   }
   function patchAirDropAck(name, index, total) {

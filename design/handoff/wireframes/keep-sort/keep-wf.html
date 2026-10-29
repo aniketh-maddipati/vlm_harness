@@ -1223,6 +1223,30 @@
     .lv-center .cv-stage, .lv-scrub { width: 100%; }
     .lv-rail { border-left: 0; padding: 14px 0 0; }
   }
+  /* —— Polish (2026-10-29): one spacing scale, quick feedback, no subtitles ——
+     Every control answers in ≤ 120 ms: colour on hover, a slight press on :active, a ring on keyboard focus. */
+  :root { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; }
+  button, [role="button"], .dock-tile, .sl, .mk-row {
+    transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease,
+      box-shadow var(--dur-fast) ease, opacity var(--dur-fast) ease, transform 80ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:not(:disabled):not(.clip-tile):active, [role="button"]:active, .dock-tile:active { transform: scale(0.97); }
+  .clip-tile:active .frame { transform: scale(0.985); transition: transform 80ms ease; }
+  button:focus-visible, [role="button"]:focus-visible, a:focus-visible, [tabindex]:focus-visible:not(.sl) {
+    outline: 2px solid var(--ink); outline-offset: 2px;
+  }
+  .clip-tile:focus-visible { outline-offset: 3px; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .primary, .ghost, .danger { min-height: 34px; padding-inline: var(--s4); }
+  .clip-tile.dragging, .dock-tile.dragging { opacity: 0.4; }
+  .foot { min-height: 0; padding-block: var(--s1); }
+  .foot:has(#foot-right:empty) { display: none; }
+  .ed-pane { gap: var(--s3); }
+  .lv-rail { gap: var(--s4); }
+  @media (prefers-reduced-motion: reduce) {
+    button:active, [role="button"]:active, .dock-tile:active, .clip-tile:active .frame { transform: none; }
+  }
 </style>
 </head>
 <body>
@@ -1343,9 +1367,8 @@
   </div>
 
   <div class="foot">
-    <span id="foot-keys">← → · Space / hold Space · K · ⌘A · ⌘⇧A · Esc · dblclick · ⇧R</span>
     <span class="grow"></span>
-    <span id="foot-right">not kept stay in the folder</span>
+    <span id="foot-right"></span>
   </div>
 </div>
 
@@ -2021,7 +2044,7 @@
     const zf = zfAt || 0;
     const gut = zf ? axisFor(zf).gut : baseGut();
     const cols = Math.max(1, colsMax() - zf);
-    const gap = cols === 1 ? 0 : cols <= 3 ? 18 : cols <= 4 ? 16 : 14;
+    const gap = cols === 1 ? 14 : cols <= 3 ? 18 : cols <= 4 ? 16 : 14; // also the space between rows
     const fitW = Math.floor((sheetW() - gut - gap * (cols - 1) - 8) / cols);
     const fitH = Math.floor((($("scroller").clientHeight || 600) - 56) * 16 / 9);
     const w = Math.max(160, Math.min(fitW, fitH));
@@ -2072,6 +2095,7 @@
   function dockSize() {
     const n = state.keeps.size;
     if (n === 0) return { dw: 0, dph: 0 };
+    if (window.innerWidth < 560) return { dw: 112, dph: 63 };   // a phone: the dock never takes the sheet's height
     if (n <= 3) return { dw: 208, dph: 116 };
     if (n <= 8) return { dw: 176, dph: 98 };
     return { dw: 140, dph: 78 };
@@ -2206,7 +2230,8 @@
           '<button type="button" class="clip-tile' + (kept ? " kept" : "") + (on ? " on" : "") +
           (pick ? " pick" : "") + (inbound ? " inbound" : "") + (moved ? " moved" : "") +
           (skewF ? " skew-focus" : "") +
-          '" data-id="' + c.id + '" draggable="true">' +
+          '" data-id="' + c.id + '" draggable="true" aria-pressed="' + (pick ? "true" : "false") +
+          '" aria-label="' + c.name + (kept ? ", kept" : "") + (c.soft ? ", soft" : "") + '">' +
           frameHtml("thumb", c) + "</button>";
       }
       html += "</div></div>";
@@ -2230,13 +2255,13 @@
     dock.style.setProperty("--dph", sz.dph + "px");
 
     if (!kept.length) {
-      $("dock-sum").textContent = "Keep · drop here or K";
+      $("dock-sum").textContent = "Keep";
       $("dock-sum").classList.remove("foc");
-      $("dock-row").innerHTML = '<div class="dock-empty-ph" aria-hidden="true">Drop to select</div>';
+      $("dock-row").innerHTML = '<div class="dock-empty-ph" aria-hidden="true">Empty</div>';
     } else {
       const foc = state.dockFoc && state.keeps.has(state.dockFoc) ? state.dockFoc : null;
       $("dock-sum").textContent =
-        "Keep · " + kept.length + " clips · " + fmtDur(kept.reduce((a, c) => a + c.dur, 0)) +
+        "Keep · " + kept.length + (kept.length === 1 ? " clip · " : " clips · ") + fmtDur(kept.reduce((a, c) => a + c.dur, 0)) +
         " · " + fmtGB(keptBytes());
       $("dock-sum").classList.toggle("foc", !!foc);
       let html = "";
@@ -2642,9 +2667,9 @@
     const smk = selMask();
     $("mk-sel").hidden = !smk;
     $("mk-hint").textContent = smk
-      ? "Draw over a bad run to redraw it · ⇧-draw grows · ⌥-draw carves · drag a point, tap an edge to add one · Esc back"
-      : list.length ? "Tap a layer to refine it · tap an empty spot to fill a region · draw a closed shape for a new one · ○ clicks a layer out"
-      : "Tap anything to fill it as a layer, or draw around it with the pen. Each layer follows through the clip; click it out and back in at will.";
+      ? "Draw over an edge to redraw · ⇧ grows · ⌥ carves"
+      : list.length ? "Tap a layer · draw to add one"
+      : "Tap to fill · draw to outline";
     // Keys on the scrub line: the selected mask's keys solid, others hollow.
     let kh = "";
     list.forEach((m) => m.keys.forEach((k) => {
@@ -2665,8 +2690,8 @@
         (p[1] * 100).toFixed(2) + "%;width:" + (s.r * 200).toFixed(2) + '%"></i>';
     }).join("");
     $("heal-hint").textContent = list.length
-      ? list.length + (list.length === 1 ? " spot" : " spots") + " · each follows through the clip · click to add · drag out to size · drag a spot to move · ⌥-click removes"
-      : "Click a spot on the frame · drag out to size it";
+      ? list.length + (list.length === 1 ? " spot" : " spots") + " · ⌥-click removes"
+      : "Click a spot · drag out to size";
     $("heal-clear").hidden = !list.length;
     $("heal-clear").textContent = list.length > 1 ? "Clear all" : "Clear";
   }
@@ -2742,7 +2767,7 @@
   function renderFoot() {
     $("foot-right").textContent = state.packaged
       ? "package ready · " + (state.nle === "premiere" ? "Premiere" : "Final Cut")
-      : "not kept stay in the folder";
+      : "";
   }
 
   function render() {
@@ -2767,7 +2792,30 @@
     $("export-open").disabled = true;
     toast("Keeps changed · package again before Clean");
   }
+  const keepUndo = [], keepRedo = [];
+  let keepSnapAt = 0;
+  function keepSnap() {
+    const now = performance.now();
+    if (now - keepSnapAt > 60) {
+      keepUndo.push({ keeps: Array.from(state.keeps), order: state.keepOrder.slice() });
+      if (keepUndo.length > 100) keepUndo.shift();
+      keepRedo.length = 0;
+    }
+    keepSnapAt = now;
+  }
+  function keepRestore(from, to) {
+    const snap = from.pop();
+    if (!snap) { toast(from === keepUndo ? "Nothing to undo" : "Nothing to redo"); return; }
+    to.push({ keeps: Array.from(state.keeps), order: state.keepOrder.slice() });
+    state.keeps = new Set(snap.keeps);
+    state.keepOrder = snap.order.slice();
+    if (state.dockFoc && !state.keeps.has(state.dockFoc)) state.dockFoc = null;
+    markPackagedDirty();
+    render();
+    toast((from === keepUndo ? "Undo" : "Redo") + " · " + state.keeps.size + " kept");
+  }
   function keepOne(id, on) {
+    if (on !== state.keeps.has(id)) keepSnap();
     if (on) {
       state.keeps.add(id);
       if (!state.keepOrder.includes(id)) state.keepOrder.push(id);
@@ -3329,6 +3377,13 @@
     if (row) movePlaceTo(row.getAttribute("data-path"));
   };
 
+  document.addEventListener("click", (e) => {
+    if (!state.picked.size || e.shiftKey || e.metaKey || e.ctrlKey || mq.skipClick) return;
+    const t = e.target;
+    if (!t.closest || t.closest("#canvas, button, a, input, label, select, [role=button], [role=slider], [role=tab], .dock-tile, .clip-tile, .rod, .lv-main, .scrim, .export-stage, .toast")) return;
+    clearPicks();
+    paintSelection();
+  });
   $("canvas").onclick = (e) => {
     if (mq.skipClick) { mq.skipClick = false; return; }
     if (e.target.closest(".rod")) return;
@@ -4293,6 +4348,7 @@
   function paintPicks() {
     document.querySelectorAll(".clip-tile[data-id]").forEach((el) => {
       el.classList.toggle("pick", state.picked.has(el.dataset.id));
+      el.setAttribute("aria-pressed", state.picked.has(el.dataset.id) ? "true" : "false");
     });
   }
   scroller.addEventListener("pointermove", (e) => {
@@ -4353,6 +4409,11 @@
     }
     if (state.large && (e.key === "Backspace" || e.key === "Delete") && selMask()) {
       e.preventDefault(); delMask(); return;
+    }
+    if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey) && !e.altKey) {
+      e.preventDefault();
+      if (e.shiftKey) keepRestore(keepRedo, keepUndo); else keepRestore(keepUndo, keepRedo);
+      return;
     }
     if ((e.key === "k" || e.key === "K") && !e.metaKey && !e.ctrlKey) {
       e.preventDefault();
