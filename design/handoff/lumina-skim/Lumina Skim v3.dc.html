@@ -10,6 +10,30 @@
 <helmet>
 <script src="./lumina-video-data-mvp.js"></script>
 <style>
+/* Minimal (2026-10-29, the keep-sort wireframes): keep only, the frame first, no chrome that isn't used. What is cut
+   still works from its key (M, C, ⌘⌫, ⌘W, P); ?full=1 shows everything again. LOCAL-CHANGES 316. */
+html:not([data-full]) div[data-lumina=skim-bar]:not([style*="position:absolute"]),
+html:not([data-full]) [data-lumina=keybar],
+html:not([data-full]) [data-lumina=shoot-close],
+html:not([data-full]) [data-lumina=memory-pill],
+html:not([data-full]) [data-lumina=web-preview],
+html:not([data-full]) [data-lumina=report],
+html:not([data-full]) [data-lumina=tile-notes],
+html:not([data-full]) [data-bucket=maybe],
+html:not([data-full]) [data-bucket=cut],
+html:not([data-full]) [data-lumina=footer] [data-well],
+html:not([data-full]) [data-lumina=footer-cut],
+html:not([data-full]) [data-lumina=storage],
+html:not([data-full]) [data-lumina=viewer-top] [data-well=maybe],
+html:not([data-full]) [data-lumina=viewer-top] [data-well=cut],
+html:not([data-full]) [data-lumina=clip-remove],
+html:not([data-full]) [data-lumina=viewer-mark],
+html:not([data-full]) [data-lumina=viewer-mark-now],
+html:not([data-full]) [data-lumina=info] [data-facts],
+html:not([data-full]) [data-lumina=neighbours],
+html:not([data-full]) [data-lumina=tile-l2],
+html:not([data-full]) body:has([data-screen-label="Clip"]) [data-lumina=dock],
+html:not([data-full]) body:has([data-screen-label="Clip"]) [data-lumina=footer]{display:none!important}
 body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
 a{color:#EFECE6}a:hover{color:#B8B3AB}
 *,*::before,*::after{transition:none!important}
@@ -669,7 +693,7 @@ body:has([data-view=phone]){background:#111}
                 <sc-if value="{{ g.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ g.ghostC }};font-weight:700;opacity:0.7">{{ g.ghostT }}</div></sc-if>
               </div>
               <div style="flex:none;height:{{ g.tH }};display:flex;align-items:baseline;justify-content:space-between;gap:8px;overflow:hidden"><span style="font-family:{{ g.tFont }};font-size:{{ g.tSize }};line-height:{{ g.tH }};color:#EFECE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.title }}</span><span style="flex:none;color:{{ g.rightC }};white-space:nowrap">{{ g.right }}</span></div>
-              <sc-if value="{{ g.l2 }}" hint-placeholder-val="{{ true }}"><div style="flex:none;height:16px;line-height:16px;display:flex;justify-content:space-between;gap:8px;color:#B8B3AB;white-space:nowrap;overflow:hidden"><span style="overflow:hidden;text-overflow:ellipsis">{{ g.line }}</span><span data-lumina="tile-why" title="why this tile starts here" style="flex:none;color:#9A958D">{{ g.why }}</span></div></sc-if>
+              <sc-if value="{{ g.l2 }}" hint-placeholder-val="{{ true }}"><div data-lumina="tile-l2" style="flex:none;height:16px;line-height:16px;display:flex;justify-content:space-between;gap:8px;color:#B8B3AB;white-space:nowrap;overflow:hidden"><span style="overflow:hidden;text-overflow:ellipsis">{{ g.line }}</span><span data-lumina="tile-why" title="why this tile starts here" style="flex:none;color:#9A958D">{{ g.why }}</span></div></sc-if>
               <sc-if value="{{ g.fold }}" hint-placeholder-val="{{ true }}">
                 <div style="flex:none;height:6px;display:flex;gap:3px;overflow:hidden"><sc-if value="{{ g.dotsOn }}" hint-placeholder-val="{{ true }}"><sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="10"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:{{ d.c }}"></span></sc-for></sc-if><sc-if value="{{ g.barOn }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;height:6px;border-radius:3px;overflow:hidden;background:rgba(239,236,230,0.16)"><sc-for list="{{ g.segs }}" as="s" hint-placeholder-count="3"><span style="width:{{ s.w }};background:{{ s.c }}"></span></sc-for></div></sc-if></div>
                 <div data-lumina="tile-marks" title="{{ g.cntT }}" style="flex:none;height:16px;line-height:16px;display:flex;gap:10px;white-space:nowrap;overflow:hidden"><sc-for list="{{ g.cnt }}" as="k" hint-placeholder-count="4"><span style="flex:none;color:{{ k.c }}">{{ k.t }}</span></sc-for></div>
@@ -1255,6 +1279,7 @@ class Component extends DCLogic {
   panRef = el => { this.panEl = el; };
 
   componentDidMount() {
+    if (/[?&]full=1\b/.test(location.search)) document.documentElement.setAttribute('data-full', '');
     this.load();
     this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => { this.panS = null; this.setState({held:null}); };
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
@@ -3668,7 +3693,7 @@ class Component extends DCLogic {
   // The height the dock takes from the window (the Viewer and the scene fit leave it room).
   // In the Viewer the slim strip keeps its height while it is empty, so the first K does not shrink the picture
   // (a smaller picture let the chapter's neighbours in beside it, which read as K opening the next clip).
-  dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; return this.dockPh() + (this.dockSlim() ? 49 : 68) + 22; }
+  dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; if (st.lv >= 2 && !document.documentElement.hasAttribute('data-full')) return 0; /* minimal: no dock in the Viewer */ return this.dockPh() + (this.dockSlim() ? 49 : 68) + 22; }
   dockIn(m) { const bk = this.state.bk; return bk ? m === bk : m === 'keep' || m === 'maybe' || (m === 'cut' && this.state.cutsOpen); }
   dockIds() { const st = this.state; return Component.dockList(this.d ? this.d.clips : [], st.marks, !!st.cutsOpen, st.bk).map(x => x.id); }
   // While the dock has focus it follows the clip you are on when that clip is selected (an undo can move you).
