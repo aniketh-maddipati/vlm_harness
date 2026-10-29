@@ -2824,16 +2824,28 @@ class Component extends DCLogic {
   static clipAt(flat, cur, d) { const i = flat.indexOf(cur); return i < 0 ? null : flat[i + d] || null; }
   // Preview is the Viewer on the clip under the cursor. Hold Space to look and let go to come back; a tap (under
   // 230 ms, as a quick mark) keeps it open, and the next Space closes it, back where it was opened from.
+  // Space, as the wireframe has it: a tap opens the Viewer and a tap closes it; held, it plays the clip while it is held
+  // (from the grid, letting go goes back to the grid, as before). The hold is told from the tap after 230 ms.
+  spaceHoldArm() {
+    clearTimeout(this.spT); this.spPlayed = false;
+    // Kept playing while held: the Viewer may swap its video in the first moments (a new element starts paused).
+    const tryPlay = (n) => { if (!this.spHeld) return; if (!this.playing) this.vidPlay(); if (this.playing) this.spPlayed = true; if (n < 600) this.spT = setTimeout(() => tryPlay(n + 1), 100); };
+    this.spT = setTimeout(() => tryPlay(0), 230);
+  }
   spaceDown(e) {
     const st = this.state; if (!this.d.clips.length) return;
-    if (st.lv >= 2) { const from = this.pvFrom ?? (st.cv ? 0 : 1); this.pvPeek = null; this.pvFrom = null; return this.pvBack(from); }
+    this.spHeld = true;
+    if (st.lv >= 2) { this.spIn = {at:e.timeStamp}; return this.spaceHoldArm(); }
     let cur = st.cur;
     if (!st.cv && st.lv === 0) { const first = this.firstVis(st.gi); cur = this.gOf[st.cur] === st.gi ? st.cur : first; }
     if (!cur || !this.byId[cur]) return;
     this.pvPeek = {at:e.timeStamp}; this.pvFrom = st.lv; this.pvAt = st.cv && st.lv === 0 && this.sc ? {top:this.sc.scrollTop, cur} : null;
-    this.setState({lv:2, cur, fx:0, sel:[], box:null, pan:[0.5, 0.5]});
+    this.setState({lv:2, cur, fx:0, sel:[], box:null, pan:[0.5, 0.5]}); this.spaceHoldArm();
   }
   spaceUp(e) {
+    this.spHeld = false; clearTimeout(this.spT); const played = this.spPlayed; this.spPlayed = false; if (played && this.playing) this.vidPause();
+    const i = this.spIn; this.spIn = null;
+    if (i) { if (e.timeStamp - i.at >= 230 || this.state.lv < 2) return; const from = this.pvFrom ?? (this.state.cv ? 0 : 1); this.pvPeek = null; this.pvFrom = null; return this.pvBack(from); }
     const p = this.pvPeek; this.pvPeek = null; if (!p || e.timeStamp - p.at < 230 || this.state.lv < 2) return;
     const from = this.pvFrom ?? 0; this.pvFrom = null; this.pvBack(from);
   }
