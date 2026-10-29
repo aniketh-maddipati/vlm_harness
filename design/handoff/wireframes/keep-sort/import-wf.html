@@ -1365,6 +1365,13 @@
     margin-top: 6px;
     font-size: 12px; font-weight: 650; color: var(--mute);
   }
+  .sd-card.dragging { opacity: 0.45; }
+  .sd-card.on {
+    border-color: var(--ink); color: var(--ink);
+    background: light-dark(rgba(26,25,23,0.08), rgba(239,236,230,0.1));
+  }
+  /* Locked: no Phone card, lanes, Add, or chip strip under Drop */
+  #phone-card, #lanes, #import-add { display: none !important; }
   /* Large SD designation cards — top only, drag onto Drop */
   .sd-top {
     flex: none;
@@ -1436,24 +1443,8 @@
   </div>
 
   <div class="pane on" id="pane-sources" role="tabpanel">
-    <!-- Large SD cards — drag onto Drop -->
-    <div class="sd-rail" id="sd-rail" aria-label="SD cards">
-      <button type="button" class="sd-card" draggable="true" data-vol="sony-card" aria-pressed="false">
-        <span class="sd-k">SD</span>
-        <span class="sd-n">Untitled</span>
-        <span class="sd-m">100MSDCF · 480</span>
-      </button>
-      <button type="button" class="sd-card" draggable="true" data-vol="sony-card-2" aria-pressed="false">
-        <span class="sd-k">SD</span>
-        <span class="sd-n">Untitled</span>
-        <span class="sd-m">101MSDCF · 120</span>
-      </button>
-      <button type="button" class="sd-card" draggable="true" data-vol="drone" aria-pressed="false">
-        <span class="sd-k">SD</span>
-        <span class="sd-n">DJI</span>
-        <span class="sd-m">101MEDIA · 52</span>
-      </button>
-    </div>
+    <!-- Sensed volumes — funnel onto Drop (not a chip strip under Drop) -->
+    <div class="sd-rail" id="sd-rail" aria-label="Sensed volumes"></div>
     <div class="split" id="split">
       <div class="left" id="drop">
         <div class="head">
@@ -1464,6 +1455,7 @@
         </div>
         <button type="button" class="dump-hero" id="dump-drop" aria-label="Drop">
           <span class="dh-lab">Drop</span>
+          <span class="dh-sub">Drag a sensed volume · Sort opens on the time axis</span>
         </button>
         <button type="button" class="phone-card" id="phone-card" aria-pressed="false"
           title="Arm inbox — AirDrop opens the phone volume automatically"
@@ -1522,7 +1514,7 @@
     </div>
     <div class="foot" id="foot" aria-live="polite"></div>
     <div class="step-cta" id="sources-cta">
-      <button type="button" class="primary" id="btn-open-select">Open in Select</button>
+      <button type="button" class="primary" id="btn-open-select">Open in Sort</button>
       <span class="cta-note" id="sources-cta-note">Keep-only skim · Rec.709 for Log</span>
     </div>
   </div>
@@ -3503,7 +3495,31 @@
     openAddSheet();
   }
 
+  function funnelKick(src) {
+    if (src.destKey === "sd") return "SD";
+    if (src.destKey === "ssd") return "SSD";
+    if (src.destKey === "phone") return "Inbox";
+    if (src.destKey === "hd") return "HD";
+    return (src.dest || "Vol").toUpperCase();
+  }
+  function renderFunnel() {
+    const rail = document.getElementById("sd-rail");
+    if (!rail) return;
+    const sensed = catalog.filter((c) => c.sensed);
+    rail.innerHTML = sensed.map((c) => {
+      const on = isSelected(c.id);
+      const meta = (c.name || "") + (c.files != null ? " · " + c.files : "");
+      return (
+        '<button type="button" class="sd-card' + (on ? " on" : "") +
+        '" draggable="true" data-vol="' + c.id + '" aria-pressed="' + (on ? "true" : "false") + '">' +
+        '<span class="sd-k">' + funnelKick(c) + "</span>" +
+        '<span class="sd-n">' + (c.volume || c.name || c.id) + "</span>" +
+        '<span class="sd-m">' + meta + "</span></button>"
+      );
+    }).join("");
+  }
   function renderAll() {
+    renderFunnel();
     renderLanes();
     renderFs();
   }
@@ -3845,6 +3861,8 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
+      const ask = document.getElementById("dump-ask");
+      if (ask && !ask.hidden) { closeDumpAsk(); return; }
       if (previewFile) { closePreview(); return; }
       const addWrap = document.getElementById("import-add");
       if (addWrap && addWrap.classList.contains("open")) { closeAddSheet(); return; }
@@ -3972,13 +3990,58 @@
 
   // —— Dump hero → confirm → Sort ——
   let dumpAskPending = null;
-  function renderVolStrip() { /* no-op */ }
+  function renderVolStrip() { /* no-op — chip strip stays deleted */ }
+  let funnelFocus = null;
+  function dumpSrc() {
+    const focus = funnelFocus && byId(funnelFocus);
+    if (focus && focus.sensed) return focus;
+    const fromSel = selected.map((s) => byId(s.id)).find(Boolean);
+    return fromSel || catalog.find((c) => c.sensed) || null;
+  }
+  function openDumpAsk(src) {
+    if (!src) return;
+    dumpAskPending = src;
+    funnelFocus = src.id;
+    if (!isSelected(src.id)) {
+      activate(src.id, { quiet: true });
+      renderAll();
+    }
+    const h = document.getElementById("dump-ask-h");
+    const sub = document.getElementById("dump-ask-sub");
+    if (h) h.textContent = "Sort " + (src.volume || src.name || "this card") + "?";
+    if (sub) {
+      const n = src.files != null ? src.files : 0;
+      sub.textContent = n + " files · " + (src.name || src.volume || "") + " · Rec.709 for Log.";
+    }
+    const ask = document.getElementById("dump-ask");
+    if (ask) ask.hidden = false;
+  }
+  function closeDumpAsk() {
+    const ask = document.getElementById("dump-ask");
+    if (ask) ask.hidden = true;
+    dumpAskPending = null;
+  }
+  function goSortFromDump(src) {
+    const payload = {
+      vol: src && src.id || "",
+      volume: src && src.volume || "",
+      name: src && src.name || "",
+      files: src && src.files || 0,
+      dest: src && src.dest || "",
+      place: "~/Movies/Dump-Day1"
+    };
+    try { sessionStorage.setItem("lumina-keep-handoff", JSON.stringify(payload)); }
+    catch (_) {}
+    location.href = "keep-wf.html";
+  }
   const sdRail = document.getElementById("sd-rail");
   if (sdRail) {
     sdRail.addEventListener("dragstart", (e) => {
       const card = e.target.closest(".sd-card[data-vol]");
       if (!card) return;
-      e.dataTransfer.setData("text/plain", card.getAttribute("data-vol"));
+      const vol = card.getAttribute("data-vol");
+      e.dataTransfer.setData("text/plain", vol);
+      e.dataTransfer.setData("application/x-lumina-dump", vol);
       e.dataTransfer.effectAllowed = "copy";
       card.classList.add("dragging");
     });
@@ -3993,12 +4056,53 @@
       if (src) openDumpAsk(src);
     });
   }
+  const dumpDrop = document.getElementById("dump-drop");
+  if (dumpDrop) {
+    ["dragenter", "dragover"].forEach((ev) => {
+      dumpDrop.addEventListener(ev, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dumpDrop.classList.add("drag-over");
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+      });
+    });
+    dumpDrop.addEventListener("dragleave", (e) => {
+      if (!dumpDrop.contains(e.relatedTarget)) dumpDrop.classList.remove("drag-over");
+    });
+    dumpDrop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dumpDrop.classList.remove("drag-over");
+      dropEl.classList.remove("drag-over");
+      const vol = (e.dataTransfer && (
+        e.dataTransfer.getData("application/x-lumina-dump") ||
+        e.dataTransfer.getData("text/plain")
+      )) || "";
+      const src = byId(vol);
+      if (src) { openDumpAsk(src); return; }
+      toast("Drop a sensed volume");
+    });
+    dumpDrop.addEventListener("click", (e) => {
+      e.preventDefault();
+      const src = dumpSrc();
+      if (src) openDumpAsk(src);
+      else toast("Drop a sensed volume");
+    });
+  }
   const askYes = document.getElementById("dump-ask-yes");
   const askNo = document.getElementById("dump-ask-no");
   if (askYes) askYes.onclick = () => { const s = dumpAskPending; closeDumpAsk(); if (s) goSortFromDump(s); };
   if (askNo) askNo.onclick = () => closeDumpAsk();
   const askScrim = document.getElementById("dump-ask");
   if (askScrim) askScrim.addEventListener("click", (e) => { if (e.target === askScrim) closeDumpAsk(); });
+  const openSort = document.getElementById("btn-open-select");
+  if (openSort) {
+    openSort.onclick = () => {
+      const src = dumpSrc();
+      if (src && !isSelected(src.id)) { activate(src.id, { quiet: true }); renderAll(); }
+      goSortFromDump(src);
+    };
+  }
 
   const _renderAll = typeof renderAll === "function" ? renderAll : null;
   // Boot: sensed cards/volumes appear available but NOT selected until chosen.
