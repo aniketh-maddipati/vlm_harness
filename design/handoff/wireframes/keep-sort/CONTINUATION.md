@@ -214,6 +214,22 @@ NEXT 1 (continuous pinch) and NEXT 2 (fill-frame cards + hover play) had already
 - **Copy / paste look:** ⌘C / ⌘V (and Copy look · Paste in the Color pane). Large view: copies / pastes the target (whole clip or the picked layer). Sheet: ⌘C copies the cursor clip's look, ⌘V pastes onto every picked clip. Toasts name the look (`ev +0.50 · warm +12`); not taken while text is selected.
 - **Edits survive + Add clips:** looks, layers and heal spots ride the `lumina-keep-session` handoff; layer / spot ids continue past what came back.
 
+## Space · pinch in the large view · Lightroom-style Color (2026-10-29, ninth pass)
+
+Owner: "large view needs to be done via space and space again to click out. hold space is preview, pinch zoom applies. controls should fill half length screen", then "needs to include color grading controls and fine control of sky blues and exposure correction … LR mobile or DaVinci Resolve" as the reference.
+
+- **Space:** a tap (< 280 ms) opens the large view; tap again closes. **Hold = preview:** from the sheet it opens, plays while held and closes on release; in the large view it plays while held and stays. A real play loop (rAF, ~30 fps, the take's own length, loops) replaces the old +0.08 bump. Enter still opens, Esc still closes. Ignored while Export / Saving-to is open.
+- **Pinch in the large view:** ⌃/⌘-wheel on the frame zooms 1×–8× about the pointer (the point under it holds: 0.300 → 0.2996 at 605 %); two-finger scroll or a drag pans; double-click goes back to fit; a pinch out at 1× closes the view (old grammar). The transform is clipped to the frame's own box (`clip-path`), so the scrub line and rail never move; the time line shows `· 605%`. Zoom resets on a new clip. No hover-skim while zoomed. Pen, heal and the loupe stay under the cursor (loupe scaled back to 132 screen px, 3× of what is on screen, kept inside the visible part).
+- **Color = Lightroom mobile's groups**, B&W ink, `Light · Color · Mix · Grade` under the target chip:
+  - **Light** (exposure correction): Exposure ±4 · Contrast · Highlights · Shadows · Whites · Blacks; **Auto** = a deterministic stand-in per clip (toast says no pixels are read).
+  - **Color:** Temp (`wb`) · Tint · Vibrance · Saturation.
+  - **Mix** (sky blues): Red … Magenta chips (a dot on edited ones), Hue / Saturation / Luminance for the chosen hue. Opens on **Blue** when the target is a Sky or Water layer.
+  - **Grade** (Lightroom's colour grading, Resolve's wheels): Shadows · Midtones · Highlights · Global (` ·` on edited zones), one ink wheel (R Y G C B M; angle = hue, distance = strength, readout `H 231° · S 70`), Luminance, Blending (default 50), Balance.
+  - Rows: drag the whole row (ev 1 stop / 120 px, others the range / 400 px), **⌥-drag = ¼ for fine control** (wheel too), double-click resets, sideways wheel nudges, ← → step. One delegated handler; rows update in place.
+  - The look is a nested object read by path (`ev`, `mix.blue.s`, `grade.mid.h`), missing = default; copy / paste deep-clone it; the toast and Export's "graded" count read any non-default value.
+- **Half height:** the active pane is at least 50vh and Light's rows spread to fill it; rail children no longer shrink, so a tall group (Grade) scrolls the rail instead of running under Keep.
+- Gone: `G_IDS`, `G_MAX`, `syncGradeUI`, `setG`, the four static rows.
+
 ## Pending (owner — next paste)
 
 Nothing open from the last brief. Candidates: a real frame under the loupe once there is one; heal spot pick + per-spot size after placing (today: size only while placing); paste a look onto a range of clips from the large view's strip.
