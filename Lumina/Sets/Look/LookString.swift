@@ -67,6 +67,18 @@ nonisolated struct Look: Equatable, Sendable {
     /// picture the global look made and are blended into it through the mask (`LookPipeline.apply`).
     /// A mask the photo does not have (yet) renders as if its token were not there.
     var locals: [Local] = []
+    /// Sky blue, 0 … 100 (`LookMath.skyBlue`): only ever set inside a mask (`mask:sky/blu=40`), and
+    /// only read while `Look.skyFeatures` is on. Never written globally.
+    var skyBlue: Double = 0
+
+    /// The blue-skies prototype (LookSky: `blu` inside a mask). Off: `blu` is an unknown key, as it
+    /// was before the prototype, so every look renders and parses exactly as before. On in Debug
+    /// builds and the tools with `LUMINA_SKY=1`, and in tests that set it; never in Release.
+    #if DEBUG || LUMINA_TOOLS
+    nonisolated(unsafe) static var skyFeatures = ProcessInfo.processInfo.environment["LUMINA_SKY"] == "1"
+    #else
+    static let skyFeatures = false
+    #endif
 
     /// One mask's sliders: the nine of Light and Colour that make sense in a region. White balance
     /// is left out for now (its stage reads the photo's as-shot pair, and the page has no local
@@ -75,6 +87,8 @@ nonisolated struct Look: Equatable, Sendable {
         var mask: String
         var ev = 0.0, contrast = 0.0, highlights = 0.0, shadows = 0.0, whites = 0.0, blacks = 0.0
         var vibrance = 0.0, saturation = 0.0, clarity = 0.0
+        /// Sky blue (`blu`, LookSky), behind `Look.skyFeatures`.
+        var skyBlue = 0.0
 
         init(mask: String) { self.mask = mask }
 
@@ -87,6 +101,7 @@ nonisolated struct Look: Equatable, Sendable {
             var l = Look()
             l.ev = ev; l.contrast = contrast; l.highlights = highlights; l.shadows = shadows
             l.whites = whites; l.blacks = blacks; l.vibrance = vibrance; l.saturation = saturation; l.clarity = clarity
+            l.skyBlue = skyBlue
             return l
         }
 
@@ -94,7 +109,7 @@ nonisolated struct Look: Equatable, Sendable {
         /// Ranges and precision are the global sliders' (`Look.ranges`).
         static let keys: [(key: String, field: WritableKeyPath<Local, Double>)] = [
             ("ev", \.ev), ("con", \.contrast), ("hl", \.highlights), ("sh", \.shadows), ("wh", \.whites),
-            ("bl", \.blacks), ("vib", \.vibrance), ("sat", \.saturation), ("clr", \.clarity),
+            ("bl", \.blacks), ("vib", \.vibrance), ("sat", \.saturation), ("clr", \.clarity), ("blu", \.skyBlue),
         ]
 
         /// A mask id as `LookMasks` names them: lower-case letters, digits and hyphens, 1 … 64.
@@ -213,6 +228,7 @@ nonisolated struct Look: Equatable, Sendable {
         "bl": Range(min: -100, max: 100, step: 1), "vib": Range(min: -100, max: 100, step: 1),
         "sat": Range(min: -100, max: 100, step: 1), "clr": Range(min: -100, max: 100, step: 1),
         "shp": Range(min: 0, max: 150, step: 1), "vig": Range(min: -100, max: 100, step: 1),
+        "blu": Range(min: 0, max: 100, step: 1),
     ]
     static let kelvinRange = Range(min: 2000, max: 50000, step: 1)
     static let tintRange = Range(min: -150, max: 150, step: 1)
@@ -399,7 +415,7 @@ nonisolated struct Look: Equatable, Sendable {
         for pair in parts[1].split(separator: ",", omittingEmptySubsequences: false) {
             let kv = pair.split(separator: "=", omittingEmptySubsequences: false).map(String.init)
             guard kv.count == 2 else { throw ParseError(description: "mask '\(id)' wants k=v, got '\(pair)'") }
-            guard let field = Local.keys.first(where: { $0.key == kv[0] })?.field else { throw ParseError(description: "mask '\(id)': unknown key '\(kv[0])'") }
+            guard kv[0] != "blu" || skyFeatures, let field = Local.keys.first(where: { $0.key == kv[0] })?.field else { throw ParseError(description: "mask '\(id)': unknown key '\(kv[0])'") }
             guard seen.insert(kv[0]).inserted else { throw ParseError(description: "mask '\(id)': '\(kv[0])' given twice") }
             local[keyPath: field] = clamp(try number(kv[1], "mask \(id) \(kv[0])"), ranges[kv[0]]!)
         }
