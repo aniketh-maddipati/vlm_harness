@@ -758,6 +758,7 @@ body:has([data-view=phone]){background:#111}
                   <div style="position:absolute;inset:0;background:{{ it.bg }};filter:{{ it.flt }};animation:{{ it.anim }};transform:{{ it.zt }};transform-origin:{{ it.zo }}"></div>
                   <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><video ref="{{ vidRef }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transition:opacity 120ms;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></video></sc-if>
                   <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ pvCvRef }}" data-lumina="viewer-preview" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transition:opacity 120ms ease-out;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></canvas></sc-if>
+                  <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ gdCvRef }}" data-lumina="viewer-look" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 120ms ease-out;transform:{{ it.zt }};transform-origin:{{ it.zo }};pointer-events:none"></canvas></sc-if>
                   <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ olCvRef }}" data-lumina="viewer-outlines" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:{{ it.zt }};transform-origin:{{ it.zo }};pointer-events:none"></canvas></sc-if>
                   <sc-if value="{{ it.zOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="zoom" style="position:absolute;left:8px;bottom:8px;padding:2px 8px;border-radius:5px;background:rgba(22,21,20,0.82);color:#EFECE6;pointer-events:none">{{ it.zT }}</div></sc-if>
                   <sc-if value="{{ it.hvOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:0;bottom:0;left:{{ it.hx }};width:1px;background:rgba(239,236,230,0.6);pointer-events:none"></div></sc-if>
@@ -805,6 +806,20 @@ body:has([data-view=phone]){background:#111}
               <span data-lumina="viewer-cut" style="margin-left:auto;color:{{ cutC }};white-space:nowrap">{{ cutSoFar }}</span>
             </div>
           </div>
+<sc-if value="{{ lk.on }}" hint-placeholder-val="{{ false }}"><div data-lumina="look" style="order:1;grid-column:1 / -1;align-self:start;display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:9px;background:#161514;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08);user-select:none;-webkit-user-select:none">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0"><span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:#EFECE6">Color</span><span data-lumina="look-say" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9A958D">{{ lk.say }}</span>
+              <span style="margin-left:auto;display:flex;gap:4px;flex:none">
+                <button type="button" data-lumina="look-copy" title="Copy this clip's look · ⌘C" onClick="{{ lkCopy }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6">Copy</button>
+                <sc-if value="{{ lk.pasteOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="look-paste" title="{{ lk.pasteTip }}" onClick="{{ lkPaste }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6">Paste</button></sc-if>
+                <sc-if value="{{ lk.resetOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="look-reset" title="Back to the clip as shot · ⌘Z puts it back" onClick="{{ lkReset }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;color:#9A958D">Reset</button></sc-if>
+              </span></div>
+            <div data-lumina="look-secs" role="tablist" aria-label="Color" style="display:flex;padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)"><sc-for list="{{ lk.secs }}" as="ls" hint-placeholder-count="4"><button type="button" role="tab" aria-selected="{{ ls.on }}" data-lksec="{{ ls.k }}" onClick="{{ lkSec }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1;height:28px;border-radius:5px;text-align:center;background:{{ ls.bg }};color:{{ ls.fg }};box-shadow:{{ ls.sh }}">{{ ls.t }}</button></sc-for></div>
+            <sc-if value="{{ lk.mixOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="look-hues" style="display:flex;justify-content:space-between;gap:4px"><sc-for list="{{ lk.hues }}" as="lh" hint-placeholder-count="8"><button type="button" data-lkhue="{{ lh.k }}" title="{{ lh.t }}" aria-label="{{ lh.t }}" aria-pressed="{{ lh.on }}" onClick="{{ lkHue }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:relative;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;box-shadow:{{ lh.ring }}"><span style="width:16px;height:16px;border-radius:50%;background:{{ lh.dot }}"></span><sc-if value="{{ lh.ed }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:0;bottom:0;width:6px;height:6px;border-radius:50%;background:#EFECE6;box-shadow:0 0 0 1.5px #161514"></span></sc-if></button></sc-for></div><div style="color:#9A958D">{{ lk.hueSay }}</div></sc-if>
+            <sc-if value="{{ lk.gradeOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="look-zones" style="display:flex;gap:4px"><sc-for list="{{ lk.zones }}" as="lz" hint-placeholder-count="4"><button type="button" data-lkzone="{{ lz.k }}" aria-pressed="{{ lz.on }}" onClick="{{ lkZone }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1;height:28px;border-radius:6px;text-align:center;background:{{ lz.bg }};color:{{ lz.fg }}">{{ lz.t }}</button></sc-for></div>
+              <div style="display:flex;align-items:center;gap:14px"><div data-lumina="look-wheel" title="Drag to tint · ⌥ for fine · 2×click resets" onPointerDown="{{ lkWheelDown }}" onDoubleClick="{{ lkWheelDbl }}" style="position:relative;flex:none;width:132px;height:132px;border-radius:50%;cursor:crosshair;touch-action:none;background:radial-gradient(circle,#2A2826 0 30%,transparent 72%),conic-gradient(from 0deg,hsl(0,55%,45%),hsl(60,55%,45%),hsl(120,55%,45%),hsl(180,55%,45%),hsl(240,55%,45%),hsl(300,55%,45%),hsl(360,55%,45%));box-shadow:inset 0 0 0 1px rgba(239,236,230,0.18)"><div style="position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:rgba(239,236,230,0.5)"></div><div data-lumina="look-puck" style="position:absolute;left:{{ lk.wx }};top:{{ lk.wy }};width:14px;height:14px;margin:-7px;border-radius:50%;background:#EFECE6;box-shadow:0 0 0 2px #161514,0 1px 3px rgba(0,0,0,0.5);pointer-events:none"></div></div>
+              <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="color:#EFECE6">{{ lk.zoneT }}</span><span data-lumina="look-wheel-say" style="color:#9A958D;font-variant-numeric:tabular-nums">{{ lk.wSay }}</span></div></div></sc-if>
+            <sc-for list="{{ lk.rows }}" as="lr" hint-placeholder-count="6"><div data-lkp="{{ lr.p }}" role="slider" aria-label="{{ lr.l }}" aria-valuetext="{{ lr.v }}" title="Drag the row · ⌥ for fine · 2×click resets" onPointerDown="{{ lkDown }}" onDoubleClick="{{ lkDbl }}" style="display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 12px;row-gap:5px;align-items:center;min-height:42px;align-content:center;margin:0 -6px;padding:0 6px;border-radius:7px;cursor:ew-resize;touch-action:none;background:{{ lr.bg }}"><span style="color:#EFECE6">{{ lr.l }}</span><span style="color:{{ lr.vc }};font-variant-numeric:tabular-nums;min-width:44px;text-align:right">{{ lr.v }}</span><div style="grid-column:1 / -1;position:relative;height:12px"><div style="position:absolute;left:0;right:0;top:5px;height:2px;border-radius:1px;background:rgba(239,236,230,0.14)"></div><div style="position:absolute;left:{{ lr.d }};top:2px;width:1px;height:8px;background:rgba(239,236,230,0.3)"></div><div style="position:absolute;left:{{ lr.fl }};width:{{ lr.fw }};top:5px;height:2px;border-radius:1px;background:#EFECE6"></div><div style="position:absolute;left:{{ lr.kx }};top:0;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#1E1D1B;box-shadow:inset 0 0 0 2px #EFECE6"></div></div></div></sc-for>
+          </div></sc-if>
           <sc-for list="{{ cv.groups }}" as="gr" hint-placeholder-count="3"><div data-facts="{{ gr.key }}" style="order:{{ gr.order }};grid-column:{{ gr.span }};align-self:start;display:flex;flex-direction:column;gap:3px;line-height:1.45;padding:10px 12px;border-radius:9px;background:{{ gr.bg }};box-shadow:inset 0 0 0 1px {{ gr.line }}">
             <span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:{{ gr.tc }}">{{ gr.t }}</span>
             <sc-for list="{{ gr.rows }}" as="fl" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ fl.k }}</span><span style="color:{{ fl.c }};font-family:{{ fl.ff }};font-size:{{ fl.fs }};overflow-wrap:anywhere">{{ fl.v }}</span></div></sc-for>
@@ -1376,7 +1391,7 @@ class Component extends DCLogic {
     { const wk = this._wk || {}; if (this.d && (wk.d !== this.d || wk.m !== s0.marks)) { this._wk = {d:this.d, m:s0.marks}; if (s0.step === 'skim') this.exWarmSoon(); } }
     if (s0.step === 'export' && !this.plT) this.plT = setInterval(() => { if (!document.hidden && this.state.step === 'export') this.wsPlacesPoll(); }, 4000);
     if (s0.step !== 'export' && this.plT) { clearInterval(this.plT); this.plT = null; }
-    this.syncVid(); this.paintVid(); this.olPaint(); this.fgPaint();
+    this.syncVid(); this.paintVid(); this.gradeDraw(); this.olPaint(); this.fgPaint();
   }
   load() {
     const S = window.LuminaVideoSamples, host = window.LuminaVideo && !window.LuminaVideo.__sample ? window.LuminaVideo : null;
@@ -2651,6 +2666,7 @@ class Component extends DCLogic {
       else this.api('mark', step.ids, step.next);
       return (back ? 'undid · ' : 'redid · ') + this.verb(step.next) + ' ' + this.plural(step.ids.length, 'clip');
     }
+    if (step.k === 'look') { const m = {...this.looks()}; step.ids.forEach(id => { const L = (back ? step.prev : step.next)[id]; if (L && !Component.lkFlat(L)) m[id] = L; else delete m[id]; }); this.looksPut(m); this.goClip(step.ids[0]); return (back ? 'undid · ' : 'redid · ') + step.say; }
     if (step.k === 'remove') { this.clipsOut(step, back); return (back ? 'put back · ' : 'took out again · ') + this.plural(step.ids.length, 'clip'); }
   }
   undo() { const st = this.state; if (!st.undo.length) return; const step = st.undo[st.undo.length - 1]; this.setState({undo:st.undo.slice(0, -1), redo:[...st.redo, step]}); this.flash(this.apply(step, true)); }
@@ -2858,6 +2874,7 @@ class Component extends DCLogic {
     if (st.noKeep && k === 'Enter' && !meta) { e.preventDefault(); return this.noKeepBack(); }
     if (meta && (k === 'Enter' || kl === 'e')) { e.preventDefault(); return this.setStep('export'); }
     if (meta && kl === 'z') { e.preventDefault(); return e.shiftKey ? this.redo() : this.undo(); }
+    if (meta && (kl === 'c' || kl === 'v') && !e.shiftKey && !e.altKey && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) && !String((window.getSelection && window.getSelection()) || '')) { e.preventDefault(); return kl === 'c' ? this.lkCopy() : this.lkPaste(); }
     if (meta && (k === 'Backspace' || k === 'Delete') && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); if (!e.repeat) this.removeClips(this.removeIds()); return; }
     if (meta) return;
     if (t && t.tagName === 'INPUT' && k.startsWith('Arrow')) return;
@@ -3339,7 +3356,7 @@ class Component extends DCLogic {
       lv0:sk && !empty && !st.cv && st.lv === 0, lv1:sk && !empty && !st.cv && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, tsGo:this.tsGo, tsBack:false, tsFwd:false, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static', lv2Rows:'auto', topCol:'1', picRow:'2', infoCol:'1', infoRow:'3',
-      wClick:this.wClick, 
+      wClick:this.wClick, gdCvRef:this.gdCvRef, lk:{on:false, secs:[], hues:[], zones:[], rows:[]}, lkSec:this.lkSec, lkHue:this.lkHue, lkZone:this.lkZone, lkDown:this.lkDown, lkDbl:this.lkDbl, lkWheelDown:this.lkWheelDown, lkWheelDbl:this.lkWheelDbl, lkCopy:this.lkCopy, lkPaste:this.lkPaste, lkReset:this.lkReset,
       scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, fgCvRef:this.fgCvRef, fgClick:this.fgClick, playGo:this.playGo, pvCvRef:this.pvCvRef, olCvRef:this.olCvRef, olChip:this.olChip, olClick:this.olClick, folGo:this.folGo, folStop:this.folStop, folMatte:this.folMatte, folDrop:this.folDrop, folFix:this.folFix, folSeg:this.folSeg, folRemove:this.folRemove,
       grid42:true,
       boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
@@ -3503,6 +3520,7 @@ class Component extends DCLogic {
       { const i = this.flat.indexOf(c.id), P = this.flat[i - 1], N = this.flat[i + 1], nb = (id, col, arrow) => { const cc = this.byId[id], mm = st.marks[id], t0 = this.tone(cc, this.firstIdx()), nm = cc.name.replace(/\.\w+$/, '');
           return {id, col, op:mm === 'cut' ? 0.55 : 1, bg:t0.bg, flt:t0.flt, edge:mm ? 'inset 0 0 0 3px ' + MK[mm] : 'inset 0 0 0 1px rgba(239,236,230,0.12)', say:arrow + ' ' + nm + (mm ? ' · ' + this.W(mm) : ''), tip:nm + ' · ' + arrow}; };
         vals.nbrs = [P && nb(P, '1', '←'), N && nb(N, '2', '→')].filter(Boolean); vals.nbOn = st.vw > 640 && vals.nbrs.length > 0; }
+      vals.lk = this.lkVals(c);
       vals.clipOutGo = () => this.removeClips([c.id]);
       vals.backBg = st.backHit ? 'rgba(255,210,122,0.4)' : 'rgba(239,236,230,0.1)'; vals.backAnim = st.backHit ? 'press 140ms ease-out' : 'none';
       vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
@@ -5602,6 +5620,256 @@ class Component extends DCLogic {
       URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {} this.vOpen--; this.reading.delete(c.id); this.readMs = performance.now() - t0;
       this.bump(); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);
     });
+  }
+  // ---- Color: a look per clip (Lightroom mobile's Light · Color · Mix · Grade), drawn on the real picture.
+  // LOOK-BEGIN (pure: Tests/web/skim-look.test.mjs runs this block on its own)
+  // A look is a flat object of the values that differ from rest: {ev:0.4, 'mix.blue.s':-20, 'grade.sh.h':210, …}.
+  static LK_SECS = [['light', 'Light'], ['color', 'Color'], ['mix', 'Mix'], ['grade', 'Grade']];
+  static LK_ROWS = {light:[['ev', 'Exposure', 4], ['con', 'Contrast', 100], ['hl', 'Highlights', 100], ['sh', 'Shadows', 100], ['wh', 'Whites', 100], ['bl', 'Blacks', 100]],
+    color:[['temp', 'Temp', 100], ['tint', 'Tint', 100], ['vib', 'Vibrance', 100], ['sat', 'Saturation', 100]]};
+  static LK_HUES = [['red', 'Red', 0], ['orange', 'Orange', 30], ['yellow', 'Yellow', 60], ['green', 'Green', 120], ['aqua', 'Aqua', 180], ['blue', 'Blue', 220], ['purple', 'Purple', 270], ['magenta', 'Magenta', 320]];
+  static LK_ZONES = [['sh', 'Shadows'], ['mid', 'Midtones'], ['hi', 'Highlights'], ['all', 'Global']];
+  static lkDef(p) { return p === 'grade.blend' ? 50 : 0; }
+  static lkRange(p) { if (p === 'ev') return [-4, 4]; if (p === 'grade.blend' || /\.s$/.test(p) && p.indexOf('grade.') === 0) return [0, 100]; if (/^grade\.\w+\.h$/.test(p)) return [0, 360]; return [-100, 100]; }
+  static lkGet(L, p) { const v = L && L[p]; return typeof v === 'number' && isFinite(v) ? v : Component.lkDef(p); }
+  static lkClean(p, v) { const [a, b] = Component.lkRange(p); if (/^grade\.\w+\.h$/.test(p)) return Math.round(((v % 360) + 360) % 360); v = Math.max(a, Math.min(b, v)); return p === 'ev' ? Math.round(v * 100) / 100 : Math.round(v); }
+  static lkFlat(L) { return !L || Object.keys(L).every(p => Component.lkGet(L, p) === Component.lkDef(p) || /^grade\.\w+\.h$/.test(p) && !Component.lkGet(L, p.replace(/h$/, 's'))); }
+  static lkFmt(p, v) { if (p === 'ev') return (v > 0 ? '+' : '') + v.toFixed(2); if (/\.h$/.test(p) && p.indexOf('grade.') === 0) return v + '°'; if (p === 'grade.blend' || /^grade\.\w+\.s$/.test(p)) return String(v); return (v > 0 ? '+' : '') + v; }
+  static lkName(p) {
+    const r = [...Component.LK_ROWS.light, ...Component.LK_ROWS.color].find(x => x[0] === p); if (r) return r[1];
+    let m = /^mix\.(\w+)\.(h|s|l)$/.exec(p); if (m) return (Component.LK_HUES.find(x => x[0] === m[1]) || [, m[1]])[1] + ' ' + {h:'hue', s:'saturation', l:'luminance'}[m[2]];
+    m = /^grade\.(\w+)\.(h|s|l)$/.exec(p); if (m) return (Component.LK_ZONES.find(x => x[0] === m[1]) || [, m[1]])[1].toLowerCase() + ' ' + {h:'tint', s:'tint', l:'luminance'}[m[2]];
+    return {'grade.blend':'blending', 'grade.bal':'balance'}[p] || p;
+  }
+  // What a look does, in a few words: the first three moves, then how many more.
+  static lkWords(L) {
+    if (Component.lkFlat(L)) return 'as shot';
+    const ps = Object.keys(L).filter(p => Component.lkGet(L, p) !== Component.lkDef(p) && !/^grade\.\w+\.h$/.test(p));
+    const w = ps.slice(0, 3).map(p => /^grade\.\w+\.s$/.test(p) ? Component.lkName(p) + ' ' + Component.lkGet(L, p.replace(/s$/, 'h')) + '°' : Component.lkName(p) + ' ' + Component.lkFmt(p, Component.lkGet(L, p)));
+    return w.join(' · ') + (ps.length > 3 ? ' · ' + (ps.length - 3) + ' more' : '');
+  }
+  // The numbers the picture uses, the same for the shader and for the reference below.
+  static lkU(L) {
+    const G = p => Component.lkGet(L, p), H = Component.LK_HUES, Z = ['sh', 'mid', 'hi', 'all'];
+    return {ev:G('ev'), temp:G('temp') / 100, tint:G('tint') / 100, con:G('con') / 100, hl:G('hl') / 100, sh:G('sh') / 100, wh:G('wh') / 100, bl:G('bl') / 100, vib:G('vib') / 100, sat:G('sat') / 100,
+      mixC:H.map(h => h[2]), mixH:H.map(h => G('mix.' + h[0] + '.h') / 100), mixS:H.map(h => G('mix.' + h[0] + '.s') / 100), mixL:H.map(h => G('mix.' + h[0] + '.l') / 100),
+      gH:Z.map(z => G('grade.' + z + '.h')), gS:Z.map(z => G('grade.' + z + '.s') / 100), gL:Z.map(z => G('grade.' + z + '.l') / 100), blend:G('grade.blend') / 100, bal:G('grade.bal') / 100};
+  }
+  static lkHsv(r, g, b) { const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0; if (d > 1e-6) { h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; } return [h, mx > 0 ? d / mx : 0, mx]; }
+  static lkRgb(h, s, v) { const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); }; return [f(5), f(3), f(1)]; }
+  // One curve for every channel (so a grey stays grey), each move monotonic on its own: blacks, shadows,
+  // contrast, highlights, whites. x is display-referred 0…1.
+  static lkTone(x, u) {
+    const TAU = Math.PI * 2;
+    x += u.bl * 0.12 * Math.pow(1 - x, 4);
+    x += u.sh * 0.8 * x * Math.pow(1 - x, 3);
+    x -= u.con * 0.6 * Math.sin(TAU * x) / TAU;
+    x += u.hl * 0.8 * x * x * x * (1 - x);
+    x += u.wh * 0.12 * Math.pow(x, 4);
+    return Math.max(0, Math.min(1, x));
+  }
+  // The reference for one pixel (display-referred RGB 0…1 in, out). The shader in lkFS does the same steps.
+  static lkPx(rgb, L) {
+    const u = L && L.mixC ? L : Component.lkU(L), lin = v => Math.pow(Math.max(0, v), 2.2), gam = v => Math.pow(Math.max(0, v), 1 / 2.2);
+    let [r, g, b] = rgb.map(lin);
+    // white balance and exposure in linear light: temp moves red against blue, tint green against both
+    const e = Math.pow(2, u.ev);
+    r *= Math.pow(2, 0.35 * u.temp + 0.125 * u.tint) * e; g *= Math.pow(2, -0.25 * u.tint) * e; b *= Math.pow(2, -0.35 * u.temp + 0.125 * u.tint) * e;
+    // a soft shoulder so an exposure push rolls off instead of clipping hard: none at 0, from 0.8 up by +1 stop
+    const kn = 1 - 0.2 * Math.max(0, Math.min(1, u.ev)), sh = v => { v = gam(v); return v < kn || kn >= 1 ? v : kn + (1 - kn) * (1 - Math.exp(-(v - kn) / (1 - kn))); };
+    [r, g, b] = [r, g, b].map(v => Component.lkTone(sh(v), u));
+    // vibrance (more on dull colours) and saturation, about luma
+    let Y = 0.2126 * r + 0.7152 * g + 0.0722 * b, cs = Math.max(r, g, b) - Math.min(r, g, b);
+    const k = Math.max(0, (1 + u.sat) * (1 + u.vib * (u.vib > 0 ? 1 - Math.min(1, cs * 1.5) : 1)));
+    [r, g, b] = [r, g, b].map(v => Y + (v - Y) * k);
+    // colour mix: each pixel's hue shares out between the two nearest of eight centres; greys aren't touched
+    let [h, s, v] = Component.lkHsv(Math.max(0, r), Math.max(0, g), Math.max(0, b));
+    const C = u.mixC; let dh = 0, ds = 0, dl = 0;
+    for (let i = 0; i < 8; i++) {
+      const a = C[i], bN = C[(i + 1) % 8] + (i === 7 ? 360 : 0), hh = h < a ? h + 360 : h;
+      if (hh >= a && hh < bN) { const f = (hh - a) / (bN - a), j = (i + 1) % 8; dh = u.mixH[i] * (1 - f) + u.mixH[j] * f; ds = u.mixS[i] * (1 - f) + u.mixS[j] * f; dl = u.mixL[i] * (1 - f) + u.mixL[j] * f; break; }
+    }
+    const wc = Math.min(1, s * 3);
+    if (wc > 0 && (dh || ds || dl)) { h = (h + dh * 30 * wc + 360) % 360; s = Math.max(0, Math.min(1, s * (1 + ds * wc))); v = Math.max(0, v * (1 + dl * 0.35 * wc)); [r, g, b] = Component.lkRgb(h, s, v); }
+    // colour grading: a tint per tonal zone (wheel: angle = hue, distance = strength) plus a luminance move;
+    // balance moves the split between zones, blending widens them
+    Y = Math.max(0, Math.min(1, 0.2126 * r + 0.7152 * g + 0.0722 * b));
+    const yb = Math.pow(Y, Math.pow(2, -u.bal)), p = 2.5 - 2 * u.blend;
+    const mS = Math.pow(1 - yb, p), mH = Math.pow(yb, p), m = [mS, Math.max(0, 1 - mS - mH), mH, 1];
+    for (let z = 0; z < 4; z++) {
+      if (u.gS[z]) { const t = Component.lkRgb(u.gH[z], 1, 1), ty = 0.2126 * t[0] + 0.7152 * t[1] + 0.0722 * t[2], a = u.gS[z] * 0.15 * m[z]; r += (t[0] - ty) * a; g += (t[1] - ty) * a; b += (t[2] - ty) * a; }
+      if (u.gL[z]) { const a = u.gL[z] * 0.2 * m[z]; r += a; g += a; b += a; }
+    }
+    return [r, g, b].map(x => Math.max(0, Math.min(1, x)));
+  }
+  // LOOK-END
+  // The same steps on the GPU. mode 0: as shot; 1: S-Log3 → Rec.709 (the page's own table and matrix,
+  // the ones toDisplay uses); 2: the other log profiles' filter, written out.
+  static LK_FS = `precision highp float;
+varying vec2 vUv; uniform sampler2D uVid, uLut; uniform int uMode; uniform mat3 uM; uniform vec3 uO;
+uniform float uEv, uTemp, uTint, uCon, uHl, uSh, uWh, uBl, uVib, uSat, uBlend, uBal;
+uniform float uMixC[8], uMixH[8], uMixS[8], uMixL[8]; uniform float uGH[4], uGS[4], uGL[4];
+float lut(float v) { return texture2D(uLut, vec2((v * 255.0 + 0.5) / 256.0, 0.5)).r; }
+float tone(float x) { const float T = 6.28318530718;
+  x += uBl * 0.12 * pow(1.0 - x, 4.0); x += uSh * 0.8 * x * pow(1.0 - x, 3.0); x -= uCon * 0.6 * sin(T * x) / T;
+  x += uHl * 0.8 * x * x * x * (1.0 - x); x += uWh * 0.12 * pow(x, 4.0); return clamp(x, 0.0, 1.0); }
+float shoulder(float v) { float kn = 1.0 - 0.2 * clamp(uEv, 0.0, 1.0); v = pow(max(v, 0.0), 1.0 / 2.2); return v < kn || kn >= 1.0 ? v : kn + (1.0 - kn) * (1.0 - exp(-(v - kn) / (1.0 - kn))); }
+vec3 hsv(vec3 c) { float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b)), d = mx - mn, h = 0.0;
+  if (d > 1e-6) { if (mx == c.r) h = mod((c.g - c.b) / d, 6.0); else if (mx == c.g) h = (c.b - c.r) / d + 2.0; else h = (c.r - c.g) / d + 4.0; h *= 60.0; if (h < 0.0) h += 360.0; }
+  return vec3(h, mx > 0.0 ? d / mx : 0.0, mx); }
+float hk(float n, vec3 c) { float k = mod(n + c.x / 60.0, 6.0); return c.z - c.z * c.y * max(0.0, min(min(k, 4.0 - k), 1.0)); }
+vec3 rgb(vec3 c) { return vec3(hk(5.0, c), hk(3.0, c), hk(1.0, c)); }
+void main() {
+  vec3 c = texture2D(uVid, vUv).rgb;
+  if (uMode == 1) c = clamp(uM * vec3(lut(c.r), lut(c.g), lut(c.b)) + uO, 0.0, 1.0);
+  else if (uMode == 2) { c = (c - 0.5) * 1.35 + 0.5; float y = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = clamp((y + (c - y) * 1.45) * 0.96, 0.0, 1.0); }
+  c = pow(max(c, 0.0), vec3(2.2));
+  float e = exp2(uEv);
+  c *= vec3(exp2(0.35 * uTemp + 0.125 * uTint), exp2(-0.25 * uTint), exp2(-0.35 * uTemp + 0.125 * uTint)) * e;
+  c = vec3(tone(shoulder(c.r)), tone(shoulder(c.g)), tone(shoulder(c.b)));
+  float Y = dot(c, vec3(0.2126, 0.7152, 0.0722)), cs = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+  float k = max(0.0, (1.0 + uSat) * (1.0 + uVib * (uVib > 0.0 ? 1.0 - min(1.0, cs * 1.5) : 1.0)));
+  c = Y + (c - Y) * k;
+  vec3 q = hsv(max(c, 0.0)); float dh = 0.0, ds = 0.0, dl = 0.0;
+  for (int i = 0; i < 7; i++) { float a = uMixC[i], b = uMixC[i + 1];   // GLSL ES 1.0: indices are loop symbols, so the wrap is written out below
+    if (q.x >= a && q.x < b) { float f = (q.x - a) / (b - a); dh = mix(uMixH[i], uMixH[i + 1], f); ds = mix(uMixS[i], uMixS[i + 1], f); dl = mix(uMixL[i], uMixL[i + 1], f); } }
+  { float a = uMixC[7], b = uMixC[0] + 360.0, hh = q.x < a ? q.x + 360.0 : q.x;
+    if (hh >= a && hh < b) { float f = (hh - a) / (b - a); dh = mix(uMixH[7], uMixH[0], f); ds = mix(uMixS[7], uMixS[0], f); dl = mix(uMixL[7], uMixL[0], f); } }
+  float wc = min(1.0, q.y * 3.0);
+  if (wc > 0.0 && (dh != 0.0 || ds != 0.0 || dl != 0.0)) { q.x = mod(q.x + dh * 30.0 * wc + 360.0, 360.0); q.y = clamp(q.y * (1.0 + ds * wc), 0.0, 1.0); q.z = max(0.0, q.z * (1.0 + dl * 0.35 * wc)); c = rgb(q); }
+  Y = clamp(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+  float yb = pow(Y, exp2(-uBal)), p = 2.5 - 2.0 * uBlend, mS = pow(1.0 - yb, p), mH = pow(yb, p);
+  float m[4]; m[0] = mS; m[1] = max(0.0, 1.0 - mS - mH); m[2] = mH; m[3] = 1.0;
+  for (int z = 0; z < 4; z++) {
+    if (uGS[z] != 0.0) { vec3 t = rgb(vec3(uGH[z], 1.0, 1.0)); c += (t - dot(t, vec3(0.2126, 0.7152, 0.0722))) * uGS[z] * 0.15 * m[z]; }
+    c += uGL[z] * 0.2 * m[z];
+  }
+  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+  // Looks are kept per shoot, like the mattes, in this browser (and on the Mac in the app).
+  lookKey(d) { return 'lumina-skim:looks:' + this.storeKey(d || this.d).replace(/^lumina-skim:/, ''); }
+  looks() { const d = this.d; if (!d) return {}; const k = this.lookKey(d); if (this.lookK !== k) { this.lookK = k; let m = null; try { m = JSON.parse(localStorage.getItem(k) || 'null'); } catch (x) {} this.lookM = m && typeof m === 'object' ? m : {}; } return this.lookM; }
+  looksPut(m) {
+    this.lookM = m; clearTimeout(this.lookT); const k = this.lookKey();
+    this.lookT = setTimeout(() => this.persist(k, Object.keys(this.lookM).length ? JSON.stringify(this.lookM) : null), 300);
+    this.setState(s => ({lkTick:(s.lkTick || 0) + 1})); this.gradeDraw();
+  }
+  lookOf(id) { return this.looks()[id] || null; }
+  // One undo step per gesture: the look before the drag and after it.
+  lkBegin(ids) { const m = this.looks(); this.lkPrev = {ids, prev:Object.fromEntries(ids.map(id => [id, m[id] ? {...m[id]} : null]))}; }
+  lkEnd(say) {
+    const b = this.lkPrev; this.lkPrev = null; if (!b) return; const m = this.looks(), next = Object.fromEntries(b.ids.map(id => [id, m[id] ? {...m[id]} : null]));
+    if (b.ids.every(id => JSON.stringify(b.prev[id]) === JSON.stringify(next[id]))) return;
+    this.pushStep({k:'look', ids:b.ids, prev:b.prev, next, say});
+  }
+  lkSet(id, p, v) {
+    const m = {...this.looks()}, L = {...(m[id] || {})}; v = Component.lkClean(p, v);
+    if (v === Component.lkDef(p)) delete L[p]; else L[p] = v;
+    if (Component.lkFlat(L)) delete m[id]; else m[id] = L;
+    this.looksPut(m);
+  }
+  lkVals(c) {
+    const st = this.state, L = this.lookOf(c.id) || {}, sec = st.lkSec || 'light', G = p => Component.lkGet(L, p), hue = st.lkHue || 'blue', zone = st.lkZone || 'mid';
+    const row = (p, l) => { const [a, b] = Component.lkRange(p), v = G(p), d = Component.lkDef(p), f = (v - a) / (b - a), f0 = (d - a) / (b - a), set = v !== d;
+      return {p, l, v:Component.lkFmt(p, v), vc:set ? '#EFECE6' : '#9A958D', bg:st.lkOn === p ? 'rgba(239,236,230,0.06)' : 'transparent', d:(f0 * 100).toFixed(2) + '%', fl:(Math.min(f, f0) * 100).toFixed(2) + '%', fw:(Math.abs(f - f0) * 100).toFixed(2) + '%', kx:(f * 100).toFixed(2) + '%'}; };
+    const rows = sec === 'mix' ? [['h', 'Hue'], ['s', 'Saturation'], ['l', 'Luminance']].map(([k, l]) => row('mix.' + hue + '.' + k, l))
+      : sec === 'grade' ? [row('grade.' + zone + '.l', 'Luminance'), row('grade.blend', 'Blending'), row('grade.bal', 'Balance')]
+      : Component.LK_ROWS[sec].map(([p, l]) => row(p, l));
+    const wh = G('grade.' + zone + '.h'), ws = G('grade.' + zone + '.s'), rad = wh * Math.PI / 180;
+    const hName = (Component.LK_HUES.find(h => h[0] === hue) || [, 'Blue'])[1];
+    return {on:true, say:Component.lkWords(L), resetOn:!Component.lkFlat(L), pasteOn:!!this.lkClip, pasteTip:this.lkClip ? 'Paste ' + this.lkClip.from + "'s look · ⌘V · " + Component.lkWords(this.lkClip.L) : '',
+      secs:Component.LK_SECS.map(([k, t]) => ({k, t, on:k === sec, bg:k === sec ? '#5B5854' : 'transparent', fg:k === sec ? '#EFECE6' : '#9A958D', sh:k === sec ? '0 0.5px 1px rgba(0,0,0,.4)' : 'none'})),
+      mixOn:sec === 'mix', hueSay:hName + (hue === 'blue' || hue === 'aqua' ? ' · sky and water sit here' : ''),
+      hues:Component.LK_HUES.map(([k, t, h]) => ({k, t, on:k === hue, dot:'hsl(' + h + ',62%,56%)', ring:k === hue ? '0 0 0 2px #EFECE6' : 'none', ed:['h', 's', 'l'].some(x => G('mix.' + k + '.' + x) !== 0)})),
+      gradeOn:sec === 'grade', zoneT:(Component.LK_ZONES.find(z => z[0] === zone) || [, ''])[1],
+      zones:Component.LK_ZONES.map(([k, t]) => ({k, t, on:k === zone, bg:k === zone ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.04)', fg:k === zone ? '#EFECE6' : '#9A958D'})),
+      wx:(50 + Math.sin(rad) * ws / 2).toFixed(2) + '%', wy:(50 - Math.cos(rad) * ws / 2).toFixed(2) + '%', wSay:ws ? 'hue ' + wh + '° · ' + ws : 'no tint', rows};
+  }
+  lkSec = e => this.setState({lkSec:e.currentTarget.getAttribute('data-lksec')});
+  lkHue = e => this.setState({lkHue:e.currentTarget.getAttribute('data-lkhue')});
+  lkZone = e => this.setState({lkZone:e.currentTarget.getAttribute('data-lkzone')});
+  // A row: drag anywhere on it (Exposure a stop per 120 px, the others a step per 2 px; ⌥ a quarter of that).
+  lkDown = e => {
+    if (e.button !== 0) return; const c = this.byId && this.byId[this.state.cur], el = e.currentTarget, p = el.getAttribute('data-lkp'); if (!c || !p) return;
+    e.preventDefault(); const x0 = e.clientX, v0 = Component.lkGet(this.lookOf(c.id), p); let on = false;
+    const mv = ev => { const dx = ev.clientX - x0; if (!on) { if (Math.abs(dx) < 3) return; on = true; this.lkBegin([c.id]); this.setState({lkOn:p}); }
+      const sp = ev.altKey ? 0.25 : 1; this.lkSet(c.id, p, v0 + (p === 'ev' ? dx / 120 : dx / 2) * sp); };
+    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); if (on) { this.setState({lkOn:null}); this.lkEnd(Component.lkName(p) + ' on ' + c.name); } };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  };
+  lkDbl = e => { const c = this.byId && this.byId[this.state.cur], p = e.currentTarget.getAttribute('data-lkp'); if (!c || !p) return; this.lkBegin([c.id]); this.lkSet(c.id, p, Component.lkDef(p)); this.lkEnd(Component.lkName(p) + ' reset on ' + c.name); };
+  // The wheel: the angle is the hue, the distance from the middle the strength. ⌥ moves a quarter as far.
+  lkWheelDown = e => {
+    if (e.button !== 0) return; const c = this.byId && this.byId[this.state.cur], el = e.currentTarget; if (!c) return; e.preventDefault();
+    const zone = this.state.lkZone || 'mid', r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, R = r.width / 2;
+    const L0 = this.lookOf(c.id), h0 = Component.lkGet(L0, 'grade.' + zone + '.h'), s0 = Component.lkGet(L0, 'grade.' + zone + '.s');
+    const p0 = [Math.sin(h0 * Math.PI / 180) * s0 / 100 * R, -Math.cos(h0 * Math.PI / 180) * s0 / 100 * R], start = [e.clientX, e.clientY];
+    const at = ev => { const fine = ev.altKey ? 0.25 : 1, x = fine < 1 ? p0[0] + (ev.clientX - start[0]) * fine : ev.clientX - cx, y = fine < 1 ? p0[1] + (ev.clientY - start[1]) * fine : ev.clientY - cy;
+      const s = Math.min(100, Math.hypot(x, y) / R * 100), h = (Math.atan2(x, -y) * 180 / Math.PI + 360) % 360;
+      this.lkSet(c.id, 'grade.' + zone + '.h', h); this.lkSet(c.id, 'grade.' + zone + '.s', s < 2 ? 0 : s); };
+    this.lkBegin([c.id]); if (!e.altKey) at(e);
+    const up = () => { window.removeEventListener('pointermove', at); window.removeEventListener('pointerup', up); this.lkEnd(zone === 'all' ? 'global tint on ' + c.name : Component.lkName('grade.' + zone + '.s') + ' on ' + c.name); };
+    window.addEventListener('pointermove', at); window.addEventListener('pointerup', up);
+  };
+  lkWheelDbl = () => { const c = this.byId && this.byId[this.state.cur], zone = this.state.lkZone || 'mid'; if (!c) return; this.lkBegin([c.id]); this.lkSet(c.id, 'grade.' + zone + '.s', 0); this.lkSet(c.id, 'grade.' + zone + '.h', 0); this.lkEnd('tint reset on ' + c.name); };
+  lkReset = () => { const c = this.byId && this.byId[this.state.cur]; if (!c) return; this.lkBegin([c.id]); const m = {...this.looks()}; delete m[c.id]; this.looksPut(m); this.lkEnd('look reset on ' + c.name); };
+  // Copy a clip's look and paste it on others, shot to shot: in the Viewer onto the clip on show, in the grid onto the selection.
+  lkCopy = () => {
+    const st = this.state, c = this.byId && this.byId[st.cur]; if (!c) return;
+    const L = this.lookOf(c.id); this.lkClip = {from:c.name.replace(/\.\w+$/, ''), L:L ? {...L} : {}};
+    this.flash('look copied · ' + Component.lkWords(this.lkClip.L)); this.setState(s => ({lkTick:(s.lkTick || 0) + 1}));
+  };
+  lkPaste = () => {
+    const st = this.state, lc = this.lkClip; if (!lc) { this.flash('copy a look first · ⌘C'); return; }
+    const sel = st.lv < 2 && st.sel && st.sel.length ? st.sel : null, ids = (sel || [st.cur]).filter(id => this.byId && this.byId[id]); if (!ids.length) return;
+    this.lkBegin(ids); const m = {...this.looks()}; ids.forEach(id => { if (Component.lkFlat(lc.L)) delete m[id]; else m[id] = {...lc.L}; }); this.looksPut(m);
+    const say = lc.from + "'s look on " + (ids.length > 1 ? this.plural(ids.length, 'clip') : this.byId[ids[0]].name);
+    this.lkEnd(say); this.flash('pasted · ' + say);
+  };
+  // The grade on the picture: a WebGL canvas over the Viewer's video, only while the clip has a look.
+  gdCvRef = el => { if (this.gdRv && this.gdV && this.gdV.cancelVideoFrameCallback) this.gdV.cancelVideoFrameCallback(this.gdRv); this.gdRv = 0; this.gdCv = el || null; this.gdGl = null; if (el) this.gradeDraw(); };
+  gradeGl() {
+    const cv = this.gdCv; if (this.gdGl && this.gdGl.cv === cv) return this.gdGl;
+    const gl = cv.getContext('webgl', {premultipliedAlpha:false, antialias:false, preserveDrawingBuffer:false}); if (!gl) return null;
+    const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const pr = gl.createProgram();
+    try { gl.attachShader(pr, sh(gl.VERTEX_SHADER, 'attribute vec2 p; varying vec2 vUv; void main() { vUv = vec2(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5); gl_Position = vec4(p, 0.0, 1.0); }')); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, Component.LK_FS)); }
+    catch (x) { this.gdErr = String(x && x.message || x); return null; }
+    gl.bindAttribLocation(pr, 0, 'p'); gl.linkProgram(pr); if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { this.gdErr = gl.getProgramInfoLog(pr); return null; }
+    gl.useProgram(pr); const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    const tex = unit => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.CLAMP_TO_EDGE)); [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.LINEAR)); return t; };
+    const vid = tex(0), lut = tex(1), U = n => gl.getUniformLocation(pr, n);
+    gl.uniform1i(U('uVid'), 0); gl.uniform1i(U('uLut'), 1);
+    this.gdGl = {cv, gl, vid, lut, U, lutFor:null}; return this.gdGl;
+  }
+  gradeDraw() {
+    const cv = this.gdCv, v = this.vidEl, st = this.state; if (!cv) return;
+    const c = st.step === 'skim' && st.lv >= 2 && this.byId ? this.byId[st.cur] : null, L = c ? this.lookOf(c.id) : null;
+    const on = !!c && !!v && this.vidFor === c.id && this.vidUp === v && !Component.lkFlat(L) && v.readyState >= 2 && v.videoWidth > 0;
+    if (v && this.gdV !== v) { this.gdV = v; ['seeked', 'play', 'loadeddata'].forEach(k => v.addEventListener(k, () => this.gradeDraw())); }
+    // Why the picture is (not) graded, on the canvas for tests: on · as shot · no video · no frame · no webgl.
+    const why = !c ? 'no clip' : Component.lkFlat(L) ? 'as shot' : !v || this.vidFor !== c.id || this.vidUp !== v || v.readyState < 2 || !(v.videoWidth > 0) ? 'no video' : !this.vidHas(v) ? 'no frame' : 'on';
+    if (why !== 'on') { cv.dataset.look = why; if (!on) cv.style.opacity = '0'; return; }
+    const g = this.gradeGl(); if (!g) { cv.dataset.look = 'no webgl' + (this.gdErr ? ': ' + this.gdErr : ''); cv.style.opacity = '0'; return; } const gl = g.gl, U = g.U;
+    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    const w = Math.max(2, Math.min(v.videoWidth, Math.round((cv.clientWidth || 320) * dpr * Math.max(1, st.zc || 1)))), h = Math.max(2, Math.round(w * v.videoHeight / v.videoWidth));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    gl.viewport(0, 0, w, h);
+    const pv = this.pvOn(c), flt = pv ? this.pvFlt(c) : 'none', mode = !pv ? 0 : flt.indexOf('url(') === 0 ? 1 : 2;
+    if (mode === 1 && g.lutFor !== this.sl3Lut) {
+      const T = this.sl3Lut || (this.sl3Lut = this.sl3Table()), px = new Uint8Array(256 * 4);
+      for (let i = 0; i < 256; i++) { const q = Math.max(0, Math.min(255, Math.round(T[i] * 255))); px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = q; px[i * 4 + 3] = 255; }
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, g.lut); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, px); g.lutFor = this.sl3Lut;
+    }
+    const M = Component.SL3M; gl.uniformMatrix3fv(U('uM'), false, [M[0], M[4], M[8], M[1], M[5], M[9], M[2], M[6], M[10]]); gl.uniform3f(U('uO'), M[3], M[7], M[11]); gl.uniform1i(U('uMode'), mode);
+    const u = Component.lkU(L);
+    [['uEv', 'ev'], ['uTemp', 'temp'], ['uTint', 'tint'], ['uCon', 'con'], ['uHl', 'hl'], ['uSh', 'sh'], ['uWh', 'wh'], ['uBl', 'bl'], ['uVib', 'vib'], ['uSat', 'sat'], ['uBlend', 'blend'], ['uBal', 'bal']].forEach(([n, k]) => gl.uniform1f(U(n), u[k]));
+    [['uMixC', 'mixC'], ['uMixH', 'mixH'], ['uMixS', 'mixS'], ['uMixL', 'mixL'], ['uGH', 'gH'], ['uGS', 'gS'], ['uGL', 'gL']].forEach(([n, k]) => gl.uniform1fv(U(n + '[0]') || U(n), new Float32Array(u[k])));
+    try { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, g.vid); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v); } catch (x) { cv.dataset.look = 'no upload'; cv.style.opacity = '0'; return; }
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); cv.style.opacity = '1'; cv.dataset.look = 'on';
+    // While it plays, every new frame of the video is graded as it arrives.
+    if (!v.paused && !this.gdRv) { const next = () => { this.gdRv = 0; this.gradeDraw(); }; this.gdRv = v.requestVideoFrameCallback ? v.requestVideoFrameCallback(next) : requestAnimationFrame(next); }
   }
   static SL3T = [0.0000, 0.0225, 0.0459, 0.0709, 0.0984, 0.1292, 0.1631, 0.1996, 0.2387, 0.2810, 0.3268, 0.3766, 0.4301, 0.4876, 0.5500, 0.6167, 0.6851, 0.7530, 0.8170, 0.8740, 0.9223, 0.9604, 0.9866, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000];
   static SL3M = [1.9014, -0.8790, -0.0434, 0.0067, -0.1553, 1.3955, -0.2447, 0.0003, 0.0021, -0.3185, 1.3129, -0.0011];
