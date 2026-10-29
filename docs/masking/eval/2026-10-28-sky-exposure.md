@@ -161,6 +161,36 @@ applied (that is a fit with no truth).
 
 Not built: Phase 0 found no video ingest into the look pipeline, and no clips at the named path.
 
+## F3 / F4 against the owner's own edits (added after the first commit)
+
+The owner's 62 Death Valley exports (`/Volumes/T7/death_valley_2026`, full XMP; RAWs in
+`photo-archive/raw-import-2026-07-20/100MSDCF`; root `~/LuminaEvidence/parity-dv-edits`) are the real
+target for a sky feature. **None uses a sky mask or a blue push**: global Highlights on every frame
+(median −68), Dehaze on 43/62 (median +14); the six masks are warmth tweaks on people. Today's render of
+their global sliders vs their export: **5.52 / 14.39** median / p95 ΔE2000 (62 edits; Dehaze and people
+removal unsupported).
+
+On the 33 frames with ≥ 5 % sky, sky-pixel ΔE2000 to the export, render of their own global sliders
+(`ref`) plus each feature (`Tools/skyeval/f34ref.py`; clamp, sigmoid within 0.1):
+
+| Render | sky ΔE median | p95 | ΔL* | ΔC* | land ΔE | better than `ref` |
+|---|---|---|---|---|---|---|
+| base (no look) | 11.43 | 14.16 | +2.0 | −7.3 | 11.54 | |
+| ref (their sliders) | **4.46** | 8.60 | +1.4 | −3.3 | 5.67 | — |
+| ref + `mask:sky/ev=-0.50` | 7.09 | 10.41 | −7.6 | −2.1 | 5.67 | 12 / 33 |
+| ref + `mask:sky/ev=-1.00` | 13.28 | 16.71 | −17.2 | −1.8 | 5.68 | 4 / 33 |
+| ref + `mask:sky/blu=60` | 6.33 | 9.99 | +1.4 | −1.9 | 5.67 | 4 / 33 |
+| ref + `ev=-0.50,blu=40` | 7.75 | 11.71 | −7.7 | +0.1 | 5.67 | 11 / 33 |
+
+Reading: the photographer's global sliders already place the sky in lightness (+1.4 L*); every sky
+local moves it away. What remains is **chroma: their skies are 3.3 C* more saturated than Lumina's
+render of the same sliders, at their own hue** (what Dehaze adds). F4 closes part of that (−3.3 →
+−1.9) but turns the hue the wrong way for them (ΔE up, better on 4/33). So the "fake" look has two
+causes: the colour sky mask holding haze, salt flats and water (see the F3/F4 sheet), and a target
+(darker, bluer) that is not how this photographer edits a sky. A sky feature that matches them would be
+saturation at the sky's own hue after the global look, not a turn toward chart blue — and a mask that
+stops at the horizon.
+
 ## No regression
 
 - All features off → **bit-identical**: 40 held-out looks rendered with a `lumina-render` built from
@@ -184,14 +214,14 @@ Not built: Phase 0 found no video ingest into the look pipeline, and no clips at
 |---|---|
 | F1 | **ship behind flag** (needs macOS 26 for the clipped class; owner to confirm the 30 labels) |
 | F2 | **needs work** — a meter does not predict a photographer's exposure (0.44 > 0.33, worse than ev 0); keep the meter for F5 |
-| F3 | **ship behind flag** |
-| F4 | **ship behind flag** (target blue and cap are owner choices, below) |
+| F3 | **needs work** — 0 % collateral, but the mask holds haze / flats / water, and against the owner's own edits every sky local makes the sky worse (12/33 better at −0.5, 4/33 at −1) |
+| F4 | **needs work / drop as a hue turn** — harmless; nothing on clipped skies; the owner's gap is +3.3 C* at the sky's own hue, not a turn to 257.7° (4/33 better) |
 | F5 | **ship behind flag** (grouping is the page's; the clamp at ±3 wants a UI note on blown frames) |
 | F6 | **needs work** — text works, estimate biased −0.8 stop vs RAW ratios, no bracketed truth |
 
 ## Owner questions
 
-1. Target blue: ColorChecker Blue Sky (257.7°) and a 40 % chroma cap — keep, or a deeper / paler target?
+1. Target: your Death Valley skies are 3.3 C* more saturated than Lumina's render of your own sliders, at their own hue (Dehaze), never bluer. Is the feature "saturation at the sky's hue" rather than a turn to chart blue (257.7°)? And may `LookMasks.sky` change (the overcast rule takes haze, flats and water), or add a horizon-graduated weight?
 2. Slider ranges: F3 as the existing `ev` inside `mask:sky` (−5…+5) or a dedicated −2…0 "darken sky"? F4 `blu` 0…100.
 3. Mapper: sigmoid stays scratch (owner-pick above). Decide before F2 is revisited; F3 / F4 pass under both.
 4. F5 in the first release? It works; grouping (selection vs capture time) and the blown-frame clamp are UI decisions.
