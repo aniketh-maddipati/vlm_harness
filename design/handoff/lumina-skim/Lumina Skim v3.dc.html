@@ -33,7 +33,25 @@ html:not([data-full]) [data-lumina=info] [data-facts],
 html:not([data-full]) [data-lumina=neighbours],
 html:not([data-full]) [data-lumina=tile-l2],
 html:not([data-full]) body:has([data-screen-label="Clip"]) [data-lumina=dock],
-html:not([data-full]) body:has([data-screen-label="Clip"]) [data-lumina=footer]{display:none!important}
+html:not([data-full]) body:has([data-screen-label="Clip"]) [data-lumina=footer],
+html:not([data-full]) [data-lumina=footer],
+html:not([data-full]) [data-lumina=viewer-top],
+html:not([data-full]) [data-lumina=tile-title],
+html:not([data-full]) [data-lumina=tile-dots],
+html:not([data-full]) [data-lumina=tile-marks],
+html:not([data-full]) [data-lumina=tile-chips],
+html[data-full] [data-lumina=rail-close],
+html[data-full] [data-lumina=rail-keep]{display:none!important}
+/* The wireframe's large view: the strip under the frame, the rail the full height with Keep at its foot. */
+html:not([data-full]) [data-lumina=furled-takes]{order:2;border-bottom:0!important;border-top:1px solid rgba(239,236,230,0.06)}
+html:not([data-full]) [data-screen-label=Clip]{order:1}
+html:not([data-full]) [data-lumina=info]{display:flex!important;flex-direction:column;align-self:stretch!important;min-height:100%}
+html:not([data-full]) [data-lumina=info] > *{align-self:stretch!important}
+html:not([data-full]) [data-lumina=info] > [data-lumina=look]{flex:1 1 auto}
+/* The wireframe's time axis: small labels on the rod. */
+html:not([data-full]) [data-lumina=time-at]{font-size:15px!important;line-height:20px!important}
+html:not([data-full]) [data-lumina=time-date]{font-size:11px!important;line-height:16px!important}
+
 body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
 a{color:#EFECE6}a:hover{color:#B8B3AB}
 *,*::before,*::after{transition:none!important}
@@ -688,19 +706,19 @@ body:has([data-view=phone]){background:#111}
                 <div style="position:absolute;inset:0;border-radius:3px;box-shadow:{{ g.edge }};pointer-events:none"></div>
                 <sc-if value="{{ g.skOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="skim-bar" style="position:absolute;left:0;right:0;bottom:0;height:3px;display:flex;gap:1px;pointer-events:none"><sc-for list="{{ g.sk }}" as="s" hint-placeholder-count="8"><span style="flex:1;background:{{ s.c }}"></span></sc-for></div></sc-if>
                 <sc-if value="{{ g.badgeOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="fold-badge" style="position:absolute;left:6px;bottom:7px;max-width:calc(100% - 12px);box-sizing:border-box;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:#EFECE6;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.badge }}</div></sc-if>
-                <sc-if value="{{ g.durOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;bottom:7px;padding:0 5px;border-radius:4px;background:rgba(22,21,20,0.72);color:#EFECE6;font-size:11px;line-height:16px">{{ g.cell }}</div></sc-if>
+                <sc-if value="{{ g.nmOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-name" style="position:absolute;left:6px;bottom:7px;max-width:calc(100% - 96px);box-sizing:border-box;padding:0 7px;border-radius:4px;background:rgba(22,21,20,0.78);color:#EFECE6;font-size:12px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none">{{ g.title }}</div></sc-if><sc-if value="{{ g.gamOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-gamma" style="position:absolute;right:{{ g.gamR }};bottom:7px;padding:0 6px;border-radius:4px;background:rgba(22,21,20,0.78);box-shadow:inset 0 0 0 1px {{ g.gamRing }};color:#EFECE6;font-size:11px;line-height:16px;pointer-events:none">{{ g.gam }}</div></sc-if><sc-if value="{{ g.durOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;bottom:7px;padding:0 5px;border-radius:4px;background:rgba(22,21,20,0.72);color:#EFECE6;font-size:11px;line-height:16px">{{ g.cell }}</div></sc-if>
                 <sc-if value="{{ g.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:#161514;color:{{ g.markC }};font-weight:700">{{ g.mark }}</div></sc-if>
                 <sc-if value="{{ g.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ g.ghostC }};font-weight:700;opacity:0.7">{{ g.ghostT }}</div></sc-if>
               </div>
-              <div style="flex:none;height:{{ g.tH }};display:flex;align-items:baseline;justify-content:space-between;gap:8px;overflow:hidden"><span style="font-family:{{ g.tFont }};font-size:{{ g.tSize }};line-height:{{ g.tH }};color:#EFECE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.title }}</span><span style="flex:none;color:{{ g.rightC }};white-space:nowrap">{{ g.right }}</span></div>
+              <div data-lumina="tile-title" style="flex:none;height:{{ g.tH }};display:flex;align-items:baseline;justify-content:space-between;gap:8px;overflow:hidden"><span style="font-family:{{ g.tFont }};font-size:{{ g.tSize }};line-height:{{ g.tH }};color:#EFECE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.title }}</span><span style="flex:none;color:{{ g.rightC }};white-space:nowrap">{{ g.right }}</span></div>
               <sc-if value="{{ g.l2 }}" hint-placeholder-val="{{ true }}"><div data-lumina="tile-l2" style="flex:none;height:16px;line-height:16px;display:flex;justify-content:space-between;gap:8px;color:#B8B3AB;white-space:nowrap;overflow:hidden"><span style="overflow:hidden;text-overflow:ellipsis">{{ g.line }}</span><span data-lumina="tile-why" title="why this tile starts here" style="flex:none;color:#9A958D">{{ g.why }}</span></div></sc-if>
               <sc-if value="{{ g.fold }}" hint-placeholder-val="{{ true }}">
-                <div style="flex:none;height:6px;display:flex;gap:3px;overflow:hidden"><sc-if value="{{ g.dotsOn }}" hint-placeholder-val="{{ true }}"><sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="10"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:{{ d.c }}"></span></sc-for></sc-if><sc-if value="{{ g.barOn }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;height:6px;border-radius:3px;overflow:hidden;background:rgba(239,236,230,0.16)"><sc-for list="{{ g.segs }}" as="s" hint-placeholder-count="3"><span style="width:{{ s.w }};background:{{ s.c }}"></span></sc-for></div></sc-if></div>
+                <div data-lumina="tile-dots" style="flex:none;height:6px;display:flex;gap:3px;overflow:hidden"><sc-if value="{{ g.dotsOn }}" hint-placeholder-val="{{ true }}"><sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="10"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:{{ d.c }}"></span></sc-for></sc-if><sc-if value="{{ g.barOn }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;height:6px;border-radius:3px;overflow:hidden;background:rgba(239,236,230,0.16)"><sc-for list="{{ g.segs }}" as="s" hint-placeholder-count="3"><span style="width:{{ s.w }};background:{{ s.c }}"></span></sc-for></div></sc-if></div>
                 <div data-lumina="tile-marks" title="{{ g.cntT }}" style="flex:none;height:16px;line-height:16px;display:flex;gap:10px;white-space:nowrap;overflow:hidden"><sc-for list="{{ g.cnt }}" as="k" hint-placeholder-count="4"><span style="flex:none;color:{{ k.c }}">{{ k.t }}</span></sc-for></div>
                 <div data-lumina="tile-notes" title="{{ g.noteT }}" style="flex:none;height:16px;line-height:16px;color:{{ g.noteC }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.note }}</div>
               </sc-if>
               <sc-if value="{{ g.l3 }}" hint-placeholder-val="{{ false }}">
-                <div style="flex:none;display:flex;gap:4px;height:20px;overflow:hidden"><sc-for list="{{ g.chips }}" as="c" hint-placeholder-count="2"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="flex:none;height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for><span style="color:#9A958D;line-height:20px">{{ g.chipNone }}</span></div>
+                <div data-lumina="tile-chips" style="flex:none;display:flex;gap:4px;height:20px;overflow:hidden"><sc-for list="{{ g.chips }}" as="c" hint-placeholder-count="2"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="flex:none;height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for><span style="color:#9A958D;line-height:20px">{{ g.chipNone }}</span></div>
                 <div data-lumina="tile-marks" style="flex:none;height:16px;line-height:16px;color:{{ g.stateC }};white-space:nowrap;overflow:hidden">{{ g.state }}</div>
               </sc-if>
             </button>
@@ -830,7 +848,7 @@ body:has([data-view=phone]){background:#111}
             <sc-for list="{{ nbrs }}" as="nb" hint-placeholder-count="2"><button type="button" data-strip="{{ nb.id }}" title="{{ nb.tip }}" aria-label="{{ nb.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;color:inherit;text-align:left;-webkit-appearance:none;appearance:none;grid-column:{{ nb.col }};min-width:0;display:flex;flex-direction:column;gap:4px;cursor:pointer;opacity:{{ nb.op }}" style-hover="filter:brightness(1.12)"><div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#161514"><div style="position:absolute;inset:0;background:{{ nb.bg }};filter:{{ nb.flt }}"></div><div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ nb.edge }}"></div></div><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ nb.say }}</span></button></sc-for>
           </div></sc-if>
           <div data-lumina="info-head" style="order:0;grid-column:1 / -1;display:flex;flex-direction:column;gap:8px;padding:10px 14px;border-radius:9px;background:{{ cv.hdBg }};box-shadow:inset 4px 0 0 {{ cv.markNowC }}">
-            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:26px;line-height:1.1">{{ cv.name }}</span><span style="color:#B8B3AB">{{ cv.when }}</span><span data-lumina="viewer-mark-now" style="margin-left:auto;color:{{ cv.markNowC }};font-weight:700;white-space:nowrap">{{ cv.markNow }}</span></div>
+            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:26px;line-height:1.1">{{ cv.name }}</span><span style="color:#B8B3AB">{{ cv.when }}</span><span data-lumina="viewer-mark-now" style="margin-left:auto;color:{{ cv.markNowC }};font-weight:700;white-space:nowrap">{{ cv.markNow }}</span><button type="button" data-lumina="rail-close" title="Back to the grid · esc" aria-label="Back to the grid" onClick="{{ backClick }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:auto;align-self:center;width:28px;height:28px;border-radius:6px;font-size:20px;line-height:28px;text-align:center;color:#9A958D">×</button></div>
             <div data-lumina="viewer-mark" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               <sc-for list="{{ cv.chips }}" as="c" hint-placeholder-count="3"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for>
               <span data-lumina="viewer-cut" style="margin-left:auto;color:{{ cutC }};white-space:nowrap">{{ cutSoFar }}</span>
@@ -850,6 +868,7 @@ body:has([data-view=phone]){background:#111}
               <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="color:#EFECE6">{{ lk.zoneT }}</span><span data-lumina="look-wheel-say" style="color:#9A958D;font-variant-numeric:tabular-nums">{{ lk.wSay }}</span></div></div></sc-if>
             <sc-for list="{{ lk.rows }}" as="lr" hint-placeholder-count="6"><div data-lkp="{{ lr.p }}" role="slider" aria-label="{{ lr.l }}" aria-valuetext="{{ lr.v }}" title="Drag the row · ⌥ for fine · 2×click resets" onPointerDown="{{ lkDown }}" onDoubleClick="{{ lkDbl }}" style="display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 12px;row-gap:5px;align-items:center;min-height:42px;align-content:center;margin:0 -6px;padding:0 6px;border-radius:7px;cursor:ew-resize;touch-action:none;background:{{ lr.bg }}"><span style="color:#EFECE6">{{ lr.l }}</span><span style="color:{{ lr.vc }};font-variant-numeric:tabular-nums;min-width:44px;text-align:right">{{ lr.v }}</span><div style="grid-column:1 / -1;position:relative;height:12px"><div style="position:absolute;left:0;right:0;top:5px;height:2px;border-radius:1px;background:rgba(239,236,230,0.14)"></div><div style="position:absolute;left:{{ lr.d }};top:2px;width:1px;height:8px;background:rgba(239,236,230,0.3)"></div><div style="position:absolute;left:{{ lr.fl }};width:{{ lr.fw }};top:5px;height:2px;border-radius:1px;background:#EFECE6"></div><div style="position:absolute;left:{{ lr.kx }};top:0;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#1E1D1B;box-shadow:inset 0 0 0 2px #EFECE6"></div></div></div></sc-for>
           </div></sc-if>
+<button type="button" data-lumina="rail-keep" data-well="keep" aria-pressed="{{ cv.keepOn }}" title="K · on / off" onClick="{{ wClick }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;order:9;flex:none;margin-top:auto;height:46px;border-radius:10px;text-align:center;font-size:14px;font-weight:700;background:{{ cv.keepBg }};color:{{ cv.keepFg }};box-shadow:inset 0 0 0 1px {{ cv.keepRing }}">{{ cv.keepT }}</button>
           <sc-for list="{{ cv.groups }}" as="gr" hint-placeholder-count="3"><div data-facts="{{ gr.key }}" style="order:{{ gr.order }};grid-column:{{ gr.span }};align-self:start;display:flex;flex-direction:column;gap:3px;line-height:1.45;padding:10px 12px;border-radius:9px;background:{{ gr.bg }};box-shadow:inset 0 0 0 1px {{ gr.line }}">
             <span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:{{ gr.tc }}">{{ gr.t }}</span>
             <sc-for list="{{ gr.rows }}" as="fl" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ fl.k }}</span><span style="color:{{ fl.c }};font-family:{{ fl.ff }};font-size:{{ fl.fs }};overflow-wrap:anywhere">{{ fl.v }}</span></div></sc-for>
@@ -2262,12 +2281,14 @@ class Component extends DCLogic {
   // small to large. The pinch, − / = and the size buttons move along these levels; past 5 a pinch opens the Viewer.
   static ZL = [280, 150, 200, 280, 380, 520];
   static ZL_LINES = [110, 26, 48, 110, 110, 110];
+  // Minimal (LOCAL-CHANGES 317): the frame is the card, its name and facts on it, no lines under it. ?full=1 brings the lines back.
+  static bare = typeof location !== 'undefined' && !/[?&]full=1\b/.test(location.search);
   static ZL_WORD = ['scenes', 'small', 'medium', 'large', 'larger', 'largest'];
   static ZL_DEF = 3;
   static zlGeo(o) {
     const zl = Math.max(0, Math.min(5, o.zl | 0)), pad = Math.min(40, Math.max(16, o.vw * 0.022)), W = Math.max(140, (o.cw ? o.cw : o.vw) - 2 * pad);
     const gx = zl === 1 ? 12 : zl === 2 ? 16 : 22, gy = zl === 1 ? 14 : zl === 2 ? 18 : 26, cols = Math.max(1, Math.floor((W + gx) / (Component.ZL[zl] + gx)));
-    const tw = (W - (cols - 1) * gx) / cols, ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
+    const tw = (W - (cols - 1) * gx) / cols, ph = Math.round(tw * 9 / 16), lines = Component.bare && zl ? 0 : Component.ZL_LINES[zl], th = ph + lines;
     return {zl, cols, tw, th, gx, gy, pitch:th + gy, pad, W, ph, lines, hh:zl ? 46 : 0};
   }
   // Elastic tiles: few clips get larger tiles instead of empty screen. geo is zlGeo's answer for the interval's size,
@@ -2307,7 +2328,7 @@ class Component extends DCLogic {
       gx = zl === 1 ? 12 : zl === 2 ? 16 : 22; gy = zl === 1 ? 14 : zl === 2 ? 18 : 26; tw = (geo.W - (cols - 1) * gx) / cols;
       let up = zl; while (up < 5 && Z[up + 1] <= tw) up++; if (up === zl) break; zl = up;
     }
-    const ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
+    const ph = Math.round(tw * 9 / 16), lines = Component.bare && zl ? 0 : Component.ZL_LINES[zl], th = ph + lines;
     return {...geo, zl, cols, tw, th, gx, gy, pitch:th + gy, ph, lines, fit:true};
   }
   // Runs share a row (geo.flow, the time canvas): a run that fits in what is left of the row after the run before it
@@ -2602,10 +2623,11 @@ class Component extends DCLogic {
       const n = g.clips.length, one = n === 1, c0 = g.clips[0], isCur = !!cg && cg.i === g.i, anySel = g.clips.some(c => selSet.has(c.id)), skI = sk && sk.gi === g.i ? sk.i : null;
       const gm = st.held ? (st.sel.length ? (anySel ? st.held : null) : (isCur ? st.held : null)) : null;
       const base = {i:g.i, n, first:c0.id, x:it.x, y:it.y, w:it.w, fold:!one, one, why:one ? '' : g.why || '', bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.65)' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
-        cell:'', durOn:false, dots:[], dotsOn:false, barOn:false, segs:[], cnt:[], cntT:'', note:'', noteT:'', noteC:'#9A958D', chips:[], chipNone:'', state:'', stateC:'#9A958D', badgeOn:false, badge:'', markOn:false, mark:'', markC:'', thumb:Component.PH, flt:'none', phName:nm(c0), skOn:false, sk:[], l2:true, l3:false, tH:'24px', rightC:'#9A958D'};
+        cell:'', durOn:false, dots:[], dotsOn:false, barOn:false, segs:[], cnt:[], cntT:'', note:'', noteT:'', noteC:'#9A958D', chips:[], chipNone:'', state:'', stateC:'#9A958D', badgeOn:false, badge:'', markOn:false, mark:'', markC:'', thumb:Component.PH, flt:'none', phName:nm(c0), skOn:false, sk:[], l2:true, l3:false, tH:'24px', rightC:'#9A958D', nmOn:false, gamOn:false, gam:'', gamR:'5px', gamRing:'transparent'};
       if (one) {
         const m = st.marks[c0.id] || null, ch = this.chips(c0), t = this.tone(c0, skI != null ? skI : fi), pc0 = compact && this.profChip(c0);   // compact tiles have no chip row: the profile goes on the line
-        return {...base, thumb:t.bg, flt:t.flt, cell:c0.dur ? this.fmtDur(c0.dur) : '—', durOn:!compact || zl === 2, phOn:this.waiting(c0), phSub:this.phSub(c0), title:nm(c0), tFont:'inherit', tSize:compact ? '12px' : '13px', tH:compact ? '18px' : '24px',
+        const pg = Component.bare && this.prof(c0), gam = pg ? (pg.g === 'none' ? '709' : /log/i.test(pg.g) ? 'Log' : pg.g) : '', dur = c0.dur ? this.fmtDur(c0.dur) : '—';
+        return {...base, nmOn:!!Component.bare, gamOn:!!gam, gam, gamR:(14 + dur.length * 6.5).toFixed(0) + 'px', gamRing:gam === 'Log' ? 'rgba(239,236,230,0.7)' : 'transparent', thumb:t.bg, flt:t.flt, cell:dur, durOn:!compact || zl === 2 || !!Component.bare, phOn:this.waiting(c0), phSub:this.phSub(c0), title:nm(c0), tFont:'inherit', tSize:compact ? '12px' : '13px', tH:compact ? '18px' : '24px',
           right:zl === 1 ? (m ? this.W(m) : '') : this.hm(c0.t), rightC:zl === 1 && m ? MK[m] : '#9A958D', l2:zl !== 1, l3:!compact,
           line:compact ? (m ? this.W(m) + ' · ' : '') + this.fmtB(c0.bytes) + (pc0 ? ' · ' + pc0.t : '') : (c0.dur ? this.fmtDur(c0.dur) : '—') + ' · ' + this.fmtB(c0.bytes),
           edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm && !compact, mark:this.W(m), markC:m ? MK[m] : '',
@@ -3548,6 +3570,7 @@ class Component extends DCLogic {
         .map(([key, t, tc, bg, order, span]) => ({key, t, tc, bg, order, span, line:tc + '30', rows:facts.filter(x => GK[key].includes(x.k))}));
       vals.cv = {name:c.name.replace(/\.\w+$/, ''), when:this.hm(c.t) + ' · ' + this.fmtDur(c.dur), bg:t.bg, flt:t.flt, edge:gm ? 'inset 0 0 0 3px ' + MK[gm] + '99' : m ? 'inset 0 0 0 3px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '',
         picks:[['keep', 'K'], ['maybe', 'M'], ['cut', 'C']].map(([pm, pk]) => ({m:pm, k:pk, l:this.W(pm), on:m === pm, fg:m === pm ? '#1E1D1B' : MK[pm], fw:m === pm ? 800 : 400, bg:m === pm ? MK[pm] : 'transparent', ring:'1px ' + MK[pm] + (m === pm ? '' : '80'), capBg:m === pm ? 'rgba(30,29,27,0.14)' : 'rgba(239,236,230,0.12)', capFg:m === pm ? '#1E1D1B' : '#EFECE6'})),
+        keepOn:m === 'keep', keepT:m === 'keep' ? this.W('keep') + ' ✓ · K' : this.W('keep') + ' · K', keepBg:m === 'keep' ? MK.keep : 'transparent', keepFg:m === 'keep' ? '#1E1D1B' : '#EFECE6', keepRing:m === 'keep' ? MK.keep : 'rgba(239,236,230,0.4)',
         markNow:m ? this.W(m) : 'undecided', markNowC:m ? MK[m] : '#9A958D', groups, hdBg:m ? 'linear-gradient(90deg,' + MK[m] + '33,' + MK[m] + '0A 70%),rgba(239,236,230,0.04)' : 'rgba(239,236,230,0.06)',
         ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
         chips:this.chipRow(c, ch, null, 3).chips,
@@ -3688,8 +3711,8 @@ class Component extends DCLogic {
   static dockNear(order, ids, cur) { if (!ids.length) return null; if (ids.includes(cur)) return cur; const at = order.indexOf(cur), set = new Set(ids); if (at >= 0) for (let i = at + 1; i < order.length; i++) if (set.has(order[i])) return order[i]; return ids[ids.length - 1]; }
   static dockOut(ids, id) { const i = ids.indexOf(id); return i < 0 ? null : ids[i + 1] ?? ids[i - 1] ?? null; }
   // Large under the grid; in the Viewer a slim strip of pictures only, so the large view keeps the height.
-  dockSlim() { return this.state.lv >= 2; }
-  dockPh() { const vh = this.state.vh; return this.dockSlim() ? (vh >= 1000 ? 130 : vh >= 860 ? 104 : vh >= 700 ? 80 : 60) : vh >= 860 ? 110 : vh >= 700 ? 96 : 72; }
+  dockSlim() { return this.state.lv >= 2 || !!Component.bare; }
+  dockPh() { const vh = this.state.vh; if (Component.bare) return 40; /* minimal: a slim Keep strip, as the wireframe */ return this.dockSlim() ? (vh >= 1000 ? 130 : vh >= 860 ? 104 : vh >= 700 ? 80 : 60) : vh >= 860 ? 110 : vh >= 700 ? 96 : 72; }
   // The height the dock takes from the window (the Viewer and the scene fit leave it room).
   // In the Viewer the slim strip keeps its height while it is empty, so the first K does not shrink the picture
   // (a smaller picture let the chapter's neighbours in beside it, which read as K opening the next clip).
