@@ -312,6 +312,19 @@ nonisolated final class LookKernels: @unchecked Sendable {
                           -0.0041960863f * l3 - 0.7034186147f * m3 + 1.7076147010f * s3);
         return float4(max(float3(0.0f), o), s.a);
     }
+
+    // dehaze's dark channel: min(r, g, b), the image its blur works on
+    [[ stitchable ]] float4 lookDark(coreimage::sample_t s) {
+        float d = min(s.r, min(s.g, s.b));
+        return float4(d, d, d, 1.0f);
+    }
+
+    // dehaze (LookMath.dehaze): base = the blurred dark channel; k = (omega, airlight A, minTransmission, hazePower)
+    [[ stitchable ]] float4 lookDehaze(coreimage::sample_t s, coreimage::sample_t base, float4 k) {
+        float w = pow(clamp(base.r / k.y, 0.0f, 1.0f), k.w);
+        float t = max(k.z, 1.0f - k.x * w);
+        return float4((s.rgb - k.y) / t + k.y, s.a);
+    }
     """
 
     struct CompileError: Error, CustomStringConvertible { let description: String }

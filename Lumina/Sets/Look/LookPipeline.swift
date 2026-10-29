@@ -460,6 +460,12 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                                  y: exp2(look.contrast * r.k("contrast", "slopePerUnit", 0.006)),
                                  z: min(1, max(0, r.k("contrast", "lumaMix", 0.5))), w: 0)
                 pass("lookContrast", [img, k, gam, lum])
+            case "dehaze":
+                let dark = kernels.apply("lookDark", extent: extent, [img]) ?? img
+                let base = blur(dark, sigma: r.k("dehaze", "radiusFraction", 0.02) * longEdge)
+                let k = CIVector(x: LookMath.dehazeOmega(look.dehaze, r), y: LookMath.dehazeAirlight(anchor: anchor, r),
+                                 z: LookMath.dehazeMinTransmission(r), w: LookMath.dehazePower(r))
+                pass("lookDehaze", [img, base, k])
             case "curve":
                 let lut = curveTable(look.curve)
                 let k = CIVector(x: 1 / r.perceptualGamma, y: r.perceptualGamma, z: Double(LookMath.curveNodes - 1), w: 0)

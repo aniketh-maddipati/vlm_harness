@@ -34,6 +34,15 @@ export folders at once (the white balance exports need the as-shot values the ot
     python3 Tools/parity/lr_cc_sweep.py ingest ~/LuminaEvidence/parity/sweep2/exports ~/LuminaEvidence/parity/sweep3/exports --refs ~/LuminaEvidence/parity/sweep2/refs
         → adds <stem>__Temperature__<K>.jpg and <stem>__Tint__<v>.jpg.
 
+Sweep 4 (`presets --sweep 4`, group "Lumina sweep 4 Dehaze", ~/LuminaEvidence/parity/sweep4) is the
+base and Dehaze alone at -50, -25, +25, +50, +75, +100: the development set for the `dehaze` stage
+(2026-10-29, `dhz`). Click all seven on every golden photo, export with All metadata, then:
+
+    python3 Tools/parity/lr_cc_sweep.py presets --sweep 4
+    python3 Tools/parity/lr_cc_sweep.py ingest ~/LuminaEvidence/parity/sweep4/exports --refs ~/LuminaEvidence/parity/sweep4/refs
+        → <stem>__base.jpg, <stem>__Dehaze__<v>.jpg, <stem>__asshot.json; then import_refs.py on that
+          refs folder and `make parity STAGE=dehaze` / `bash Tools/parity/loop.sh dehaze`.
+
 White balance presets are per photo. Lightroom CC ignores a preset that sets only Temperature or
 only Tint (measured 2026-09-30: every photo comes out at Custom 5500 / +10, whatever the preset
 said), so a Temperature preset must also carry the photo's as-shot Tint, and a Tint preset its
@@ -76,8 +85,8 @@ BASE = {
     "LensProfileEnable": 0, "AutoLateralCA": 0,
 }
 LENS = {"LensProfileEnable": 1, "LensProfileSetup": "LensDefaults"}
-SLIDER_KEYS = {key for _, key, _ in SWEEP}
-LABELS = {key: label for label, key, _ in SWEEP}
+SLIDER_KEYS = {key for _, key, _ in SWEEP} | {"Dehaze"}
+LABELS = {key: label for label, key, _ in SWEEP} | {"Dehaze": "Dehaze"}
 GROUP = "Lumina sweep"
 
 # Sweep 3. White balance: absolute Kelvin / Tint, four of the plug-in's ten positions each.
@@ -87,6 +96,11 @@ WB_SWEEP = [
 ]
 GROUP2 = "Lumina sweep 2"
 GROUP3 = "Lumina sweep 3 WB"
+
+# Sweep 4. Dehaze alone (the `dehaze` stage, added 2026-10-29): six positions, plus the base again so
+# the ingest has each photo's as-shot values. Lightroom's Dehaze reads the photo, so every photo counts.
+DEHAZE_SWEEP = [("Dehaze", "Dehaze", [-50, -25, 25, 50, 75, 100])]
+GROUP4 = "Lumina sweep 4 Dehaze"
 
 # Combos: three sliders each, moderate values (sign random, magnitude lo … hi in steps). Seeded,
 # so the table is the same on every run: the ingest matches exports against it. Changing the seed,
@@ -188,6 +202,12 @@ def presets2():
     return [(f"2-{n:02d}", name, settings) for n, (name, settings) in enumerate(out, 1)]
 
 
+def presets4():
+    """Sweep 4 in click order: the base, then Dehaze at each position."""
+    out = [("Base", dict(BASE))] + [(f"{label} {fmt(key, v)}", {**BASE, key: v}) for label, key, values in DEHAZE_SWEEP for v in values]
+    return [(f"4-{n:02d}", name, settings) for n, (name, settings) in enumerate(out, 1)]
+
+
 def presets3(as_shot):
     """Sweep 3, white balance, from {stem: (Temperature, Tint)} as shot. One round per position:
     a preset per group of photos that share the other as-shot value, which the preset keeps."""
@@ -263,7 +283,8 @@ def preset_xmp(num, name, settings, group=GROUP):
 def write_presets(out, sweep=1, as_shot=None):
     group, table, zname = {1: lambda: (GROUP, presets(), "Lumina-sweep-presets.zip"),
                            2: lambda: (GROUP2, presets2(), "Lumina-sweep2-presets.zip"),
-                           3: lambda: (GROUP3, presets3(as_shot), "Lumina-sweep3-wb-presets.zip")}[sweep]()
+                           3: lambda: (GROUP3, presets3(as_shot), "Lumina-sweep3-wb-presets.zip"),
+                           4: lambda: (GROUP4, presets4(), "Lumina-sweep4-dehaze-presets.zip")}[sweep]()
     d = os.path.join(out, "presets")
     os.makedirs(d, exist_ok=True)
     for stale in os.listdir(d):   # an earlier table's presets (other photos, other numbering)
@@ -329,7 +350,7 @@ def classify(crs, as_shot=None, table=None):
     lens = num(crs.get("LensProfileEnable")) == 1
     moved = [(k, num(crs.get(k))) for k in SLIDER_KEYS if num(crs.get(k)) not in (None, 0)]
     tone = {LABELS[k]: v for k, v in moved}
-    for k in ("Texture", "Clarity2012", "Dehaze"):
+    for k in ("Texture", "Clarity2012"):
         if num(crs.get(k)) not in (None, 0):
             return None, f"{k} is {crs.get(k)} (the sweep keeps it 0)"
     mode = crs.get("WhiteBalance", "As Shot")
@@ -388,6 +409,8 @@ def classify_wb(crs, tone, as_shot, table):
 def wanted_for(sweep, table):
     if sweep == 1:
         return {("base",), ("baseLens",)} | {(l, float(v)) for l, _, vs in SWEEP for v in vs}
+    if sweep == 4:
+        return {("base",)} | {(l, float(v)) for l, _, vs in DEHAZE_SWEEP for v in vs}
     return ({("base",)} | {(l, float(v)) for l, _, vs in WB_SWEEP for v in vs}
             | {("combo", n) for n in range(1, len(table) + 1)})
 
@@ -404,7 +427,7 @@ def ingest(exports, refs, sweep=None):
     exports = folders[0] if len(folders) == 1 else folders
     os.makedirs(refs, exist_ok=True)
     table = combos()
-    wanted = {1: wanted_for(1, table), 2: wanted_for(2, table)}
+    wanted = {1: wanted_for(1, table), 2: wanted_for(2, table), 4: wanted_for(4, table)}
     found, problems, files = {}, [], []
     for root, names in ((r, ns) for folder in folders for r, _, ns in os.walk(folder)):
         for n in sorted(names):
@@ -447,7 +470,7 @@ def ingest(exports, refs, sweep=None):
                 side["asShot"] = as_shot_record(as_shot[stem], profiles[stem])
         elif isinstance(kind, tuple):
             slider, v = kind
-            if (slider, float(v)) not in wanted[1] | wanted[2]:
+            if (slider, float(v)) not in wanted[1] | wanted[2] | wanted[4]:
                 problems.append({"file": n, "raw": crs["RawFileName"], "why": f"{slider} {v:g} is not a sweep position"})
                 continue
             dest, key = f"{stem}__{slider}__{value_name(v)}.jpg", (stem, slider, float(v))
@@ -467,7 +490,10 @@ def ingest(exports, refs, sweep=None):
             with open(os.path.join(refs, f"{s}__asshot.json"), "w") as f:
                 json.dump(as_shot_record(as_shot[s], profiles[s]), f, indent=1, sort_keys=True)
     if sweep is None:
-        sweep = 2 if any(k[1:] in wanted[2] - wanted[1] for k in found) else 1
+        if any(k[1:] in wanted[4] - wanted[1] for k in found):
+            sweep = 4
+        else:
+            sweep = 2 if any(k[1:] in wanted[2] - wanted[1] for k in found) else 1
     missing = {s: [" ".join(str(x) for x in w) for w in sorted(wanted[sweep], key=str)
                    if (s,) + w not in found] for s in stems}
     report = {"exports": exports, "refs": refs, "sweep": sweep, "photos": stems, "refs_written": len(found),
@@ -502,14 +528,14 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("presets")
-    p.add_argument("--sweep", type=int, choices=(1, 2, 3), default=1, help="1: the single sliders; 2: base + combos; 3: white balance, per photo")
-    p.add_argument("--out", help="default: ~/LuminaEvidence/parity/sweep, …/sweep2 for --sweep 2, <refs>/../../sweep3 for --sweep 3")
+    p.add_argument("--sweep", type=int, choices=(1, 2, 3, 4), default=1, help="1: the single sliders; 2: base + combos; 3: white balance, per photo; 4: Dehaze")
+    p.add_argument("--out", help="default: ~/LuminaEvidence/parity/sweep, …/sweep2 for --sweep 2, <refs>/../../sweep3 for --sweep 3, …/sweep4 for --sweep 4")
     p.add_argument("--refs", default=os.path.expanduser("~/LuminaEvidence/parity/sweep2/refs"),
                    help="--sweep 3: the refs folder whose <stem>__asshot.json files say each photo's as-shot white balance")
     i = sub.add_parser("ingest")
     i.add_argument("exports", nargs="+", help="one or more folders of JPEG exports, read as one")
     i.add_argument("--refs", default=os.path.expanduser("~/LuminaEvidence/parity/refs"))
-    i.add_argument("--sweep", type=int, choices=(1, 2), help="which preset set to expect (default: worked out from the exports)")
+    i.add_argument("--sweep", type=int, choices=(1, 2, 4), help="which preset set to expect (default: worked out from the exports)")
     a = ap.parse_args(argv)
     paths = [a.out, a.refs if a.sweep == 3 else None] if a.cmd == "presets" else list(a.exports) + [a.refs]
     for why in filter(None, (unplugged(p) for p in paths if p)):
@@ -525,7 +551,7 @@ def main(argv=None):
                 return 2
             out = os.path.expanduser(a.out) if a.out else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(refs))), "sweep3")
         else:
-            out = os.path.expanduser(a.out or ("~/LuminaEvidence/parity/sweep" if a.sweep == 1 else "~/LuminaEvidence/parity/sweep2"))
+            out = os.path.expanduser(a.out or {1: "~/LuminaEvidence/parity/sweep", 2: "~/LuminaEvidence/parity/sweep2", 4: "~/LuminaEvidence/parity/sweep4"}[a.sweep])
         files, z = write_presets(out, a.sweep, as_shot)
         print(f"{len(files)} presets → {os.path.dirname(files[0])}\nimport this in Lightroom: {z}")
     else:

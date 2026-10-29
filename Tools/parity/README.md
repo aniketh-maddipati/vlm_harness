@@ -87,6 +87,13 @@ Then index them:
 python3 Tools/parity/import_refs.py ~/LuminaEvidence/parity/refs      # → ~/LuminaEvidence/parity/refs.json
 ```
 
+**Dehaze** (`dhz`, the `dehaze` stage, 2026-10-29) is not in the Classic plug-in's sweep: its
+development set is sweep 4 of `lr_cc_sweep.py` (`presets --sweep 4`: the base and Dehaze at −50,
+−25, +25, +50, +75, +100, group "Lumina sweep 4 Dehaze"), exported from Lightroom CC with All
+metadata and ingested with `ingest … --refs ~/LuminaEvidence/parity/sweep4/refs`. Until that sweep
+exists the stage's coefficients are a starting form (`rules-v1.json` says so in `form`), and nothing
+is fitted or locked.
+
 ### 3. Build the renderer and run
 
 ```bash

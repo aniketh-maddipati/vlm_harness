@@ -105,7 +105,7 @@ class BucketTests(unittest.TestCase):
 
     def test_every_unsupported_feature_is_named(self):
         cases = {
-            "texture": 'crs:Texture="+11"', "dehaze": 'crs:Dehaze="+8"', "hsl": 'crs:SaturationAdjustmentOrange="-10"',
+            "texture": 'crs:Texture="+11"', "hsl": 'crs:SaturationAdjustmentOrange="-10"',
             "colorGrading": 'crs:ColorGradeMidtoneSat="12"', "calibration": 'crs:RedHue="+5"', "grain": 'crs:GrainAmount="20"',
             "perspective": 'crs:PerspectiveVertical="-10"', "defringe": 'crs:DefringePurpleAmount="3"', "lensVignetteManual": 'crs:VignetteAmount="+20"',
             "toneCurve": 'crs:ParametricShadows="-10"', "profile": 'crs:CameraProfile="Camera Standard"',
@@ -210,7 +210,7 @@ class ImportTests(unittest.TestCase):
             os.makedirs(raws)
             open(os.path.join(raws, "DSC00001.ARW"), "wb").write(b"not really a raw")
             open(os.path.join(exports, "DSC00001.jpg"), "wb").write(jpeg_with(xmp('crs:Exposure2012="+0.50" crs:WhiteBalance="As Shot" crs:Temperature="5000" crs:Tint="+5"')))
-            open(os.path.join(exports, "DSC00001-2.jpg"), "wb").write(jpeg_with(xmp('crs:Dehaze="+10" crs:WhiteBalance="As Shot" crs:Temperature="5000" crs:Tint="+5"')))
+            open(os.path.join(exports, "DSC00001-2.jpg"), "wb").write(jpeg_with(xmp('crs:Texture="+10" crs:WhiteBalance="As Shot" crs:Temperature="5000" crs:Tint="+5"')))
             open(os.path.join(exports, "IMG_1.jpg"), "wb").write(jpeg_with(xmp().replace("DSC00001.ARW", "IMG_1.HEIC")))
             fake = os.path.join(d, "fake-render")
             with open(fake, "w") as f:  # `lumina-render asshot` stand-in
