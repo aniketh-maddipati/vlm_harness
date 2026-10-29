@@ -23,7 +23,8 @@ window.__skimEngineCheck = async function (names) {
     if (!ok(done, 'the clips are read to the end' + (done ? ' (' + done.done + ' ms)' : ', within 60 s'))) return;
     ok(done.n === names.length && document.querySelectorAll('[data-gi]').length === names.length, names.length + ' clips listed: ' + done.n + ' in the read, ' + document.querySelectorAll('[data-gi]').length + ' tiles');
     ok(done.unreadable === 0, 'every clip decoded (' + done.unreadable + ' unreadable)');
-    const times = [...document.querySelectorAll('[data-gi]')].map(t => (t.innerText.match(/\b\d{1,2}:\d\d\b/) || [''])[0]);
+    // The time is on the tile, or (the wireframe's tiles: name, length, gamma on the frame) in the tile's accessible name.
+    const times = [...document.querySelectorAll('[data-gi]')].map(t => ((t.innerText + ' ' + (t.getAttribute('aria-label') || '')).match(/\b\d{1,2}:\d\d\b/) || [''])[0]);
     ok(new Set(times.filter(Boolean)).size === names.length, 'each clip shows its own capture time: ' + times.join(', '));
     ok(/\b1 s\b/.test(document.body.innerText), 'clip lengths shown');
     const tile = $('[data-gi="0"]'); if (tile) tile.click(); await wait(300);
