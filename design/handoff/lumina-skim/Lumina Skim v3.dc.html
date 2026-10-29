@@ -10,6 +10,48 @@
 <helmet>
 <script src="./lumina-video-data-mvp.js"></script>
 <style>
+/* Minimal (2026-10-29, the keep-sort wireframes): keep only, the frame first, no chrome that isn't used. What is cut
+   still works from its key (M, C, ⌘⌫, ⌘W, P); ?full=1 shows everything again. LOCAL-CHANGES 316. */
+html:not([data-full]) div[data-lumina=skim-bar]:not([style*="position:absolute"]),
+html:not([data-full]) [data-lumina=keybar],
+html:not([data-full]) [data-lumina=shoot-close],
+html:not([data-full]) [data-lumina=memory-pill],
+html:not([data-full]) [data-lumina=web-preview],
+html:not([data-full]) [data-lumina=report],
+html:not([data-full]) [data-lumina=tile-notes],
+html:not([data-full]) [data-bucket=maybe],
+html:not([data-full]) [data-bucket=cut],
+html:not([data-full]) [data-lumina=footer] [data-well],
+html:not([data-full]) [data-lumina=footer-cut],
+html:not([data-full]) [data-lumina=storage],
+html:not([data-full]) [data-lumina=viewer-top] [data-well=maybe],
+html:not([data-full]) [data-lumina=viewer-top] [data-well=cut],
+html:not([data-full]) [data-lumina=clip-remove],
+html:not([data-full]) [data-lumina=viewer-mark],
+html:not([data-full]) [data-lumina=viewer-mark-now],
+html:not([data-full]) [data-lumina=info] [data-facts],
+html:not([data-full]) [data-lumina=neighbours],
+html:not([data-full]) [data-lumina=tile-l2],
+html:not([data-full]) body:has([data-screen-label="Clip"]) [data-lumina=dock],
+html:not([data-full]) body:has([data-screen-label="Clip"]) [data-lumina=footer],
+html:not([data-full]) [data-lumina=footer],
+html:not([data-full]) [data-lumina=viewer-top],
+html:not([data-full]) [data-lumina=tile-title],
+html:not([data-full]) [data-lumina=tile-dots],
+html:not([data-full]) [data-lumina=tile-marks],
+html:not([data-full]) [data-lumina=tile-chips],
+html[data-full] [data-lumina=rail-close],
+html[data-full] [data-lumina=rail-keep]{display:none!important}
+/* The wireframe's large view: the strip under the frame, the rail the full height with Keep at its foot. */
+html:not([data-full]) [data-lumina=furled-takes]{order:2;border-bottom:0!important;border-top:1px solid rgba(239,236,230,0.06)}
+html:not([data-full]) [data-screen-label=Clip]{order:1}
+html:not([data-full]) [data-lumina=info]{display:flex!important;flex-direction:column;align-self:stretch!important;min-height:100%}
+html:not([data-full]) [data-lumina=info] > *{align-self:stretch!important}
+html:not([data-full]) [data-lumina=info] > [data-lumina=look]{flex:1 1 auto}
+/* The wireframe's time axis: small labels on the rod. */
+html:not([data-full]) [data-lumina=time-at]{font-size:15px!important;line-height:20px!important}
+html:not([data-full]) [data-lumina=time-date]{font-size:11px!important;line-height:16px!important}
+
 body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
 a{color:#EFECE6}a:hover{color:#B8B3AB}
 *,*::before,*::after{transition:none!important}
@@ -144,6 +186,11 @@ body:has([data-view=phone]){background:#111}
   [data-lumina=footer]{grid-template-columns:auto minmax(0,1fr)!important}
   [data-screen-label=Clip]{padding-top:8px!important;padding-bottom:8px!important}
 }
+/* Color: half the screen tall, the rows sharing what is left (owner, 2026-10-29). */
+[data-lumina=look]{min-height:50vh;box-sizing:border-box}
+[data-lumina=look]>[data-lkp]{flex:1 1 auto;min-height:40px;align-content:center}
+/* A press on every button without a spring of its own; reduced motion stays still. */
+@media (prefers-reduced-motion:no-preference){button:not([data-press]):not([aria-disabled=true]):active{transform:scale(0.97);transition:transform 80ms ease-out}}
 </style>
 </helmet>
 <div data-screen-label="Skim" data-view="{{ viewName }}" style="position:relative;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-variant-numeric:tabular-nums;font-size:12px;user-select:none;-webkit-user-select:none">
@@ -324,6 +371,7 @@ body:has([data-view=phone]){background:#111}
               <span data-lumina="resume-hint" style="flex-basis:100%;color:#9A958D;line-height:1.45">{{ resumeHint }}</span>
             </div>
           </sc-if>
+          <sc-if value="{{ drvOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="drives" role="list" aria-label="Drives" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:12px"><sc-for list="{{ drives }}" as="dv" hint-placeholder-count="3"><button type="button" role="listitem" data-lumina="drive" onClick="{{ dv.go }}" aria-label="{{ dv.aria }}" title="{{ dv.tip }}" style="text-align:left;color:inherit;box-sizing:border-box;padding:12px 14px;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:64px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1);display:flex;flex-direction:column;gap:3px;cursor:pointer" style-hover="background:#2E2D2B" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:#9A958D">{{ dv.kind }}</span><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ dv.name }}</span><span style="color:#B8B3AB">{{ dv.line }}</span></button></sc-for></div></sc-if>
           <button type="button" data-lumina="drop" onClick="{{ pickFolder }}" style="color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
             <span style="font-size:16px;color:#EFECE6">{{ dropT }}</span>
             <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>{{ pickT }}</span>
@@ -651,26 +699,26 @@ body:has([data-view=phone]){background:#111}
             </button>
           </sc-for>
           <sc-for list="{{ ft }}" as="g" hint-placeholder-count="8">
-            <button type="button" data-gi="{{ g.i }}" data-fold="{{ g.n }}" data-first="{{ g.first }}" onMouseEnter="{{ fEnter }}" onMouseMove="{{ fMove }}" onMouseLeave="{{ fLeave }}" onClick="{{ fClick }}" onDoubleClick="{{ fDbl }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="color:inherit;text-align:left;cursor:pointer;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:absolute;left:{{ g.x }}px;top:{{ g.y }}px;width:{{ g.w }}px;height:{{ fTh }}px;display:flex;flex-direction:column;gap:6px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;overflow:hidden">
+            <button type="button" data-gi="{{ g.i }}" data-fold="{{ g.n }}" aria-label="{{ g.aria }}" data-first="{{ g.first }}" onMouseEnter="{{ fEnter }}" onMouseMove="{{ fMove }}" onMouseLeave="{{ fLeave }}" onClick="{{ fClick }}" onDoubleClick="{{ fDbl }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="color:inherit;text-align:left;cursor:pointer;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:absolute;left:{{ g.x }}px;top:{{ g.y }}px;width:{{ g.w }}px;height:{{ fTh }}px;display:flex;flex-direction:column;gap:6px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;overflow:hidden">
               <div style="position:relative;flex:none;height:{{ fPh }}px;border-radius:3px;overflow:hidden;background:#2A2826">
                 <div style="position:absolute;inset:0;background:{{ g.thumb }};filter:{{ g.flt }}"></div>
                 <sc-if value="{{ g.phOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-wait" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 10px;text-align:center;white-space:nowrap;overflow:hidden;pointer-events:none"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ g.phName }}</span><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ g.phSub }}</span></div></sc-if>
                 <div style="position:absolute;inset:0;border-radius:3px;box-shadow:{{ g.edge }};pointer-events:none"></div>
                 <sc-if value="{{ g.skOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="skim-bar" style="position:absolute;left:0;right:0;bottom:0;height:3px;display:flex;gap:1px;pointer-events:none"><sc-for list="{{ g.sk }}" as="s" hint-placeholder-count="8"><span style="flex:1;background:{{ s.c }}"></span></sc-for></div></sc-if>
                 <sc-if value="{{ g.badgeOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="fold-badge" style="position:absolute;left:6px;bottom:7px;max-width:calc(100% - 12px);box-sizing:border-box;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:#EFECE6;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.badge }}</div></sc-if>
-                <sc-if value="{{ g.durOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;bottom:7px;padding:0 5px;border-radius:4px;background:rgba(22,21,20,0.72);color:#EFECE6;font-size:11px;line-height:16px">{{ g.cell }}</div></sc-if>
+                <sc-if value="{{ g.nmOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-name" style="position:absolute;left:6px;bottom:7px;max-width:calc(100% - 96px);box-sizing:border-box;padding:0 7px;border-radius:4px;background:rgba(22,21,20,0.78);color:#EFECE6;font-size:12px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none">{{ g.title }}</div></sc-if><sc-if value="{{ g.gamOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-gamma" style="position:absolute;right:{{ g.gamR }};bottom:7px;padding:0 6px;border-radius:4px;background:rgba(22,21,20,0.78);box-shadow:inset 0 0 0 1px {{ g.gamRing }};color:#EFECE6;font-size:11px;line-height:16px;pointer-events:none">{{ g.gam }}</div></sc-if><sc-if value="{{ g.durOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;bottom:7px;padding:0 5px;border-radius:4px;background:rgba(22,21,20,0.72);color:#EFECE6;font-size:11px;line-height:16px">{{ g.cell }}</div></sc-if>
                 <sc-if value="{{ g.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:#161514;color:{{ g.markC }};font-weight:700">{{ g.mark }}</div></sc-if>
                 <sc-if value="{{ g.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ g.ghostC }};font-weight:700;opacity:0.7">{{ g.ghostT }}</div></sc-if>
               </div>
-              <div style="flex:none;height:{{ g.tH }};display:flex;align-items:baseline;justify-content:space-between;gap:8px;overflow:hidden"><span style="font-family:{{ g.tFont }};font-size:{{ g.tSize }};line-height:{{ g.tH }};color:#EFECE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.title }}</span><span style="flex:none;color:{{ g.rightC }};white-space:nowrap">{{ g.right }}</span></div>
-              <sc-if value="{{ g.l2 }}" hint-placeholder-val="{{ true }}"><div style="flex:none;height:16px;line-height:16px;display:flex;justify-content:space-between;gap:8px;color:#B8B3AB;white-space:nowrap;overflow:hidden"><span style="overflow:hidden;text-overflow:ellipsis">{{ g.line }}</span><span data-lumina="tile-why" title="why this tile starts here" style="flex:none;color:#9A958D">{{ g.why }}</span></div></sc-if>
+              <div data-lumina="tile-title" style="flex:none;height:{{ g.tH }};display:flex;align-items:baseline;justify-content:space-between;gap:8px;overflow:hidden"><span style="font-family:{{ g.tFont }};font-size:{{ g.tSize }};line-height:{{ g.tH }};color:#EFECE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.title }}</span><span style="flex:none;color:{{ g.rightC }};white-space:nowrap">{{ g.right }}</span></div>
+              <sc-if value="{{ g.l2 }}" hint-placeholder-val="{{ true }}"><div data-lumina="tile-l2" style="flex:none;height:16px;line-height:16px;display:flex;justify-content:space-between;gap:8px;color:#B8B3AB;white-space:nowrap;overflow:hidden"><span style="overflow:hidden;text-overflow:ellipsis">{{ g.line }}</span><span data-lumina="tile-why" title="why this tile starts here" style="flex:none;color:#9A958D">{{ g.why }}</span></div></sc-if>
               <sc-if value="{{ g.fold }}" hint-placeholder-val="{{ true }}">
-                <div style="flex:none;height:6px;display:flex;gap:3px;overflow:hidden"><sc-if value="{{ g.dotsOn }}" hint-placeholder-val="{{ true }}"><sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="10"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:{{ d.c }}"></span></sc-for></sc-if><sc-if value="{{ g.barOn }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;height:6px;border-radius:3px;overflow:hidden;background:rgba(239,236,230,0.16)"><sc-for list="{{ g.segs }}" as="s" hint-placeholder-count="3"><span style="width:{{ s.w }};background:{{ s.c }}"></span></sc-for></div></sc-if></div>
+                <div data-lumina="tile-dots" style="flex:none;height:6px;display:flex;gap:3px;overflow:hidden"><sc-if value="{{ g.dotsOn }}" hint-placeholder-val="{{ true }}"><sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="10"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:{{ d.c }}"></span></sc-for></sc-if><sc-if value="{{ g.barOn }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;height:6px;border-radius:3px;overflow:hidden;background:rgba(239,236,230,0.16)"><sc-for list="{{ g.segs }}" as="s" hint-placeholder-count="3"><span style="width:{{ s.w }};background:{{ s.c }}"></span></sc-for></div></sc-if></div>
                 <div data-lumina="tile-marks" title="{{ g.cntT }}" style="flex:none;height:16px;line-height:16px;display:flex;gap:10px;white-space:nowrap;overflow:hidden"><sc-for list="{{ g.cnt }}" as="k" hint-placeholder-count="4"><span style="flex:none;color:{{ k.c }}">{{ k.t }}</span></sc-for></div>
                 <div data-lumina="tile-notes" title="{{ g.noteT }}" style="flex:none;height:16px;line-height:16px;color:{{ g.noteC }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.note }}</div>
               </sc-if>
               <sc-if value="{{ g.l3 }}" hint-placeholder-val="{{ false }}">
-                <div style="flex:none;display:flex;gap:4px;height:20px;overflow:hidden"><sc-for list="{{ g.chips }}" as="c" hint-placeholder-count="2"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="flex:none;height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for><span style="color:#9A958D;line-height:20px">{{ g.chipNone }}</span></div>
+                <div data-lumina="tile-chips" style="flex:none;display:flex;gap:4px;height:20px;overflow:hidden"><sc-for list="{{ g.chips }}" as="c" hint-placeholder-count="2"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="flex:none;height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for><span style="color:#9A958D;line-height:20px">{{ g.chipNone }}</span></div>
                 <div data-lumina="tile-marks" style="flex:none;height:16px;line-height:16px;color:{{ g.stateC }};white-space:nowrap;overflow:hidden">{{ g.state }}</div>
               </sc-if>
             </button>
@@ -800,7 +848,7 @@ body:has([data-view=phone]){background:#111}
             <sc-for list="{{ nbrs }}" as="nb" hint-placeholder-count="2"><button type="button" data-strip="{{ nb.id }}" title="{{ nb.tip }}" aria-label="{{ nb.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;color:inherit;text-align:left;-webkit-appearance:none;appearance:none;grid-column:{{ nb.col }};min-width:0;display:flex;flex-direction:column;gap:4px;cursor:pointer;opacity:{{ nb.op }}" style-hover="filter:brightness(1.12)"><div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#161514"><div style="position:absolute;inset:0;background:{{ nb.bg }};filter:{{ nb.flt }}"></div><div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ nb.edge }}"></div></div><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ nb.say }}</span></button></sc-for>
           </div></sc-if>
           <div data-lumina="info-head" style="order:0;grid-column:1 / -1;display:flex;flex-direction:column;gap:8px;padding:10px 14px;border-radius:9px;background:{{ cv.hdBg }};box-shadow:inset 4px 0 0 {{ cv.markNowC }}">
-            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:26px;line-height:1.1">{{ cv.name }}</span><span style="color:#B8B3AB">{{ cv.when }}</span><span data-lumina="viewer-mark-now" style="margin-left:auto;color:{{ cv.markNowC }};font-weight:700;white-space:nowrap">{{ cv.markNow }}</span></div>
+            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:26px;line-height:1.1">{{ cv.name }}</span><span style="color:#B8B3AB">{{ cv.when }}</span><span data-lumina="viewer-mark-now" style="margin-left:auto;color:{{ cv.markNowC }};font-weight:700;white-space:nowrap">{{ cv.markNow }}</span><button type="button" data-lumina="rail-close" title="Back to the grid · esc" aria-label="Back to the grid" onClick="{{ backClick }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:auto;align-self:center;width:28px;height:28px;border-radius:6px;font-size:20px;line-height:28px;text-align:center;color:#9A958D">×</button></div>
             <div data-lumina="viewer-mark" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               <sc-for list="{{ cv.chips }}" as="c" hint-placeholder-count="3"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for>
               <span data-lumina="viewer-cut" style="margin-left:auto;color:{{ cutC }};white-space:nowrap">{{ cutSoFar }}</span>
@@ -820,6 +868,7 @@ body:has([data-view=phone]){background:#111}
               <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="color:#EFECE6">{{ lk.zoneT }}</span><span data-lumina="look-wheel-say" style="color:#9A958D;font-variant-numeric:tabular-nums">{{ lk.wSay }}</span></div></div></sc-if>
             <sc-for list="{{ lk.rows }}" as="lr" hint-placeholder-count="6"><div data-lkp="{{ lr.p }}" role="slider" aria-label="{{ lr.l }}" aria-valuetext="{{ lr.v }}" title="Drag the row · ⌥ for fine · 2×click resets" onPointerDown="{{ lkDown }}" onDoubleClick="{{ lkDbl }}" style="display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 12px;row-gap:5px;align-items:center;min-height:42px;align-content:center;margin:0 -6px;padding:0 6px;border-radius:7px;cursor:ew-resize;touch-action:none;background:{{ lr.bg }}"><span style="color:#EFECE6">{{ lr.l }}</span><span style="color:{{ lr.vc }};font-variant-numeric:tabular-nums;min-width:44px;text-align:right">{{ lr.v }}</span><div style="grid-column:1 / -1;position:relative;height:12px"><div style="position:absolute;left:0;right:0;top:5px;height:2px;border-radius:1px;background:rgba(239,236,230,0.14)"></div><div style="position:absolute;left:{{ lr.d }};top:2px;width:1px;height:8px;background:rgba(239,236,230,0.3)"></div><div style="position:absolute;left:{{ lr.fl }};width:{{ lr.fw }};top:5px;height:2px;border-radius:1px;background:#EFECE6"></div><div style="position:absolute;left:{{ lr.kx }};top:0;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#1E1D1B;box-shadow:inset 0 0 0 2px #EFECE6"></div></div></div></sc-for>
           </div></sc-if>
+<button type="button" data-lumina="rail-keep" data-well="keep" aria-pressed="{{ cv.keepOn }}" title="K · on / off" onClick="{{ wClick }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;order:9;flex:none;margin-top:auto;height:46px;border-radius:10px;text-align:center;font-size:14px;font-weight:700;background:{{ cv.keepBg }};color:{{ cv.keepFg }};box-shadow:inset 0 0 0 1px {{ cv.keepRing }}">{{ cv.keepT }}</button>
           <sc-for list="{{ cv.groups }}" as="gr" hint-placeholder-count="3"><div data-facts="{{ gr.key }}" style="order:{{ gr.order }};grid-column:{{ gr.span }};align-self:start;display:flex;flex-direction:column;gap:3px;line-height:1.45;padding:10px 12px;border-radius:9px;background:{{ gr.bg }};box-shadow:inset 0 0 0 1px {{ gr.line }}">
             <span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:{{ gr.tc }}">{{ gr.t }}</span>
             <sc-for list="{{ gr.rows }}" as="fl" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ fl.k }}</span><span style="color:{{ fl.c }};font-family:{{ fl.ff }};font-size:{{ fl.fs }};overflow-wrap:anywhere">{{ fl.v }}</span></div></sc-for>
@@ -1249,10 +1298,11 @@ class Component extends DCLogic {
   panRef = el => { this.panEl = el; };
 
   componentDidMount() {
+    if (/[?&]full=1\b/.test(location.search)) document.documentElement.setAttribute('data-full', '');
     this.load();
     this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => { this.panS = null; this.setState({held:null}); };
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
-    window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu);
+    window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu); this._ck = e => this.clickAway(e); window.addEventListener('click', this._ck);
     this._md = e => { this.tabFocus = false; const st = this.state; if (!st.sel.length && !st.box) return; const t = e.target; if (this.sc && this.sc.contains(t)) return; if (t.closest && t.closest('[data-well],[data-lumina="memory"],[data-lumina="progress"]')) return; this.setState({sel:[], box:null}); }; window.addEventListener('mousedown', this._md);
     this._vis = () => { if (!document.hidden) { const v = this.vidEl; if (v && this.vidWant != null && v.readyState >= 1) { try { v.currentTime = this.vidWant; } catch (x) {} this.vidAsk = 0; this.vidArm(); } this.bump(); } }; document.addEventListener('visibilitychange', this._vis);
     window.addEventListener('wheel', this._wh, {passive:false}); window.addEventListener('blur', this._bl);
@@ -1296,7 +1346,7 @@ class Component extends DCLogic {
   componentWillUnmount() {
     window.removeEventListener('mousedown', this._cmd); clearTimeout(this.cacheT); clearTimeout(this.cacheCT);
     clearTimeout(this.kbT); window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
-    window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
+    window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('click', this._ck); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
     window.removeEventListener('focus', this._fo); clearInterval(this.plT); clearTimeout(this.exWT);
     window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); window.removeEventListener('dragenter', this.addEnter); window.removeEventListener('dragleave', this.addLeave); window.removeEventListener('dragover', this.addOver); window.removeEventListener('drop', this.addDrop); window.removeEventListener('beforeunload', this._bu); window.removeEventListener('pagehide', this._ph); clearInterval(this._stT); document.removeEventListener('visibilitychange', this._stV); window.removeEventListener('focus', this._stV); this.dropVid();
     clearTimeout(this.propT); clearTimeout(this.flT); clearTimeout(this.pvCvT); this.dockUnmount(); this.touchOff();
@@ -1391,6 +1441,8 @@ class Component extends DCLogic {
     { const wk = this._wk || {}; if (this.d && (wk.d !== this.d || wk.m !== s0.marks)) { this._wk = {d:this.d, m:s0.marks}; if (s0.step === 'skim') this.exWarmSoon(); } }
     if (s0.step === 'export' && !this.plT) this.plT = setInterval(() => { if (!document.hidden && this.state.step === 'export') this.wsPlacesPoll(); }, 4000);
     if (s0.step !== 'export' && this.plT) { clearInterval(this.plT); this.plT = null; }
+    if (s0.step === 'import') { this.drvPoll(); if (!this.drvT) this.drvT = setInterval(() => { if (!document.hidden && this.state.step === 'import') this.drvPoll(true); }, 4000); }
+    else if (this.drvT) { clearInterval(this.drvT); this.drvT = null; }
     this.syncVid(); this.paintVid(); this.gradeDraw(); this.olPaint(); this.fgPaint();
   }
   load() {
@@ -2229,12 +2281,14 @@ class Component extends DCLogic {
   // small to large. The pinch, − / = and the size buttons move along these levels; past 5 a pinch opens the Viewer.
   static ZL = [280, 150, 200, 280, 380, 520];
   static ZL_LINES = [110, 26, 48, 110, 110, 110];
+  // Minimal (LOCAL-CHANGES 317): the frame is the card, its name and facts on it, no lines under it. ?full=1 brings the lines back.
+  static bare = typeof location !== 'undefined' && !/[?&]full=1\b/.test(location.search);
   static ZL_WORD = ['scenes', 'small', 'medium', 'large', 'larger', 'largest'];
   static ZL_DEF = 3;
   static zlGeo(o) {
     const zl = Math.max(0, Math.min(5, o.zl | 0)), pad = Math.min(40, Math.max(16, o.vw * 0.022)), W = Math.max(140, (o.cw ? o.cw : o.vw) - 2 * pad);
     const gx = zl === 1 ? 12 : zl === 2 ? 16 : 22, gy = zl === 1 ? 14 : zl === 2 ? 18 : 26, cols = Math.max(1, Math.floor((W + gx) / (Component.ZL[zl] + gx)));
-    const tw = (W - (cols - 1) * gx) / cols, ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
+    const tw = (W - (cols - 1) * gx) / cols, ph = Math.round(tw * 9 / 16), lines = Component.bare && zl ? 0 : Component.ZL_LINES[zl], th = ph + lines;
     return {zl, cols, tw, th, gx, gy, pitch:th + gy, pad, W, ph, lines, hh:zl ? 46 : 0};
   }
   // Elastic tiles: few clips get larger tiles instead of empty screen. geo is zlGeo's answer for the interval's size,
@@ -2274,7 +2328,7 @@ class Component extends DCLogic {
       gx = zl === 1 ? 12 : zl === 2 ? 16 : 22; gy = zl === 1 ? 14 : zl === 2 ? 18 : 26; tw = (geo.W - (cols - 1) * gx) / cols;
       let up = zl; while (up < 5 && Z[up + 1] <= tw) up++; if (up === zl) break; zl = up;
     }
-    const ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
+    const ph = Math.round(tw * 9 / 16), lines = Component.bare && zl ? 0 : Component.ZL_LINES[zl], th = ph + lines;
     return {...geo, zl, cols, tw, th, gx, gy, pitch:th + gy, ph, lines, fit:true};
   }
   // Runs share a row (geo.flow, the time canvas): a run that fits in what is left of the row after the run before it
@@ -2569,10 +2623,11 @@ class Component extends DCLogic {
       const n = g.clips.length, one = n === 1, c0 = g.clips[0], isCur = !!cg && cg.i === g.i, anySel = g.clips.some(c => selSet.has(c.id)), skI = sk && sk.gi === g.i ? sk.i : null;
       const gm = st.held ? (st.sel.length ? (anySel ? st.held : null) : (isCur ? st.held : null)) : null;
       const base = {i:g.i, n, first:c0.id, x:it.x, y:it.y, w:it.w, fold:!one, one, why:one ? '' : g.why || '', bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.65)' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
-        cell:'', durOn:false, dots:[], dotsOn:false, barOn:false, segs:[], cnt:[], cntT:'', note:'', noteT:'', noteC:'#9A958D', chips:[], chipNone:'', state:'', stateC:'#9A958D', badgeOn:false, badge:'', markOn:false, mark:'', markC:'', thumb:Component.PH, flt:'none', phName:nm(c0), skOn:false, sk:[], l2:true, l3:false, tH:'24px', rightC:'#9A958D'};
+        cell:'', durOn:false, dots:[], dotsOn:false, barOn:false, segs:[], cnt:[], cntT:'', note:'', noteT:'', noteC:'#9A958D', chips:[], chipNone:'', state:'', stateC:'#9A958D', badgeOn:false, badge:'', markOn:false, mark:'', markC:'', thumb:Component.PH, flt:'none', phName:nm(c0), skOn:false, sk:[], l2:true, l3:false, tH:'24px', rightC:'#9A958D', nmOn:false, gamOn:false, gam:'', gamR:'5px', gamRing:'transparent', aria:nm(c0) + ' · ' + this.hm(c0.t) + (one ? '' : ' · ' + this.plural(n, 'clip'))};
       if (one) {
         const m = st.marks[c0.id] || null, ch = this.chips(c0), t = this.tone(c0, skI != null ? skI : fi), pc0 = compact && this.profChip(c0);   // compact tiles have no chip row: the profile goes on the line
-        return {...base, thumb:t.bg, flt:t.flt, cell:c0.dur ? this.fmtDur(c0.dur) : '—', durOn:!compact || zl === 2, phOn:this.waiting(c0), phSub:this.phSub(c0), title:nm(c0), tFont:'inherit', tSize:compact ? '12px' : '13px', tH:compact ? '18px' : '24px',
+        const pg = Component.bare && this.prof(c0), gam = pg ? (pg.g === 'none' ? '709' : /log/i.test(pg.g) ? 'Log' : pg.g) : '', dur = c0.dur ? this.fmtDur(c0.dur) : '—';
+        return {...base, aria:nm(c0) + ' · ' + this.hm(c0.t) + ' · ' + dur + (gam ? ' · ' + gam : '') + (m ? ' · ' + this.W(m) : ''), nmOn:!!Component.bare, gamOn:!!gam, gam, gamR:(14 + dur.length * 6.5).toFixed(0) + 'px', gamRing:gam === 'Log' ? 'rgba(239,236,230,0.7)' : 'transparent', thumb:t.bg, flt:t.flt, cell:dur, durOn:!compact || zl === 2 || !!Component.bare, phOn:this.waiting(c0), phSub:this.phSub(c0), title:nm(c0), tFont:'inherit', tSize:compact ? '12px' : '13px', tH:compact ? '18px' : '24px',
           right:zl === 1 ? (m ? this.W(m) : '') : this.hm(c0.t), rightC:zl === 1 && m ? MK[m] : '#9A958D', l2:zl !== 1, l3:!compact,
           line:compact ? (m ? this.W(m) + ' · ' : '') + this.fmtB(c0.bytes) + (pc0 ? ' · ' + pc0.t : '') : (c0.dur ? this.fmtDur(c0.dur) : '—') + ' · ' + this.fmtB(c0.bytes),
           edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm && !compact, mark:this.W(m), markC:m ? MK[m] : '',
@@ -2769,16 +2824,28 @@ class Component extends DCLogic {
   static clipAt(flat, cur, d) { const i = flat.indexOf(cur); return i < 0 ? null : flat[i + d] || null; }
   // Preview is the Viewer on the clip under the cursor. Hold Space to look and let go to come back; a tap (under
   // 230 ms, as a quick mark) keeps it open, and the next Space closes it, back where it was opened from.
+  // Space, as the wireframe has it: a tap opens the Viewer and a tap closes it; held, it plays the clip while it is held
+  // (from the grid, letting go goes back to the grid, as before). The hold is told from the tap after 230 ms.
+  spaceHoldArm() {
+    clearTimeout(this.spT); this.spPlayed = false;
+    // Kept playing while held: the Viewer may swap its video in the first moments (a new element starts paused).
+    const tryPlay = (n) => { if (!this.spHeld) return; if (!this.playing) this.vidPlay(); if (this.playing) this.spPlayed = true; if (n < 600) this.spT = setTimeout(() => tryPlay(n + 1), 100); };
+    this.spT = setTimeout(() => tryPlay(0), 230);
+  }
   spaceDown(e) {
     const st = this.state; if (!this.d.clips.length) return;
-    if (st.lv >= 2) { const from = this.pvFrom ?? (st.cv ? 0 : 1); this.pvPeek = null; this.pvFrom = null; return this.pvBack(from); }
+    this.spHeld = true;
+    if (st.lv >= 2) { this.spIn = {at:e.timeStamp}; return this.spaceHoldArm(); }
     let cur = st.cur;
     if (!st.cv && st.lv === 0) { const first = this.firstVis(st.gi); cur = this.gOf[st.cur] === st.gi ? st.cur : first; }
     if (!cur || !this.byId[cur]) return;
     this.pvPeek = {at:e.timeStamp}; this.pvFrom = st.lv; this.pvAt = st.cv && st.lv === 0 && this.sc ? {top:this.sc.scrollTop, cur} : null;
-    this.setState({lv:2, cur, fx:0, sel:[], box:null, pan:[0.5, 0.5]});
+    this.setState({lv:2, cur, fx:0, sel:[], box:null, pan:[0.5, 0.5]}); this.spaceHoldArm();
   }
   spaceUp(e) {
+    this.spHeld = false; clearTimeout(this.spT); const played = this.spPlayed; this.spPlayed = false; if (played && this.playing) this.vidPause();
+    const i = this.spIn; this.spIn = null;
+    if (i) { if (e.timeStamp - i.at >= 230 || this.state.lv < 2) return; const from = this.pvFrom ?? (this.state.cv ? 0 : 1); this.pvPeek = null; this.pvFrom = null; return this.pvBack(from); }
     const p = this.pvPeek; this.pvPeek = null; if (!p || e.timeStamp - p.at < 230 || this.state.lv < 2) return;
     const from = this.pvFrom ?? 0; this.pvFrom = null; this.pvBack(from);
   }
@@ -2868,6 +2935,7 @@ class Component extends DCLogic {
     if (st.step !== 'skim') {
       if (st.step === 'export') { if (meta && k === 'Enter') { e.preventDefault(); return this.wsPlanN() ? this.wsApply() : this.download(); } if (this.wsKey(e)) return; if (k === 'Escape' && !(t && t.tagName === 'INPUT')) { e.preventDefault(); return this.setStep('skim'); } }
       if ((k === 'Enter' || k === ' ') && this.isCtl(t)) { e.preventDefault(); t.click(); }
+      else if (st.step === 'import' && k === 'Enter' && !meta && !e.shiftKey && !e.altKey && !e.repeat && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); return this.hasShoot() ? this.setStep('skim') : this.pickFolder(); }
       return;
     }
     if (k === 'Escape') { e.preventDefault(); return this.esc(); }
@@ -2973,6 +3041,7 @@ class Component extends DCLogic {
     if (this.boxS) {
       const s = this.boxS; this.boxS = null;
       if (!s.moved) return this.setState({box:null, sel:[]});
+      this.boxEndAt = performance.now();
       if (this.mmRaf) { cancelAnimationFrame(this.mmRaf); this.mmRaf = 0; }
       if (s.meta && st.held && st.sel.length) { this.heldTapped = true; const ids = st.sel; this.setState({box:null}); return this.areaMark(ids, st.held); }
       this.setState({box:null});
@@ -3513,6 +3582,7 @@ class Component extends DCLogic {
         .map(([key, t, tc, bg, order, span]) => ({key, t, tc, bg, order, span, line:tc + '30', rows:facts.filter(x => GK[key].includes(x.k))}));
       vals.cv = {name:c.name.replace(/\.\w+$/, ''), when:this.hm(c.t) + ' · ' + this.fmtDur(c.dur), bg:t.bg, flt:t.flt, edge:gm ? 'inset 0 0 0 3px ' + MK[gm] + '99' : m ? 'inset 0 0 0 3px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '',
         picks:[['keep', 'K'], ['maybe', 'M'], ['cut', 'C']].map(([pm, pk]) => ({m:pm, k:pk, l:this.W(pm), on:m === pm, fg:m === pm ? '#1E1D1B' : MK[pm], fw:m === pm ? 800 : 400, bg:m === pm ? MK[pm] : 'transparent', ring:'1px ' + MK[pm] + (m === pm ? '' : '80'), capBg:m === pm ? 'rgba(30,29,27,0.14)' : 'rgba(239,236,230,0.12)', capFg:m === pm ? '#1E1D1B' : '#EFECE6'})),
+        keepOn:m === 'keep', keepT:m === 'keep' ? this.W('keep') + ' ✓ · K' : this.W('keep') + ' · K', keepBg:m === 'keep' ? MK.keep : 'transparent', keepFg:m === 'keep' ? '#1E1D1B' : '#EFECE6', keepRing:m === 'keep' ? MK.keep : 'rgba(239,236,230,0.4)',
         markNow:m ? this.W(m) : 'undecided', markNowC:m ? MK[m] : '#9A958D', groups, hdBg:m ? 'linear-gradient(90deg,' + MK[m] + '33,' + MK[m] + '0A 70%),rgba(239,236,230,0.04)' : 'rgba(239,236,230,0.06)',
         ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
         chips:this.chipRow(c, ch, null, 3).chips,
@@ -3653,12 +3723,12 @@ class Component extends DCLogic {
   static dockNear(order, ids, cur) { if (!ids.length) return null; if (ids.includes(cur)) return cur; const at = order.indexOf(cur), set = new Set(ids); if (at >= 0) for (let i = at + 1; i < order.length; i++) if (set.has(order[i])) return order[i]; return ids[ids.length - 1]; }
   static dockOut(ids, id) { const i = ids.indexOf(id); return i < 0 ? null : ids[i + 1] ?? ids[i - 1] ?? null; }
   // Large under the grid; in the Viewer a slim strip of pictures only, so the large view keeps the height.
-  dockSlim() { return this.state.lv >= 2; }
-  dockPh() { const vh = this.state.vh; return this.dockSlim() ? (vh >= 1000 ? 130 : vh >= 860 ? 104 : vh >= 700 ? 80 : 60) : vh >= 860 ? 110 : vh >= 700 ? 96 : 72; }
+  dockSlim() { return this.state.lv >= 2 || !!Component.bare; }
+  dockPh() { const vh = this.state.vh; if (Component.bare) return 40; /* minimal: a slim Keep strip, as the wireframe */ return this.dockSlim() ? (vh >= 1000 ? 130 : vh >= 860 ? 104 : vh >= 700 ? 80 : 60) : vh >= 860 ? 110 : vh >= 700 ? 96 : 72; }
   // The height the dock takes from the window (the Viewer and the scene fit leave it room).
   // In the Viewer the slim strip keeps its height while it is empty, so the first K does not shrink the picture
   // (a smaller picture let the chapter's neighbours in beside it, which read as K opening the next clip).
-  dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; return this.dockPh() + (this.dockSlim() ? 49 : 68) + 22; }
+  dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; if (st.lv >= 2 && !document.documentElement.hasAttribute('data-full')) return 0; /* minimal: no dock in the Viewer */ return this.dockPh() + (this.dockSlim() ? 49 : 68) + 22; }
   dockIn(m) { const bk = this.state.bk; return bk ? m === bk : m === 'keep' || m === 'maybe' || (m === 'cut' && this.state.cutsOpen); }
   dockIds() { const st = this.state; return Component.dockList(this.d ? this.d.clips : [], st.marks, !!st.cutsOpen, st.bk).map(x => x.id); }
   // While the dock has focus it follows the clip you are on when that clip is selected (an undo can move you).
@@ -4791,6 +4861,24 @@ class Component extends DCLogic {
   // A phone or a tablet picks clips (iPhone: Photos or Files; Android: its photo picker), a computer a folder; the other is
   // one button below. Neither shows a folder picker where the browser has none (iOS Safari before 18.4).
   canFolder() { return typeof document !== 'undefined' && 'webkitdirectory' in document.createElement('input') && !/iPhone|iPod/.test(navigator.userAgent); }
+  // Import's drives: the cards and plugged-in drives the Mac has mounted (lumina.video.places, the list Export's
+  // workshop reads), read on Import and every 4 s while it shows. A click opens Finder to choose clips there: a page
+  // can't open a drive's clips by itself.
+  clickAway(e) {
+    const st = this.state; if (st.step !== 'skim' || !st.sel || !st.sel.length || e.shiftKey || e.metaKey || e.ctrlKey) return;
+    if (performance.now() - (this.boxEndAt || -1e9) < 300) return;   // the click that ends a drag-select keeps it
+    const t = e.target; if (!t || !t.closest || t.closest('[data-clip],[data-gi],[data-strip],button,a,input,textarea,[role=slider],[role=tab],[data-lumina=dock],[data-lumina=look],[data-nobox]')) return;
+    this.setState({sel:[]});
+  }
+  drvPoll(force) {
+    if (!force && performance.now() - (this.drvAt || -1e9) < 4000) return; this.drvAt = performance.now();
+    const v = this.exHostApi(); if (!v || !v.places) return;
+    Promise.resolve().then(() => v.places()).then(pl => {
+      const d = ((pl && pl.drives) || []).filter(x => x && (x.card || x.ejectable)).map(x => { const line = x.free != null ? this.fmtB(x.free) + ' free' : (x.readOnly ? 'read only' : '');
+        return {name:x.name, kind:x.card ? 'Card' : 'Drive', line, aria:x.name + (line ? ', ' + line : ''), tip:'Choose clips on ' + x.name}; });
+      if (JSON.stringify(d) !== JSON.stringify(this.imDrv || [])) { this.imDrv = d; this.setState(s => ({tick:(s.tick || 0) + 1})); }
+    }, () => {});
+  }
   pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) { this.pickWait(el); el.click(); } };
   // A status that is still going on (Looking through…, Listing…, Adding…): Open's line and Skim's bar show it with a
   // breathing dot. Any other status, or none, ends it.
@@ -6553,7 +6641,7 @@ void main() {
     const v = {dockExOn:picked, dockEx:() => this.setStep('export'), dockExN:picked ? this.plural(markN.keep + markN.maybe, 'clip') : '', isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
       // Export is gold (LOCAL-CHANGES 279): the step the work goes to stands out once a clip is selected or a maybe (marks kept from before count)
       stepTabs:steps.map((s, i) => { const ex = s[0] === 'export' && picked; return {t:s[1], on:i === si, fg:ex ? (i === si ? '#1E1D1B' : '#FFD27A') : i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), bg:ex ? (i === si ? '#FFD27A' : 'rgba(255,210,122,0.14)') : 'transparent', fw:ex ? '700' : '400', go:() => this.setStep(s[0])}; }),
-      dbgOn:!!st.dbg, cvA:!!st.cv, cvT:'one grid · ' + (st.cv ? 'on' : 'off'), cvFg:st.cv ? '#1E1D1B' : '#B8B3AB', cvBg:st.cv ? '#B8B3AB' : 'rgba(239,236,230,0.06)', cvToggle:this.cvToggle, dropNote:(window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves ' + this.devName() + '.') + ' Marks stay in this tab and are gone when it closes.',
+      dbgOn:!!st.dbg, cvA:!!st.cv, cvT:'one grid · ' + (st.cv ? 'on' : 'off'), cvFg:st.cv ? '#1E1D1B' : '#B8B3AB', cvBg:st.cv ? '#B8B3AB' : 'rgba(239,236,230,0.06)', cvToggle:this.cvToggle, dropNote:window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves ' + this.devName() + '.',
       closeGo:this.closeShoot, closeT:st.closeConfirm ? 'Close? Click again' : 'Close', closeFg:st.closeConfirm ? '#FFD27A' : '#9A958D', closeBg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.06)',
       closeTip:'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open. Marks are not saved: ' + (Object.keys(st.marks).length ? 'its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' will be lost. Download for Final Cut first.' : 'nothing to lose.') + ' ⌘W',
       forgetOn:Component.KEEP_MARKS && has && (Object.keys(st.marks).length > 0 || !!st.memConfirm), forgetGo:this.forgetMarks, forgetT:'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + (st.memConfirm ? '? Click again' : ''), forgetFg:st.memConfirm ? '#FF8A7A' : '#9A958D', forgetBg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.06)',
@@ -6600,6 +6688,7 @@ void main() {
       exAskOn:!!st.exAsk && has && st.step === 'skim', exAskTop:st.stale ? '58px' : '10px', exAskT:st.exAsk ? this.exAskSay() : '', exAskGo:() => this.setStep('export'), exAskX:() => this.setState({exAsk:false}), resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + (st.resume.host ? '' : ' · Safari asks for the folder once') : '', resumeGo:this.resumeGo, resumeAdd:this.resumeAdd,
       resumeHint:st.resume && st.resume.host ? 'Resume opens the same clips again from where they are, no Finder. Add clips brings the shoot back, then Finder opens to add more to it. Your clips are never touched.'
         : 'Both open Finder once: Safari can’t open files again by itself. Resume: choose the shoot’s folder (or one above it) and its clips and marks come back. Add clips: choose any folder; the shoot’s clips come back with their marks and the rest join them. Your clips are never touched.', ...this.cacheVals(has), nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
+      drvOn:st.step === 'import' && (this.imDrv || []).length > 0, drives:(this.imDrv || []).map(d => ({...d, go:() => this.pickFolder()})),
       cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})), cardsOn:this.cardList().length > 0,
       recents:st.step === 'import' ? this.recentVals() : [], recOn:false,
       download:this.download, hintLead:''
