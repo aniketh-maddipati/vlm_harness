@@ -1049,7 +1049,7 @@
   .app:has(.body.large-on) .dock,
   .app:has(.body.large-on) .foot { display: none; }
   .viewer { padding: 16px 0 14px var(--pad-x); gap: 0; }
-  .lv-main { grid-template-columns: minmax(0, 1fr) 248px; gap: 0; }
+  .lv-main { grid-template-columns: minmax(0, 1fr) 340px; gap: 0; }
   .lv-center {
     container-type: size; min-height: 0; justify-content: center; gap: 10px; padding-right: 20px;
   }
@@ -1066,41 +1066,68 @@
   .lv-pos b { font-size: 13px; }
   .lv-state { display: none; }
   .lv-rail {
-    min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 14px;
-    padding: 0 var(--pad-x) 0 18px; border-left: 1px solid var(--line);
+    min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 18px;
+    padding: 0 var(--pad-x) 0 22px; border-left: 1px solid var(--line);
   }
   .lv-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; }
-  .lv-head .cv-name { font-family: var(--serif); font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lv-head .cv-name { font-family: var(--serif); font-size: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lv-x { font-size: 18px; line-height: 1; color: var(--mute); padding: 2px 4px; }
   .lv-x:hover { color: var(--ink); }
-  .lv-sub { grid-column: 1 / -1; font-size: 11px; font-weight: 650; color: var(--mute); font-variant-numeric: tabular-nums; }
+  .lv-sub { grid-column: 1 / -1; font-size: 12px; font-weight: 650; color: var(--mute); font-variant-numeric: tabular-nums; }
   .lv-sub .keep { color: var(--keep); }
-  .ed-tabs { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
-  .ed-tabs button { font-size: 12px; font-weight: 750; padding: 6px 0; border-radius: 6px; color: var(--mute); }
+  .ed-tabs { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+  .ed-tabs button { font-size: 13px; font-weight: 750; height: 34px; border-radius: 7px; color: var(--mute); }
   .ed-tabs button.on { color: var(--ink); background: light-dark(rgba(26,25,23,0.08), rgba(239,236,230,0.1)); }
-  .ed-pane { display: none; gap: 12px; }
+  .ed-pane { display: none; gap: 14px; }
   .ed-pane.on { display: grid; }
   .ed-pane.grade label { grid-template-columns: 64px minmax(0, 1fr) 30px; }
   .ed-target {
-    justify-self: start; font-size: 11px; font-weight: 750; padding: 3px 9px; border-radius: 999px;
+    justify-self: start; font-size: 12px; font-weight: 750; padding: 5px 12px; border-radius: 999px;
     border: 1px solid var(--line); color: var(--mute); cursor: default;
   }
   .ed-target.mask { color: var(--ink); border-color: var(--ink); cursor: pointer; }
   .ed-target.mask::after { content: "  ×"; color: var(--mute); }
-  .ed-link { justify-self: start; font-size: 11px; font-weight: 750; color: var(--mute); padding: 0; }
+  .ed-link { justify-self: start; font-size: 12px; font-weight: 750; color: var(--mute); padding: 0; }
   .ed-link:hover { color: var(--ink); }
   .ed-hint { font-size: 12px; font-weight: 650; color: var(--mute); }
+  /* Stills' slider row: label + value on top, the track under, the whole row drags. */
+  .ed-pane.grade { gap: 2px; }
+  .ed-pane.grade .ed-target { margin-bottom: 10px; }
+  .ed-pane.grade .ed-link { margin-top: 12px; }
+  .sl {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 14px;
+    column-gap: 10px; row-gap: 6px; align-items: center; height: 44px; align-content: center;
+    margin: 0 -10px; padding: 0 10px; border-radius: 8px; cursor: ew-resize; touch-action: none; outline: none;
+    transition: background 120ms ease-out; user-select: none;
+  }
+  .sl:hover, .sl.on { background: light-dark(rgba(26,25,23,0.05), rgba(239,236,230,0.045)); }
+  .sl:focus-visible { box-shadow: inset 0 0 0 1.5px var(--ink); }
+  .sl-l { font-size: 13px; font-weight: 650; color: var(--ink); }
+  .sl-v { font-size: 13px; font-weight: 650; color: var(--mute); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+  .sl.set .sl-v { color: var(--ink); }
+  .sl-t { grid-column: 1 / -1; position: relative; height: 14px; }
+  .sl-t::before {
+    content: ""; position: absolute; left: 0; right: 0; top: 5px; height: 4px; border-radius: 2px;
+    background: light-dark(rgba(26,25,23,0.14), rgba(239,236,230,0.16));
+  }
+  .sl-t::after { content: ""; position: absolute; left: 50%; top: 2px; width: 1.5px; height: 10px; margin-left: -0.75px; background: var(--mute); opacity: 0.5; }
+  .sl-f { position: absolute; top: 5px; height: 4px; border-radius: 2px; background: var(--ink); left: 50%; width: 0; }
+  .sl-k {
+    position: absolute; top: 0; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%;
+    background: light-dark(#fff, #141312); border: 2px solid var(--ink); left: 50%;
+  }
+  .sl.on .sl-k { transform: scale(1.15); }
   .lv-rail .mk-list:empty::before { content: "No masks yet"; }
   .lv-rail .mk-row { grid-template-columns: 20px minmax(0, 1fr) 18px; }
   .lv-rail .mk-row .m { display: none; }
   .lv-rail .keep-btn { margin-top: auto; }
   .ed-find {
-    font-size: 12px; font-weight: 750; padding: 8px 10px; border-radius: 8px;
+    font-size: 13px; font-weight: 750; height: 38px; padding: 0 12px; border-radius: 9px;
     border: 1px solid var(--line); color: var(--ink);
   }
   .ed-find:hover { border-color: var(--ink); }
-  .ed-row { display: flex; gap: 14px; }
-  .ed-check { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 650; color: var(--mute); }
+  .ed-row { display: flex; gap: 18px; }
+  .ed-check { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 650; color: var(--mute); }
   .ed-check input { accent-color: var(--ink); margin: 0; }
   .ed-hint { line-height: 1.45; }
   .lv-rail .mk-row { grid-template-columns: 20px minmax(0, 1fr) auto; }
@@ -1139,7 +1166,12 @@
   .mk-row .io::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ink); }
   .mk-row.out .io { border-color: var(--mute); }
   .mk-row.out .io::after { display: none; }
-  .lv-rail .mk-row { grid-template-columns: 20px minmax(0, 1fr) auto 14px; }
+  .lv-rail .mk-row { grid-template-columns: 24px minmax(0, 1fr) auto 18px; min-height: 40px; font-size: 13px; padding: 0 10px; }
+  .lv-rail .mk-row .g { width: 24px; height: 14px; }
+  .lv-rail .mk-row .io { width: 18px; height: 18px; }
+  .lv-rail .mk-row .io::after { width: 8px; height: 8px; }
+  .lv-rail .keep-btn { height: 46px; font-size: 14px; }
+  @media (max-width: 1100px) { .lv-main { grid-template-columns: minmax(0, 1fr) 280px; } }
   @media (max-width: 900px) {
     .lv-main { grid-template-columns: minmax(0, 1fr); }
     .lv-center { container-type: inline-size; padding-right: 0; }
@@ -1220,11 +1252,23 @@
           </div>
           <section class="ed-pane grade" data-pane="color">
             <button type="button" class="ed-target" id="ed-target" title="Back to the whole clip">Whole clip</button>
-            <label>Exposure <input type="range" id="g-ev" min="-2" max="2" step="0.1" value="0"><span class="v" id="g-ev-v">0</span></label>
-            <label>Contrast <input type="range" id="g-con" min="-50" max="50" step="1" value="0"><span class="v" id="g-con-v">0</span></label>
-            <label>Warmth <input type="range" id="g-wb" min="-50" max="50" step="1" value="0"><span class="v" id="g-wb-v">0</span></label>
-            <label>Color <input type="range" id="g-sat" min="-50" max="50" step="1" value="0"><span class="v" id="g-sat-v">0</span></label>
-            <button type="button" class="ed-link" id="g-reset">Reset</button>
+            <div class="sl" id="g-ev" data-sl="ev" role="slider" tabindex="0" aria-label="Exposure" title="Drag anywhere on the row · double-click resets · scroll nudges">
+              <span class="sl-l">Exposure</span><span class="sl-v" id="g-ev-v">0.00</span>
+              <div class="sl-t"><i class="sl-f"></i><b class="sl-k"></b></div>
+            </div>
+            <div class="sl" id="g-con" data-sl="con" role="slider" tabindex="0" aria-label="Contrast" title="Drag anywhere on the row · double-click resets · scroll nudges">
+              <span class="sl-l">Contrast</span><span class="sl-v" id="g-con-v">0</span>
+              <div class="sl-t"><i class="sl-f"></i><b class="sl-k"></b></div>
+            </div>
+            <div class="sl" id="g-wb" data-sl="wb" role="slider" tabindex="0" aria-label="Warmth" title="Drag anywhere on the row · double-click resets · scroll nudges">
+              <span class="sl-l">Warmth</span><span class="sl-v" id="g-wb-v">0</span>
+              <div class="sl-t"><i class="sl-f"></i><b class="sl-k"></b></div>
+            </div>
+            <div class="sl" id="g-sat" data-sl="sat" role="slider" tabindex="0" aria-label="Color" title="Drag anywhere on the row · double-click resets · scroll nudges">
+              <span class="sl-l">Color</span><span class="sl-v" id="g-sat-v">0</span>
+              <div class="sl-t"><i class="sl-f"></i><b class="sl-k"></b></div>
+            </div>
+            <button type="button" class="ed-link" id="g-reset">Reset all</button>
           </section>
           <section class="ed-pane" data-pane="mask">
             <button type="button" class="ed-find" id="mk-find" title="Outline every object in the frame as a layer">Find everything</button>
@@ -2178,12 +2222,20 @@
     return (n > 0 ? "+" : "") + n.toFixed(1);
   }
   const G_IDS = ["ev", "con", "wb", "sat"];
+  const G_MAX = { ev: 2, con: 50, wb: 50, sat: 50 };   // the row runs −max … +max, 0 in the middle
+  const fmtG = (k, v) => k === "ev" ? (v > 0 ? "+" : "") + v.toFixed(2) : (v > 0 ? "+" : "") + v;
   function syncGradeUI(id) {
     const L = lookOf(id);
     if (!$("g-ev")) return;
     G_IDS.forEach((k) => {
-      $("g-" + k).value = L[k];
-      $("g-" + k + "-v").textContent = k === "ev" ? fmtEv(L.ev) : (L[k] > 0 ? "+" : "") + L[k];
+      const row = $("g-" + k), v = L[k], f = v / G_MAX[k];
+      row.classList.toggle("set", v !== 0);
+      row.setAttribute("aria-valuetext", fmtG(k, v));
+      $("g-" + k + "-v").textContent = fmtG(k, v);
+      const fill = row.querySelector(".sl-f"), knob = row.querySelector(".sl-k");
+      fill.style.left = (50 + Math.min(0, f) * 50) + "%";
+      fill.style.width = (Math.abs(f) * 50) + "%";
+      knob.style.left = (50 + f * 50) + "%";
     });
   }
   // ——— Masks (Lightroom mobile, applied to video) ———
@@ -3115,7 +3167,7 @@
   };
   // Double-click empty rail chrome closes; controls themselves don't.
   $("viewer").ondblclick = (e) => {
-    if (e.target.closest("button, input, label, .grade, .tool-row, .cv-actions")) return;
+    if (e.target.closest("button, input, label, .grade, .sl, .lv-rail")) return;
     if (e.target.closest("#v-frame")) return;
     setLarge(false);
   };
@@ -3168,11 +3220,40 @@
     state.maskSel = state.maskSel === row.dataset.mk ? null : row.dataset.mk;
     renderViewer();
   };
+  // Stills' slider rows: drag anywhere on the row (ev: 1 stop per 120 px, others 1 per 2 px),
+  // double-click resets, the wheel nudges, ← → step.
+  function setG(k, v) {
+    const L = lookOf(gradeKey()), m = G_MAX[k];
+    L[k] = Math.max(-m, Math.min(m, k === "ev" ? Math.round(v * 100) / 100 : Math.round(v)));
+    syncGradeUI(gradeKey());
+  }
   G_IDS.forEach((k) => {
-    $("g-" + k).addEventListener("input", () => {
-      const L = lookOf(gradeKey());
-      L[k] = k === "ev" ? +$("g-ev").value : +$("g-" + k).value | 0;
-      syncGradeUI(gradeKey());
+    const row = $("g-" + k);
+    row.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      const x0 = e.clientX, v0 = lookOf(gradeKey())[k];
+      let on = false;
+      const mv = (ev) => {
+        const dx = ev.clientX - x0;
+        if (!on) { if (Math.abs(dx) < 3) return; on = true; row.classList.add("on"); }
+        setG(k, k === "ev" ? v0 + dx / 120 : v0 + dx / 2);
+      };
+      const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); row.classList.remove("on"); };
+      window.addEventListener("pointermove", mv);
+      window.addEventListener("pointerup", up);
+      e.preventDefault();
+    });
+    row.addEventListener("dblclick", () => setG(k, 0));
+    row.addEventListener("wheel", (e) => {
+      if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      setG(k, lookOf(gradeKey())[k] + e.deltaX * (k === "ev" ? 0.005 : 0.25));
+    }, { passive: false });
+    row.addEventListener("keydown", (e) => {
+      const st = k === "ev" ? 0.1 : 1;
+      if (e.key === "ArrowLeft") { e.preventDefault(); setG(k, lookOf(gradeKey())[k] - st * (e.shiftKey ? 5 : 1)); }
+      if (e.key === "ArrowRight") { e.preventDefault(); setG(k, lookOf(gradeKey())[k] + st * (e.shiftKey ? 5 : 1)); }
+      if (e.key === "0") setG(k, 0);
     });
   });
 
@@ -3839,7 +3920,7 @@
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.target && e.target.matches && e.target.matches("input, textarea")) return;
+    if (e.target && e.target.matches && e.target.matches("input, textarea, .sl")) return;
     const idx = CLIPS.findIndex((c) => c.id === state.cursor);
     // Large view masks: O = overlay; Esc first leaves the lasso / the selected mask.
     if (state.large && (e.key === "o" || e.key === "O") && !e.metaKey && !e.ctrlKey) {
