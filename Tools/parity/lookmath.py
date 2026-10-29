@@ -487,6 +487,34 @@ def colour(rgb, vibrance, saturation, bw, rules):
     return np.maximum(0.0, out)
 
 
+# ---- sky blue (LookSky's `blu`, inside a mask; LookMath.skyBlue) ----------------------------------
+
+SKY_BLUE = dict(hue=257.7, cap_share=0.4, cusp_l=0.60, cusp_c=0.219, turn_full=35.0, turn_none=70.0, grey_full=0.02, grey_none=0.05)
+
+
+def sky_blue(rgb, amount):
+    """LookMath.skyBlue: in Oklab, L held; hue turned toward the target, chroma raised toward a cap."""
+    s = min(1.0, max(0.0, amount / 100.0))
+    rgb = np.asarray(rgb, dtype=np.float64)
+    if s <= 0:
+        return rgb
+    k = SKY_BLUE
+    lab = to_oklab(rgb)
+    L, a, b = lab[..., 0], lab[..., 1], lab[..., 2]
+    C = np.hypot(a, b)
+    dh = np.fmod(k["hue"] - np.degrees(np.arctan2(b, a)), 360.0)
+    dh = np.where(dh > 180, dh - 360, np.where(dh <= -180, dh + 360, dh))
+    turn = np.where(C > 1e-9, 1 - smoothstep(k["turn_full"], k["turn_none"], np.abs(dh)), 0.0)
+    r = np.radians(s * turn * dh)
+    a, b = a * np.cos(r) - b * np.sin(r), a * np.sin(r) + b * np.cos(r)
+    lc = np.clip(L, 0, 1)
+    cap = k["cap_share"] * np.where(lc <= k["cusp_l"], k["cusp_c"] * lc / k["cusp_l"], k["cusp_c"] * (1 - lc) / (1 - k["cusp_l"]))
+    add = s * np.maximum(turn, 1 - smoothstep(k["grey_full"], k["grey_none"], C)) * np.maximum(0, cap - np.hypot(a, b))
+    ht = np.radians(k["hue"])
+    out = from_oklab(np.stack([L, a + add * np.cos(ht), b + add * np.sin(ht)], axis=-1))
+    return np.maximum(out, 0.0)
+
+
 def mixer_runs(look):
     return any(any(look.get(key) or ()) for key in MIXER_KEYS)
 
@@ -741,6 +769,13 @@ def check(path, tolerance=0.02):
     # outputTransform alone (the dump's mapper), on colours up to far above white
     for row in dump.get("display", []):
         mine = output_transform(np.array(row["in"]), rules)
+        e_graph = float(np.max(np.abs(mine - np.array(row["graph"]))))
+        e_swift = float(np.max(np.abs(mine - np.array(row["math"]))))
+        worst = max(worst, e_graph, e_swift)
+        rows.append((row["in"], list(mine), row["graph"], row["math"], e_graph, e_swift))
+    # sky blue alone (LookSky's `blu`), on sky-like colours
+    for row in dump.get("skyBlue", []):
+        mine = sky_blue(np.array(row["in"]), row["amount"])
         e_graph = float(np.max(np.abs(mine - np.array(row["graph"]))))
         e_swift = float(np.max(np.abs(mine - np.array(row["math"]))))
         worst = max(worst, e_graph, e_swift)

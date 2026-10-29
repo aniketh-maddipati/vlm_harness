@@ -497,6 +497,13 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 continue
             }
         }
+        // Sky blue (LookSky's `blu`, only inside a mask): after the rules' stages, outside the rules'
+        // order, so rules-v1.json and every look without it are untouched.
+        if look.skyBlue != 0 {
+            typealias S = LookMath.SkyBlue
+            pass("lookSkyBlue", [img, CIVector(x: min(1, max(0, look.skyBlue / 100)), y: S.hue, z: S.capShare, w: 0),
+                                 CIVector(x: S.cuspL, y: S.cuspC, z: S.turnFull, w: S.turnNone), CIVector(x: S.greyFull, y: S.greyNone, z: 0, w: 0)])
+        }
         return img
     }
 
