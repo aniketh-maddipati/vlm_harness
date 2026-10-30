@@ -89,6 +89,11 @@ eq('drop onto a stack merges',kinds(LC.buildShoot(fx.stacks.input,fx.stackMerge.
   eq('look string: dust:1 round-trips, off writes nothing',[LC.lookString({ev:0.3,dust:true}),LC.parseLook('ev:+0.30 dust:1').dust,LC.lookString({dust:false})],['ev:+0.30 dust:1',true,'']);
   eq('look string: canonical order and signs',LC.lookString({sh:25,ev:-0.3,hl:0,wb:5200}),'ev:-0.30 wb:5200/ hl:0 sh:+25'); eq('as-shot look → empty string',LC.lookString({}),'');
   eq('profile: Camera (the default) writes nothing, Adobe Color writes prof:adobe',[LC.lookString({prof:'camera'}),LC.lookString({prof:'adobe',ev:0.3})],['','ev:+0.30 prof:adobe']);
+  eq('masks: the Swift form (sliders off 0, then inv / amt / off), order kept, a mask at reset writes nothing',
+    LC.lookString({ev:0.2,masks:[{id:'sky',ev:-0.4,hl:-20.4,inv:true,amt:60,off:true},{id:'person-1',sh:15,amt:100},{id:'subject',ev:0,inv:true}]}),
+    'ev:+0.20 mask:sky/ev=-0.40,hl=-20,inv=1,amt=60,off=1 mask:person-1/sh=+15');
+  eq('masks: parse → format is identical',LC.lookString(LC.parseLook('sh:+5 mask:subject/ev=+0.30,con=+10 mask:background/sat=-20,amt=40')),'sh:+5 mask:subject/ev=+0.30,con=+10 mask:background/sat=-20,amt=40');
+  eq('masks: parsed as a list',LC.parseLook('mask:sky/ev=-0.40,inv=1').masks,[{id:'sky',ev:-0.4,inv:true}]);
   eq('profile survives parse → format',LC.lookString(LC.parseLook('prof:adobe sh:+10')),'sh:+10 prof:adobe'); }
 { const b=(i,o)=>({name:'DSC'+(10000+i)+'.ARW',path:'s/DSC'+(10000+i)+'.ARW',date:'2026:09:26 15:'+String(10+i).padStart(2,'0')+':00',exp:0.004,fl:50,ev:null,iso:100,lens:'FE 50',lum:0.5,focus:300,clip:0,portrait:false,src:'',lg:'',...o});
   const d=LC.buildShoot([b(0,{}),b(1,{}),b(2,{date:'',unread:true,nopv:true,focus:0}),b(3,{}),b(4,{date:'2026:09:26 18:00:00'})],{});

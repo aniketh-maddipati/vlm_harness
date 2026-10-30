@@ -301,7 +301,8 @@ nonisolated enum LookMasks {
         var saliency: Double?
     }
 
-    /// Names what the finders returned, in the page's order. `people` are person instances;
+    /// Names what the finders returned, in the page's order, people and objects each numbered from
+    /// the one that stands out most (`person-1`, `object-1`). `people` are person instances;
     /// `objects` are foreground instances. An object that is mostly one of the people
     /// (IoU ≥ `sameAs`) is that person, not listed twice. The subject is the object or person
     /// that stands out most (saliency × √area, or area alone without saliency), listed first on
@@ -313,12 +314,19 @@ nonisolated enum LookMasks {
     /// overlap, and someone who wants the land alone subtracts one from the other.
     static func name(people: [Region], objects: [Region], sky: Region? = nil, sameAs: Double = 0.5, minArea: Double = 0.002,
                      tolerance: Double = 1.0) -> [Found] {
-        let people = people.filter { area($0.mask) >= minArea }
-        let objects = objects.filter { o in area(o.mask) >= minArea && !people.contains { iou($0.mask, o.mask) >= sameAs } }
+        func standout(_ r: Region) -> Double { let a = area(r.mask); return r.saliency.map { $0 * a.squareRoot() } ?? a }
+        // Numbered by how much each stands out, not by the finder's order, so an id names the same
+        // role on every photo ("person-1" is the main person): a look's `mask:person-1` carried to
+        // the next photo lands on its main person, found again there (masks stored by kind).
+        // Ties keep the finder's order.
+        func ranked(_ rs: [Region]) -> [Region] {
+            rs.enumerated().sorted { let a = standout($0.1), b = standout($1.1); return a != b ? a > b : $0.0 < $1.0 }.map(\.1)
+        }
+        let people = ranked(people.filter { area($0.mask) >= minArea })
+        let objects = ranked(objects.filter { o in area(o.mask) >= minArea && !people.contains { iou($0.mask, o.mask) >= sameAs } })
         let all = people.map { (Kind.person, $0) } + objects.map { (Kind.object, $0) }
         let sky = sky.flatMap { area($0.mask) >= minArea ? $0 : nil }
         guard let size = all.first?.1.mask ?? sky?.mask else { return [] }
-        func standout(_ r: Region) -> Double { let a = area(r.mask); return r.saliency.map { $0 * a.squareRoot() } ?? a }
         func found(_ id: String, _ kind: Kind, _ r: Region) -> Found? {
             guard let b = box(r.mask) else { return nil }
             return Found(id: id, kind: kind, score: min(1, max(0, r.score)), box: b, area: area(r.mask), outline: outline(r.mask, tolerance: tolerance))
