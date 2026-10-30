@@ -90,6 +90,9 @@ https://claude.ai/code/artifact/a32f15d9-ecbd-463b-8ecc-406fcdd86bf9.
 - Per-photographer only, or ship a starter prior from FiveK? (Licence says probably not.)
 
 ## Log
+- 2026-10-30: masks stored by role (prompt 14). `mask:` ids name a role found again per photo (subject, sky,
+  background; `person-N` / `object-N` numbered by prominence, not finder order), and the core's `L.masks`
+  rides ⌘C/⌘V and Same as last. Hook for 22: carry the tokens, never the outlines.
 - 2026-10-29: goal reframed by owner: repeat edits across many photos accurately (primary) + hands-on
   manipulation like a physical print. Outcome-matching solve + LR "synced then corrected" pairs added.
 - 2026-10-29: note started (RapidRAW parity session). Existing hooks: `lumina.auto`, `matchScene`,
