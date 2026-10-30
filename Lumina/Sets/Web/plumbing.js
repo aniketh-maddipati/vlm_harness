@@ -1238,10 +1238,13 @@
     // draws the crop guides; the page draws nothing over the canvas for it. Anything that is not such
     // an id is null. Resolves true when the Mac draws it (the native canvas), false otherwise (the
     // image path, or no photo on the canvas): the page then draws the outline itself, as in the web preview.
-    showMask(id) {
+    // `style` (Edit's Masks, prompt 14): 'outline' (a layer hovered, the default), 'lift' (the layer picked
+    // up: a glow on its edge, the rest of the photo at 70 %) or 'overlay' (O held: the mask filled red).
+    showMask(id, style) {
       ed.mask = typeof id === 'string' && /^[a-z0-9-]{1,64}$/.test(id) ? id : null;
+      ed.maskStyle = style === 'lift' || style === 'overlay' ? style : 'outline';
       if (!ed.rel) return Promise.resolve(false);
-      return native('canvasMask', { id: ed.mask }).then(r => r === true, () => false);
+      return native('canvasMask', { id: ed.mask, style: ed.maskStyle }).then(r => r === true, () => false);
     },
     // The facts line's inputs: the canvas path, raw 9 yes/no, the pin, the offer (+ Prompt 1's {canvas, raw9, decoder, note}).
     facts() { return Object.assign({ text: factsText(), rel: ed.rel }, ed.header || {}, factsObj()); },

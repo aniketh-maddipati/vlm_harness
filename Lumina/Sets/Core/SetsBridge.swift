@@ -640,10 +640,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // outline over the photo, a hairline with a faint tint inside, in its own coordinates
             // (crop, turn, zoom). Null or a missing id hides it. An id that is not one LookMasks names
             // (a-z, 0-9, -; at most 64) is refused. False when nothing can draw it (the image path).
+            // `style` (prompt 14): "outline" (the default), "lift" or "overlay"; anything else is the default.
             let id = body["id"] as? String
             if let id, !Look.Local.isID(Substring(id)) { return (false, nil) }
             guard let c = canvas else { return (false, nil) }
-            return (c.showMask(id), nil)
+            let style = (body["style"] as? String).flatMap(LookCanvasController.MaskStyle.init(rawValue:)) ?? .outline
+            return (c.showMask(id, style: style), nil)
         case "canvasStats":
             var out = canvas?.snapshot() ?? ["path": "image"]
             out["facts"] = editFacts()

@@ -196,7 +196,7 @@ export class Bridge {
       case 'canvasZoom': this.canvas.zooms.push(msg.roi || null); this.canvas.zoomRests.push(!!msg.rest); return true;
       case 'canvasLoupe': this.canvas.loupes.push(msg); return true;
       // SetsBridge canvasMask (Prompt 28 §3): the canvas draws the mask's outline; true only on the native path.
-      case 'canvasMask': this.canvas.masks.push(msg.id === undefined ? 'missing' : msg.id); return this.canvas.path === 'native';
+      case 'canvasMask': this.canvas.masks.push(msg.id === undefined ? 'missing' : msg.id); (this.canvas.maskStyles = this.canvas.maskStyles || []).push(msg.style); return this.canvas.path === 'native';
       case 'canvasStats': this.canvas.statsCalls++; if (msg.reset) this.canvas.resets++; return { path: this.canvas.path, facts: this.header, latencyMs: [], schedule: {}, bases: {}, tiles: {} };
       case 'writeInto': {
         // The Edit step's JPEGs (label 'jpeg'): what SetsBridge.writeInto answers after SetsExportJob ran the look items.
