@@ -364,7 +364,7 @@ nonisolated enum SetsPage: String, Sendable {
 
     /// Skim's host: the page's `lumina.video` calls, set before the page runs. `storeAll` and `storeSet`
     /// keep its saved shoots in the app's container (`skimStore` / `skimSave`, SkimStore), so marks survive
-    /// a quit; `cover*` keep its saved covers and first measures there too (`skimCover*`, SkimCovers); `health` reads heat and memory (`skimHealth`, SkimHealth) to pace the page's reading; `export*` save Export's files where the user chose and `openInFinalCut` hands a saved .fcpxml to Final Cut (`skimExport*`, SkimExport); `masks` finds the selections in the Viewer's frame (`skimMasks`, SetsMasks); mark, preview and handoff have nothing native behind them yet.
+    /// a quit; `cover*` keep its saved covers and first measures there too (`skimCover*`, SkimCovers); `health` reads heat and memory (`skimHealth`, SkimHealth) to pace the page's reading; `export*` save Export's files where the user chose and `openInFinalCut` hands a saved .fcpxml to Final Cut (`skimExport*`, SkimExport); `masks` finds the selections in the Viewer's frame (`skimMasks`, SetsMasks); `airdrop` turns live AirDrop on or off, or reports it (`skimAirdrop`, SkimAirdrop); mark, preview and handoff have nothing native behind them yet.
     /// With both pages in one window it is injected for both, and does nothing on Pick.
     static let skimHostScript = #"""
     (() => {
@@ -402,6 +402,7 @@ nonisolated enum SetsPage: String, Sendable {
         places: () => post('skimPlaces'),
         placeAdd: (at) => post('skimPlaceAdd', { at: at ? String(at) : null }),
         placeRemove: (path) => post('skimPlaceRemove', { path: String(path) }),
+        airdrop: (o) => post('skimAirdrop', { on: o && 'on' in o ? !!o.on : null }),
         dirList: (path, files) => post('skimDirList', { path: String(path), files: !!files }),
         find: (q, seq) => post('skimFind', { q: String(q), seq: Number(seq) || 0 }),
         dirSize: (path) => post('skimDirSize', { path: String(path) }),

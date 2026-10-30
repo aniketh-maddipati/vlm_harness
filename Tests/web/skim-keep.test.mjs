@@ -61,7 +61,7 @@ test('nothing is kept from the sample shoot or an empty page', () => {
 
 test('the page offers the hook and applies it after the reopened clips are listed', () => {
   assert.match(src, /window\.luminaSkimKeep = \{take:/);
-  assert.match(src, /this\.loadData\(d, 'skim'\);[^\n]*\n    if \(this\.kept\) this\.keepApply\(\);/);
+  assert.match(src, /this\.loadData\(d, Component\.bare \? 'import' : 'skim'\);[^\n]*\n    if \(this\.kept\) this\.keepApply\(\);/);
   assert.match(src, /if \(!vids\.length\) \{ if \(!this\.state\.resume\) this\.kept = null; this\.keepAt = 'done';/);
 });
 
