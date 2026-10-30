@@ -32,6 +32,9 @@ nonisolated struct Look: Equatable, Sendable {
     var vibrance: Double = 0
     var saturation: Double = 0
     var clarity: Double = 0
+    /// Dehaze −100 … +100 (`dhz`, the `dehaze` stage): haze taken out toward the photo's airlight,
+    /// or put back below 0. Written only when off its reset, so older looks read as they did.
+    var dehaze: Double = 0
     /// Sharpening amount 0 … 150.
     var sharpen: Double = 0
     /// Post-crop vignette −100 … +100 (negative darkens the corners, as in Lightroom).
@@ -86,7 +89,7 @@ nonisolated struct Look: Equatable, Sendable {
     struct Local: Equatable, Sendable {
         var mask: String
         var ev = 0.0, contrast = 0.0, highlights = 0.0, shadows = 0.0, whites = 0.0, blacks = 0.0
-        var vibrance = 0.0, saturation = 0.0, clarity = 0.0
+        var vibrance = 0.0, saturation = 0.0, clarity = 0.0, dehaze = 0.0
         /// Sky blue (`blu`, LookSky), behind `Look.skyFeatures`.
         var skyBlue = 0.0
 
@@ -101,6 +104,7 @@ nonisolated struct Look: Equatable, Sendable {
             var l = Look()
             l.ev = ev; l.contrast = contrast; l.highlights = highlights; l.shadows = shadows
             l.whites = whites; l.blacks = blacks; l.vibrance = vibrance; l.saturation = saturation; l.clarity = clarity
+            l.dehaze = dehaze
             l.skyBlue = skyBlue
             return l
         }
@@ -109,7 +113,7 @@ nonisolated struct Look: Equatable, Sendable {
         /// Ranges and precision are the global sliders' (`Look.ranges`).
         static let keys: [(key: String, field: WritableKeyPath<Local, Double>)] = [
             ("ev", \.ev), ("con", \.contrast), ("hl", \.highlights), ("sh", \.shadows), ("wh", \.whites),
-            ("bl", \.blacks), ("vib", \.vibrance), ("sat", \.saturation), ("clr", \.clarity), ("blu", \.skyBlue),
+            ("bl", \.blacks), ("vib", \.vibrance), ("sat", \.saturation), ("clr", \.clarity), ("dhz", \.dehaze), ("blu", \.skyBlue),
         ]
 
         /// A mask id as `LookMasks` names them: lower-case letters, digits and hyphens, 1 … 64.
@@ -228,7 +232,7 @@ nonisolated struct Look: Equatable, Sendable {
         "bl": Range(min: -100, max: 100, step: 1), "vib": Range(min: -100, max: 100, step: 1),
         "sat": Range(min: -100, max: 100, step: 1), "clr": Range(min: -100, max: 100, step: 1),
         "shp": Range(min: 0, max: 150, step: 1), "vig": Range(min: -100, max: 100, step: 1),
-        "blu": Range(min: 0, max: 100, step: 1),
+        "dhz": Range(min: -100, max: 100, step: 1), "blu": Range(min: 0, max: 100, step: 1),
     ]
     static let kelvinRange = Range(min: 2000, max: 50000, step: 1)
     static let tintRange = Range(min: -150, max: 150, step: 1)
@@ -245,18 +249,18 @@ nonisolated struct Look: Equatable, Sendable {
     /// The crop tool's aspect preset: what the crop box was drawn with, not something to render.
     static let pageOnly: Set<String> = ["cropRatio"]
     /// Canonical key order; also the order `format` writes.
-    static let keys = ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "dust", "crop", "rot", "mask"]
+    static let keys = ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "dhz", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "dust", "crop", "rot", "mask"]
     /// The plain numeric sliders, key → field.
     static let sliders: [String: WritableKeyPath<Look, Double>] = [
         "ev": \.ev, "con": \.contrast, "hl": \.highlights, "sh": \.shadows, "wh": \.whites, "bl": \.blacks,
-        "vib": \.vibrance, "sat": \.saturation, "clr": \.clarity, "shp": \.sharpen, "vig": \.vignette,
+        "vib": \.vibrance, "sat": \.saturation, "clr": \.clarity, "dhz": \.dehaze, "shp": \.sharpen, "vig": \.vignette,
     ]
 
     /// True when every slider is at reset: the render is the RAW stage alone (plus crop and the
     /// develop's own noise reduction, `nr`, which lives in the RAW stage).
     var isNeutral: Bool {
         ev == 0 && wb == nil && contrast == 0 && highlights == 0 && shadows == 0 && whites == 0 && blacks == 0
-            && vibrance == 0 && saturation == 0 && clarity == 0 && sharpen == 0 && vignette == 0 && !bw && !camera
+            && vibrance == 0 && saturation == 0 && clarity == 0 && dehaze == 0 && sharpen == 0 && vignette == 0 && !bw && !camera
             && curve.isNeutral && mixer.isNeutral && locals.isEmpty
     }
 
@@ -440,8 +444,9 @@ nonisolated struct Look: Equatable, Sendable {
         }
         out += ["con:\(signed(contrast, 0))", "hl:\(signed(highlights, 0))", "sh:\(signed(shadows, 0))",
                 "wh:\(signed(whites, 0))", "bl:\(signed(blacks, 0))", "vib:\(signed(vibrance, 0))",
-                "sat:\(signed(saturation, 0))", "clr:\(signed(clarity, 0))", "shp:\(Int(sharpen.rounded()))",
-                "vig:\(signed(vignette, 0))"]
+                "sat:\(signed(saturation, 0))", "clr:\(signed(clarity, 0))"]
+        if dehaze != 0 { out.append("dhz:\(signed(dehaze, 0))") }           // only off reset: older looks format as they did
+        out += ["shp:\(Int(sharpen.rounded()))", "vig:\(signed(vignette, 0))"]
         if !vignetteShape.isDefault {
             let s = vignetteShape
             out.append("vigs:\(Int(s.midpoint.rounded())),\(signed(s.roundness, 0)),\(Int(s.feather.rounded())),\(Int(s.highlights.rounded()))")
@@ -500,6 +505,7 @@ nonisolated struct Look: Equatable, Sendable {
         case "Vibrance": l.vibrance = value
         case "Saturation": l.saturation = value
         case "Clarity": l.clarity = value
+        case "Dehaze": l.dehaze = value
         case "Sharpness", "Sharpening": l.sharpen = value
         default: return nil
         }

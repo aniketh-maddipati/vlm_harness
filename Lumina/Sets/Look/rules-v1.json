@@ -4,7 +4,7 @@
   "workingSpace": "extendedLinearSRGB",
   "perceptualGamma": 2.2,
   "luma": [0.2126, 0.7152, 0.0722],
-  "order": ["rawDevelop", "camera", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer", "clarity", "sharpen", "vignette", "outputTransform"],
+  "order": ["rawDevelop", "camera", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "dehaze", "curve", "colour", "mixer", "clarity", "sharpen", "vignette", "outputTransform"],
   "stages": {
     "rawDevelop": {
       "locked": false,
@@ -40,6 +40,11 @@
       "locked": false,
       "form": "two-sided power curve in perceptual space around midpoint with slope a = 2^(contrast*slopePerUnit): below m: m*(p/m)^a, above: 1-(1-m)*((1-p)/(1-m))^a; applied per channel and on luma, mixed by lumaMix",
       "coefficients": { "midpoint": 0.4548, "slopePerUnit": 0.007384, "lumaMix": 0 }
+    },
+    "dehaze": {
+      "locked": false,
+      "form": "the atmospheric model J = (I - A) / t + A, per channel, in linear light (the idea in He, Sun & Tang's dark-channel prior and in darktable's haze removal; no code). A = the airlight, a grey: airlightScale * the photo's anchor high (the 95th percentile of luma, pushed through exposure), or airlight when the anchor has none (synthetic images, flat patches). dark = gaussian blur of min(r, g, b) (radiusFraction of the long edge); haze weight w = min(1, dark / A)^hazePower (hazePower >= 1 keeps a grey ramp monotonic); transmission t = max(minTransmission, 1 - omega * w) with omega = dehaze * omegaPerUnit, capped at 0.95. Below 0 omega is negative: t > 1 and the picture is pulled toward A (haze added). A grey stays grey (A is grey, t is shared by the channels); a pixel at A is a fixed point. Fitted 2026-10-29 on the owner's 43 Death Valley edits that use Dehaze (Tools/parity/fit_edits.py: whole edits, Lightroom's export vs the neutral render; the stage absorbs some of what the other stages get wrong there), held-out mehendi unchanged (2.41 / 7.71). omegaPerUnit sits at its bound. A Dehaze sweep (lr_cc_sweep.py presets --sweep 4) would be the clean development set.",
+      "coefficients": {"omegaPerUnit": 0.0095, "airlightScale": 1.30698, "airlight": 1.0, "hazePower": 1.000031, "minTransmission": 0.129031, "radiusFraction": 0.004702}
     },
     "curve": {
       "locked": false,

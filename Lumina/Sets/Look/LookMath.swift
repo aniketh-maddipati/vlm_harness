@@ -250,6 +250,41 @@ nonisolated enum LookMath {
         return pow(max(1e-6, y) / max(1e-6, base), d - 1)
     }
 
+    // MARK: dehaze (the atmospheric model)
+
+    /// The `dehaze` stage: the atmospheric model J = (I − A) / t + A per channel in linear light (the
+    /// idea in He, Sun & Tang's dark-channel prior and darktable's haze removal; no code). A, the
+    /// airlight, is a grey: `airlightScale` × the photo's anchor `high` (the 95th percentile of
+    /// luma, pushed through exposure), or `airlight` when the anchor has none (synthetic images,
+    /// flat patches). The haze weight is the blurred dark channel against A, and the transmission
+    /// t = 1 − ω·w with ω = dehaze × `omegaPerUnit`. Below 0 ω is negative, t > 1, and the picture
+    /// is pulled toward A: haze put back. A grey stays grey (A is grey and t is one number for the
+    /// three channels); A itself is a fixed point; with `hazePower` ≥ 1 and ω < 1 a grey ramp
+    /// stays monotonic (d/dy ≥ (1 − ω) / t²). The numbers are a starting form until the Dehaze
+    /// sweep fits them.
+    static func dehazeAirlight(anchor: ToneAnchor, _ rules: LookRules) -> Double {
+        let a = anchor.high.map { $0 * rules.k("dehaze", "airlightScale", 1) } ?? rules.k("dehaze", "airlight", 1)
+        return max(0.05, a)
+    }
+    /// ω for an amount, capped at 0.95 so t stays positive.
+    static func dehazeOmega(_ amount: Double, _ rules: LookRules) -> Double { min(0.95, amount * rules.k("dehaze", "omegaPerUnit", 0.006)) }
+    static func dehazePower(_ rules: LookRules) -> Double { max(1, rules.k("dehaze", "hazePower", 1)) }
+    static func dehazeMinTransmission(_ rules: LookRules) -> Double { max(0.02, min(1, rules.k("dehaze", "minTransmission", 0.1))) }
+
+    /// t at a pixel whose (blurred) dark channel is `dark`: 1 − ω·min(1, dark / A)^hazePower, never under `minTransmission`.
+    static func dehazeTransmission(dark: Double, airlight a: Double, omega: Double, _ rules: LookRules) -> Double {
+        let w = pow(min(1, max(0, dark) / a), dehazePower(rules))
+        return max(dehazeMinTransmission(rules), 1 - omega * w)
+    }
+
+    /// The stage on one pixel. On a flat patch `dark` is the pixel's own minimum channel.
+    static func dehaze(_ c: RGB, dark: Double, amount: Double, anchor: ToneAnchor, _ rules: LookRules) -> RGB {
+        guard amount != 0 else { return c }
+        let a = dehazeAirlight(anchor: anchor, rules)
+        let t = dehazeTransmission(dark: dark, airlight: a, omega: dehazeOmega(amount, rules), rules)
+        return RGB(r: (c.r - a) / t + a, g: (c.g - a) / t + a, b: (c.b - a) / t + a)
+    }
+
     // MARK: contrast (perceptual)
 
     static func contrastCurve(_ p: Double, contrast: Double, _ rules: LookRules) -> Double {
@@ -764,6 +799,9 @@ nonisolated enum LookMath {
                 c = RGB(r: exposure(c.r * d, gain: g, white: w), g: exposure(c.g * d, gain: g, white: w), b: exposure(c.b * d, gain: g, white: w))
             case "contrast":
                 c = contrast(c, contrast: look.contrast, rules)
+            case "dehaze":
+                guard look.dehaze != 0 else { continue }
+                c = dehaze(c, dark: min(c.r, c.g, c.b), amount: look.dehaze, anchor: anchor, rules)
             case "curve":
                 guard !look.curve.isNeutral else { continue }
                 c = curve(c, tables: curveTables(look.curve, rules), rules)
