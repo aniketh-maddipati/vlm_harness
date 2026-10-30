@@ -264,6 +264,9 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   // Prompt 1 §7: writeInto(files, 'jpeg') renders natively with the body's pinned decoder.
   const jp = await page.evaluate(rel => __lumina.logic().writeInto([{ name: 'JPEG/DSC01001.jpg', look: { src: rel, look: 'ev:+0.50', px: 2048 } }], 'jpeg'), rel0);
   ok(jp && jp.n === 1 && jp.decoder === 'RAW 8' && bridge.jpegItems && bridge.jpegItems[0].look.model === 'ILCE-7M4' && bridge.jpegItems[0].look.px === 2048 && bridge.jpegItems[0].look.look === 'ev:+0.50 shp:40 prof:camera', 'edit: writeInto(files, "jpeg") reaches the Mac with the look, size and body; the result names the decoder', { jp, items: bridge.jpegItems });
+  // Handoff's JPEG size: 2048, 3000 (Exposure's ideal) or full size reaches the export as chosen; anything else is 2048.
+  { const jx = await page.evaluate(() => { const l = __lumina.logic(), out = []; for (const v of [3000, null, 2048, 1234]) { l.hoPref({ jpgPx: v }); out.push(l.hoJpx()); } l.hoPref({ jpgPx: 2048 }); return out; });
+    ok(JSON.stringify(jx) === '[3000,null,2048,2048]', 'handoff: the JPEG size chosen (2048 / 3000 / full) is the px sent; an unknown size is 2048', jx); }
   // A look with mask: tokens (Prompt 29) goes as it is; the item names the photo's embedded preview, where the Mac finds its masks.
   { const jm = await page.evaluate(rel => __lumina.logic().writeInto([{ name: 'JPEG/DSC01001.jpg', look: { src: rel, look: 'ev:+0.50 mask:subject/ev=+0.30,sh=+15', px: 2048 } }], 'jpeg'), rel0);
     const it = bridge.jpegItems && bridge.jpegItems[0] && bridge.jpegItems[0].look;
