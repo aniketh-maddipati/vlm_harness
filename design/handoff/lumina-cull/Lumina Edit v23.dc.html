@@ -949,12 +949,15 @@ class Component extends DCLogic {
     const rot=((((this.look(this.p()).rot)||0)%360)+360)%360; return rot===90?[v,1-u]:rot===180?[1-u,1-v]:rot===270?[1-v,u]:[u,v]; }
   // The smallest layer whose outline holds the point (even-odd over its loops: a hole is outside).
   mHit(p,pt){ if(!pt) return null; const [x,y]=pt; let best=null; for(const m of this.mFound(p)){ let inside=false; for(const loop of m.outline||[]) for(let i=0,j=loop.length-1;i<loop.length;j=i++){ const [xi,yi]=loop[i],[xj,yj]=loop[j]; if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi||1e-9)+xi) inside=!inside; } if(inside&&(!best||m.area<best.area)) best=m; } return best&&best.id; }
-  // Masks open, a press on the photo picks the layer under it; a drag changes it (↕ exposure, ↔ saturation) without letting go of it.
-  mDown(e){ const p=this.p(); if(!p) return; if(this.mState(p)!=='found'){ this.mFind(p,true); return this.panDown(e); } const id=this.mHit(p,this.mAt(e)); if(!id) return this.panDown(e);
-    e.preventDefault(); const x0=e.clientX, y0=e.clientY, m0=this.mGet(id)||{}, ev0=m0.ev||0, sat0=m0.sat||0; let on=false;
-    const mv=ev=>{ const dx=ev.clientX-x0, dy=ev.clientY-y0, f=ev.shiftKey?0.25:ev.altKey?0.08:1; if(!on){ if(Math.hypot(dx,dy)<3) return; on=true; if(this.state.mLift!==id) this.setState({mLift:id}); this.setState({dragging:true}); this.emit('dragStart',{slider:'mask'}); }
-      const evN=this.clampV('ev',Math.round((ev0-dy*f/160)*100)/100), satN=this.clampV('sat',Math.round(sat0+dx*f/3)); this.mPatch(id,{ev:evN,sat:satN},true); this.say(this.mName(id)+' · exposure '+this.fmt('ev',evN)+' · saturation '+this.fmt('sat',satN)); };
-    const up=ev=>{ window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); if(on){ this.setState({dragging:false}); this.emit('dragEnd',{slider:'mask'}); } else this.mLiftTo(id); };
+  // Masks open, a press on the photo picks the layer under it; a drag changes it (↕ exposure, ↔ saturation) without letting go
+  // of it; a click picks it up or puts it down. Shaped as the hand kit's handler ({pick, drag, click}: drag returns the puck's
+  // {label, value}), so it registers there as the 'masks' task; mDown drives it on its own until then.
+  mPick(e){ const p=this.p(); if(!p) return null; if(this.mState(p)!=='found'){ this.mFind(p,true); return null; } const id=this.mHit(p,this.mAt(e)); if(!id) return null; const m=this.mGet(id)||{}; return {id,slider:'mask',label:this.mName(id),ev0:m.ev||0,sat0:m.sat||0}; }
+  mDrag(t,d){ if(this.state.mLift!==t.id) this.setState({mLift:t.id}); const f=d.fine||1, evN=this.clampV('ev',Math.round((t.ev0-d.dy*f/160)*100)/100), satN=this.clampV('sat',Math.round(t.sat0+d.dx*f/3)); this.mPatch(t.id,{ev:evN,sat:satN},d.merge); return {label:t.label,value:this.short('ev',evN)+' · sat '+this.short('sat',satN)}; }
+  mDown(e){ const t=this.mPick(e); if(!t) return this.panDown(e); e.preventDefault(); const x0=e.clientX, y0=e.clientY; let on=false, merge=false;
+    const mv=ev=>{ const dx=ev.clientX-x0, dy=ev.clientY-y0; if(!on){ if(Math.hypot(dx,dy)<3) return; on=true; this.setState({dragging:true}); this.emit('dragStart',{slider:'mask'}); }
+      const r=this.mDrag(t,{dx,dy,fine:ev.altKey?0.1:ev.shiftKey?0.25:1,merge}); merge=true; this.say(r.label+' · exposure '+this.fmt('ev',this.mVal('ev'))+' · saturation '+this.fmt('sat',this.mVal('sat'))); };
+    const up=()=>{ window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); if(on){ this.setState({dragging:false}); this.emit('dragEnd',{slider:'mask'}); } else this.mLiftTo(t.id); };
     window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up); }
   mHold(on){ const p=this.p(); if(on&&p&&this.mState(p)!=='found') this.mFind(p); this.setState({mO:!!on}); if(on){ const id=this.mShown(p,true); this.say(id?'Mask: '+this.mName(id).toLowerCase()+' · let go of O to hide it':this.mState(p)==='wait'?'Finding masks…':'No mask to show here'); } }
   // Which layer the canvas shows and how: O held → the mask (overlay); picked up → lift; hovered on the rail → outline.
