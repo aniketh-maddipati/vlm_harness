@@ -154,11 +154,11 @@ export class Bridge {
   // lumina://render/<rel>?look=&px=&seq=&tier=: what SetsSchemeHandler + LookRenderer answer. 409 when a
   // newer seq for the same file was already asked for; else a JPEG (this.renderJpeg, any bytes will do).
   async render(rel, q) {
-    const seq = +q.seq || 0, newest = this.renderSeq[rel] || 0;
-    this.renderSeq[rel] = Math.max(newest, seq);
-    this.renders.push({ rel, look: q.look, px: +q.px, seq, tier: q.tier || 'base', decoder: q.decoder != null ? +q.decoder : null, t: Date.now() });
+    const seq = +q.seq || 0, lk = q.lane === 'thumb' ? rel + '#thumb' : rel, newest = this.renderSeq[lk] || 0;
+    this.renderSeq[lk] = Math.max(newest, seq);
+    this.renders.push({ rel, look: q.look, px: +q.px, seq, tier: q.tier || 'base', lane: q.lane || null, decoder: q.decoder != null ? +q.decoder : null, t: Date.now() });
     if (this.renderDelayMs) await new Promise(r => setTimeout(r, this.renderDelayMs));
-    if (this.renderSeq[rel] > seq) return { status: 409, body: 'superseded by a newer request' };
+    if (this.renderSeq[lk] > seq) return { status: 409, body: 'superseded by a newer request' };
     return { status: 200, body: this.renderJpeg || Buffer.from([0xff, 0xd8, 0xff, 0xd9]), contentType: 'image/jpeg' };
   }
   // What bridge.open(url) does natively: the page opens the pending folder. Playwright evaluates it
@@ -192,6 +192,7 @@ export class Bridge {
       case 'canvasLayout': this.canvas.layouts.push(msg); return { path: this.canvas.path };
       case 'canvasLook': this.canvas.looks.push(Object.assign({ answered: this.canvas.answered || 0 }, msg)); return this.canvas.looks.length;
       case 'canvasDrag': this.canvas.drags.push(msg.start); return true;
+      case 'haptic': (this.haptics = this.haptics || []).push(msg.kind); return true;
       case 'canvasZoom': this.canvas.zooms.push(msg.roi || null); this.canvas.zoomRests.push(!!msg.rest); return true;
       case 'canvasLoupe': this.canvas.loupes.push(msg); return true;
       // SetsBridge canvasMask (Prompt 28 §3): the canvas draws the mask's outline; true only on the native path.

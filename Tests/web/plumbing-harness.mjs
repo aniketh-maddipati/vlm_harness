@@ -193,6 +193,12 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     const L = bridge.canvas.layouts.slice(n0);
     ok(L.length === 3 && L[0].holes.length === 1 && L[0].holes[0].w === 40 && L[1].holes.length === 2 && Array.isArray(L[2].holes) && L[2].holes.length === 0 && L[2].w === 900 && L[2].visible === true,
       'edit: canvasLayout carries the page chrome over the photo as holes, and none when the page names none', L); }
+  // The hand kit (prompts/00c): a detent's tick is the `haptic` op; small renders of other photos' looks ride lumina://render in their own lane.
+  { await page.evaluate(() => lumina.haptic('alignment')); await page.waitForTimeout(50);
+    ok((bridge.haptics || []).slice(-1)[0] === 'alignment', 'hand kit: lumina.haptic sends the haptic op (alignment)', bridge.haptics);
+    const t = await page.evaluate(r => { const a = lumina.thumb(r, 'ev:+0.50', 160), b = lumina.thumb(r, 'ev:+0.50', 160), c = lumina.thumb(r, 'ev:+0.70', 160), q = u => Object.fromEntries(new URL(u).searchParams); return { same: a === b, a: q(a), c: q(c), none: lumina.thumb('nope/x.ARW', '', 160) }; }, rel0);
+    ok(t.same && t.a.lane === 'thumb' && t.a.tier === 'small' && +t.a.px === 640 && /ev:\+0\.50/.test(t.a.look) && /shp:40/.test(t.a.look) && +t.a.l > 0 && +t.c.seq > +t.a.seq && t.none === null,
+      'hand kit: lumina.thumb is the image path in lane=thumb (the Mac look, the preview range), the same URL for the same look, a newer seq for a newer one', t); }
   ok(hooks.images.length === 1 && hooks.images[0].tier === 'base' && /\/render\/2026-09-01\/DSC01001\.ARW\?/.test(hooks.images[0].url), 'edit (image path): entering loads one full-quality image (an <img>, no CORS) and hands its URL to luminaEditImage', hooks.images);
   ok(bridge.renders.length >= 1 && bridge.renders[0].look === 'ev:+0.50 shp:40 prof:camera' && bridge.renders[0].px === 900 && bridge.renders[0].decoder === 8, 'edit (image path): the render asks for the look at the canvas size with the canvas decoder', bridge.renders[0]);
   // A 2 s drag: 60 looks at ~25 ms, renders slower than that (60 ms): only the newest value is fetched,
