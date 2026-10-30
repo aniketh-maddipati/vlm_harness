@@ -7,6 +7,8 @@ Expected names, as lr_sweep.lrdevplugin writes them:
     <stem>__base.tif                       Adobe Color, everything reset
     <stem>__<Slider>__<value>.tif          one slider, e.g. DSC01234__Exposure__-2.5.tif
     <stem>__combo<NN>.tif + .json          three sliders at once; the JSON holds the settings
+    <stem>__s<SS>p<NN>.jpg + .json         sweeps 4–12 (lr_cc_sweep.py): preset NN of sweep SS when it
+                                           moves more than one key; the JSON holds sweep, preset, settings
     <stem>__asshot.json                    Lightroom's as-shot Temperature / Tint and the profile
     <stem>__edit<NN>.jpg|.tif + .json      one of your own Lightroom edits (import_lr_edits.py): the
                                            JSON holds its settings, look string, bucket and features
@@ -23,7 +25,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-NAME = re.compile(r"^(?P<stem>.+?)__(?:(?P<base>base)|(?P<slider>[A-Za-z][A-Za-z0-9]*)__(?P<value>-?\d+(?:\.\d+)?)|combo(?P<combo>\d+))\.(?:tif|tiff|jpg|jpeg)$|^(?P<estem>.+?)__edit(?P<edit>\d+)\.(?:tif|tiff|jpg|jpeg)$", re.I)
+NAME = re.compile(r"^(?P<stem>.+?)__(?:(?P<base>base)|(?P<slider>[A-Za-z][A-Za-z0-9]*)__(?P<value>-?\d+(?:\.\d+)?)|combo(?P<combo>\d+)|s(?P<sweep>\d+)p(?P<pos>\d+))\.(?:tif|tiff|jpg|jpeg)$|^(?P<estem>.+?)__edit(?P<edit>\d+)\.(?:tif|tiff|jpg|jpeg)$", re.I)
 SLIDER_ALIASES = {"exposure2012": "Exposure", "contrast2012": "Contrast", "highlights2012": "Highlights", "shadows2012": "Shadows",
                   "whites2012": "Whites", "blacks2012": "Blacks", "clarity2012": "Clarity", "sharpening": "Sharpness"}
 
@@ -81,6 +83,14 @@ def index(folder, read_info=True):
             entry.update(kind="edit", edit=int(m.group("edit")), **extra)
         elif m.group("base"):
             entry.update(kind="base", settings={})
+        elif m.group("sweep"):
+            side = os.path.splitext(path)[0] + ".json"
+            d = {}
+            if os.path.exists(side):
+                with open(side) as f:
+                    d = json.load(f)
+            entry.update(kind="position", sweep=int(m.group("sweep")), position=int(m.group("pos")), preset=d.get("preset", ""),
+                         settings={canonical_slider(k): v for k, v in d.get("settings", {}).items()})
         elif m.group("slider"):
             slider = canonical_slider(m.group("slider"))
             entry.update(kind="single", slider=slider, value=float(m.group("value")), settings={slider: float(m.group("value"))})
@@ -114,6 +124,7 @@ def index(folder, read_info=True):
         "images": stems,
         "counts": {"images": len(stems), "base": sum(r["kind"] == "base" for r in refs), "singles": sum(r["kind"] == "single" for r in refs),
                    "combos": sum(r["kind"] == "combo" for r in refs),
+                   **({"positions": sum(r["kind"] == "position" for r in refs)} if any(r["kind"] == "position" for r in refs) else {}),
                    **({"edits": sum(r["kind"] == "edit" for r in refs)} if any(r["kind"] == "edit" for r in refs) else {})},
         "sliders": {s: sorted(v) for s, v in sorted(by_slider.items())},
         "spaces": sorted({str(r.get("space")) for r in refs}),

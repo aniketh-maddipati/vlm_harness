@@ -55,6 +55,14 @@ python3 Tools/parity/golden.py check      # coverage of: card backlit blown-sky 
 
 ### 2. The Lightroom sweep
 
+**Lightroom CC** (no plug-in): `lr_cc_sweep.py` writes presets to click and names the exports back
+from their embedded XMP. Sweep 1 is the single sliders, 2 the combos, 3 white balance per photo,
+4–12 one feature each (Texture / Clarity / Dehaze, HSL + B&W, colour grading, parametric curve,
+sharpening, noise on an ISO ladder, lens, vignette, grain): `presets --sweep batch`, photos from
+`sweep_photos.py`, the owner's steps in `docs/editing/prompts/SWEEPS-OWNER.md`, then
+`lr_cc_sweep.py ingest-sweeps` → `~/LuminaEvidence/parity/sweeps/refs/sweepNN/refs.json`. Multi-key
+positions index as `kind: "position"` (sweep, position, settings). **Lightroom Classic:**
+
 1. Lightroom Classic ▸ File ▸ Plug-in Manager ▸ Add ▸ choose `Tools/parity/lr_sweep.lrdevplugin`.
 2. Import the golden folder into a catalog (Add, in place), select all 50 photos in Library.
 3. Library ▸ Plug-in Extras ▸ **Lumina parity sweep…** ▸ Everything ▸ pick `~/LuminaEvidence/parity/refs`.
@@ -146,6 +154,7 @@ the guard.
 | `lr_sweep.lrdevplugin/` | the Lightroom plug-in |
 | `default_ab.md`, `ab.html` | the blind A/B of the default render (Phase E) |
 | `showcase.py` | one ARW through every slider as a labelled contact sheet + sweep GIFs, for PR comments (photo content: never committed) |
+| `sweep_photos.py` | which photos each Lightroom CC sweep (4–12) is applied to: lists + RAW links in `~/LuminaEvidence/parity/sweeps/photos` |
 | `tests/` | `python3 -m unittest discover -s Tools/parity/tests` |
 | `report/` | committed reports (numbers only) |
 
