@@ -20,8 +20,8 @@ The order below follows that goal, not RapidRAW's feature count.
     default coefficients (round numbers).
 - **UI and native disagree.**
   - Clarity and Vibrance render natively but have no slider.
-  - Masks (Vision person, subject and sky, guided-filter edges, add/subtract/intersect, `mask:` locals)
-    are native-only: v23 has no Masks panel.
+  - Masks: v23 has a Masks panel since 2026-10-30 (prompt 14): left rail of layers, click to lift,
+    hold O, local sliders, invert / opacity / in-out / solo.
 - **Profile.** The default render is `prof:camera`, fitted to the camera JPEG. The Lightroom numbers
   apply only to `prof:adobe`. Decide which one parity means.
 
@@ -47,7 +47,7 @@ lookmath.py), tests and a Lightroom sweep where one applies.
 | Vignette | amount, mid, round, feather | ✓ + keep highlights; unfitted | fit; **per-corner pull (beyond RR)** | 1 + 2 |
 | Grain | amount/size/roughness | ✗ | stage; score by spectrum, not ΔE | 2 |
 | Glow / halation / flares | ✓ | ✗ | skip for now (creative extras) | — |
-| Masks: AI subject/sky/person | SAM click, U²-Net sky, Depth Anything | ✓ native (Vision), no panel | **Masks panel** (DESIGN-ASKS 28/29); click-to-select via Vision instance masks | 4 |
+| Masks: AI subject/sky/person | SAM click, U²-Net sky, Depth Anything | ✓ Vision + **Masks panel** (2026-10-30): click a subject to lift it, rail in/out/⇧-solo, O overlay, `inv`/`amt`/`off` per layer; ids by role (`person-1` = most prominent) so a carried look re-finds them; canvas ≡ export with masks median ΔE 0.71–0.78 (gate 1.0, `probe.sh scenarios edit-masks`, 2 ARWs) | sky not found on a Death Valley frame (no sky label); Lightroom Adaptive Sky/Subject shape (sweep 13) not measured: exports pending | 4 |
 | Masks: brush, linear, radial | ✓ | ✗ | three mask kinds + feather; stroke storage in look string | 5 |
 | Masks: colour / luma range, depth | ✓ | ✗ | range from the pixel under the pointer; depth needs a model (Depth Anything V2 Small, Apache-2.0: verify) | 3 + 3 |
 | Local adjustment set | almost everything | ev, con, hl, sh, wh, bl, vib, sat, clr | add wb, curve, HSL, nr, sharpen inside masks | 3 |

@@ -111,7 +111,7 @@ What RapidRAW does (read 2026-10-23 at `a82251f`; AGPL, so ideas only):
 ### Stills
 
 11. **Dust removal**: shipped in #298. Follow-up: measure on the T7 shoots and a public defect set.
-12. **Masks in Edit** (DESIGN-ASKS Prompts 28 and 29 from #258): the page's Masks list and
+12. **Masks in Edit** (DESIGN-ASKS Prompts 28 and 29 from #258; panel landed 2026-10-30, prompt 14): the page's Masks list and
     mask-local sliders, edited in the page now.
 13. **Remove a distraction in a still** (LaMa / MI-GAN, the same model as item 8).
 
