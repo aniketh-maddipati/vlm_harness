@@ -96,12 +96,35 @@ enum ConsistencySteps {
             let exportDecoder = LookRawPolicy.version(for: .export, body: body, pinned: pinned)
             let older = pinned.flatMap { LookRawPolicy.fallback(after: $0, supported: body.supported) }
             decoders[name] = ["canvas": canvasDecoder ?? 0, "export": exportDecoder ?? 0, "older": older ?? 0]
+            // A look with `mask:` tokens (Edit's Masks, prompt 14): the photo's masks found once, as the app finds
+            // them (Vision on the embedded preview at SetsMasks.pixels), and the same finding given to the canvas
+            // render and to the export, as the app's cache gives it to both.
+            var found: [LookMasks.Found]? = nil
+            if looks.contains(where: { (try? Look.parse($0.look))?.locals.isEmpty == false }) {
+                let opts: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceThumbnailMaxPixelSize: SetsMasks.pixels]
+                found = CGImageSourceCreateWithURL(url as CFURL, nil).flatMap { CGImageSourceCreateThumbnailAtIndex($0, 0, opts as CFDictionary) }.flatMap { SetsMasks.masks($0) } ?? []
+                o.note += "\(name): masks \((found ?? []).map(\.id).joined(separator: ",")) · "
+            }
             for (lookName, text) in looks {
                 do {
                     let look = try Look.parse(text)
                     let key = LookBases.Key(rel: rel, decoder: canvasDecoder, look: look, canvas: size)
                     let e = try bases.build(key, url: url, look: look, preview: nil)
-                    guard let shown = cg(pipe.apply(look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot, anchor: e.anchor, style: e.style), crop: false)) else { throw ProbeError("canvas render failed") }
+                    let masked = look.locals.isEmpty ? nil : found
+                    // A mask the photo does not have renders as the look without it: measured anyway, labelled.
+                    if let masked, look.locals.contains(where: { l in !masked.contains { $0.id == l.mask } }) { o.note += "\(name) · \(lookName): a mask not found · " }
+                    func dev(_ img: CIImage) -> LookPipeline.Developed {
+                        let d = LookPipeline.Developed(image: img, asShot: e.asShot, anchor: e.anchor, style: e.style)
+                        return masked.map { d.withMasks($0, key: LookPipeline.PhotoMasks.key(rel: rel, $0)) } ?? d
+                    }
+                    guard let shown = cg(pipe.apply(look, to: dev(e.base), crop: false)) else { throw ProbeError("canvas render failed") }
+                    if masked != nil {
+                        var bare = look; bare.locals = []
+                        if let without = cg(pipe.apply(bare, to: dev(e.base), crop: false)) {
+                            let de = stats(shown, without, step: step)
+                            rows.append(Row(photo: name, look: lookName, pair: "maskEffect", median: de.median, mean: de.mean, p95: de.p95, max: de.max, pixels: de.pixels))
+                        }
+                    }
                     func add(_ pair: String, _ other: CGImage?) {
                         guard let other else { o.failures.append("editConsistency: \(name) · \(lookName) · \(pair): render failed"); return }
                         if abs(shown.width - other.width) > 2 || abs(shown.height - other.height) > 2 {
@@ -111,17 +134,17 @@ enum ConsistencySteps {
                         rows.append(Row(photo: name, look: lookName, pair: pair, median: de.median, mean: de.mean, p95: de.p95, max: de.max, pixels: de.pixels))
                     }
                     // What Export writes: the pinned decoder at full size, scaled to the canvas picture.
-                    let (fullData, _) = try SetsLookExport.render(raw: url, look: text, px: nil, format: "png", decoder: exportDecoder)
+                    let (fullData, _) = try SetsLookExport.render(raw: url, look: text, px: nil, format: "png", decoder: exportDecoder, masks: masked ?? [])
                     let full = decode(fullData)
                     add("full", full.flatMap { scaled($0, to: shown) })
                     // The control: the export graph at the canvas picture's size, the canvas's decoder.
                     // (Not for a crop: the export's `px` is the uncropped long edge, so the sizes can't be made equal.)
                     if look.crop == nil {
-                        let (sameData, _) = try SetsLookExport.render(raw: url, look: text, px: max(shown.width, shown.height), format: "png", decoder: canvasDecoder)
+                        let (sameData, _) = try SetsLookExport.render(raw: url, look: text, px: max(shown.width, shown.height), format: "png", decoder: canvasDecoder, masks: masked ?? [])
                         add("sameSize", decode(sameData))
                     }
                     // The drag preview (a quarter on each edge), shown stretched over the canvas.
-                    if let small = cg(pipe.apply(look, to: LookPipeline.Developed(image: e.small, asShot: e.asShot, anchor: e.anchor, style: e.style), crop: false)) {
+                    if let small = cg(pipe.apply(look, to: dev(e.small), crop: false)) {
                         let up = CIImage(cgImage: small).transformed(by: CGAffineTransform(scaleX: CGFloat(shown.width) / CGFloat(small.width), y: CGFloat(shown.height) / CGFloat(small.height)))
                         add("drag", pipe.context.createCGImage(up, from: CGRect(x: 0, y: 0, width: shown.width, height: shown.height), format: .RGBA8, colorSpace: srgb))
                     }
@@ -200,7 +223,8 @@ enum ConsistencySteps {
         var worstText: [String] = []
         for w in worst.prefix(6) { worstText.append(String(format: "%@ %.2f / p95 %.2f", w.look, w.median, w.p95)) }
         lines.append("largest canvas-vs-export differences (median over photos): " + worstText.joined(separator: " · "))
-        o.note = "\n  " + lines.joined(separator: "\n  ")
+        let maskNote = o.note
+        o.note = "\n  " + lines.joined(separator: "\n  ") + (maskNote.isEmpty ? "" : "\n  masks: " + maskNote)
         return o
     }
 
