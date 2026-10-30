@@ -23,6 +23,8 @@ median over photos:
 - **added clipping**: % of pixels clipped (any channel ≥ 254.5/255, or all ≤ 0.5/255) in the slider
   image minus the base, per position; `clipMid` = the worst over positions short of the slider's
   end, which is clipping the user didn't ask for yet.
+- **flicker** (video, `flicker()`): frame-to-frame ΔE2000 on regions the source clip holds still;
+  for Skim's video prompts. Not part of a stills sweep run.
 - **halo**: edge overshoot. The change in L* is split into a global tone curve (median change per
   base-L* bin over the whole frame) and a residual; on a ring 1–6 px around strong edges the residual
   signed by the side of the edge (brighter or darker than the local mean) is the overshoot, in L*.
@@ -58,8 +60,8 @@ INTENDED_HUE = {"Temperature", "Tint"}
 REST = {"Temperature": None, "Tint": None}
 # Each slider's end (|value|); clipping before it is clipping the user didn't ask for yet.
 RANGE = {"Exposure": 5.0, "Temperature": None, "Tint": 150.0}
-NAME = re.compile(r"^(?P<stem>.+?)__(?P<slider>[A-Za-z]+)__(?P<value>-?\d+(?:\.\d+)?)(?:\.lumina)?\.(?:tif|tiff|jpg|jpeg|png)$", re.I)
-BASE = re.compile(r"^(?P<stem>.+?)__base(?:\.lumina)?\.(?:tif|tiff|jpg|jpeg|png)$", re.I)
+NAME = re.compile(r"^(?P<stem>.+?)__(?P<slider>[A-Za-z]+)__(?P<value>-?\d+(?:\.\d+)?)(?:\.(?:lumina|skim))?\.(?:tif|tiff|jpg|jpeg|png)$", re.I)
+BASE = re.compile(r"^(?P<stem>.+?)__base(?:\.(?:lumina|skim))?\.(?:tif|tiff|jpg|jpeg|png)$", re.I)
 
 # ---- colour ----------------------------------------------------------------------------------
 
@@ -196,6 +198,29 @@ def evenness(points):
         return {"steps": steps, "cv": None}
     pu = np.array([s["perUnit"] for s in steps])
     return {"steps": steps, "cv": float(pu.std() / pu.mean()) if pu.mean() > 1e-9 else None}
+
+
+def flicker(frames, source=None, space="srgb", static=1.0):
+    """Video: frame-to-frame ΔE2000 on static regions. frames: rendered frames in order, (H, W, 3)
+    0…1. A pixel is static between two frames when the source frames (the clip before the look)
+    differ there by less than `static` ΔE; without sources, every pixel counts. A look that holds
+    still on a still scene scores ~0; one that pumps or shimmers scores its jump. Returns the
+    median and p95 over frame pairs of each pair's mean ΔE on static pixels, and the worst pair."""
+    if len(frames) < 2:
+        return None
+    labs = [delta_e.to_lab(f, space) for f in frames]
+    srcs = [delta_e.to_lab(f, space) for f in source] if source is not None else None
+    per = []
+    for i in range(len(labs) - 1):
+        de = delta_e.delta_e2000(labs[i], labs[i + 1])
+        sel = np.ones(de.shape, bool) if srcs is None else delta_e.delta_e2000(srcs[i], srcs[i + 1]) < static
+        if sel.sum() < 50:
+            continue
+        per.append(float(np.mean(de[sel])))
+    if not per:
+        return None
+    v = np.array(per)
+    return {"pairs": len(per), "median": float(np.median(v)), "p95": float(np.percentile(v, 95)), "worst": int(np.argmax(v))}
 
 
 def score_sweep(base, positions, slider, space="srgb"):

@@ -127,6 +127,26 @@ class HaloTests(unittest.TestCase):
         self.assertIsNone(better.halo(flat, flat + 1))
 
 
+class FlickerTests(unittest.TestCase):
+    def test_a_steady_look_on_a_still_clip_does_not_flicker_a_pumping_one_does(self):
+        src = [scene()] * 6
+        steady = [gamma(f, 0.9) for f in src]
+        pumping = [gamma(f, 0.9 if i % 2 else 0.8) for i, f in enumerate(src)]
+        self.assertLess(better.flicker(steady, src)["median"], 0.01)
+        self.assertGreater(better.flicker(pumping, src)["median"], 1.0)
+
+    def test_moving_parts_of_the_source_are_left_out(self):
+        src, out = [], []
+        for i in range(5):
+            f = scene()
+            f[:, 180 - 20 * i:190 - 20 * i] = 1.0  # a bright bar moving left
+            src.append(f)
+            out.append(f.copy())
+        self.assertGreater(better.flicker(out)["median"], 0.1, "without sources the bar counts")
+        self.assertLess(better.flicker(out, src)["median"], 0.01, "with sources only still pixels count")
+        self.assertIsNone(better.flicker(out[:1]))
+
+
 class FolderTests(unittest.TestCase):
     def test_folder_run_end_to_end(self):
         from PIL import Image
