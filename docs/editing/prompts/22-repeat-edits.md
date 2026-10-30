@@ -29,3 +29,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** On 3 owner shoots, consistency spread ≤ half of blind copy's and better than `matchScene`; ΔE vs owner's own per-photo edits lower than both; a 300-photo row solves in ≤ 10 s at `.utility`.
 
 **Depends on:** 14 for masks by kind; 05 for the signature is optional.
+
+**Skim (video) mirror.** Shot matching across clips is the creator workflow's core. Same solve: reference shot → each clip measured on 8 frames → per-clip keys → each clip's `.cube`, with residual flags on clips that don't match (different light). Held per clip, so no flicker. "Drag on one clip with a scene selected" applies to all clips in the scene.

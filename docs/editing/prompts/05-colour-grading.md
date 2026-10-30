@@ -25,3 +25,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 - canvas p95 ≤ 16 ms.
 
 **Depends on:** 00, 04 (the mixer's Oklab bands and skin band).
+
+**Skim (video) mirror.** Already in scope (port to `LK_FS`). Add: grades reach Final Cut as a `.cube` per shot. Relative mode uses shot percentiles (held per shot). The signature is measured per shot on 8 frames. Skim's Grade UI gets the same tone strip and on-viewer wheel. Reference: compare Skim's grade with Final Cut's Color Wheels on the same values for sanity (not parity).

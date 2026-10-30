@@ -18,3 +18,7 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** On 20 photos with dust or small distractions, the owner prefers the result over Lightroom's in the A/B (`ab.html`); canvas ≡ export.
 
 **Depends on:** 14 (rail), 15 (brush).
+
+**Skim (video) mirror.** Two direct mirrors:
+- **Sensor dust on video:** a spot is fixed in the frame across every clip from that body and day. `LookDust`'s across-the-shoot search fits video better than stills; heal it per clip and export it as a patch over the clip (the `SkimPlate` patch path).
+- **Remove** already exists in Skim (`SkimPlate`, clean plate for a still camera). The heal/clone UI grammar (J, ⇧J, rings) should match it.

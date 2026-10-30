@@ -18,3 +18,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Highlights median ≤ 2.0 and p95 ≤ 4.0 on the sweep (or the best of 3 forms reported, if none reaches it); held-out within tolerance; better scores: isolation (shadows don't move) and no added halo at sky edges.
 
 **Depends on:** 00.
+
+**Skim (video) mirror.** Port the chosen Highlights/Shadows form into Skim's `tone()`, replacing its polynomial approximations. The photo anchor becomes a shot anchor (measured on 8 frames, held for the clip, so it doesn't flicker). LUT-able once per shot, so add it to the shot's `.cube`. The viewer's drag-↕-on-a-bright-area gesture applies too.

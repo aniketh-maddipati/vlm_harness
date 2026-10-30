@@ -16,3 +16,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Picker error ≤ 1 ΔE chroma on grey-card shots; the pad drags at canvas latency; HELP updated.
 
 **Depends on:** none.
+
+**Skim (video) mirror.** Skim has temp/tint. Add the W pad and the picker on the viewer frame. For S-Log3 clips the white balance runs before the Rec.709 transform (scene-linear), not on display values. Note it where the stills form differs. LUT-able.

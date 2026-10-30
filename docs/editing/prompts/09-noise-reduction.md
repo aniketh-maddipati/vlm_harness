@@ -18,3 +18,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** At matched noise σ, detail ≥ Lightroom's on the ladder; colour blotches gone at ISO 6400 at the default.
 
 **Depends on:** none.
+
+**Skim (video) mirror.** None in this prompt. Video NR is temporal (motion-compensated); it's its own project, so park it in `docs/masking/BACKLOG.md` with the ISO-ladder findings.

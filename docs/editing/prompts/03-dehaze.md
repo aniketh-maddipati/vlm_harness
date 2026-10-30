@@ -16,3 +16,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Sweep criteria met or best reported; held-out within tolerance; better scores: hue drift on sky ≤ Lightroom's, no halo at the horizon.
 
 **Depends on:** 00; shares sweep 4 with 02.
+
+**Skim (video) mirror.** Preview in Skim's viewer: dark channel on a downsized frame, with the airlight held per shot. Spatial, so preview only for Final Cut. Useful for drone and landscape b-roll.

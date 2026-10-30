@@ -17,3 +17,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** The ranges are deterministic and identical across tiers; depth (if approved) runs ≤ 300 ms per photo at `.utility` and is cached.
 
 **Depends on:** 14.
+
+**Skim (video) mirror.** Colour and luminance ranges are keyers on video. Per frame in `LK_FS`, cheap, no tracking needed. Export as a matte rendered over the clip (the Follow writer) or as preview only; decide by cost. Depth per frame is out of scope for video.

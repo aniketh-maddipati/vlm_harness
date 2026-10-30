@@ -18,3 +18,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 - Undo is exact.
 
 **Depends on:** 05.
+
+**Skim (video) mirror.** Shot matching is the main video use: "match these 12 clips to this one" = signature match per shot, with residual flags on clips under different light. Same tools, run per shot (`grade.match` over clips), landing as each clip's look plus its `.cube`. This is the creator workflow's shot-to-shot colour.

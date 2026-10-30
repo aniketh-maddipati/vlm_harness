@@ -14,3 +14,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** The report exists, the scorer has tests, every stage is marked pass/fail with numbers, and the gap table cites them.
 
 **Out of scope:** changing any form or coefficient.
+
+**Skim (video) mirror.** Score Skim's look too. Render the same stills through Skim's JS look reference (`LOOK-BEGIN` block, run headless in Node) at the matching slider positions, then run the "better" scorer and ΔE against Lightroom. That shows how far Skim's simpler maths is from the fitted stills maths, per stage. Add the flicker metric (frame-to-frame ΔE of static regions) to the scorer so video prompts can use it. No Skim code changes.

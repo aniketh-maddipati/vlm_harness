@@ -16,3 +16,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Straight-line residual ≤ Lightroom's profile on 20 frames; CA fringe width ≤ 0.5 px at the corners; masks and crop stay aligned in tests.
 
 **Depends on:** none.
+
+**Skim (video) mirror.** Check whether Sony XAVC clips carry lens correction data in their NRT XML sidecar (`a7m3-day1` fixtures have sidecars) or in the stream. If they do, preview the correction in Skim and note that Final Cut can't apply it from metadata: preview only, or a native render later. Report what was found; no build if there's no data.

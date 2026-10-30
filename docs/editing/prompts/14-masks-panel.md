@@ -18,3 +18,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Every found mask is listable, toggleable and adjustable; canvas ≡ export (`probe.sh edit` mask scenario); the Adaptive Sky/Subject Lightroom sweep (sweep 13, the owner's) is measured for shape (IoU against Lightroom's mask, via its local's footprint) and blend.
 
 **Depends on:** none (uses existing native masks).
+
+**Skim (video) mirror.** Skim's Follow already tracks a chosen shape through a clip (`SkimFollower`, Vision tracker) and writes mattes into the `.fcpxml`. The Masks panel's grammar (layers in/out, ⇧-click solo, click a subject to select) must be the same in Skim's viewer, with Follow as the "track this" action on a layer. Shared `LookMasks` code; no second mask model.

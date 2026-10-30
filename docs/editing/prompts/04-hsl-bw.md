@@ -17,3 +17,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Parity criteria per band on sweep 5; isolation: neighbouring hues move ≤ Lightroom's; held-out within tolerance.
 
 **Depends on:** 00.
+
+**Skim (video) mirror.** Skim's Mix already has 8 hue bands, in HSV with round strengths. Replace them with the fitted Oklab bands, so stills and video agree, and add the B&W mix. LUT-able: goes in the shot's `.cube`. ⌥-drag on a colour in the viewer.

@@ -19,3 +19,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Rung chosen with numbers (slider MAE, ΔE vs owner exports, split by shoot); tiles render ≤ 150 ms each; the result lands as editable keys; undo is exact.
 
 **Depends on:** 22 shares the measuring code; the owner's ruling on data.
+
+**Skim (video) mirror.** Clip types differ from photo types: interview, b-roll, S-Log3 outdoor, tungsten indoor. Same rungs with per-shot features. Outcome tiles on Skim's viewer (hold L).

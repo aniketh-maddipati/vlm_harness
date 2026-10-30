@@ -36,3 +36,5 @@ Lightroom once instead of ten times.
 
 **Done when.** The presets are written, the checklist exists, and ingest is tested on synthetic XMP.
 Then stop and hand the checklist to the owner.
+
+**Skim (video) mirror.** None. Lightroom has no video. Video references come from Final Cut's own effects and Skim's existing S-Log3 table (prompt 05 notes where).

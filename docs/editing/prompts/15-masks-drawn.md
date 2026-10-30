@@ -22,3 +22,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Strokes render identically on canvas, tiles and export; latency held while painting; undo per stroke; the look string stays small (budget agreed with the owner).
 
 **Depends on:** 14.
+
+**Skim (video) mirror.** Pen strokes, linear and radial on the viewer: static by default, "follow" to track them (the Follow path). Exported as mattes. The Sort editor's pen-first grammar applies to both.

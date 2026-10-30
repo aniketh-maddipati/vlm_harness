@@ -16,3 +16,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Region parity criteria on sweep 7; luma mode: hue drift ≈ 0 and saturation within 2 % on ramps; the gesture works on the canvas and in the image fallback path.
 
 **Depends on:** 00.
+
+**Skim (video) mirror.** Skim has no curve. Add RGB / Luma curves to its Light section (1D tables in the shader, like its existing `uLut`). LUT-able. Targeted curve by pressing on the viewer.

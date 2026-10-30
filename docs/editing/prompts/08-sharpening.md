@@ -18,3 +18,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Parity on 100 % crops; halo score ≤ Lightroom's; region tiles vs export ΔE ≤ 0.5.
 
 **Depends on:** 00.
+
+**Skim (video) mirror.** None. Sharpening video is Final Cut's job at delivery, and preview sharpening of a scaled frame misleads.

@@ -15,3 +15,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Both run at canvas latency; the overlay matches the histogram's counts; pixel tests on a ramp.
 
 **Depends on:** none.
+
+**Skim (video) mirror.** Video conventions: zebras (adjustable IRE) instead of red/blue clipping, a waveform and a vectorscope in Skim's viewer, and split view on the viewer. The same keys where free (K for zebras, B for split).

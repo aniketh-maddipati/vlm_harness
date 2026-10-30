@@ -20,3 +20,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Texture and Clarity: parity criteria on the sweep; halo score no worse than Lightroom's exports; canvas p95 ≤ 16 ms at `small` (blurs are the costly part: check `LookWarmPlan` warms them).
 
 **Depends on:** 00.
+
+**Skim (video) mirror.** Clarity and Texture need a blur pass: a second WebGL pass at reduced size in Skim's viewer. They are spatial, so not LUT-able: preview only in Final Cut unless a native render is added later, and the UI says so. Check flicker on a T7 clip; the edge-aware base must be stable frame to frame.

@@ -24,3 +24,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Global vignette parity criteria on sweep 11; per-corner: rest renders identical to before (0 ΔE); measured against a radial-mask equivalent for sanity; canvas latency held.
 
 **Depends on:** 00.
+
+**Skim (video) mirror.** Skim preview: the same per-corner vignette in `LK_FS`. To Final Cut: spatial, so write it as a static matte plus darkening (the matte route) or mark it preview only. Pick the one that imports cleanly and say which.

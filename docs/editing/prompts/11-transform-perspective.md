@@ -19,3 +19,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** On 20 architecture frames, verticals within 0.5° after Auto; manual grid at canvas latency; export geometry ≡ canvas.
 
 **Depends on:** 10 (lens warp comes first in the geometry).
+
+**Skim (video) mirror.** Straighten, flip, and keystone map to Final Cut's own transform and distort parameters in the `.fcpxml` (`adjust-transform`, distort corners), so they export natively rather than baked. Same grid-corner gesture on Skim's viewer. Check the `.fcpxml` imports into Final Cut 12.4 (the existing export-proof routine).

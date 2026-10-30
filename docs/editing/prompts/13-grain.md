@@ -13,3 +13,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Spectrum and per-band variance within 10 % of Lightroom's at each position; canvas ≡ export statistics; deterministic per seed.
 
 **Depends on:** none.
+
+**Skim (video) mirror.** Preview in Skim with grain seeded **per frame** (static grain on video looks like dirt on the lens). Final Cut has its own grain at delivery: preview only, said in the UI.

@@ -7,6 +7,13 @@ checks → measure → show the owner → repeat (≤ 5 rounds) → PR, never me
 Background: `../RAPIDRAW-PARITY.md` (gaps, "better" scores), `../COLOUR-GRADING.md`,
 `../LEARNED-LOOKS.md`.
 
+**Video too.** Every prompt ends with a **Skim (video) mirror** section, run as `LOOP.md` step 6b once the stills part passes:
+- the same maths in Skim's look (JS + GLSL), checked against `lookmath.py`
+- measured once per shot and held, so the look doesn't flicker
+- reaches Final Cut as a `.cube` per shot (per-pixel colour), as mattes (local work), or stays preview only, said in the UI
+
+Mirrors marked "None" are deliberate: Lightroom sweeps, sharpening, temporal NR.
+
 To start one: open a session in this repo with "Run `docs/editing/prompts/<file>`."
 
 ## Order

@@ -15,3 +15,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Round-trip: a P3 export opened in Preview matches the canvas on a P3 display (ΔE ≤ 1 on patches); every format writes and reads back; the journal and crash recovery cover the new formats.
 
 **Depends on:** none.
+
+**Skim (video) mirror.** Skim's export is the `.fcpxml` plus mattes and LUTs. Make sure every `.cube` is written for the clip's colour space and range (Rec.709 full vs video range) and the `.fcpxml` declares it. Check HLG/HDR clips are refused or handled honestly.

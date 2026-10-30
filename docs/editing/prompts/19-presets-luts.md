@@ -15,3 +15,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** The owner's Lightroom presets import with the unmapped keys listed; preset strength is linear from rest; LUT renders identically on all tiers.
 
 **Depends on:** none (more keys map as features land).
+
+**Skim (video) mirror.** LUTs are video's native language. Skim reads `.cube` (camera and creative LUTs), applies it in `LK_FS` (3D texture), and writes each clip's look out as `.cube` for Final Cut. Presets are shared between stills and Skim where the keys overlap; keys Skim doesn't have are listed when applying.

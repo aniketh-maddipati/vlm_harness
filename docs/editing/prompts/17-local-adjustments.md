@@ -14,3 +14,5 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Each local key passes identity and ramp tests; mask locals ≡ global maths with a full mask (ΔE 0); latency held with 3 masks × 5 locals.
 
 **Depends on:** 14, and each global feature it extends.
+
+**Skim (video) mirror.** Locals over Skim mattes: the same keys, applied in the viewer through the matte. To Final Cut: matte plus the correction as its own `.cube`, layered in the `.fcpxml`. Check it imports.
