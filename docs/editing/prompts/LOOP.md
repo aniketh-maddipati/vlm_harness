@@ -41,7 +41,7 @@ Read it in full before starting.
    - **Hands-on rule:** every new slider gets its on-photo gesture where one makes sense, with the
      existing grammar (drag; ⇧ fine; ⌥ finer; esc cancels; double-click resets; click the number to
      type; `dragStart` / `dragEnd` emitted like `vigDown` / `histDown`).
-   - **Keys:** before taking a key, grep the page's key handler (`c==='Key…'`) and `static HELP`. Taken now: A C H N Q R S T V W X Y Z, 0, 2, \\, `,` `.` `[` `]` `=`. The feature prompts reserve J (heal), K (clipping), B (split), U (upright), O (mask overlay), L (outcome tiles), F (flip in Crop). If one clashes, pick another and say so.
+   - **Keys:** before taking a key, grep the page's key handler (`c==='Key…'`) and `static HELP`. Taken now: A C H N Q R S T V W X Y Z, Space (large view), Tab (focus), 0, 2, \\, `,` `.` `[` `]` `=`. The UX (`docs/editing/UX.md`) reserves G (loupe), / (grade agent), ⌘-hold (vectorscope while grading), and the feature prompts reserve J (heal), K (clipping), B (split), U (upright), O (mask overlay), L (outcome tiles), F (flip in Crop). If one clashes, pick another and say so.
    - The help sheet (`static HELP`) lists every new key and gesture.
    - Section reset, the `•` changed dot, ⌘C/⌘V and "same as last" all carry the new keys.
    - **`plumbing.js` supplies data and behaviour, never UI.** New keys reach the Mac through the

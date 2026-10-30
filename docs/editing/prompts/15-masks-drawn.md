@@ -23,4 +23,16 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 
 **Depends on:** 14.
 
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Drawn masks: pen, gradient, radial (15)*
+
+- **Do:**
+  - Pen: any stroke paints; pressure = flow; ⌥ erases. Edges snap to the photo (refined).
+  - Drag in from the frame's edge = a gradient; two-finger rotate turns it.
+  - ⇧-drag = a radial from its centre.
+- **Repeat:** drawn shapes carry by geometry (same framing) or, on video, by Follow. A small chip warns
+  when a photo's framing differs.
+- **Polish:** the loupe at the pen tip; strokes draw as a 1 px gold edge only while active.
+
 **Skim (video) mirror.** Pen strokes, linear and radial on the viewer: static by default, "follow" to track them (the Follow path). Exported as mattes. The Sort editor's pen-first grammar applies to both.

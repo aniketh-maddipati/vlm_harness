@@ -19,4 +19,18 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 
 **Depends on:** none (uses existing native masks).
 
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Masks: subject, sky, person, objects (14, 17)*
+
+- **Do:** click a subject and **it lifts**: a soft outline glow, everything else dims to 70 %. From now
+  on *every* task's gesture applies inside it: grade the person, lighten the sky. Esc puts it down.
+- **Hands:**
+  - A slim left rail of layer thumbnails: click a layer out or in, ⇧-click solos it.
+  - "Find everything" lists what Lumina found.
+  - Hold **O** to see the mask.
+- **Repeat:** masks are stored by kind ("the person", "the sky") and found again on each photo; on
+  video, Follow tracks them.
+- **Polish:** the lift is the only shadow in the UI.
+
 **Skim (video) mirror.** Skim's Follow already tracks a chosen shape through a clip (`SkimFollower`, Vision tracker) and writes mattes into the `.fcpxml`. The Masks panel's grammar (layers in/out, ⇧-click solo, click a subject to select) must be the same in Skim's viewer, with Follow as the "track this" action on a layer. Shared `LookMasks` code; no second mask model.

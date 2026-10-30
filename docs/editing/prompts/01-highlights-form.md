@@ -19,4 +19,16 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 
 **Depends on:** 00.
 
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Light: exposure, highlights, shadows, whites, blacks (prompts 01, 02 for vibrance)*
+
+- **Do:** press anywhere and drag ↕. The tone under the finger chooses the slider: blacks, shadows,
+  highlights or whites. ⌘-drag ↕ is exposure for the whole photo.
+- **Hands:** while pressed, a thin tone bar (black → white, 4 px) beside the puck marks where your tone
+  sits. The pixels in that band glow faintly on the photo (a 20 % luminance key) so you see what moves.
+- **Repeat:** stored as "this photo's band"; re-solved per photo with the tone anchor, so "lift the
+  shadows" lifts *each* photo's shadows by the same look.
+- **Polish:** the histogram lights the band you hold; nothing else changes on screen.
+
 **Skim (video) mirror.** Port the chosen Highlights/Shadows form into Skim's `tone()`, replacing its polynomial approximations. The photo anchor becomes a shot anchor (measured on 8 frames, held for the clip, so it doesn't flicker). LUT-able once per shot, so add it to the shot's `.cube`. The viewer's drag-↕-on-a-bright-area gesture applies too.

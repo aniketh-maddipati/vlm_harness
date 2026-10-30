@@ -17,4 +17,14 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 
 **Depends on:** none.
 
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Lens (10)*
+
+- **Do:** nothing. Corrections apply from the camera's own data; the facts line says `lens ✓`.
+- **Hands:** to fix a line that should be straight, press its middle and drag it straight (a bend
+  handle). Lumina fits the distortion to that.
+- **Repeat:** automatic per lens.
+- **Polish:** no panel unless asked; one toggle row.
+
 **Skim (video) mirror.** Check whether Sony XAVC clips carry lens correction data in their NRT XML sidecar (`a7m3-day1` fixtures have sidecars) or in the stream. If they do, preview the correction in Skim and note that Final Cut can't apply it from metadata: preview only, or a native render later. Report what was found; no build if there's no data.

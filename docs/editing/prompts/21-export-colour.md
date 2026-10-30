@@ -16,4 +16,12 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 
 **Depends on:** none.
 
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Export (21)*
+
+- **Do:** Save offers three choices (Web · Print · Archive), each a space, format and size; details are
+  folded.
+- **Repeat:** the choice is remembered per shoot.
+
 **Skim (video) mirror.** Skim's export is the `.fcpxml` plus mattes and LUTs. Make sure every `.cube` is written for the clip's colour space and range (Rec.709 full vs video range) and the `.fcpxml` declares it. Check HLG/HDR clips are refused or handled honestly.

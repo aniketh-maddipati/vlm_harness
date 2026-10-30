@@ -30,4 +30,29 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 
 **Depends on:** 14 for masks by kind; 05 for the signature is optional.
 
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Carry: repeat across photos and clips (22)*
+
+This is the "Repeat is built in" section above, as a task of its own:
+- select, then touch, with live thumbnails, `× N`, amber residual dots;
+- Space (large view) as the contact sheet;
+- one ⌘Z.
+- Video: scenes, per shot.
+
+*Repeat (the whole spec)*
+
+- **A move is stored with its intent.** Examples: "this photo's shadows", "the sky", "the person",
+  "skin", "this hue", "the corner". Paste, "same as last" and apply-to-selection re-solve the intent on
+  each photo or clip (`prompts/22`), instead of copying numbers that only fit one frame.
+- **Select, then touch.** With photos selected in the filmstrip (⇧-click, or a scene), any gesture on
+  the main photo previews live on every selected thumbnail.
+  - A count chip `× 24` rides beside the puck. Release applies to all; one ⌘Z undoes all.
+  - Photos that couldn't match get a small amber dot. Click it for the reason ("darker light, subject
+    12 % of frame vs 30 %") and a nudge.
+- **Contact sheet.** **Space** is already the large view. With a selection it becomes the contact
+  sheet: all of them graded, side by side, to judge consistency. Dragging on one adjusts that one, relative to the others.
+- **Video.** The same, per shot: measured on a few frames and held, so nothing flickers. A scene in
+  Skim is a selection.
+
 **Skim (video) mirror.** Shot matching across clips is the creator workflow's core. Same solve: reference shot → each clip measured on 8 frames → per-clip keys → each clip's `.cube`, with residual flags on clips that don't match (different light). Held per clip, so no flicker. "Drag on one clip with a scene selected" applies to all clips in the scene.
