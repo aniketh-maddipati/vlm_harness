@@ -57,7 +57,7 @@ check((await page.locator('[data-lumina="build"]').innerText()).startsWith('buil
 check(await page.locator('meta[http-equiv="Content-Security-Policy"]').count() === 1, 'the content policy is in the page');
 
 // No stills on the site: the page finds out in the background and Open offers a folder, not the sample card.
-await page.waitForFunction(() => /Folder or card/.test(document.body.innerText) && !/SONY-A7M4/.test(document.body.innerText), null, { timeout: 5000 })
+await page.waitForFunction(() => !!document.querySelector('[data-lumina="open-folder"]') && !/SONY-A7M4/.test(document.body.innerText), null, { timeout: 5000 })
   .then(() => check(true, 'without the sample stills Open drops the sample card'), () => check(false, 'without the sample stills Open drops the sample card'));
 // Every visitor's browser is missing them, so the notice saying so is for the developer only (?debug).
 check(await page.locator('[data-lumina="no-sample"]').count() === 0, 'and shows visitors no notice about it');

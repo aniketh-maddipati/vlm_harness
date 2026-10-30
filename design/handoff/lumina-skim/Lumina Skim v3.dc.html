@@ -12,7 +12,7 @@
 <style>
 /* Minimal (2026-10-29, the keep-sort wireframes): keep only, the frame first, no chrome that isn't used. What is cut
    still works from its key (M, C, ⌘⌫, ⌘W, P); ?full=1 shows everything again. LOCAL-CHANGES 316. */
-html:not([data-full]) div[data-lumina=skim-bar]:not([style*="position:absolute"]),
+html:not([data-full]) div[data-lumina=skim-bar]:not([style*="position:absolute"]):not([data-busy=true]),
 html:not([data-full]) [data-lumina=keybar],
 html:not([data-full]) [data-lumina=shoot-close],
 html:not([data-full]) [data-lumina=memory-pill],
@@ -285,7 +285,7 @@ html:not([data-full]) [data-lumina=steps] [role=tab][aria-selected=true] { text-
     </sc-if>
   </div>
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
-  <div data-lumina="skim-bar" style="flex:none;height:56px;padding:0 24px;box-sizing:border-box;display:{{ skimBarD }};align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
+  <div data-lumina="skim-bar" data-busy="{{ skimBusy }}" style="flex:none;height:56px;padding:0 24px;box-sizing:border-box;display:{{ skimBarD }};align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
     <div style="flex:1;min-width:0;display:flex;align-items:center">
       <sc-if value="{{ lvTabsOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="levels" role="tablist" aria-label="levels" style="position:relative;display:grid;grid-template-columns:repeat({{ lvN }},68px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)">
@@ -455,7 +455,7 @@ html:not([data-full]) [data-lumina=steps] [role=tab][aria-selected=true] { text-
           <div style="display:flex;align-items:baseline;gap:10px;white-space:nowrap;overflow:hidden"><span style="font-weight:700;color:#B8B3AB">Included</span><span data-lumina="prep" role="status" style="min-width:0;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ incPrep }}</span></div>
           <div data-lumina="included-row" style="display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px">
             <sc-if value="{{ incEmpty }}" hint-placeholder-val="{{ false }}"><div data-lumina="included-empty" style="flex:none;width:220px;min-height:64px;box-sizing:border-box;border-radius:10px;border:1px dashed rgba(239,236,230,0.22);display:grid;place-items:center;color:#9A958D">Empty</div></sc-if>
-            <sc-for list="{{ incTiles }}" as="it" hint-placeholder-count="2"><div data-lumina="included-tile" title="{{ it.tip }}" style="flex:none;width:220px;min-height:64px;box-sizing:border-box;padding:8px 12px;border-radius:10px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);display:flex;flex-direction:column;gap:2px;overflow:hidden"><span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:#9A958D">{{ it.kind }}</span><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:17px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.name }}</span><span style="color:#B8B3AB;white-space:nowrap">{{ it.line }}</span></div></sc-for>
+            <sc-for list="{{ incTiles }}" as="it" hint-placeholder-count="2"><div data-lumina="included-tile" title="{{ it.tip }}" style="flex:none;width:220px;min-height:64px;box-sizing:border-box;padding:8px 12px;border-radius:10px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);display:flex;flex-direction:column;gap:2px;overflow:hidden"><span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:#9A958D">{{ it.kind }}</span><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:17px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.name }}</span><span style="color:#B8B3AB;white-space:nowrap">{{ it.line }}</span><div data-lumina="included-bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{ it.n }}" aria-valuenow="{{ it.ok }}" style="margin-top:4px;height:3px;border-radius:2px;background:rgba(239,236,230,0.1);overflow:hidden"><div style="height:100%;width:{{ it.pct }};background:#B8B3AB;transition:width 200ms ease-out"></div></div></div></sc-for>
           </div>
         </div>
         <button type="button" data-lumina="sort-now" aria-disabled="{{ incNo }}" onClick="{{ incGo }}" title="Sort what is included (⏎)" style="flex:none;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-width:120px;min-height:44px;padding:8px 16px;border-radius:10px;background:{{ incBg }};color:{{ incFg }};cursor:{{ incCur }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:14px;font-weight:800">Sort now</span><span data-kbd="1" style="font-weight:700;font-size:11px;opacity:0.7">⏎</span></button>
@@ -3667,6 +3667,7 @@ class Component extends DCLogic {
     Object.assign(vals, this.extraVals(markN, markB, und));
     Object.assign(vals, this.dockVals(vals));
     vals.hints = (vals.hints || []).map(h => ({...h, bg:Component.kbLit(h.k, st.kbLit) ? 'rgba(239,236,230,0.34)' : 'rgba(239,236,230,0.12)'}));
+    vals.skimBusy = vals.loadOn || vals.unsupOn || vals.busyBarOn || vals.recNoteOn || vals.pauseOn || vals.haltOn || vals.cancelAsk ? 'true' : 'false';
     vals.skimBarD = st.lv >= 2 && !vals.loadOn && !vals.unsupOn && !vals.recNoteOn && !vals.pauseOn && !vals.haltOn && !vals.cancelAsk && !vals.lvTabsOn ? 'none' : 'flex';
     return vals;
   }
@@ -4936,7 +4937,7 @@ class Component extends DCLogic {
     return {incOn:true, incEmpty:!C.length, incNo:has ? 'false' : 'true', incGo:() => { if (this.hasShoot()) this.setStep('skim'); },
       incBg:has ? '#EFECE6' : 'rgba(239,236,230,0.08)', incFg:has ? '#1E1D1B' : '#9A958D', incCur:has ? 'pointer' : 'default',
       incPrep:!C.length ? 'Click a card or Drop · AirDrop lands here' : running ? 'reading ' + st.imp.done + ' of ' + st.imp.n : this.plural(C.length, 'clip') + ' · ' + this.fmtDur(C.reduce((a, c) => a + (c.dur || 0), 0)),
-      incTiles:[...by].map(([k, g]) => ({kind:g.air ? 'AirDrop' : 'Folder', name:k, line:this.plural(g.n, 'clip') + (g.ok < g.n ? ' · ' + g.ok + ' / ' + g.n + ' ready' : ' · ' + this.fmtDur(g.dur)), tip:k + ' · ' + this.plural(g.n, 'clip')}))};
+      incTiles:[...by].map(([k, g]) => ({kind:g.air ? 'AirDrop' : 'Folder', name:k, n:g.n, ok:g.ok, pct:Math.round(100 * g.ok / Math.max(1, g.n)) + '%', line:this.plural(g.n, 'clip') + (g.ok < g.n ? ' · ' + g.ok + ' / ' + g.n + ' ready' : ' · ' + this.fmtDur(g.dur)), tip:k + ' · ' + this.plural(g.n, 'clip')}))};
   }
   // Import's drives: the cards and plugged-in drives the Mac has mounted (lumina.video.places, the list Export's
   // workshop reads), read on Import and every 4 s while it shows. A click opens Finder to choose clips there: a page
@@ -5096,7 +5097,7 @@ class Component extends DCLogic {
     const root = (/\.\w+$/.test(rel(vids[0]).split('/')[0]) && this.bigRoot) || rel(vids[0]).split('/')[0] || 'Imported clips', days = {}; this.bigRoot = null; clips.forEach(c => days[c.t.slice(0, 10)] = 1);
     const d = {shoot:{name:/\.\w+$/.test(root) ? 'Imported clips' : root, days:Object.keys(days).length, bytes:clips.reduce((s, c) => s + c.bytes, 0), free:null, rate, photos:photos || 0, real:true, cap:cap || 0}, clips, gaps:[]};
     if (this.parked) { this.dropFrames(this.parked.d.clips); this.parked = null; } this.reading.clear(); this.unsup = 0; this.skipped = 0; this.addDropped = false; this.addTok = null;
-    this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, Component.bare ? 'import' : 'skim'); this.want = null; this.setState({}, () => this.save());
+    this.nameShoot(d); this.regap(d); this.sampleKey = null; this.dropFrames(this.d && this.d.clips && this.d.clips.filter(c => c._file)); this.loadData(d, 'skim'); this.want = null; this.setState({}, () => this.save());
     if (this.kept) this.keepApply();
     this.clockStart(d, true); const k = this.clock; k.meta = Math.round(tM - tL); k.metaFrom = from;
     // 'listed' is from the folder being handed over to the clips being drawn with their info; the reading starts after.

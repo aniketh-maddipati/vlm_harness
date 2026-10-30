@@ -59,9 +59,9 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
             <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="color:#EFECE6;font-weight:600">The sample shoot isn’t on this page</span><span style="color:#9A958D">Open a folder of your own RAWs to try Pick and Edit. Photos are read here and never uploaded.</span></div>
           </div>
         </sc-if>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px">
+        <div style="display:flex;flex-direction:column;gap:14px">
           <sc-if value="{{ card.on }}" hint-placeholder-val="{{ true }}">
-            <div data-lumina="card" style="display:flex;flex-direction:column;gap:10px;padding:22px 24px;border-radius:16px;background:#2A2927;box-shadow:{{ card.ring }};animation:fade 140ms ease-out">
+            <div data-lumina="card" style="align-self:flex-start;width:min(100%,420px);box-sizing:border-box;display:flex;flex-direction:column;gap:10px;padding:22px 24px;border-radius:16px;background:#2A2927;box-shadow:{{ card.ring }};animation:fade 140ms ease-out">
               <span style="color:#9A958D;font-size:12px;font-weight:600">Card</span>
               <div style="color:#EFECE6;font-size:15px;line-height:1.5">{{ card.l1 }}</div>
               <sc-if value="{{ card.l2 }}" hint-placeholder-val="{{ false }}"><div style="color:#9A958D">{{ card.l2 }}</div></sc-if>
@@ -72,19 +72,14 @@ a{color:#EFECE6}a:hover{color:#B8B3AB}
             </div>
           </sc-if>
           
-          <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
-          <div data-lumina="open-folder" role="button" sc-camel-tab-index="0" aria-label="open a folder or card, command O" sc-camel-on-click="{{ openFolder }}" style="display:flex;flex-direction:column;justify-content:space-between;gap:18px;min-height:150px;flex:1;padding:22px 24px;border-radius:16px;background:#262523;box-shadow:inset 0 0 0 1.5px rgba(239,236,230,0.16);cursor:pointer;transition:background 140ms ease-out, box-shadow 140ms ease-out" style-hover="background:#2A2927;box-shadow:inset 0 0 0 1.5px rgba(255,210,122,0.5)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
-            <span style="color:#9A958D;font-size:12px;font-weight:600">Folder or card</span>
-            <div style="display:flex;align-items:center;gap:14px">
-              <span style="padding:10px 14px;border-radius:10px;background:#3A3835;color:#EFECE6;font-weight:800;font-size:21px;box-shadow:0 2px 0 #161514">⌘O</span>
-              <span style="color:#EFECE6;font-size:15px;font-weight:700">Open…</span>
-            </div>
+          <div data-lumina="open-folder" role="button" sc-camel-tab-index="0" aria-label="Drop a card, folder or files, or open one, command O" title="Drop a card, folder or files here, or click to choose (⌘O)" sc-camel-on-click="{{ openFolder }}" style="position:relative;display:flex;align-items:center;justify-content:center;min-height:clamp(200px,40vh,440px);box-sizing:border-box;padding:22px 24px;border-radius:16px;background:#232220;border:1.5px dashed rgba(239,236,230,0.32);cursor:pointer;transition:background 140ms ease-out, border-color 140ms ease-out" style-hover="background:#262523;border-color:rgba(239,236,230,0.6)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
+            <span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-weight:400;font-size:clamp(44px,7vw,68px);line-height:1;color:#EFECE6">Drop</span>
+            <span style="position:absolute;right:16px;bottom:14px;padding:3px 8px;border-radius:6px;background:rgba(239,236,230,0.08);color:#9A958D;font-weight:700;font-size:12px">⌘O</span>
           </div>
-          <div data-lumina="open-phone" role="button" sc-camel-tab-index="0" aria-label="Add from phone" sc-camel-on-click="{{ phoneOpen }}" style="align-self:flex-start;display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:11px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.12);cursor:pointer;font-size:13px;transition:background 140ms ease-out, box-shadow 140ms ease-out" style-hover="background:#2A2927;box-shadow:inset 0 0 0 1.5px rgba(255,210,122,0.5)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="color:#EFECE6;font-weight:600">Add from phone</span><span style="color:#9A958D;font-size:12px">{{ phoneOpenSub }}</span></div>
-          </div>
+          <div data-lumina="open-phone" role="button" sc-camel-tab-index="0" aria-label="Add from phone" sc-camel-on-click="{{ phoneOpen }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:104px;box-sizing:border-box;padding:16px;border-radius:16px;background:#232220;border:1.5px dashed rgba(239,236,230,0.32);cursor:pointer;text-align:center;transition:background 140ms ease-out, border-color 140ms ease-out" style-hover="background:#262523;border-color:rgba(239,236,230,0.6)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-weight:400;font-size:24px;color:#EFECE6">Phone</span><span style="color:#9A958D;font-size:12px;font-weight:600">{{ phoneOpenSub }}</span></div>
           
         </div>
-        <div data-lumina="where" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9A958D"><span>Drag a card, folder or files from Finder onto this window, or press ⌘O.</span><span style="font-size:12px;color:#7D7971">RAW only: ARW and DNG. JPEG and HEIC aren’t supported yet. Files stay where they are.</span></div>
+        <div data-lumina="where" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9A958D"><span style="font-size:12px;color:#7D7971">RAW only: ARW and DNG. JPEG and HEIC aren’t supported yet. Files stay where they are.</span></div>
         <sc-if value="{{ liveLine }}" hint-placeholder-val="{{ false }}"><span data-lumina="live" style="color:#B8B3AB">{{ liveLine }}</span></sc-if><sc-if value="{{ openSlow }}" hint-placeholder-val="{{ false }}"><span data-lumina="opening-slow" style="font-size:12px;color:#9A958D">the disk is waking up</span></sc-if><sc-if value="{{ cutNoteOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="cut-short" style="font-size:12px;color:#9A958D">{{ cutNote }}</span></sc-if>
         <sc-if value="{{ hasShoots }}" hint-placeholder-val="{{ true }}">
           <div style="display:flex;flex-direction:column;gap:12px">
