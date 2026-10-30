@@ -249,7 +249,13 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   // that is not a mask id goes as null (hide). On the image path the Mac draws nothing, so the answer is false.
   { const sm = await page.evaluate(async () => [await lumina.edit.showMask('person-1'), lumina.edit.state().mask, await lumina.edit.showMask(null), await lumina.edit.showMask('Bad id!'), await lumina.edit.showMask({ id: 'subject' }), lumina.edit.state().mask]);
     ok(JSON.stringify(bridge.canvas.masks) === JSON.stringify(['person-1', null, null, null]) && sm[1] === 'person-1' && sm[5] === null && sm.filter(v => v === false).length === 4,
-      'edit: showMask(id | null) reaches the Mac (canvasMask), a bad id hides; false on the image path', { sm, sent: bridge.canvas.masks }); }
+      'edit: showMask(id | null) reaches the Mac (canvasMask), a bad id hides; false on the image path', { sm, sent: bridge.canvas.masks });
+    // Prompt 14: the style goes with it ('outline' by default; 'lift' and 'overlay'; anything else is 'outline').
+    const n0 = bridge.canvas.maskStyles.length;
+    await page.evaluate(async () => { await lumina.edit.showMask('sky', 'lift'); await lumina.edit.showMask('sky', 'overlay'); await lumina.edit.showMask('sky', 'glow!'); await lumina.edit.showMask(null); });
+    const st = bridge.canvas.maskStyles.slice(n0);
+    ok(JSON.stringify(st) === JSON.stringify(['lift', 'overlay', 'outline', 'outline']) && bridge.canvas.maskStyles.slice(0, 4).every(v => v === 'outline'),
+      'edit: showMask(id, style) sends lift / overlay, anything else as outline', st); }
   const upd = await page.evaluate(async () => { const f = await lumina.edit.updateDecoder(); const s = await lumina.edit.stats(true); return { f, s }; });
   ok(upd.f.decoder === '8' && bridge.canvas.updates === 1 && bridge.canvas.resets === 1 && upd.s.path === 'image', 'edit: updateDecoder pins the newest; stats(reset) reaches the Mac', upd);
   await page.evaluate(() => { __lumina.editFacts('canvas: image · image file · raw 8 · region'); });
@@ -935,6 +941,40 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     ok(bridge2.prefs && bridge2.prefs.editIntro === true && bridge2.prefs.rating === 1, 'edit intro: setPrefs on the later launch keeps the flag', bridge2.prefs);
     ok(p2.errors.length === 0, 'edit intro: no page errors on the later launch', p2.errors);
     await p2.ctx.close();
+    // Edit's Masks (prompt 14) through the page, image path: the tab finds the photo's layers (lumina.masks), a
+    // click on the subject picks it up (showMask 'lift'; the page draws it, the image path draws nothing), a drag
+    // on it is its exposure in the look (mask:subject/ev=…), O shows the mask, esc puts it down, the rail takes it out.
+    { const a0 = (bridge.maskAsks || []).length, m0 = bridge.canvas.masks.length;
+      await page.evaluate(() => { const t = [...document.querySelectorAll('[role="tab"]')].find(e => e.textContent.trim() === 'Masks'); t && t.click(); });
+      await page.waitForTimeout(400);
+      const rail = await page.evaluate(() => [...document.querySelectorAll('[data-lumina="mask-rail"] [data-mask]')].map(e => e.getAttribute('data-mask')));
+      ok((bridge.maskAsks || []).length > a0 && JSON.stringify(rail) === JSON.stringify(['Subject', 'Background']), 'masks (page): the Masks tab finds the photo\'s layers and lists them on the rail', { rail, asked: (bridge.maskAsks || []).length - a0 });
+      const box = await page.evaluate(() => { const r = document.querySelector('[data-lumina-img]').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+      const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+      await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.up(); await page.waitForTimeout(300);
+      const lifted = await page.evaluate(() => ({ pr: [...document.querySelectorAll('[data-lumina="mask-rail"] [data-mask]')].map(e => e.getAttribute('aria-pressed')), ov: !!document.querySelector('[data-lumina="mask-overlay"]') }));
+      const st = bridge.canvas.maskStyles || [], ms = bridge.canvas.masks;
+      ok(lifted.pr[0] === 'true' && lifted.pr[1] === 'false' && ms[ms.length - 1] === 'subject' && st[st.length - 1] === 'lift' && lifted.ov,
+        'masks (page): a click on the subject picks it up (showMask subject, lift); on the image path the page draws it', { lifted, sent: ms.slice(m0), st: st.slice(-3) });
+      const r0 = bridge.renders.length;
+      await page.mouse.move(cx, cy); await page.mouse.down(); for (let i = 1; i <= 8; i++) await page.mouse.move(cx, cy - i * 10); await page.mouse.up(); await page.waitForTimeout(500);
+      const looks = bridge.renders.slice(r0).map(r => r.look), last = looks[looks.length - 1] || '';
+      ok(/mask:subject\/ev=\+0\.50(,|$| )/.test(last) && !/ev:\+0\.50/.test(last.split(' mask:')[0]), 'masks (page): a drag up on it is its own exposure (mask:subject/ev=+0.50), the photo\'s is untouched, and the image path renders it', looks.slice(-2));
+      await page.evaluate(() => dispatchEvent(new KeyboardEvent('keydown', { key: 'o', code: 'KeyO', bubbles: true }))); await page.waitForTimeout(150);
+      const oDown = (bridge.canvas.maskStyles || []).slice(-1)[0];
+      await page.evaluate(() => dispatchEvent(new KeyboardEvent('keyup', { key: 'o', code: 'KeyO', bubbles: true }))); await page.waitForTimeout(150);
+      const oUp = (bridge.canvas.maskStyles || []).slice(-1)[0];
+      ok(oDown === 'overlay' && oUp === 'lift', 'masks (page): holding O shows the mask (overlay), letting go returns to the lift', { oDown, oUp });
+      await page.evaluate(() => dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }))); await page.waitForTimeout(150);
+      ok(bridge.canvas.masks[bridge.canvas.masks.length - 1] === null, 'masks (page): esc puts it down (showMask null)', bridge.canvas.masks.slice(-2));
+      const r1 = bridge.renders.length;
+      await page.evaluate(() => document.querySelector('[data-lumina="mask-rail"] [data-mask="Subject"]').click()); await page.waitForTimeout(150);
+      await page.evaluate(() => document.querySelector('[data-lumina="mask-rail"] [data-mask="Subject"]').click()); await page.waitForTimeout(500);
+      const outLook = (bridge.renders.slice(r1).map(r => r.look).pop()) || '';
+      ok(/mask:subject\/ev=\+0\.50,off=1/.test(outLook), 'masks (page): on the rail, a click picks the layer up and the next takes it out, its settings kept (off=1)', outLook);
+      const carried = await page.evaluate(() => { const c = window.LuminaCore; return c.lookString(c.parseLook('mask:subject/ev=+0.50,off=1')); });
+      ok(carried === 'mask:subject/ev=+0.50,off=1', 'masks (page): the layer round-trips through the core by its role', carried);
+      await page.evaluate(() => { const t = [...document.querySelectorAll('[role="tab"]')].find(e => e.textContent.trim() === 'Light'); t && t.click(); }); await page.waitForTimeout(200); }
     await page.evaluate(() => __lumina.logic().setView('cull', true));
     await page.waitForTimeout(200); }
 
