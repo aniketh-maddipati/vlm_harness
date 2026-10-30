@@ -208,6 +208,20 @@ for (const eng of engines) {
   ok(JSON.stringify(await E(`return E.look(E.p())`)) === JSON.stringify({ ev: full.ev }), tag + 'fan: esc cancels');
   await E(`E.resetAll()`);
 
+  // ——— the task rail: seven tasks, a view switch where a task has two, the canvas follows the task
+  const rail = await page.evaluate(() => [...document.querySelectorAll('[data-lumina="rail"] [data-task]')].map(e => e.textContent.replace(/\s+/g, '')));
+  ok(rail.join(',') === 'Light,Colour,Grade,Detail,Masks,Retouch,Crop', tag + 'rail: Light · Colour · Grade · Detail · Masks · Retouch · Crop', rail);
+  await page.locator('[data-lumina="rail"] [data-task="colour"]').click(); await page.waitForTimeout(120);
+  ok(await E(`return E.task() === 'colour' && E.state.sec === 'wb' && E.list().map(x => x[0]).join() === 'wb,tint,sat'`), tag + 'rail: Colour opens on Balance (temperature, tint, saturation)');
+  await page.locator('[data-lumina="rail"] [data-task="detail"]').click(); await page.waitForTimeout(120);
+  ok(await E(`return E.task() === 'detail' && E.list().some(x => x[0] === 'vig')`), tag + 'rail: Detail has the vignette, and its corners answer the press');
+  await page.locator('[data-lumina="rail"] [data-task="crop"]').click(); await page.waitForTimeout(150);
+  ok(await E(`return !!E.state.crop`), tag + 'rail: Crop opens the crop'); await page.keyboard.press('Escape'); await page.waitForTimeout(100);
+  await page.locator('[data-lumina="rail"] [data-task="light"]').click(); await page.waitForTimeout(120);
+  ok(await E(`return E.task() === 'light' && E.list().map(x => x[0]).join() === 'ev,con,wh,hl,sh,bl'`), tag + 'rail: Light back on its tone rows');
+  const rows = await page.evaluate(() => [...document.querySelectorAll('[data-slider]')].map(e => e.getBoundingClientRect().height));
+  ok(rows.length === 6 && rows.every(h => h <= 44), tag + 'rail: rows fold to one line', rows);
+
   // ——— the haptic op: each detent tick reaches the bridge (SetsBridge `haptic`)
   ok((bridge.haptics || []).length === h1 && (bridge.haptics || []).every(k => k === 'alignment'), tag + 'every detent tick is one `haptic` op (alignment)', [h1, bridge.haptics]);
   const thumbs = bridge.renders.filter(r => r.lane === 'thumb');
