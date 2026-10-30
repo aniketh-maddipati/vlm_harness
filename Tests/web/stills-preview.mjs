@@ -140,7 +140,7 @@ await page.waitForTimeout(400);
 check(await page.locator('[data-lumina="side-photos"]').getAttribute('aria-selected') === 'true', 'the Photos / Video switch is beside the wordmark, on Photos');
 await page.locator('[data-lumina="side-video"]').click();
 await page.waitForURL(/\/skim\.html$/, { timeout: 10000 }).then(() => check(true, 'Video opens the Skim page'), () => check(false, 'Video opens the Skim page', page.url()));
-await page.waitForFunction(() => /Open clips/.test(document.body.innerText), null, { timeout: 30000 })
+await page.waitForFunction(() => document.querySelector('[data-lumina="drop"]'), null, { timeout: 30000 })
   .then(() => check(true, 'and it draws'), (e) => check(false, 'and it draws', String(e).split('\n')[0]));
 check(await page.locator('[data-lumina="side-video"]').getAttribute('aria-selected') === 'true', 'with Video selected');
 check(await page.locator('meta[http-equiv="Content-Security-Policy"]').count() === 1, 'under the same content policy');

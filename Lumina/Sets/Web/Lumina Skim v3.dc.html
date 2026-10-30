@@ -65,6 +65,15 @@ html:not([data-full]) [data-screen-label=Clip]{order:1}
 html:not([data-full]) [data-lumina=info]{display:flex!important;flex-direction:column;align-self:stretch!important;min-height:100%}
 html:not([data-full]) [data-lumina=info] > *{align-self:stretch!important}
 html:not([data-full]) [data-lumina=info] > [data-lumina=look]{flex:1 1 auto}
+/* The wireframe's Import: no heading, one Drop that takes the page (a click opens Finder, ⌘O still works), the drives above it. */
+html:not([data-full]) [data-lumina=open-title],
+html:not([data-full]) [data-lumina=open-kinds],
+html:not([data-full]) [data-lumina=drop-pick]{display:none!important}
+html:not([data-full]) [data-lumina=open-head]{position:absolute;right:clamp(16px,4vw,48px)}
+html:not([data-full]) [data-lumina=open-col]{position:relative;min-height:100%;max-width:min(1100px,100%)!important}
+html:not([data-full]) [data-lumina=drop]{flex:1 1 auto;min-height:240px!important}
+html:not([data-full]) [data-lumina=drop]:hover{background:rgba(239,236,230,0.035)!important}
+html:not([data-full]) [data-lumina=drop-t]{font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:clamp(48px,7vw,84px)!important;line-height:1}
 /* The wireframe's time axis: small labels on the rod. */
 html:not([data-full]) [data-lumina=time-at]{font-size:15px!important;line-height:20px!important}
 html:not([data-full]) [data-lumina=time-date]{font-size:11px!important;line-height:16px!important}
@@ -358,8 +367,8 @@ body:has([data-view=phone]){background:#111}
     </sc-if>
     <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Open" onDragOver="{{ dropOver }}" onDragLeave="{{ dropLeave }}" onDrop="{{ dropIn }}" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
-        <div style="max-width:min(1000px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,5vh,56px) clamp(16px,4vw,48px) 40px;display:flex;flex-direction:column;gap:24px">
-          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · M4V</span><span style="flex:1"></span>
+        <div data-lumina="open-col" style="max-width:min(1000px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,5vh,56px) clamp(16px,4vw,48px) 40px;display:flex;flex-direction:column;gap:24px">
+          <div data-lumina="open-head" style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span data-lumina="open-title" style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span data-lumina="open-kinds" style="color:#9A958D">MP4 · MOV · MXF · M4V</span><span style="flex:1"></span>
             <sc-if value="{{ cacheOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="cache" onMouseEnter="{{ cacheEnter }}" onMouseLeave="{{ cacheLeave }}" style="position:relative;align-self:center">
               <button type="button" data-lumina="cache-chip" aria-expanded="{{ cacheOpen }}" onClick="{{ cacheToggle }}" title="What Lumina keeps to open clips faster" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 10px;border-radius:14px;display:flex;align-items:center;gap:6px;color:#B8B3AB;background:{{ cacheBg }};cursor:pointer;white-space:nowrap" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:6px;height:6px;border-radius:50%;background:#9A958D"></span>{{ cacheChip }}<span style="color:#9A958D">{{ cacheArrow }}</span></button>
               <sc-if value="{{ cacheOpen }}" hint-placeholder-val="{{ false }}">
@@ -390,8 +399,8 @@ body:has([data-view=phone]){background:#111}
           </sc-if>
           <sc-if value="{{ drvOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="drives" role="list" aria-label="Drives" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:12px"><sc-for list="{{ drives }}" as="dv" hint-placeholder-count="3"><button type="button" role="listitem" data-lumina="drive" onClick="{{ dv.go }}" aria-label="{{ dv.aria }}" title="{{ dv.tip }}" style="text-align:left;color:inherit;box-sizing:border-box;padding:12px 14px;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:64px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1);display:flex;flex-direction:column;gap:3px;cursor:pointer" style-hover="background:#2E2D2B" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:#9A958D">{{ dv.kind }}</span><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ dv.name }}</span><span style="color:#B8B3AB">{{ dv.line }}</span></button></sc-for></div></sc-if>
           <button type="button" data-lumina="drop" onClick="{{ pickFolder }}" style="color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
-            <span style="font-size:16px;color:#EFECE6">{{ dropT }}</span>
-            <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>{{ pickT }}</span>
+            <span data-lumina="drop-t" style="font-size:16px;color:#EFECE6">{{ dropT }}</span>
+            <span data-lumina="drop-pick" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>{{ pickT }}</span>
             <span data-lumina="drop-note" style="color:#9A958D">{{ dropNote }}</span>
           </button>
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
@@ -3828,7 +3837,7 @@ class Component extends DCLogic {
     out.dsecs = ['keep', 'maybe', 'cut'].map(m => {
       const tiles = out.dock.filter((t, k) => L[k].m === m), n = d.clips.reduce((a, c) => a + (st.marks[c.id] === m ? 1 : 0), 0), col = MK[m], drop = st.dropOn === m;
       const open = st.bk ? st.bk === m : m !== 'cut' || !!st.cutsOpen, pileOn = m === 'cut' && out.pileOn, hold = (open && !tiles.length) || (m === 'cut' && !n && !st.bk), sub = tiles.length ? this.fmtDur(tiles.reduce((a, t) => a + (this.byId[t.id].dur || 0), 0)) + ' · ' + this.fmtB(this.bytesOf(tiles.map(t => t.id))) : '';
-      return {m, l:this.W(m), n, dot:col, tiles, pileOn, hold, holdW:out.dockW, holdRing:drop ? col : 'rgba(239,236,230,0.12)', holdT:st.dragN ? 'drop to mark ' + this.W(m) : n ? '' : word[m] + ' or drag a clip here',
+      return {m, l:this.W(m), n, dot:col, tiles, pileOn, hold, holdW:out.dockW, holdRing:drop ? col : 'rgba(239,236,230,0.12)', holdT:st.dragN ? 'drop to mark ' + this.W(m) : n ? '' : Component.bare ? 'Empty' : word[m] + ' or drag a clip here',
         flex:open ? '1 1 0' : 'none', minW:open ? Math.min(out.dockW + 12, 240) : 0, bg:drop ? col + '30' : st.bk === m ? col + '14' : 'rgba(239,236,230,0.03)', ring:drop ? '2px ' + col : '1px ' + col + (st.dragN ? '99' : '33'),
         hBg:st.bk === m ? col : col + '22', hFg:st.bk === m ? '#1E1D1B' : col, tip:st.bk === m ? 'Show all three · click or double-click' : 'Show ' + this.W(m) + ' on its own · click or double-click',
         sum:st.dragN ? 'drop here' : open ? sub : '', sumC:drop ? col : '#9A958D'};
@@ -6620,7 +6629,7 @@ void main() {
     const flat = this.flat || [], i = flat.indexOf(st.cur);
     return {
       webPrevT:'Web preview: your clips are read on ' + dev + '; nothing is uploaded. ' + (mob ? 'Pick any number of clips from ' + (/iPhone/.test(dev) ? 'Photos or Files' : 'your gallery or Files') + '; they are listed by when they were shot.' : 'Use Safari: it plays every Sony format, the same as the Lumina app. Open one shoot at a time and keep each clip\u2019s .XML beside it.'),
-      dropT:clipsFirst ? (t ? 'Choose clips' : 'Drop clips') : 'Drop a card, a folder or clips', pickT:clipsFirst ? (/iPhone/.test(dev) ? 'Photos or Files…' : 'Choose clips…') : 'Choose…',
+      dropT:clipsFirst ? (t ? 'Choose clips' : 'Drop clips') : Component.bare ? 'Drop' : 'Drop a card, a folder or clips', pickT:clipsFirst ? (/iPhone/.test(dev) ? 'Photos or Files…' : 'Choose clips…') : 'Choose…',
       navOn:t && st.step === 'skim' && st.lv >= 2, phoneViewOn:Component.PHONE_VIEW, viewName:st.phone ? 'phone' : 'full', phoneA:!!st.phone, phoneBg:st.phone ? '#5B5854' : 'rgba(239,236,230,0.06)', navPrevOp:i > 0 ? 1 : 0.4, navNextOp:i >= 0 && i < flat.length - 1 ? 1 : 0.4};
   }
   cardList() {
