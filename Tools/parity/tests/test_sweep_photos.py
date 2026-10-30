@@ -35,6 +35,13 @@ class MeasureTests(unittest.TestCase):
         self.assertEqual(sum(grey["hue"].values()), 0)
         self.assertEqual(grey["detail"], 0)
 
+    def test_sky_is_a_smooth_bright_top(self):
+        im = solid(0.3, 0.3, 0.3, h=96)
+        im[:32] = (0.5, 0.7, 0.95)
+        self.assertGreater(sp.measures(im)["sky"], 0.9)
+        rough = np.random.default_rng(0).uniform(0.4, 1.0, (96, 96, 3))
+        self.assertLess(sp.measures(rough)["sky"], 0.1)
+
     def test_lines_and_entropy(self):
         self.assertGreater(sp.measures(grid())["lines"], 0.5)
         stripes = np.full((96, 96, 3), 0.8)
@@ -73,7 +80,9 @@ class PickTests(unittest.TestCase):
             chosen = picks[f"sweep05-{name.lower()}"]
             self.assertEqual(len(chosen), 4)
             self.assertEqual([v for _, v in chosen], sorted((v for _, v in chosen), reverse=True))
-        self.assertNotIn("sweep09", picks)   # the ISO ladder is shot, not picked
+        self.assertNotIn("sweep09", picks)
+        self.assertTrue(all(s.startswith("P") for s, _ in picks["sweep13-subject"]))
+        self.assertEqual(len(picks["sweep13-subject"]), 10)   # the ISO ladder is shot, not picked
 
     def test_lists_and_links_are_written(self):
         with tempfile.TemporaryDirectory() as d:

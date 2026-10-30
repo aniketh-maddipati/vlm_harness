@@ -42,18 +42,18 @@ as-shot value share a preset; each preset names the photos it is for, and the in
 export against the as-shot values, so a preset clicked on the wrong photo is named, not ingested.
 Combos that move white balance set both numbers and are the same for every photo.
 
-Sweeps 4–12 (one feature each, docs/editing/prompts; the owner's steps: SWEEPS-OWNER.md) go in one
+Sweeps 4–13 (one feature each, docs/editing/prompts; the owner's steps: SWEEPS-OWNER.md) go in one
 batch, a folder per sweep (the photo lists come from sweep_photos.py):
 
     python3 Tools/parity/lr_cc_sweep.py presets --sweep batch     (or --sweep N for one)
-        → ~/LuminaEvidence/parity/sweeps/Lumina-sweeps-4-12-presets.zip: a shared Base and 202 presets
+        → ~/LuminaEvidence/parity/sweeps/Lumina-sweeps-4-13-presets.zip: a shared Base and 206 presets
     python3 Tools/parity/lr_cc_sweep.py ingest-sweeps [~/LuminaEvidence/parity/sweeps]
         → refs/sweepNN/ from exports/sweepNN/, plus refs/sweepNN/refs.json (import_refs' index).
           A preset that moves one key is `<stem>__<Key>__<value>.jpg`; more than one,
           `<stem>__sNNpMM.jpg` + .json (sweep, preset, settings).
 
 A Lightroom CC preset resets neither crop, masks nor healing (3 Death Valley photos' sweep-1
-exports carry them), so the ingest refuses any export that has one, in every sweep.
+exports carry them), so the ingest refuses any export that has one, except sweep 13's own AI masks.
 """
 import argparse
 import hashlib
@@ -229,7 +229,9 @@ def read_as_shot(refs):
     return out
 
 
-def describe(name, settings):
+def describe(name, settings, mask=None):
+    if mask:
+        return f"Lumina parity sweep: a {mask[0]} mask with local exposure {mask[1]:+g} EV on the neutral base."
     if any(k in settings for k in EXT_DEFAULTS):
         moved = [f"{ref_label(k)} {fmt(k, v)}" for k, v in settings.items() if k in EXT_BASE and EXT_BASE[k] != v]
         return "Lumina parity sweep: " + (", ".join(moved) or "nothing") + " from the neutral base."
@@ -243,6 +245,8 @@ def describe(name, settings):
 
 def preset_xmp(num, name, settings, group=GROUP):
     uid = hashlib.md5(f"lumina-sweep/{num}/{name}".encode()).hexdigest().upper()
+    settings = dict(settings)
+    mask = settings.pop("Mask", None)
     attrs = "\n".join(f'   crs:{k}="{fmt(k, v)}"' for k, v in settings.items())
     title = f"{num} {name}"
     return f"""<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 7.0">
@@ -263,7 +267,7 @@ def preset_xmp(num, name, settings, group=GROUP):
    crs:CameraModelRestriction=""
    crs:Copyright=""
    crs:ContactInfo=""
-   crs:Version="15.4"
+   crs:Version="{"18.7" if mask else "15.4"}"
    crs:ProcessVersion="15.4"
 {attrs}
    crs:HasSettings="True">
@@ -271,19 +275,19 @@ def preset_xmp(num, name, settings, group=GROUP):
    <crs:ShortName><rdf:Alt><rdf:li xml:lang="x-default"/></rdf:Alt></crs:ShortName>
    <crs:SortName><rdf:Alt><rdf:li xml:lang="x-default"/></rdf:Alt></crs:SortName>
    <crs:Group><rdf:Alt><rdf:li xml:lang="x-default">{group}</rdf:li></rdf:Alt></crs:Group>
-   <crs:Description><rdf:Alt><rdf:li xml:lang="x-default">{describe(name, settings)}</rdf:li></rdf:Alt></crs:Description>
-  </rdf:Description>
+   <crs:Description><rdf:Alt><rdf:li xml:lang="x-default">{describe(name, settings, mask)}</rdf:li></rdf:Alt></crs:Description>
+{mask_xml(mask, uid) if mask else ""}  </rdf:Description>
  </rdf:RDF>
 </x:xmpmeta>
 """
 
 
-# MARK: sweeps 4–12
+# MARK: sweeps 4–13 (13, the masks, further down)
 #
 # One feature each, defined in docs/editing/prompts (the number in brackets): 4 Texture / Clarity /
 # Dehaze (02, 03), 5 HSL + B&W mix (04), 6 colour grading (05), 7 parametric curve (06),
 # 8 sharpening (08, scored at 100 %), 9 noise reduction on an ISO ladder (09), 10 lens (10),
-# 11 vignette (12), 12 grain (13). Every preset is the sweep-1 base plus EXT_DEFAULTS (Lightroom's
+# 11 vignette (12), 12 grain (13), 13 masks (14). Every preset is the sweep-1 base plus EXT_DEFAULTS (Lightroom's
 # own reset values for every key these sweeps touch, so a preset clicked on a photo that had
 # something else set still lands on the same render) plus its own moves. One "Base" preset serves
 # them all. The ingest names an export by the keys that differ from that base after dropping the
@@ -317,7 +321,7 @@ EXT_BASE = {**BASE, **EXT_DEFAULTS}
 UNIVERSE = [k for k in EXT_BASE if k != "WhiteBalance"]
 EXT_GROUP = "Lumina sweeps"   # the shared Base preset's group
 SWEEP_NAMES = {4: "Presence", 5: "HSL", 6: "Grade", 7: "Curve", 8: "Sharpen", 9: "Noise", 10: "Lens",
-               11: "Vignette", 12: "Grain"}
+               11: "Vignette", 12: "Grain", 13: "Masks"}
 FULL_SIZE = {8, 9, 10, 12}   # scored at 100 %: export full size
 GRADE_SEED = 20261029
 GRADE_COMBOS = 10
@@ -349,8 +353,101 @@ def grade_combos():
     return out
 
 
+# Sweep 13 (prompt 14): Lightroom's AI masks with one local, local exposure ±1 EV, so the local's
+# footprint shows the mask's shape. The structure is copied from a preset the owner saved in
+# Lightroom CC 2026-10-30 ("Lumina mask probe": Select Sky, MaskSubType 2, local exposure stored as
+# EV / 4). Select Subject's subtype (1) is not from a saved preset yet, and whether Lightroom re-finds
+# the mask on another photo from a hand-written preset is unverified: SWEEPS-OWNER.md starts with a
+# one-preset import test. The image digest Lightroom caches per photo (LocalInputDigest) is left out
+# so it has to compute the mask.
+MASK_SUBTYPES = {"subject": 1, "sky": 2}
+LOCAL_KEYS = ["LocalExposure", "LocalHue", "LocalSaturation", "LocalContrast", "LocalClarity", "LocalSharpness",
+              "LocalBrightness", "LocalToningHue", "LocalToningSaturation", "LocalExposure2012", "LocalContrast2012",
+              "LocalHighlights2012", "LocalShadows2012", "LocalWhites2012", "LocalBlacks2012", "LocalClarity2012",
+              "LocalDehaze", "LocalLuminanceNoise", "LocalMoire", "LocalDefringe", "LocalTemperature", "LocalTint",
+              "LocalTexture", "LocalGrain", "LocalCorrectedDepth"]
+LOCAL_RESTING = {"LocalCurveRefineSaturation": 100}
+
+
+def mask_xml(mask, uid):
+    """The MaskGroupBasedCorrections block for (kind, ev): one correction, one AI mask."""
+    kind, ev = mask
+    sync = hashlib.md5(f"{uid}/correction".encode()).hexdigest().upper()
+    msync = hashlib.md5(f"{uid}/mask".encode()).hexdigest().upper()
+    local = {**{k: 0 for k in LOCAL_KEYS}, "LocalExposure2012": ev / 4, **LOCAL_RESTING}
+    attrs = "\n".join(f'       crs:{k}="{v:g}"' if k != "LocalExposure2012" else f'       crs:{k}="{v:.4f}"' for k, v in local.items())
+    return f"""   <crs:MaskGroupBasedCorrections>
+    <rdf:Seq>
+     <rdf:li>
+      <rdf:Description
+       crs:What="Correction"
+       crs:CorrectionAmount="1"
+       crs:CorrectionActive="true"
+       crs:CorrectionName="Lumina {kind}"
+       crs:CorrectionSyncID="{sync}"
+{attrs}>
+      <crs:CorrectionMasks>
+       <rdf:Seq>
+        <rdf:li
+         crs:What="Mask/Image"
+         crs:MaskActive="true"
+         crs:MaskName="{kind.capitalize()} 1"
+         crs:MaskBlendMode="0"
+         crs:MaskInverted="false"
+         crs:MaskSyncID="{msync}"
+         crs:MaskValue="1"
+         crs:MaskVersion="1"
+         crs:MaskSubType="{MASK_SUBTYPES[kind]}"
+         crs:ReferencePoint="0.500000 0.500000"/>
+       </rdf:Seq>
+      </crs:CorrectionMasks>
+      </rdf:Description>
+     </rdf:li>
+    </rdf:Seq>
+   </crs:MaskGroupBasedCorrections>
+"""
+
+
+def read_masks(text):
+    """[{"attrs": {…}, "masks": [{…}]}] per correction in a MaskGroupBasedCorrections block, or None."""
+    m = re.search(r"<crs:MaskGroupBasedCorrections>(.*?)</crs:MaskGroupBasedCorrections>", text, re.S)
+    if not m:
+        return None
+    out = []
+    for c in re.finditer(r"<rdf:Description\b([^>]*?)>(.*?)</rdf:Description>", m.group(1), re.S):
+        attrs = dict(re.findall(r'crs:(\w+)="([^"]*)"', c.group(1)))
+        if attrs.get("What") != "Correction":
+            continue
+        tags = [dict(re.findall(r'crs:(\w+)="([^"]*)"', t)) for t in re.findall(r"<rdf:(?:li|Description)\b([^>]*)>", c.group(2))]
+        out.append({"attrs": attrs, "masks": [t for t in tags if t.get("What", "").startswith("Mask/")]})
+    return out
+
+
+def mask_signature(corrections):
+    """(kind, ev) when the export holds exactly what a sweep-13 preset writes, else (None, why)."""
+    if len(corrections) != 1:
+        return None, f"{len(corrections)} mask corrections (a sweep-13 preset writes one)"
+    c = corrections[0]
+    a, masks = c["attrs"], c["masks"]
+    if a.get("CorrectionActive", "true") != "true" or num(a.get("CorrectionAmount", "1")) != 1:
+        return None, "the mask correction is off or its amount isn't 1"
+    if len(masks) != 1 or masks[0].get("What") != "Mask/Image":
+        return None, "the correction's mask is not one AI mask: " + ", ".join(mk.get("What", "?") for mk in masks)
+    mk = masks[0]
+    if mk.get("MaskInverted", "false") != "false" or num(mk.get("MaskValue", "1")) != 1 or mk.get("MaskActive", "true") != "true":
+        return None, "the mask is inverted, off or below full strength"
+    kinds = {str(v): k for k, v in MASK_SUBTYPES.items()}
+    kind = kinds.get(mk.get("MaskSubType"))
+    if kind is None:
+        return None, f"mask subtype {mk.get('MaskSubType')} is not sky or subject"
+    moved = {k: num(v) for k, v in a.items() if k.startswith("Local") and k in LOCAL_KEYS and num(v) not in (None, 0)}
+    if set(moved) != {"LocalExposure2012"}:
+        return None, "the local moves " + (", ".join(f"{k} {v:g}" for k, v in sorted(moved.items())) or "nothing")
+    return (kind, round(4 * moved["LocalExposure2012"], 1)), None
+
+
 def ext_table():
-    """[(sweep, group, name, moves)] for sweeps 4–12 in click order. `moves` is what the preset
+    """[(sweep, group, name, moves)] for sweeps 4–13 in click order. `moves` is what the preset
     sets on top of EXT_BASE."""
     rows = []
 
@@ -415,12 +512,15 @@ def ext_table():
         for size in (25, 75):
             for rough in (25, 75):
                 add(12, f"Grain {amount} size {size} roughness {rough}", {"GrainAmount": amount, "GrainSize": size, "GrainFrequency": rough})
+    for kind in ("sky", "subject"):
+        for ev in (-1.0, 1.0):
+            add(13, f"{kind.capitalize()} local exposure {ev:+g}", {"Mask": (kind, ev)}, f"Lumina sweep 13 {kind.capitalize()}")
     return rows
 
 
 def ext_presets(sweeps=None):
     """(file number, preset name, settings, group) in click order for the given sweeps (default
-    4–12), led by the shared Base."""
+    4–13), led by the shared Base."""
     out = [("00", "Base", dict(EXT_BASE), EXT_GROUP)]
     counts = {}
     for sweep, group, name, moves in ext_table():
@@ -494,7 +594,7 @@ def ext_positions():
     out = []
     for sweep, group, name, m in ext_table():
         mv = moves_of({**EXT_BASE, **m})
-        out.append((sweep, group, name, mv, _signature(mv)))
+        out.append((sweep, group, name, mv, (_signature(mv), m.get("Mask"))))
     return out
 
 
@@ -505,7 +605,7 @@ def ref_label(key):
 def write_presets(out, sweep=1, as_shot=None):
     if sweep == "batch" or (isinstance(sweep, int) and sweep >= 4):
         table = ext_presets(None if sweep == "batch" else {sweep})
-        zname = "Lumina-sweeps-4-12-presets.zip" if sweep == "batch" else f"Lumina-sweep{sweep}-presets.zip"
+        zname = "Lumina-sweeps-4-13-presets.zip" if sweep == "batch" else f"Lumina-sweep{sweep}-presets.zip"
     else:
         group, table, zname = {1: lambda: (GROUP, presets(), "Lumina-sweep-presets.zip"),
                                2: lambda: (GROUP2, presets2(), "Lumina-sweep2-presets.zip"),
@@ -514,8 +614,11 @@ def write_presets(out, sweep=1, as_shot=None):
     d = os.path.join(out, "presets")
     os.makedirs(d, exist_ok=True)
     for stale in os.listdir(d):   # an earlier table's presets (other photos, other numbering)
-        if stale.endswith(".xmp"):
-            os.remove(os.path.join(d, stale))
+        if stale.endswith(".xmp") and not stale.startswith("._"):   # ._ : the T7's AppleDouble stubs, gone with their file
+            try:
+                os.remove(os.path.join(d, stale))
+            except FileNotFoundError:
+                pass
     files = []
     for num_, name, settings, group in table:
         path = os.path.join(d, f"{num_} {name.replace('/', '-')}.xmp")
@@ -541,12 +644,21 @@ def read_xmp(path):
     m = XMP_RE.search(data)
     if not m:
         return None
-    text = m.group(0).decode("utf-8", "replace")
-    out = {k: v for k, v in re.findall(r'crs:(\w+)="([^"]*)"', text)}
+    return read_xmp_text(m.group(0).decode("utf-8", "replace"))
+
+
+def read_xmp_text(text):
+    """read_xmp on an XMP packet already in hand. A correction's own crs:Local* attributes are not
+    top-level settings; they are read into MaskCorrections."""
+    top = re.sub(r"<crs:(\w*BasedCorrections|RetouchAreas)>.*?</crs:\1>", "", text, flags=re.S)
+    out = {k: v for k, v in re.findall(r'crs:(\w+)="([^"]*)"', top)}
     out.update({k: v for k, v in re.findall(r"<crs:(\w+)>([^<]*)</crs:\1>", text)})
     local = re.findall(r"<crs:(\w*BasedCorrections|RetouchAreas)>\s*<rdf:Seq>\s*<rdf:li", text)
     if local:
         out["Local"] = ", ".join(sorted(set(local)))
+        masks = read_masks(text)
+        if masks:
+            out["MaskCorrections"] = masks
     look = re.search(r"<crs:Look>.*?crs:Name=\"([^\"]*)\"", text, re.S)
     if look:
         out["LookName"] = look.group(1)
@@ -576,6 +688,8 @@ def classify(crs, as_shot=None, table=None):
     """('base' | 'baseLens' | (slider, value) | ('combo', n)) or (None, why). `as_shot` is the
     photo's (Temperature, Tint) from one of its As Shot exports; `table` is combos()."""
     table = combos() if table is None else table
+    if crs.get("MaskCorrections"):
+        return classify_mask(crs)
     moved_ext = moves_of(crs)
     if any(k not in SLIDER_KEYS and k != "LensProfileEnable" for k in moved_ext):
         return classify_ext(crs, moved_ext)
@@ -616,15 +730,30 @@ def positions():
 
 
 def classify_ext(crs, moved):
-    """An export that moves a key of sweeps 4–12: ('pos', index into positions()) or (None, why)."""
+    """An export that moves a key of sweeps 4–13: ('pos', index into positions()) or (None, why)."""
     positions()
     said = ", ".join(f"{k} {v:g}" if v is not None else f"{k} {crs.get(k)!r}" for k, v in sorted(moved.items()))
     mode = crs.get("WhiteBalance", "As Shot")
     if mode != "As Shot":
-        return None, f"white balance is {mode} with {said} (sweeps 4–12 keep it As Shot)"
-    i = BY_SIGNATURE.get(_signature(moved))
+        return None, f"white balance is {mode} with {said} (sweeps 4–13 keep it As Shot)"
+    i = BY_SIGNATURE.get((_signature(moved), None))
     if i is None:
-        return None, f"{said}: not a position of sweeps 4–12"
+        return None, f"{said}: not a position of sweeps 4–13"
+    return ("pos", i), None
+
+
+def classify_mask(crs):
+    """An export with a mask correction: a sweep-13 position on the base, or (None, why)."""
+    positions()
+    sig, why = mask_signature(crs["MaskCorrections"])
+    if sig is None:
+        return None, f"masked: {why}"
+    moved = moves_of(crs)
+    if moved or crs.get("WhiteBalance", "As Shot") != "As Shot" or num(crs.get("LensProfileEnable")) == 1:
+        return None, f"a {sig[0]} mask on top of other changes (sweep 13 masks the neutral base)"
+    i = BY_SIGNATURE.get(((), sig))
+    if i is None:
+        return None, f"a {sig[0]} mask with local exposure {sig[1]:+g} EV: not a sweep-13 position"
     return ("pos", i), None
 
 
@@ -651,11 +780,15 @@ def jpeg_size(path):
     return None
 
 
-def not_clean(crs):
-    """Why an export carries an edit no preset resets (crop, local corrections, a point curve), or None."""
+def not_clean(crs, masks_ok=False):
+    """Why an export carries an edit no preset resets (crop, local corrections, a point curve), or None.
+    `masks_ok`: AI-mask corrections are sweep 13's own (classify_mask judges them)."""
     if crs.get("HasCrop") == "True":
         return "the photo is cropped (presets don't reset crop): remove the crop and re-export"
-    if crs.get("Local"):
+    local = crs.get("Local")
+    if masks_ok and local == "MaskGroupBasedCorrections" and crs.get("MaskCorrections"):
+        local = None
+    if local:
         return f"the photo has local edits ({crs['Local']}): use an unedited copy and re-export"
     if crs.get("ToneCurveName2012", "Linear") != "Linear":
         return f"point curve {crs['ToneCurveName2012']} (the sweeps keep it Linear): reset the curve and re-export"
@@ -711,9 +844,9 @@ def number(v):
 def ingest(exports, refs, sweep=None, only=None):
     """`sweep`: 1 or 2 says which preset set to expect (for the missing list); None works it out
     from what is there. An export from either set is recognised either way. `exports` is a folder
-    or a list of folders, read as one. `only` (4–12): the folder is that sweep's, so an export of
+    or a list of folders, read as one. `only` (4–13): the folder is that sweep's, so an export of
     another sweep's preset is named, and full size is checked where the sweep is scored at 100 %.
-    A photo with exports of sweeps 4–12 is expected to have the base and every preset of the
+    A photo with exports of sweeps 4–13 is expected to have the base and every preset of the
     groups it was given; the sweep-1 / sweep-2 list only if it has their exports too."""
     folders = [exports] if isinstance(exports, str) else list(exports)
     exports = folders[0] if len(folders) == 1 else folders
@@ -752,7 +885,7 @@ def ingest(exports, refs, sweep=None, only=None):
     for n, path, crs, stem in files:
         def bad(why):
             problems.append({"file": n, "raw": crs["RawFileName"], "why": why})
-        why = not_clean(crs)
+        why = not_clean(crs, masks_ok=True)
         if why:
             bad(why)
             continue
@@ -782,8 +915,10 @@ def ingest(exports, refs, sweep=None, only=None):
                 dest = f"{stem}__{ref_label(k)}__{value_name(v)}.jpg"
             else:
                 dest = f"{stem}__s{sweep_n:02d}p{number_.split('-')[1]}.jpg"
-                side = {"sweep": sweep_n, "preset": f"{number_} {name}",
-                        "settings": {ref_label(k): number(_value(v)) for k, v in ext_moves[i].items()}}
+                m = ext_moves[i]
+                settings = ({"Mask": m["Mask"][0], "LocalExposure": number(m["Mask"][1])} if "Mask" in m else
+                            {ref_label(k): number(_value(v)) for k, v in m.items()})
+                side = {"sweep": sweep_n, "preset": f"{number_} {name}", "settings": settings}
             key = (stem, "pos", i)
             groups.setdefault(stem, set()).add(group)
         elif isinstance(kind, tuple) and kind[0] == "combo":
@@ -887,8 +1022,8 @@ def sweep_arg(v):
     if v == "batch":
         return v
     n = int(v)
-    if not 1 <= n <= 12:
-        raise argparse.ArgumentTypeError("1 … 12 or batch")
+    if not 1 <= n <= 13:
+        raise argparse.ArgumentTypeError("1 … 13 or batch")
     return n
 
 
@@ -897,17 +1032,17 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("presets")
     p.add_argument("--sweep", type=sweep_arg, default=1,
-                   help="1: the single sliders; 2: base + combos; 3: white balance, per photo; 4–12: one feature's sweep; "
-                        "batch: 4–12 in one zip (what the owner imports)")
+                   help="1: the single sliders; 2: base + combos; 3: white balance, per photo; 4–13: one feature's sweep; "
+                        "batch: 4–13 in one zip (what the owner imports)")
     p.add_argument("--out", help="default: ~/LuminaEvidence/parity/sweep, …/sweep2 for --sweep 2, <refs>/../../sweep3 for --sweep 3, "
-                                 "…/sweeps for batch, …/sweeps/sweepNN for 4–12")
+                                 "…/sweeps for batch, …/sweeps/sweepNN for 4–13")
     p.add_argument("--refs", default=os.path.expanduser("~/LuminaEvidence/parity/sweep2/refs"),
                    help="--sweep 3: the refs folder whose <stem>__asshot.json files say each photo's as-shot white balance")
     i = sub.add_parser("ingest")
     i.add_argument("exports", nargs="+", help="one or more folders of JPEG exports, read as one")
     i.add_argument("--refs", default=os.path.expanduser("~/LuminaEvidence/parity/refs"))
     i.add_argument("--sweep", type=int, choices=(1, 2), help="which preset set to expect (default: worked out from the exports)")
-    i.add_argument("--only", type=int, choices=range(4, 13), metavar="4…12", help="the folder holds this sweep's exports only")
+    i.add_argument("--only", type=int, choices=range(4, 14), metavar="4…13", help="the folder holds this sweep's exports only")
     b = sub.add_parser("ingest-sweeps", help="every <root>/exports/sweepNN → <root>/refs/sweepNN + refs.json (after the batch)")
     b.add_argument("root", nargs="?", default=SWEEPS_ROOT)
     a = ap.parse_args(argv)

@@ -1,4 +1,4 @@
-"""Sweeps 4–12 of lr_cc_sweep.py: the preset tables, and the ingest on synthetic XMP."""
+"""Sweeps 4–13 of lr_cc_sweep.py: the preset tables, and the ingest on synthetic XMP."""
 import hashlib
 import json
 import os
@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import lr_cc_sweep as sweep  # noqa: E402
 
 # Click counts per sweep. A change here means new presets in Lightroom and orphaned exports.
-COUNTS = {4: 18, 5: 65, 6: 55, 7: 14, 8: 13, 9: 7, 10: 6, 11: 11, 12: 12}
+COUNTS = {4: 18, 5: 65, 6: 55, 7: 14, 8: 13, 9: 7, 10: 6, 11: 11, 12: 12, 13: 4}
 # sha256 of the sweep-1/2/3 preset files as main wrote them before sweeps 4–12 (already imported in Lightroom).
 OLD_PRESETS = "8cc0a1f6b9a7c4f00643ed081c7302441f47d563475f4496fdbe6501e15888d5"
 GRADE_COMBO_1 = {"SplitToningHighlightHue": 225, "SplitToningHighlightSaturation": 50, "ColorGradeMidtoneHue": 190,
@@ -87,6 +87,8 @@ class TableTests(unittest.TestCase):
 
     def test_every_preset_classifies_as_itself(self):
         for i, (_, name, settings, _) in enumerate(sweep.ext_presets()[1:]):
+            if "Mask" in settings:
+                continue   # MaskTests: a mask lives in the XMP body
             self.assertEqual(sweep.classify({k: sweep.fmt(k, v) for k, v in settings.items()}), (("pos", i), None), name)
         self.assertEqual(sweep.classify({k: sweep.fmt(k, v) for k, v in sweep.EXT_BASE.items()}), ("base", None))
 
@@ -124,11 +126,12 @@ class TableTests(unittest.TestCase):
     def test_the_batch_zip_holds_every_preset_under_its_group(self):
         with tempfile.TemporaryDirectory() as d:
             self.assertEqual(sweep.main(["presets", "--sweep", "batch", "--out", d]), 0)
-            with zipfile.ZipFile(os.path.join(d, "Lumina-sweeps-4-12-presets.zip")) as zf:
+            with zipfile.ZipFile(os.path.join(d, "Lumina-sweeps-4-13-presets.zip")) as zf:
                 names = zf.namelist()
             self.assertEqual(len(names), 1 + sum(COUNTS.values()))
             self.assertIn("Lumina sweeps/00 Base.xmp", names)
             self.assertIn("Lumina sweep 6 Grade/6-41 Split 210-40.xmp", names)
+            self.assertIn("Lumina sweep 13 Sky/13-01 Sky local exposure -1.xmp", names)
             self.assertEqual(sweep.main(["presets", "--sweep", "8", "--out", os.path.join(d, "s8")]), 0)
             self.assertEqual(len(os.listdir(os.path.join(d, "s8", "presets"))), 14)
 
@@ -215,17 +218,17 @@ class IngestTests(unittest.TestCase):
         self.put("two.jpg", "A.ARW", {**b, "Texture": 25, "Clarity2012": 25})
         self.put("wb.jpg", "A.ARW", {**b, "Texture": 25, "WhiteBalance": "Custom", "Temperature": 5000, "Tint": 0})
         self.put("crop.jpg", "A.ARW", {**by_name("Texture +50")[2], "HasCrop": "True"})
-        self.put("mask.jpg", "A.ARW", "Texture -50", extra="<crs:MaskGroupBasedCorrections><rdf:Seq><rdf:li/></rdf:Seq></crs:MaskGroupBasedCorrections>")
+        self.put("mask.jpg", "A.ARW", "Texture -50", extra="<crs:PaintBasedCorrections><rdf:Seq><rdf:li/></rdf:Seq></crs:PaintBasedCorrections>")
         self.put("curve.jpg", "A.ARW", {**by_name("Texture +100")[2], "ToneCurveName2012": "Custom"})
         self.put("prof.jpg", "A.ARW", {**by_name("Dehaze +25")[2], "LookName": "Adobe Vivid"})
         self.put("mono.jpg", "A.ARW", {**by_name("B&W")[2], "LookName": "Adobe Monochrome"})
         r = sweep.ingest(self.ex, self.refs)
         w = self.whys(r)
-        self.assertIn("Texture 30: not a position of sweeps 4–12", w["off.jpg"])
+        self.assertIn("Texture 30: not a position of sweeps 4–13", w["off.jpg"])
         self.assertIn("Clarity2012 25, Texture 25: not a position", w["two.jpg"])
         self.assertIn("white balance is Custom", w["wb.jpg"])
         self.assertIn("cropped", w["crop.jpg"])
-        self.assertIn("MaskGroupBasedCorrections", w["mask.jpg"])
+        self.assertIn("PaintBasedCorrections", w["mask.jpg"])
         self.assertIn("point curve Custom", w["curve.jpg"])
         self.assertIn("profile Adobe Vivid", w["prof.jpg"])
         self.assertNotIn("mono.jpg", w)
@@ -261,6 +264,61 @@ class IngestTests(unittest.TestCase):
             self.assertIn(ref, {e["id"] for e in data["refs"]})
             self.assertEqual(load(os.path.join(root, "refs", f"sweep{n:02d}", "sweep-ingest.json"))["problems"], [])
         self.assertEqual(sweep.main(["ingest-sweeps", os.path.join(root, "nope")]), 2)
+
+
+PROBE = """<crs:MaskGroupBasedCorrections><rdf:Seq><rdf:li><rdf:Description crs:What="Correction" crs:CorrectionAmount="1"
+ crs:CorrectionActive="true" crs:CorrectionName="Mask 1" crs:LocalExposure="0" crs:LocalExposure2012="{ev}" crs:LocalContrast2012="{con}"
+ crs:LocalCurveRefineSaturation="100"><crs:CorrectionMasks><rdf:Seq><rdf:li crs:What="Mask/Image" crs:MaskActive="true"
+ crs:MaskName="Sky 1" crs:MaskBlendMode="0" crs:MaskInverted="{inv}" crs:MaskValue="1" crs:MaskVersion="1" crs:MaskSubType="{sub}"
+ crs:ReferencePoint="0.500000 0.500000" crs:LocalInputDigest="77FA16632F371F5BFF2F1527BB882591" crs:ErrorReason="0"/></rdf:Seq>
+ </crs:CorrectionMasks></rdf:Description></rdf:li></rdf:Seq></crs:MaskGroupBasedCorrections>"""
+
+
+def probe(ev="-0.250000", sub="2", inv="false", con="0"):
+    """A correction shaped like the one Lightroom saved in the owner's "Lumina mask probe" preset."""
+    return PROBE.format(ev=ev, sub=sub, inv=inv, con=con)
+
+
+class MaskTests(unittest.TestCase):
+    def test_the_preset_writes_lightrooms_structure(self):
+        x = sweep.preset_xmp(*by_name("Sky local exposure -1"))
+        for want in ('crs:What="Correction"', 'crs:What="Mask/Image"', 'crs:MaskSubType="2"', 'crs:LocalExposure2012="-0.2500"',
+                     'crs:LocalCurveRefineSaturation="100"', 'crs:Version="18.7"', ">Lumina sweep 13 Sky<", 'crs:Texture="0"'):
+            self.assertIn(want, x)
+        self.assertNotIn("LocalInputDigest", x)
+        self.assertNotIn('crs:Mask="', x)
+        self.assertIn('crs:MaskSubType="1"', sweep.preset_xmp(*by_name("Subject local exposure +1")))
+        # What the writer writes, the reader reads back as that position.
+        crs = sweep.read_xmp_text(x)
+        self.assertEqual(sweep.mask_signature(crs["MaskCorrections"]), (("sky", -1.0), None))
+
+    def test_masked_exports_become_sweep_13_refs(self):
+        with tempfile.TemporaryDirectory() as d:
+            ex, refs = os.path.join(d, "ex"), os.path.join(d, "refs")
+            os.makedirs(ex)
+            export(os.path.join(ex, "a.jpg"), "A.ARW", sweep.EXT_BASE)
+            export(os.path.join(ex, "a-1.jpg"), "A.ARW", sweep.EXT_BASE, extra=probe())
+            export(os.path.join(ex, "a-2.jpg"), "A.ARW", sweep.EXT_BASE, extra=probe(ev="0.25", sub="1"))
+            export(os.path.join(ex, "bad1.jpg"), "B.ARW", sweep.EXT_BASE, extra=probe(sub="3"))
+            export(os.path.join(ex, "bad2.jpg"), "B.ARW", sweep.EXT_BASE, extra=probe(inv="true"))
+            export(os.path.join(ex, "bad3.jpg"), "B.ARW", sweep.EXT_BASE, extra=probe(con="20"))
+            export(os.path.join(ex, "bad4.jpg"), "B.ARW", sweep.EXT_BASE, extra=probe(ev="-0.5"))
+            export(os.path.join(ex, "bad5.jpg"), "B.ARW", {**sweep.EXT_BASE, "Texture": 25}, extra=probe())
+            r = sweep.ingest(ex, refs, only=13)
+            w = {p["file"]: p["why"] for p in r["problems"]}
+            self.assertIn("subtype 3", w["bad1.jpg"])
+            self.assertIn("inverted", w["bad2.jpg"])
+            self.assertIn("LocalContrast2012 20", w["bad3.jpg"])
+            self.assertIn("-2 EV: not a sweep-13 position", w["bad4.jpg"])
+            self.assertIn("on top of other changes", w["bad5.jpg"])
+            self.assertEqual(len(w), 5)
+            self.assertEqual(load(os.path.join(refs, "A__s13p01.json")),
+                             {"sweep": 13, "preset": "13-01 Sky local exposure -1", "settings": {"Mask": "sky", "LocalExposure": -1}})
+            self.assertEqual(load(os.path.join(refs, "A__s13p04.json"))["settings"], {"Mask": "subject", "LocalExposure": 1})
+            self.assertEqual(r["groups"], {"A": ["Lumina sweep 13 Sky", "Lumina sweep 13 Subject"]})
+            self.assertEqual(r["missing"]["A"], ["13-02 Sky local exposure +1", "13-03 Subject local exposure -1"])
+            # The picker's not_clean still refuses a masked base export.
+            self.assertIn("local edits", sweep.not_clean(sweep.read_xmp(os.path.join(ex, "a-1.jpg"))))
 
 
 if __name__ == "__main__":

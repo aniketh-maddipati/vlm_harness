@@ -7,7 +7,7 @@ Expected names, as lr_sweep.lrdevplugin writes them:
     <stem>__base.tif                       Adobe Color, everything reset
     <stem>__<Slider>__<value>.tif          one slider, e.g. DSC01234__Exposure__-2.5.tif
     <stem>__combo<NN>.tif + .json          three sliders at once; the JSON holds the settings
-    <stem>__s<SS>p<NN>.jpg + .json         sweeps 4–12 (lr_cc_sweep.py): preset NN of sweep SS when it
+    <stem>__s<SS>p<NN>.jpg + .json         sweeps 4–13 (lr_cc_sweep.py): preset NN of sweep SS when it
                                            moves more than one key; the JSON holds sweep, preset, settings
     <stem>__asshot.json                    Lightroom's as-shot Temperature / Tint and the profile
     <stem>__edit<NN>.jpg|.tif + .json      one of your own Lightroom edits (import_lr_edits.py): the

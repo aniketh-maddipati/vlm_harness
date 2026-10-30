@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Which photos each Lightroom sweep (lr_cc_sweep.py, sweeps 4–12) is applied to.
+"""Which photos each Lightroom sweep (lr_cc_sweep.py, sweeps 4–13) is applied to.
 
     python3 Tools/parity/sweep_photos.py [--out ~/LuminaEvidence/parity/sweeps/photos]
         → <out>/sweepNN.txt (sweep 5: sweep05-<hue>.txt and sweep05-bw.txt), one RAW name a line,
@@ -20,6 +20,8 @@ The pools are the Death Valley 156 and the portraits set, read through their Lig
   10 lens CA / distortion         the 20 with the most straight lines in both directions
   11 vignette                     30 from both pools spread over brightness
   12 grain                        the 10 flattest, closest to mid grey
+  13 masks                        Sky: 30 Death Valley photos with sky over ≥ 30 % of the top third, spread
+                                  over brightness; Subject: 30 portraits spread over brightness
 
 A photo whose base export carries a crop, masks or healing is left out: a Lightroom CC preset
 resets none of those, so every sweep export of it would carry them too (3 Death Valley photos' sweep-1
@@ -70,10 +72,15 @@ def measures(rgb):
     horiz_edges = strong & (np.abs(ang - 90) < 4)          # gradient vertical: a horizontal line
     vert_edges = strong & ((ang < 4) | (ang > 176))         # gradient horizontal: a vertical line
     n = max(int(strong.sum()), 1)
+    # Sky: the share of the top third that is smooth and bright (clear blue, haze or cloud).
+    third = max(lap.shape[0] // 3, 1)
+    top = rgb[1:1 + third, 1:-1]
+    sky = (lap[:third] < 0.02) & (top.max(axis=2) > 0.45)
     return {
         "luma": float(y.mean()), "contrast": float(y.std()), "detail": float(lap.mean()),
         "chroma": float(chroma.mean()), "hue": shares, "hueEntropy": entropy,
         "lines": float(2 * min(horiz_edges.sum(), vert_edges.sum()) / n),
+        "sky": float(sky.mean()) if sky.size else 0.0,
     }
 
 
@@ -125,6 +132,9 @@ def pick(photos):
     def flat(p):
         return p["detail"] / d + 2 * abs(p["luma"] - 0.45) + p["chroma"]
     put("sweep12", top(photos, flat, 10, reverse=False), flat)
+    skies = [p for p in dv if p["sky"] >= 0.3]
+    put("sweep13-sky", spread(top(skies, lambda p: p["sky"], 60), lambda p: p["luma"], 30), lambda p: p["sky"])
+    put("sweep13-subject", spread(people, lambda p: p["luma"], 30), lambda p: p["luma"])
     return out
 
 
