@@ -304,7 +304,10 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
   `Tools/parity/lr_cc_sweep.py presets` writes click-to-apply presets and `… ingest <exports>`
   names the JPEG exports from their embedded XMP (`presets --sweep 2` adds ten seeded three-slider
   combos, `--sweep 3` white balance per photo, because Lightroom CC ignores a preset that sets only
-  Temperature or only Tint; the ingest also writes `<stem>__asshot.json` and the combos' JSON).
+  Temperature or only Tint; the ingest also writes `<stem>__asshot.json` and the combos' JSON;
+  `presets --sweep batch` is sweeps 4–13, one feature each, `ingest-sweeps` reads them back, the
+  owner's steps are `docs/editing/prompts/SWEEPS-OWNER.md`). A CC preset resets neither crop, masks
+  nor healing: the ingest refuses an export that carries one (sweep 13's own AI mask aside).
   Someone's *own edits* (`make parity-personal`,
   JPEG exports with "All metadata" + their RAWs) are a held-out acceptance set: measured, never
   fitted (ruled 2026-09-30). Both live in `~/LuminaEvidence`, never in the repo.
