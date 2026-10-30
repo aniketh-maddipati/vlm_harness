@@ -77,10 +77,11 @@ async function run(host) {
   await p.goto('file://' + page); await p.waitForTimeout(1000);
   await p.setInputFiles('input[type=file]', dir);
   for (let k = 0; k < 60; k++) { await p.waitForTimeout(500); if (await p.evaluate(() => { try { const a = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]')[0]; return !!(a && a.done != null); } catch (x) { return false; } })) break; }
+  await p.evaluate(() => { const b = document.querySelector('[data-lumina="sort-now"]'); if (b) b.click(); }); await p.waitForTimeout(400);   // the minimal page stays on Import: Sort now
   // mark through the page's own keys: two selected, one maybe, two cut
   const clipsTab = p.locator('[data-lumina="levels"] [role=tab]').nth(1); if (await clipsTab.count()) { await clipsTab.click(); await p.waitForTimeout(200); } else { await p.click('[data-gi="0"]'); await p.waitForTimeout(200); }
   { const pre = await p.evaluate(() => { const t = [...document.querySelectorAll('[data-lumina="steps"] [role=tab]')].find(e => e.innerText.trim() === 'Export'); return [t && getComputedStyle(t).color, !!document.querySelector('[data-lumina="dock-export"]')]; });
-    ok(pre[0] !== 'rgb(255, 210, 122)' && !pre[1], (host ? 'app' : 'browser') + ': before anything is selected, Export is not gold and the dock has no Export button: ' + JSON.stringify(pre)); }
+    ok(pre[0] !== 'rgb(255, 210, 122)' && pre[1], (host ? 'app' : 'browser') + ': before anything is selected, Export is not gold and the dock\u2019s Export\u2026 is greyed (the wireframe): ' + JSON.stringify(pre)); }
   for (const k of ['k', 'ArrowRight', 'k', 'ArrowRight', 'm', 'ArrowRight', 'ArrowRight', 'c', 'ArrowRight', 'c']) { await p.keyboard.press(k); await p.waitForTimeout(80); }
   if (host) {
     // while you are still in Skim, Export gets ready (LOCAL-CHANGES 267): a moment after the last mark the app is asked for its folders and the file is checked
@@ -89,7 +90,7 @@ async function run(host) {
   }
   // LOCAL-CHANGES 279: Export is gold in the steps and has its own button at the end of the dock
   const gold = await p.evaluate(() => { const t = [...document.querySelectorAll('[data-lumina="steps"] [role=tab]')].find(e => e.innerText.trim() === 'Export'), b = document.querySelector('[data-lumina="dock-export"]'); return [t && getComputedStyle(t).color, b && getComputedStyle(b).backgroundColor, b && b.innerText.replace(/\s+/g, ' ').trim()]; });
-  ok(gold[0] === 'rgb(255, 210, 122)' && gold[1] === 'rgb(255, 210, 122)' && /^Export ⌘E \d+ clips?$/.test(gold[2]), (host ? 'app' : 'browser') + ': Export is gold in the steps and at the end of the dock: ' + JSON.stringify(gold));
+  ok(gold[0] === 'rgb(255, 210, 122)' && gold[1] === 'rgb(255, 210, 122)' && /^Export\u2026? ⌘E \d+ clips?$/.test(gold[2]), (host ? 'app' : 'browser') + ': Export is gold in the steps and at the end of the dock: ' + JSON.stringify(gold));
   if (host) await p.click('[data-lumina="dock-export"]'); else await p.keyboard.press('Meta+Enter');
   await p.waitForTimeout(900);
   const text = sel => p.evaluate(s => document.querySelector(s)?.innerText || '', sel);

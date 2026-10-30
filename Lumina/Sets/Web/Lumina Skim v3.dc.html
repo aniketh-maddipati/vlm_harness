@@ -12,10 +12,13 @@
 <style>
 /* Minimal (2026-10-29, the keep-sort wireframes): keep only, the frame first, no chrome that isn't used. What is cut
    still works from its key (M, C, ⌘⌫, ⌘W, P); ?full=1 shows everything again. LOCAL-CHANGES 316. */
-html:not([data-full]) div[data-lumina=skim-bar]:not([style*="position:absolute"]),
+html:not([data-full]) div[data-lumina=skim-bar]:not([style*="position:absolute"]):not([data-busy=true]),
 html:not([data-full]) [data-lumina=keybar],
 html:not([data-full]) [data-lumina=shoot-close],
 html:not([data-full]) [data-lumina=memory-pill],
+html:not([data-full]) [data-lumina=open-head],
+html:not([data-full]) [data-lumina=drop-pick],
+html:not([data-full]) [data-lumina=drop-note],
 html:not([data-full]) [data-lumina=web-preview],
 html:not([data-full]) [data-lumina=report],
 html:not([data-full]) [data-lumina=tile-notes],
@@ -208,6 +211,16 @@ body:has([data-view=phone]){background:#111}
 [data-lumina=look]>[data-lkp]{flex:1 1 auto;min-height:40px;align-content:center}
 /* A press on every button without a spring of its own; reduced motion stays still. */
 @media (prefers-reduced-motion:no-preference){button:not([data-press]):not([aria-disabled=true]):active{transform:scale(0.97);transition:transform 80ms ease-out}}
+/* Import as the wireframe: the drives along the top, one big Drop, AirDrop under it, Included at the foot */
+html:not([data-full]) [data-lumina=drop] { min-height:clamp(160px, calc(100vh - 540px), 420px) !important; box-shadow:none !important; border:1.5px dashed rgba(239,236,230,0.32) !important; }
+html:not([data-full]) [data-lumina=drop] [data-lumina=drop-t] { font-family:'Iowan Old Style','Palatino',Georgia,serif !important; font-size:clamp(44px, 7vw, 68px) !important; line-height:1; }
+html:not([data-full]) [data-lumina=airdrop] { box-shadow:none !important; border:1.5px dashed rgba(239,236,230,0.32); }
+html:not([data-full]) [data-lumina=airdrop][aria-checked=true] { border-style:solid; border-color:rgba(239,236,230,0.6); }
+/* the steps as the wireframe's: words, the one you are on underlined */
+html:not([data-full]) [data-lumina=steps] { background:transparent !important; gap:6px; }
+html:not([data-full]) [data-lumina=steps] > div { display:none; }
+html:not([data-full]) [data-lumina=steps] [role=tab] { background:transparent !important; font-size:13px !important; }
+html:not([data-full]) [data-lumina=steps] [role=tab][aria-selected=true] { text-decoration:underline; text-underline-offset:5px; text-decoration-thickness:1.5px; color:#EFECE6 !important; }
 </style>
 </helmet>
 <div data-screen-label="Skim" data-view="{{ viewName }}" style="position:relative;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-variant-numeric:tabular-nums;font-size:12px;user-select:none;-webkit-user-select:none">
@@ -272,7 +285,7 @@ body:has([data-view=phone]){background:#111}
     </sc-if>
   </div>
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
-  <div data-lumina="skim-bar" style="flex:none;height:56px;padding:0 24px;box-sizing:border-box;display:{{ skimBarD }};align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
+  <div data-lumina="skim-bar" data-busy="{{ skimBusy }}" style="flex:none;height:56px;padding:0 24px;box-sizing:border-box;display:{{ skimBarD }};align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
     <div style="flex:1;min-width:0;display:flex;align-items:center">
       <sc-if value="{{ lvTabsOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="levels" role="tablist" aria-label="levels" style="position:relative;display:grid;grid-template-columns:repeat({{ lvN }},68px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)">
@@ -359,7 +372,7 @@ body:has([data-view=phone]){background:#111}
     <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Open" onDragOver="{{ dropOver }}" onDragLeave="{{ dropLeave }}" onDrop="{{ dropIn }}" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
         <div style="max-width:min(1000px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,5vh,56px) clamp(16px,4vw,48px) 40px;display:flex;flex-direction:column;gap:24px">
-          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · M4V</span><span style="flex:1"></span>
+          <div data-lumina="open-head" style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · M4V</span><span style="flex:1"></span>
             <sc-if value="{{ cacheOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="cache" onMouseEnter="{{ cacheEnter }}" onMouseLeave="{{ cacheLeave }}" style="position:relative;align-self:center">
               <button type="button" data-lumina="cache-chip" aria-expanded="{{ cacheOpen }}" onClick="{{ cacheToggle }}" title="What Lumina keeps to open clips faster" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 10px;border-radius:14px;display:flex;align-items:center;gap:6px;color:#B8B3AB;background:{{ cacheBg }};cursor:pointer;white-space:nowrap" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:6px;height:6px;border-radius:50%;background:#9A958D"></span>{{ cacheChip }}<span style="color:#9A958D">{{ cacheArrow }}</span></button>
               <sc-if value="{{ cacheOpen }}" hint-placeholder-val="{{ false }}">
@@ -389,11 +402,12 @@ body:has([data-view=phone]){background:#111}
             </div>
           </sc-if>
           <sc-if value="{{ drvOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="drives" role="list" aria-label="Drives" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:12px"><sc-for list="{{ drives }}" as="dv" hint-placeholder-count="3"><button type="button" role="listitem" data-lumina="drive" onClick="{{ dv.go }}" aria-label="{{ dv.aria }}" title="{{ dv.tip }}" style="text-align:left;color:inherit;box-sizing:border-box;padding:12px 14px;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:64px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1);display:flex;flex-direction:column;gap:3px;cursor:pointer" style-hover="background:#2E2D2B" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:#9A958D">{{ dv.kind }}</span><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ dv.name }}</span><span style="color:#B8B3AB">{{ dv.line }}</span></button></sc-for></div></sc-if>
-          <button type="button" data-lumina="drop" onClick="{{ pickFolder }}" style="color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
-            <span style="font-size:16px;color:#EFECE6">{{ dropT }}</span>
-            <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>{{ pickT }}</span>
+          <button type="button" data-lumina="drop" onClick="{{ dropGo }}" style="color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
+            <span data-lumina="drop-t" style="font-size:16px;color:#EFECE6">{{ dropT }}</span>
+            <span data-lumina="drop-pick" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>{{ pickT }}</span>
             <span data-lumina="drop-note" style="color:#9A958D">{{ dropNote }}</span>
           </button>
+          <sc-if value="{{ adOn }}" hint-placeholder-val="{{ false }}"><button type="button" role="switch" data-lumina="airdrop" aria-checked="{{ adLive }}" onClick="{{ adToggle }}" title="{{ adTip }}" style="color:inherit;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:120px;box-sizing:border-box;padding:20px;border-radius:14px;background:{{ adBg }};box-shadow:inset 0 0 0 1.5px {{ adRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;text-align:center;transition:background 120ms ease-out" style-hover="background:#2A2927" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:flex;align-items:center;gap:10px;font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:26px;color:#EFECE6"><span style="width:8px;height:8px;border-radius:50%;background:{{ adDot }};animation:{{ adAnim }}"></span>AirDrop</span><span data-lumina="airdrop-say" style="font-weight:600;color:{{ adSayC }}">{{ adSay }}</span></button></sc-if>
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <input ref="{{ clipRef }}" type="file" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" data-lumina="imp-msg" aria-busy="{{ impBusy }}" style="color:#FFD27A;display:flex;align-items:center;gap:9px"><sc-if value="{{ impBusy }}" hint-placeholder-val="{{ false }}"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite;will-change:opacity"></span></sc-if><span>{{ impMsg }}</span></div></sc-if>
@@ -436,6 +450,16 @@ body:has([data-view=phone]){background:#111}
           </div>
         </div>
       </div>
+      <sc-if value="{{ incOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="included" aria-label="Included" style="flex:none;display:flex;gap:16px;align-items:center;padding:10px 20px 12px;background:rgba(35,34,32,0.74);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);border-top:1px solid rgba(239,236,230,0.1)">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:baseline;gap:10px;white-space:nowrap;overflow:hidden"><span style="font-weight:700;color:#B8B3AB">Included</span><span data-lumina="prep" role="status" style="min-width:0;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ incPrep }}</span></div>
+          <div data-lumina="included-row" style="display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px">
+            <sc-if value="{{ incEmpty }}" hint-placeholder-val="{{ false }}"><div data-lumina="included-empty" style="flex:none;width:220px;min-height:64px;box-sizing:border-box;border-radius:10px;border:1px dashed rgba(239,236,230,0.22);display:grid;place-items:center;color:#9A958D">Empty</div></sc-if>
+            <sc-for list="{{ incTiles }}" as="it" hint-placeholder-count="2"><div data-lumina="included-tile" title="{{ it.tip }}" style="flex:none;width:220px;min-height:64px;box-sizing:border-box;padding:8px 12px;border-radius:10px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);display:flex;flex-direction:column;gap:2px;overflow:hidden"><span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:#9A958D">{{ it.kind }}</span><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:17px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.name }}</span><span style="color:#B8B3AB;white-space:nowrap">{{ it.line }}</span><div data-lumina="included-bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{ it.n }}" aria-valuenow="{{ it.ok }}" style="margin-top:4px;height:3px;border-radius:2px;background:rgba(239,236,230,0.1);overflow:hidden"><div style="height:100%;width:{{ it.pct }};background:#B8B3AB;transition:width 200ms ease-out"></div></div></div></sc-for>
+          </div>
+        </div>
+        <button type="button" data-lumina="sort-now" aria-disabled="{{ incNo }}" onClick="{{ incGo }}" title="Sort what is included (⏎)" style="flex:none;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-width:120px;min-height:44px;padding:8px 16px;border-radius:10px;background:{{ incBg }};color:{{ incFg }};cursor:{{ incCur }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:14px;font-weight:800">Sort now</span><span data-kbd="1" style="font-weight:700;font-size:11px;opacity:0.7">⏎</span></button>
+      </div></sc-if>
     </sc-if>
     <!-- Add clips (LOCAL-CHANGES 282): after Open's own inputs, so Open's folder input stays the page's first file input -->
     <input ref="{{ addRef }}" type="file" data-lumina="add-input" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ addIn }}" style="display:none"></input>
@@ -930,7 +954,7 @@ body:has([data-view=phone]){background:#111}
         </div>
       </div>
     </sc-for>
-    <sc-if value="{{ dockExOn }}" hint-placeholder-val="{{ true }}"><button type="button" data-lumina="dock-export" data-press="1" onClick="{{ dockEx }}" title="Export: the Final Cut file, the cut list and where they go (⌘E)" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;align-self:stretch;min-width:96px;padding:8px 14px;border-radius:10px;background:#FFD27A;color:#1E1D1B;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px" style-hover="filter:brightness(1.06)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:14px;font-weight:800">Export</span><span data-kbd="1" style="padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);font-weight:700;font-size:11px">⌘E</span><span style="font-size:11px;font-weight:600;opacity:0.75;white-space:nowrap">{{ dockExN }}</span></button></sc-if>
+    <sc-if value="{{ dockExOn }}" hint-placeholder-val="{{ true }}"><button type="button" data-lumina="dock-export" data-press="1" aria-disabled="{{ dockExNo }}" onClick="{{ dockEx }}" title="Export: the Final Cut file, the cut list and where they go (⌘E)" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;align-self:stretch;min-width:96px;padding:8px 14px;border-radius:10px;background:{{ dockExBg }};color:{{ dockExFg }};cursor:{{ dockExCur }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px" style-hover="filter:brightness(1.06)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:14px;font-weight:800">{{ dockExT }}</span><span data-kbd="1" style="padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);font-weight:700;font-size:11px">⌘E</span><span style="font-size:11px;font-weight:600;opacity:0.75;white-space:nowrap">{{ dockExN }}</span></button></sc-if>
   </div>
   </sc-if>
 
@@ -1344,6 +1368,7 @@ class Component extends DCLogic {
     this._er = e => this.noteErr(e && e.message, e && e.filename ? String(e.filename).split('/').pop() + ':' + (e.lineno || 0) : ''); window.addEventListener('error', this._er);
     this._ur = e => this.noteErr('unhandled: ' + (e && e.reason && e.reason.message || (e && e.reason) || '?'), ''); window.addEventListener('unhandledrejection', this._ur);
     window.luminaSkimReport = {text:() => Component.reportText(this.reportInfo()), save:() => this.reportSave()};
+    window.luminaSkimAirdrop = {arrived:n => this.adArrived(n), changed:r => { this.ad = {...(this.ad || {}), on:!!(r && r.on), folder:(r && r.folder) || null, busy:false}; this.setState(s => ({tick:(s.tick || 0) + 1})); }, state:() => ({...(this.ad || {})})}; this.adRead();
     window.luminaSkimKeep = {take:() => this.keepTake(), reopen:kept => this.keepReopen(kept), offer:kept => this.keepOffer(kept), state:() => this.keepAt || 'idle'};
     // luminaSkimDebug() reports; luminaSkimDebug('panel') also opens the Working memory panel, luminaSkimDebug('off') hides it again, luminaSkimDebug('colour') saves the colour check frames.
     window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); else if (what === 'colour') this.colourCheck(); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
@@ -3642,6 +3667,7 @@ class Component extends DCLogic {
     Object.assign(vals, this.extraVals(markN, markB, und));
     Object.assign(vals, this.dockVals(vals));
     vals.hints = (vals.hints || []).map(h => ({...h, bg:Component.kbLit(h.k, st.kbLit) ? 'rgba(239,236,230,0.34)' : 'rgba(239,236,230,0.12)'}));
+    vals.skimBusy = vals.loadOn || vals.unsupOn || vals.busyBarOn || vals.recNoteOn || vals.pauseOn || vals.haltOn || vals.cancelAsk ? 'true' : 'false';
     vals.skimBarD = st.lv >= 2 && !vals.loadOn && !vals.unsupOn && !vals.recNoteOn && !vals.pauseOn && !vals.haltOn && !vals.cancelAsk && !vals.lvTabsOn ? 'none' : 'flex';
     return vals;
   }
@@ -3828,7 +3854,7 @@ class Component extends DCLogic {
     out.dsecs = ['keep', 'maybe', 'cut'].map(m => {
       const tiles = out.dock.filter((t, k) => L[k].m === m), n = d.clips.reduce((a, c) => a + (st.marks[c.id] === m ? 1 : 0), 0), col = MK[m], drop = st.dropOn === m;
       const open = st.bk ? st.bk === m : m !== 'cut' || !!st.cutsOpen, pileOn = m === 'cut' && out.pileOn, hold = (open && !tiles.length) || (m === 'cut' && !n && !st.bk), sub = tiles.length ? this.fmtDur(tiles.reduce((a, t) => a + (this.byId[t.id].dur || 0), 0)) + ' · ' + this.fmtB(this.bytesOf(tiles.map(t => t.id))) : '';
-      return {m, l:this.W(m), n, dot:col, tiles, pileOn, hold, holdW:out.dockW, holdRing:drop ? col : 'rgba(239,236,230,0.12)', holdT:st.dragN ? 'drop to mark ' + this.W(m) : n ? '' : word[m] + ' or drag a clip here',
+      return {m, l:Component.bare && m === 'keep' ? 'Keep' : this.W(m), n, dot:col, tiles, pileOn, hold, holdW:out.dockW, holdRing:drop ? col : 'rgba(239,236,230,0.12)', holdT:st.dragN ? 'drop to mark ' + this.W(m) : n ? '' : Component.bare ? 'Empty' : word[m] + ' or drag a clip here',
         flex:open ? '1 1 0' : 'none', minW:open ? Math.min(out.dockW + 12, 240) : 0, bg:drop ? col + '30' : st.bk === m ? col + '14' : 'rgba(239,236,230,0.03)', ring:drop ? '2px ' + col : '1px ' + col + (st.dragN ? '99' : '33'),
         hBg:st.bk === m ? col : col + '22', hFg:st.bk === m ? '#1E1D1B' : col, tip:st.bk === m ? 'Show all three · click or double-click' : 'Show ' + this.W(m) + ' on its own · click or double-click',
         sum:st.dragN ? 'drop here' : open ? sub : '', sumC:drop ? col : '#9A958D'};
@@ -4879,6 +4905,40 @@ class Component extends DCLogic {
   // A phone or a tablet picks clips (iPhone: Photos or Files; Android: its photo picker), a computer a folder; the other is
   // one button below. Neither shows a folder picker where the browser has none (iOS Safari before 18.4).
   canFolder() { return typeof document !== 'undefined' && 'webkitdirectory' in document.createElement('input') && !/iPhone|iPod/.test(navigator.userAgent); }
+  // AirDrop (the app only, lumina.video.airdrop): a switch that watches the folder AirDrop saves to (Downloads, chosen
+  // once). What lands there joins the shoot as Add clips would: the app hands the batch to the add input, no panel.
+  adApi() { const v = this.exHostApi(); return v && v.airdrop ? v : null; }
+  adRead() { const v = this.adApi(); if (!v) return; Promise.resolve().then(() => v.airdrop({})).then(r => { if (r) { this.ad = {...(this.ad || {}), on:!!r.on, folder:r.folder || null}; this.setState(s => ({tick:(s.tick || 0) + 1})); } }, () => {}); }
+  adToggle = e => {
+    if (e && e.currentTarget && e.currentTarget.blur) e.currentTarget.blur(); const v = this.adApi(); if (!v || (this.ad && this.ad.busy)) return; const on = !(this.ad && this.ad.on);
+    this.ad = {...(this.ad || {}), busy:true}; this.setState(s => ({tick:(s.tick || 0) + 1}));
+    Promise.resolve().then(() => v.airdrop({on})).then(r => { this.ad = {on:!!(r && r.on), folder:(r && r.folder) || null, n:on ? 0 : (this.ad.n || 0)}; }, () => { this.ad = {...this.ad, busy:false}; })
+      .then(() => this.setState(s => ({tick:(s.tick || 0) + 1})));
+  };
+  adArrived(n) {
+    const st = this.state, el = this.addEl;
+    if (!el || this.keepAt === 'opening' || st.big || st.bigAdd || st.mix || (st.impMsg && st.impMsg === st.impBusyT)) return 'wait';
+    this.ad = {...(this.ad || {}), n:((this.ad && this.ad.n) || 0) + (Number(n) || 0)};
+    try { window.luminaSkimAirdropping = 'add'; } catch (x) {} el.click(); this.setState(s => ({tick:(s.tick || 0) + 1})); return 'ok';
+  }
+  adVals() {
+    const a = this.ad || {}, on = !!a.on, show = !!this.adApi() && this.state.step === 'import';
+    return {adOn:show, adLive:on ? 'true' : 'false', adToggle:this.adToggle, adSay:a.busy ? '…' : !on ? 'Off · click to listen' : a.n ? this.plural(a.n, 'clip') + ' arrived' : 'Live',
+      adTip:on ? 'Listening' + (a.folder ? ' to ' + a.folder : '') + ' · click to stop' : 'Listen for clips AirDropped to this Mac', adDot:on ? '#EFECE6' : '#5B5854', adAnim:on ? 'breathe 1.6s ease-in-out infinite' : 'none',
+      adSayC:on ? '#EFECE6' : '#9A958D', adBg:on ? '#262523' : '#232220', adRing:on ? 'rgba(239,236,230,0.5)' : 'rgba(239,236,230,0.18)'};
+  }
+  // Import's Included dock (the minimal page): what is in the shoot, a tile per folder it came from, how far the read is, Sort now.
+  incVals(has) {
+    const st = this.state, d = this.d, on = Component.bare && st.step === 'import';
+    if (!on) return {incOn:false, incTiles:[], incEmpty:false};
+    const C = has ? d.clips : [], by = new Map();
+    C.forEach(c => { const p = String(c.path || c.name).split('/'), k = p.length > 1 ? p[p.length - 2] || d.shoot.name : d.shoot.name; const g = by.get(k) || {n:0, ok:0, dur:0, air:false}; g.n++; g.dur += c.dur || 0; if (c.why || (c.facts && c.facts.state !== 'pending')) g.ok++; if (/\/Downloads\//.test(c.path || '')) g.air = true; by.set(k, g); });
+    const running = !!(st.imp && st.imp.done < st.imp.n);
+    return {incOn:true, incEmpty:!C.length, incNo:has ? 'false' : 'true', incGo:() => { if (this.hasShoot()) this.setStep('skim'); },
+      incBg:has ? '#EFECE6' : 'rgba(239,236,230,0.08)', incFg:has ? '#1E1D1B' : '#9A958D', incCur:has ? 'pointer' : 'default',
+      incPrep:!C.length ? 'Click a card or Drop · AirDrop lands here' : running ? 'reading ' + st.imp.done + ' of ' + st.imp.n : this.plural(C.length, 'clip') + ' · ' + this.fmtDur(C.reduce((a, c) => a + (c.dur || 0), 0)),
+      incTiles:[...by].map(([k, g]) => ({kind:g.air ? 'AirDrop' : 'Folder', name:k, n:g.n, ok:g.ok, pct:Math.round(100 * g.ok / Math.max(1, g.n)) + '%', line:this.plural(g.n, 'clip') + (g.ok < g.n ? ' · ' + g.ok + ' / ' + g.n + ' ready' : ' · ' + this.fmtDur(g.dur)), tip:k + ' · ' + this.plural(g.n, 'clip')}))};
+  }
   // Import's drives: the cards and plugged-in drives the Mac has mounted (lumina.video.places, the list Export's
   // workshop reads), read on Import and every 4 s while it shows. A click opens Finder to choose clips there: a page
   // can't open a drive's clips by itself.
@@ -4927,6 +4987,7 @@ class Component extends DCLogic {
   dropLeave = () => this.setState({dropHot:false});
   dropIn = async e => {
     e.preventDefault(); this.setState({dropHot:false}); this.pickNext = false; if (this.state.mix) return;
+    if (Component.bare && this.canAdd()) return;   // the window's own drop (addDrop) adds it to the shoot
     const got = await this.dropFiles(e); if (!got) return; this.rel = got.rel; this.importFiles(got.files, 0, got.cut ? {files:got.cut} : null);
   };
   // What was dropped, folders walked: the files and each one's place inside what was dropped. Null when a newer drop or pick took over.
@@ -5173,12 +5234,14 @@ class Component extends DCLogic {
   // clips (a phone's too); a folder is dropped.
   addRef = el => { this.addEl = el; if (el) el.multiple = true; };
   addDirRef = el => { this.addDirEl = el; if (el) el.multiple = true; };
-  canAdd() { const d = this.d, st = this.state; return !!(d && d.shoot && d.shoot.real && d.clips.length && st.step === 'skim' && !st.mix); }
+  canAdd() { const d = this.d, st = this.state; return !!(d && d.shoot && d.shoot.real && d.clips.length && (st.step === 'skim' || (Component.bare && st.step === 'import')) && !st.mix); }
+  // Import's Drop and drives (the minimal page): the first folder opens the shoot, the next ones join it (Add clips).
+  dropGo = () => Component.bare && this.canAdd() ? this.addClips() : this.pickFolder();
   addClips = () => {
     if (!this.canAdd()) return; const app = !!this.exHostApi(), el = app && !this.isTouch() ? this.addDirEl || this.addEl : this.addEl;
     if (!el) return; if (app) window.luminaSkimAdding = true; this.pickWait(el); el.click();
   };
-  addIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.addFiles(fs, {rel:Component.hostRel(fs), dropped:false}); };
+  addIn = e => { try { window.luminaSkimAirdropping = null; } catch (x) {} const fs = [...(e.target.files || [])]; e.target.value = ''; this.addFiles(fs, {rel:Component.hostRel(fs), dropped:false}); };
   static hasFiles(e) { const t = e && e.dataTransfer && e.dataTransfer.types; return !!t && [...t].indexOf('Files') >= 0; }
   addEnter = e => { if (!this.canAdd() || !Component.hasFiles(e)) return; this.addN = (this.addN || 0) + 1; if (!this.state.addHot) this.setState({addHot:true}); };
   addLeave = e => { if (!this.state.addHot) return; this.addN = Math.max(0, (this.addN || 0) - 1); if (!this.addN) this.setState({addHot:false}); };
@@ -6620,7 +6683,7 @@ void main() {
     const flat = this.flat || [], i = flat.indexOf(st.cur);
     return {
       webPrevT:'Web preview: your clips are read on ' + dev + '; nothing is uploaded. ' + (mob ? 'Pick any number of clips from ' + (/iPhone/.test(dev) ? 'Photos or Files' : 'your gallery or Files') + '; they are listed by when they were shot.' : 'Use Safari: it plays every Sony format, the same as the Lumina app. Open one shoot at a time and keep each clip\u2019s .XML beside it.'),
-      dropT:clipsFirst ? (t ? 'Choose clips' : 'Drop clips') : 'Drop a card, a folder or clips', pickT:clipsFirst ? (/iPhone/.test(dev) ? 'Photos or Files…' : 'Choose clips…') : 'Choose…',
+      dropT:Component.bare ? 'Drop' : clipsFirst ? (t ? 'Choose clips' : 'Drop clips') : 'Drop a card, a folder or clips', pickT:clipsFirst ? (/iPhone/.test(dev) ? 'Photos or Files…' : 'Choose clips…') : 'Choose…',
       navOn:t && st.step === 'skim' && st.lv >= 2, phoneViewOn:Component.PHONE_VIEW, viewName:st.phone ? 'phone' : 'full', phoneA:!!st.phone, phoneBg:st.phone ? '#5B5854' : 'rgba(239,236,230,0.06)', navPrevOp:i > 0 ? 1 : 0.4, navNextOp:i >= 0 && i < flat.length - 1 ? 1 : 0.4};
   }
   cardList() {
@@ -6658,7 +6721,9 @@ void main() {
     const st = this.state, d = this.d, MK = Component.MK, has = this.hasShoot(), steps = Component.bare ? [['import', 'Import'], ['skim', 'Sort'], ['export', 'Export']] : [['import', 'Open'], ['skim', 'Skim'], ['export', 'Export']];
     const si = steps.findIndex(s => s[0] === st.step), ms = this.memStats();
     const picked = has && (markN.keep || 0) + (markN.maybe || 0) > 0;
-    const v = {dockExOn:picked, dockEx:() => this.setStep('export'), dockExN:picked ? this.plural(markN.keep + markN.maybe, 'clip') : '', isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
+    const exBare = Component.bare && has && st.step === 'skim';
+    const v = {dockExOn:picked || exBare, dockEx:() => { if (picked) this.setStep('export'); }, dockExN:picked ? this.plural(markN.keep + markN.maybe, 'clip') : '', dockExNo:picked ? 'false' : 'true',
+      dockExT:Component.bare ? 'Export…' : 'Export', dockExBg:picked ? '#FFD27A' : 'rgba(239,236,230,0.08)', dockExFg:picked ? '#1E1D1B' : '#9A958D', dockExCur:picked ? 'pointer' : 'default', isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
       // Export is gold (LOCAL-CHANGES 279): the step the work goes to stands out once a clip is selected or a maybe (marks kept from before count)
       stepTabs:steps.map((s, i) => { const ex = s[0] === 'export' && picked; return {t:s[1], on:i === si, fg:ex ? (i === si ? '#1E1D1B' : '#FFD27A') : i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), bg:ex ? (i === si ? '#FFD27A' : 'rgba(255,210,122,0.14)') : 'transparent', fw:ex ? '700' : '400', go:() => this.setStep(s[0])}; }),
       dbgOn:!!st.dbg, cvA:!!st.cv, cvT:'one grid · ' + (st.cv ? 'on' : 'off'), cvFg:st.cv ? '#1E1D1B' : '#B8B3AB', cvBg:st.cv ? '#B8B3AB' : 'rgba(239,236,230,0.06)', cvToggle:this.cvToggle, dropNote:window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves ' + this.devName() + '.',
@@ -6707,8 +6772,8 @@ void main() {
       staleOn:!!st.stale, staleGo:() => this.staleGo(), staleLater:() => this.staleLater(),
       exAskOn:!!st.exAsk && has && st.step === 'skim', exAskTop:st.stale ? '58px' : '10px', exAskT:st.exAsk ? this.exAskSay() : '', exAskGo:() => this.setStep('export'), exAskX:() => this.setState({exAsk:false}), resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + (st.resume.host ? '' : ' · Safari asks for the folder once') : '', resumeGo:this.resumeGo, resumeAdd:this.resumeAdd,
       resumeHint:st.resume && st.resume.host ? 'Resume opens the same clips again from where they are, no Finder. Add clips brings the shoot back, then Finder opens to add more to it. Your clips are never touched.'
-        : 'Both open Finder once: Safari can’t open files again by itself. Resume: choose the shoot’s folder (or one above it) and its clips and marks come back. Add clips: choose any folder; the shoot’s clips come back with their marks and the rest join them. Your clips are never touched.', ...this.cacheVals(has), nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
-      drvOn:st.step === 'import' && (this.imDrv || []).length > 0, drives:(this.imDrv || []).map(d => ({...d, go:() => this.pickFolder()})),
+        : 'Both open Finder once: Safari can’t open files again by itself. Resume: choose the shoot’s folder (or one above it) and its clips and marks come back. Add clips: choose any folder; the shoot’s clips come back with their marks and the rest join them. Your clips are never touched.', ...this.cacheVals(has), nowOn:has && !Component.bare, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
+      drvOn:st.step === 'import' && (this.imDrv || []).length > 0, drives:(this.imDrv || []).map(d => ({...d, go:this.dropGo})), dropGo:this.dropGo, ...this.adVals(), ...this.incVals(has),
       cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})), cardsOn:this.cardList().length > 0,
       recents:st.step === 'import' ? this.recentVals() : [], recOn:false,
       download:this.download, hintLead:''
