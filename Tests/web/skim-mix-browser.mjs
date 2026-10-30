@@ -64,6 +64,7 @@ await p.locator('[data-lumina="mix-row"][data-kind="day"]').nth(0).locator('[dat
 await p.keyboard.press('Enter');
 ok(await until(() => !document.querySelector('[data-lumina="mix"]') && !!document.querySelector('[data-lumina="shoot-close"]')), '⏎ opens what is ticked');
 ok(await until(() => { try { const a = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]')[0]; return !!(a && a.done != null); } catch (x) { return false; } }, 40000), 'the clips are read');
+await p.evaluate(() => { const b = document.querySelector('[data-lumina="sort-now"]'); if (b) b.click(); }); await p.waitForTimeout(400);   // the minimal page stays on Import: Sort now
 ok(/\b2 clips\b/.test(await nClips()), 'the shoot holds the 2 ticked clips: ' + await nClips());
 
 // 2. mark one, then Add clips (two phone clips, one folder, one day: no notice)
