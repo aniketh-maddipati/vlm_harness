@@ -82,7 +82,7 @@ def main() -> None:
                 self.wfile.write(body)
                 return
             if path == "/":
-                path = "/sources-wf.html"
+                path = "/import-wf.html"
             rel = path.lstrip("/")
             if ".." in rel.split("/"):
                 self.send_error(400)
@@ -106,7 +106,7 @@ def main() -> None:
             self.wfile.write(data)
 
     httpd = ThreadingHTTPServer((args.bind, args.port), Handler)
-    print(f"hot http://{args.bind}:{args.port}/sources-wf.html  (watching {root})", flush=True)
+    print(f"hot http://{args.bind}:{args.port}/import-wf.html  (watching {root})", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

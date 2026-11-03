@@ -1,0 +1,41 @@
+# 12 · Vignette: fitted, plus per-corner pull
+
+Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it first; it holds the steps, checks, stop rules and finish). Branch `claude/edit-vignette-corners` from origin/main.
+
+**Goal.** Post-crop vignette fitted to Lightroom, and a vignette you shape by pulling any corner.
+
+**Now.**
+- `vig`, `vMid`, `vRound`, `vFeather`, `vHl`; native `VignetteForm` with unfitted `stopsPerUnit` / `highlightsPower`.
+- `vigDown(corner)` drags the global amount from any corner.
+
+**Build.**
+- **Sweep 11:** Amount ±50/±100 at Midpoint 50, Midpoint 0/100, Feather 0/100, Roundness ±100, Highlights 50 at −50; 30 photos. Fit.
+- **Per-corner** (beyond Lightroom):
+  - keys `vigc:tl,tr,br,bl` (each a weight 0–200 %, default 100), blended smoothly by angle around the centre;
+  - `vigx,vigy` (centre offset).
+  - Rest = identity with today's vignette.
+  - All three copies, plus tests: symmetric at default, monotonic in each corner weight, continuous in angle.
+- **UI (hands-on):**
+  - Corner handles: drag one corner to change that corner only. ⌥-drag a corner keeps today's behaviour (all four).
+  - Drag the centre dot to move it.
+  - Edge midpoints drag feather; ⇧-drag a corner sets roundness.
+  - Handles show while the Vignette rows are open or while hovering the frame's corners.
+
+**Done when.** Global vignette parity criteria on sweep 11; per-corner: rest renders identical to before (0 ΔE); measured against a radial-mask equivalent for sanity; canvas latency held.
+
+**Depends on:** 00.
+
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Vignette (12)*
+
+- **Do:** move toward a frame corner and its handle appears. Drag in = darker *in that corner*, out =
+  lighter.
+- **Hands:**
+  - ⌥-drag = all four corners.
+  - Drag the centre dot to move the light's centre.
+  - Pinch = feather; two-finger rotate = roundness.
+- **Repeat:** relative to the frame, so it carries across crops and orientations.
+- **Polish:** handles are 10 px hairline quarter-arcs, shown only within 80 px.
+
+**Skim (video) mirror.** Skim preview: the same per-corner vignette in `LK_FS`. To Final Cut: spatial, so write it as a static matte plus darkening (the matte route) or mark it preview only. Pick the one that imports cleanly and say which.

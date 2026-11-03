@@ -50,9 +50,10 @@ Canonical method notes: `design/handoff/lumina-skim/REC709.md`.
 1. **Leave-one-clip-out** (or held-out sixth clip) on the current shipped SL3T; publish mean/p95 with the caveat removed or restated.
 2. Re-run **Safari (and Chromium) canvas** ΔE after any `calibrate()` work; gate UI claims on engine pixels, not Python alone.
 3. One **new shoot** (different body/lighting) before any App Store / friend-demo accuracy line.
-4. Sort DnD / gesture checklist (this PR’s unfinished product work) — orthogonal to colour eval.
+4. Sort DnD / gesture checklist is wired in the wireframe (`keep-wf.html`) — still orthogonal to colour eval; not a measured product claim.
 
 ## Wireframe lock-ins (do not re-litigate)
 
-- Import = large SD designation cards up top + hero Drop only — **no Cards & volumes / `sd*` chip strip under Drop**.
-- Files not Phone; Kept dock always present; progressive Ready N/M; no Match; no vague Memory footer; Rec.709 default for Log.
+- Import = sensed designation cards up top (click to enable) + hero Drop + **Input dock** — **no Cards & volumes / `sd*` chip strip under Drop**.
+- AirDrop / Android / OS drops land in the Input dock; Sort opens a **union chron axis** for every docked input.
+- Files not Phone; Kept dock always present; progressive Ready N/M (not a gate); no Match; no vague Memory footer; Rec.709 default for Log.
