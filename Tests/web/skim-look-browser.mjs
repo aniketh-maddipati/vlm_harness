@@ -35,9 +35,11 @@ await open();
 
 const say = () => p.evaluate(() => document.querySelector('[data-lumina="look-say"]')?.innerText || '');
 const lookOp = () => p.evaluate(() => getComputedStyle(document.querySelector('[data-lumina="viewer-look"]') || document.body).opacity);
-// Mean brightness of the picture as composited (a screenshot, decoded in the page).
+// Mean brightness of the picture as composited (a screenshot, decoded in the page), without the EV badge over it.
 const mean = async () => {
+  await p.evaluate(() => document.querySelectorAll('[data-lumina="ev-badge"]').forEach(b => { b.style.visibility = 'hidden'; }));
   const el = await p.$('[data-lumina="clip-row"] [data-pic="1"] > div'); const png = (await el.screenshot()).toString('base64');
+  await p.evaluate(() => document.querySelectorAll('[data-lumina="ev-badge"]').forEach(b => { b.style.visibility = ''; }));
   return p.evaluate(async b64 => { const im = new Image(); im.src = 'data:image/png;base64,' + b64; await im.decode(); const c = document.createElement('canvas'); c.width = 64; c.height = 36;
     const x = c.getContext('2d'); x.drawImage(im, 0, 0, 64, 36); const d = x.getImageData(0, 0, 64, 36).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return s / (d.length / 4) / 3; }, png);
 };
