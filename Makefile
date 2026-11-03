@@ -27,6 +27,7 @@ LIMIT    ?=
 RULES    ?=
 LABEL    ?=
 DECODER  ?=
+RAWS     ?=
 KINDS    ?= base,single,combo
 PX       ?= 2048
 
@@ -48,6 +49,9 @@ PARITY_ARGS += --label $(LABEL)
 endif
 ifneq ($(DECODER),)
 PARITY_ARGS += --decoder $(DECODER)
+endif
+ifneq ($(RAWS),)
+PARITY_ARGS += --raws $(RAWS)
 endif
 
 .PHONY: render parity parity-combos parity-check parity-personal parity-test parity-loop
