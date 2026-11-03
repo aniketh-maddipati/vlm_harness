@@ -12,10 +12,11 @@ The order below follows that goal, not RapidRAW's feature count.
 ## Where Lumina stands
 
 - **Quality first, features second.**
-  - No stage is `locked`, and no current parity report exists on main.
-  - Every measured slider misses p95 ≤ 4.0. Highlights p95 is 7.0 (9.9 at −100), and its form is the
-    limit, not its coefficients.
-  - The held-out set is at 2.37 / 7.93. Whites, Blacks and Saturation numbers predate the base refit.
+  - Measured 2026-11-03 (`Tools/parity/report/20261029-baseline/`, table below): only Contrast (1.52 / 3.90,
+    5 photos) and the combos (1.55 / 4.52) pass. Every other slider misses p95 ≤ 4.0, worst at the ends of
+    the range: Blacks −50 p95 10.9, Highlights −100 9.0, Exposure +2 6.3, Shadows +100 6.8.
+  - The held-out set is at **2.38 / 8.10**, past the 8.07 cap on main (7.93 on 2026-10-02). Nothing is locked:
+    no stage passes parity and the held-out tolerance together.
   - Clarity, sharpening, the HSL mixer, the curve regions and the vignette strength all run on
     default coefficients (round numbers).
 - **UI and native disagree.**
@@ -32,7 +33,7 @@ lookmath.py), tests and a Lightroom sweep where one applies.
 
 | Area | RapidRAW | Lumina now | To reach parity | Days |
 |---|---|---|---|---|
-| Basic tone | exp, brightness, con, hl/sh/wh/bl; AgX tonemap | ✓ fitted; hl/sh p95 high | Highlights form rework; refit wh/bl on new base | 4 |
+| Basic tone | exp, brightness, con, hl/sh/wh/bl; AgX tonemap | ✓ fitted; con passes, ev/hl/sh/wh/bl fail p95 (5.2–5.9) | Highlights form rework; refit wh/bl on new base; ev's highlight clipping | 4 |
 | Clarity / Texture / Dehaze | clarity, structure, centré, dehaze | clarity native, unfitted, no slider; dehaze unmerged | expose + fit clarity; add texture (small-radius local contrast); merge dehaze | 4 |
 | Vibrance / Saturation | ✓ | sat ✓; vib no slider | add slider | 0.5 |
 | HSL 8 bands | ✓ | ✓ page + native, unfitted | HSL sweep, fit | 2 |
@@ -58,6 +59,56 @@ lookmath.py), tests and a Lightroom sweep where one applies.
 | Out of scope | panorama, HDR merge, focus stack, negatives, generative replace (network: breaks TRUST) | — | not parity work for Edit | — |
 
 Sum: about **70–80 agent-days**. About a third of it is quality (fits, sweeps, forms), not new features.
+
+## Measured: per stage (2026-11-03)
+
+origin/main f3b95414, `prof:adobe`, ΔE2000 median / p95 vs Lightroom CC; sweeps 1–2 are 5 photos, Death Valley
+(DV) the unseen half without the 3 photos whose crop or masks the presets kept. Full numbers:
+`Tools/parity/report/20261029-baseline/README.md`. Skim: Skim's display-referred look (`LOOK-BEGIN`) on
+Lightroom's base export, same positions (`skim_parity.py`); Temperature / Tint at Skim's best-matching value.
+
+| stage | slider | Lumina (sweep) | Lumina (DV) | Skim (sweep) | pass |
+|---|---|---|---|---|:---:|
+| exposure | Exposure | 1.31 / 5.18 | – | 3.28 / 12.25 ✗ | ✗ |
+| whiteBalance | Temperature | 2.02 / 5.49 | – | 3.67 / 15.75 ✗ (range ends at ±100) | ✗ |
+| whiteBalance | Tint | 1.35 / 4.04 | – | 2.16 / 8.78 ✗ | ✗ |
+| whitesBlacks | Whites | 1.73 / 4.59 | – | 1.16 / 5.32 ✗ | ✗ |
+| whitesBlacks | Blacks | 1.43 / 5.57 | – | 1.49 / 5.08 ✗ | ✗ |
+| tone | Highlights | 1.50 / 5.91 | −100: 1.96 / 4.23 | 1.50 / 8.54 ✗ | ✗ |
+| tone | Shadows | 1.51 / 5.20 | +100: 2.06 / 5.90 | 1.66 / 7.67 ✗ | ✗ |
+| contrast | Contrast | 1.52 / 3.90 | – | 1.24 / 3.57 ✓ | ✓ (5 photos; not locked) |
+| colour | Vibrance | 1.65 / 5.55 | – | 1.39 / 4.91 ✗ | ✗ |
+| colour | Saturation | 1.24 / 5.01 | – | 1.17 / 4.13 ✗ | ✗ |
+| — | combos (3 sliders) | 1.55 / 4.52 | – | 2.10 / 6.65 ✗ | ✓ |
+| rawDevelop | base | 1.03 / 3.67 | 1.05 / 3.08 | (input) | – |
+| curve, mixer, clarity, sharpen, vignette | | no sweep yet (sweeps 4–12, PR #327) | | | – |
+
+Held-out 2.38 / 8.10 (cap 2.42 / 8.07): ✗ on p95, on main as it stands.
+
+**Better scores, sweep 1** (`better.py`; Lightroom's exports vs Lumina's renders, median over 5 photos):
+
+| slider | isolation LR / Lumina (leak) | hue skin ° LR / Lumina | evenness LR / Lumina | clip before the end % LR / Lumina | halo L* LR / Lumina |
+|---|---|---|---|---|---|
+| Exposure | – | 1.9 / 2.8 | 0.16 / 0.16 | 5.2 / **20.3** | −0.13 / 0.02 |
+| Contrast | – | 1.1 / 0.6 | 0.04 / 0.04 | 1.4 / **6.2** | −0.14 / 0.00 |
+| Highlights | 0.66 (0.11) / 0.53 (0.08) | 1.6 / 0.7 | 0.05 / 0.03 | 0.6 / 0.4 | −0.20 / 0.18 |
+| Shadows | 0.76 (0.18) / 0.32 (0.09) | 1.0 / 0.3 | 0.15 / 0.16 | 1.9 / 2.2 | 0.23 / 0.23 |
+| Whites | 0.85 (0.36) / **1.25 (0.45)** | 1.3 / 0.0 | 0.43 / 0.02 | 1.5 / 1.3 | −0.13 / 0.00 |
+| Blacks | 1.53 (0.91) / 1.03 (0.53) | 1.0 / 0.1 | 0.21 / 0.06 | 15.2 / 14.6 | −0.11 / 0.00 |
+| Vibrance | – | 2.1 / 0.0 | 0.31 / 0.33 | 0.1 / 0.5 | −0.18 / 0.00 |
+| Saturation | – | 2.4 / 0.1 | 0.14 / 0.16 | 0.1 / 0.9 | −0.14 / 0.00 |
+
+Skim (same scorer on its renders): isolation is tighter than both (Highlights 0.05, Whites 0.02: its curves
+are narrow bumps), Exposure clips 2.4 % before the end (soft shoulder), but its ΔE to Lightroom is the largest:
+Exposure ±2 at 6–7 median (display-referred gain, not scene-referred), Temperature saturates at ±100 short of
+Lightroom's 3200 K / 10000 K, Highlights −100 p95 13. Skim's rows are a measure for the video prompts; no Skim
+code changed.
+
+Lumina already beats Lightroom on isolation (Highlights, Shadows, Blacks), on hue stability and on step evenness
+(Whites, Blacks). It loses on **added clipping** (Exposure clips 20 % of pixels before the slider's end, Lightroom
+5 %; Contrast 6 % vs 1 %) and on Whites' isolation. Lightroom's columns carry a floor of about 1° hue and −0.1 to
+−0.2 L* halo from its exports alone (8-bit JPEG; base exported at 1968 px, singles at 2048). RapidRAW: no exports
+yet.
 
 ## Better than Lightroom and RapidRAW: what the sliders are scored on
 
