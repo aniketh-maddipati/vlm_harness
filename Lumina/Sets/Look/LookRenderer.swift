@@ -49,6 +49,9 @@ nonisolated final class LookRenderer: @unchecked Sendable {
         lock.withLock { (latest[rel] ?? Int.min) > seq }
     }
 
+    /// The key `requested` / `isStale` use: the photo, or the photo in its own lane.
+    static func staleKey(_ rel: String, _ lane: String?) -> String { lane.map { rel + "#" + $0 } ?? rel }
+
     /// Runs `work` on the render queue; `done` gets the result on the main thread.
     func enqueue(_ work: @escaping () throws -> Data, done: @escaping (Result<Data, Error>) -> Void) {
         queue.addOperation {
@@ -111,14 +114,17 @@ nonisolated final class LookRenderer: @unchecked Sendable {
     /// canvas tier's version (the image fallback path renders what the native canvas would).
     /// `masks`: asked for only when the look has `mask:` tokens (`Look.locals`), with the parsed
     /// look, on this queue (it may wait for the photo's masks to be found); nil renders without them.
+    /// `lane`: a second line of sequence numbers for the same photo (`thumb`: the Edit filmstrip's carry
+    /// previews, the fan, the contact sheet), so small renders of a photo and its canvas never make each other stale.
     func renderJPEG(url: URL, rel: String, look: String, px: Int, seq: Int, quality: Double = 0.9, decoder: Int? = nil, preview: LookBases.PreviewFallback? = nil,
-                    masks: (() -> [LookMasks.Found]?)? = nil) throws -> Data {
-        if isStale(rel: rel, seq: seq) { lock.withLock { _stats.stale += 1 }; throw Stale() }
+                    masks: (() -> [LookMasks.Found]?)? = nil, lane: String? = nil) throws -> Data {
+        let key = Self.staleKey(rel, lane)
+        if isStale(rel: key, seq: seq) { lock.withLock { _stats.stale += 1 }; throw Stale() }
         let parsed = try Look.parse(look)
         var dev = try developed(url: url, rel: rel, px: px, decoder: decoder, nr: parsed.nr, dust: parsed.dust, preview: preview)
         // The developed image is the whole upright photo: its masks fill it.
         if !parsed.locals.isEmpty, let found = masks?() { dev = dev.withMasks(found, key: LookPipeline.PhotoMasks.key(rel: rel, found)) }
-        if isStale(rel: rel, seq: seq) { lock.withLock { _stats.stale += 1 }; throw Stale() }
+        if isStale(rel: key, seq: seq) { lock.withLock { _stats.stale += 1 }; throw Stale() }
         let t0 = Date()
         let out = pipeline.apply(parsed, to: dev)
         let data = try pipeline.jpeg(out, quality: quality)

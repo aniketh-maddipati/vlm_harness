@@ -118,11 +118,11 @@ test('a flat look gives identity for Rec. 709 clips, and just the S-Log3 step fo
   for (let k = 0; k < 200; k++) { const y = 0.1 + rnd() * 0.5, p = [0, 1, 2].map(() => y + (rnd() - 0.5) * 0.06), o = sample(lg, p), e = C.lkSl3(p); e.forEach((x, j) => assert.ok(close(o[j], x, 1e-3), JSON.stringify([p, o, e]))); }
 });
 
-test('the cube sampled anywhere matches lkPx (with the S-Log3 step) within the 33-point interpolation error', () => {
+test('the cube sampled anywhere matches the preview (lkPreview: the S-Log3 step, then lkPx) within the 33-point interpolation error', () => {
   for (const log of [false, true]) for (const L of LOOKS) {
     const c = parseCube(C.lkCube(L, log)); let worst = 0, sum = 0; const N = 3000;
     for (let k = 0; k < N; k++) {
-      const p = [rnd(), rnd(), rnd()], o = sample(c, p), e = C.lkPx(log ? C.lkSl3(p) : p, L), d = Math.max(...o.map((x, j) => Math.abs(x - e[j])));
+      const p = [rnd(), rnd(), rnd()], o = sample(c, p), e = C.lkPreview(p, L, log ? 1 : 0), d = Math.max(...o.map((x, j) => Math.abs(x - e[j])));
       worst = Math.max(worst, d); sum += d;
     }
     // in 8-bit levels (measured 2026-11-03: 709 mean 0.1–0.2, worst 2–3.5; log mean 0.3–0.5, worst 9–12, all at codes so
@@ -136,7 +136,7 @@ test('on what an S-Log3 camera writes (log grey ± colour) the cube is within tw
   for (const L of LOOKS) {
     const c = parseCube(C.lkCube(L, true)); let worst = 0, sum = 0; const N = 3000;
     for (let k = 0; k < N; k++) {
-      const y = 0.1 + rnd() * 0.6, p = [y + (rnd() - 0.5) * 0.12, y + (rnd() - 0.5) * 0.12, y + (rnd() - 0.5) * 0.12], o = sample(c, p), e = C.lkPx(C.lkSl3(p), L), d = Math.max(...o.map((x, j) => Math.abs(x - e[j])));
+      const y = 0.1 + rnd() * 0.6, p = [y + (rnd() - 0.5) * 0.12, y + (rnd() - 0.5) * 0.12, y + (rnd() - 0.5) * 0.12], o = sample(c, p), e = C.lkPreview(p, L, 1), d = Math.max(...o.map((x, j) => Math.abs(x - e[j])));
       worst = Math.max(worst, d); sum += d;
     }
     const tag = JSON.stringify(L) + ' mean ' + (sum / N * 255).toFixed(2) + ' worst ' + (worst * 255).toFixed(2);
@@ -181,4 +181,19 @@ test('a long or non-ASCII name still makes a plist Final Cut can read (offset ta
     const s = mk === 5 ? Buffer.from(p.slice(at, at + n)).toString('latin1') : String.fromCharCode(...Array.from({length: n}, (_, i) => p[at + 2 * i] << 8 | p[at + 2 * i + 1]));
     assert.equal(s, '0123456789abcdef0123456789abcdef:' + name);
   }
+});
+
+test('Exposure on S-Log3 is the preview\u2019s shift of the code (#335), not the look\u2019s gain; elsewhere the gain', () => {
+  const ev = /static EV_CODE = ([^;]+);/.exec(src)[1], EV = new Function('return ' + ev)();
+  for (const x of [0.5, -1.25, 2]) for (const p of [[0.3, 0.4, 0.5], [0.55, 0.5, 0.45], [0.2, 0.2, 0.2]]) {
+    const got = C.lkPreview(p, {ev: x, con: 20}, 1), want = C.lkPx(C.lkSl3(p, x * EV), {con: 20});
+    got.forEach((v, k) => assert.ok(close(v, want[k], 1e-12), JSON.stringify([x, p, got, want])));
+    const gain = C.lkPx(C.lkSl3(p), {ev: x, con: 20}); assert.ok(gain.some((v, k) => Math.abs(v - got[k]) > 1e-3), 'not the gain');
+    const rec = C.lkPreview(p, {ev: x, con: 20}, 0), rw = C.lkPx(p, {ev: x, con: 20}); rec.forEach((v, k) => assert.ok(close(v, rw[k], 1e-12)));
+  }
+  // to 1/100 stop, as gradeDraw rounds it
+  const a = C.lkPreview([0.4, 0.4, 0.4], {ev: 0.504}, 1), b = C.lkPreview([0.4, 0.4, 0.4], {ev: 0.5}, 1); assert.deepEqual(a, b);
+  // and the cube carries it
+  const cube = parseCube(C.lkCube({ev: 1}, 1)), g = [16 / 32, 12 / 32, 10 / 32], e = C.lkPreview(g, {ev: 1}, 1), o = cube.v[16 + 12 * 33 + 10 * 33 * 33];
+  o.forEach((v, k) => assert.ok(close(v, e[k], 1e-6)));
 });
