@@ -21,6 +21,7 @@ p.on('pageerror', e => errs.push(String(e)));
 await p.goto('file://' + page); await p.waitForTimeout(1000);
 await p.setInputFiles('input[type=file]', dir);
 for (let k = 0; k < 60; k++) { await p.waitForTimeout(500); if (await p.evaluate(() => { try { const a = JSON.parse(localStorage.getItem('lumina-skim:clock') || '[]')[0]; return !!(a && a.done != null); } catch (x) { return false; } })) break; }
+await p.evaluate(() => { const b = document.querySelector('[data-lumina="sort-now"]'); if (b) b.click(); }); await p.waitForTimeout(400);   // the minimal page stays on Import: Sort now
 const clipsTab = p.locator('[data-lumina="levels"] [role=tab]').nth(1); if (await clipsTab.count()) { await clipsTab.click(); await p.waitForTimeout(200); } else { await p.click('[data-gi="0"]'); await p.waitForTimeout(200); }
 await p.mouse.click(2, 600); await p.waitForTimeout(200);
 // the clip the page names as current

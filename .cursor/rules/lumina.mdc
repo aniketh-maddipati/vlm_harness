@@ -1,0 +1,24 @@
+---
+description: Lumina repo rules (from AGENTS.md "Rules that bite")
+alwaysApply: true
+---
+
+Read AGENTS.md before changing anything; docs/dev/WORK-SPLIT.md says what Cursor does here.
+
+- The UI is the page in `design/handoff/lumina-cull/` (Stills) and `design/handoff/lumina-skim/` (Skim).
+  Edit it there, then copy byte for byte to `Lumina/Sets/Web/` (`bash Scripts/sets_sync_ui.sh`);
+  `python3 Scripts/page_bytes.py` must print 12 / 12.
+- Never edit `Lumina/Sets/Web/*.html`, `support.js`, `lumina-core-v4.js`, `lumina-v4-data.js`,
+  `lumina-selftest.js` or `vendor/` directly. `plumbing.js` is the only app-side file there, and it
+  supplies behaviour and data, never UI.
+- New reach (bridge op, entitlement, URL in Swift, `NSWorkspace.open`, networking API, package,
+  vendored file) needs a row in `docs/release/TRUST.md`; `python3 Scripts/trust_check.py` must pass.
+  No `print` / `NSLog` in app code: log through `LuminaLog`. Nothing leaves the Mac.
+- Never write to the card or change originals; copy, never move, verify every copy; keep a `.lumina-bak`.
+- Look maths lives in three copies (`LookMath.swift`, `LookKernels.swift`, `Tools/parity/lookmath.py`):
+  change all three together.
+- Tests: don't start the probe, UI tests or anything long from Cursor. Never remove
+  `~/LuminaEvidence/.tests-off`. Every test run goes through `Scripts/test_guard.py`.
+- Don't use bare `git stash` (shared across worktrees), don't push, don't merge. Before a push:
+  `bash Scripts/ci_local.sh`, then hand the branch to Claude Code's `pr-shepherd`.
+- Don't edit a worktree a Claude session is writing in (`.claude/worktrees/*`).

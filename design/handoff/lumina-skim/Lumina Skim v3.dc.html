@@ -10,6 +10,68 @@
 <helmet>
 <script src="./lumina-video-data-mvp.js"></script>
 <style>
+/* Minimal (2026-10-29, the keep-sort wireframes): keep only, the frame first, no chrome that isn't used. What is cut
+   still works from its key (M, C, ⌘⌫, ⌘W, P); ?full=1 shows everything again. LOCAL-CHANGES 316. */
+html:not([data-full]) div[data-lumina=skim-bar]:not([style*="position:absolute"]):not([data-busy=true]),
+html:not([data-full]) [data-lumina=keybar],
+html:not([data-full]) [data-lumina=shoot-close],
+html:not([data-full]) [data-lumina=memory-pill],
+html:not([data-full]) [data-lumina=open-head],
+html:not([data-full]) [data-lumina=drop-pick],
+html:not([data-full]) [data-lumina=drop-note],
+html:not([data-full]) [data-lumina=web-preview],
+html:not([data-full]) [data-lumina=report],
+html:not([data-full]) [data-lumina=tile-notes],
+html:not([data-full]) [data-bucket=maybe],
+html:not([data-full]) [data-bucket=cut],
+html:not([data-full]) [data-lumina=footer] [data-well],
+html:not([data-full]) [data-lumina=footer-cut],
+html:not([data-full]) [data-lumina=storage],
+html:not([data-full]) [data-lumina=viewer-top] [data-well=maybe],
+html:not([data-full]) [data-lumina=viewer-top] [data-well=cut],
+html:not([data-full]) [data-lumina=clip-remove],
+html:not([data-full]) [data-lumina=viewer-mark],
+html:not([data-full]) [data-lumina=viewer-mark-now],
+html:not([data-full]) [data-lumina=info] [data-facts],
+html:not([data-full]) [data-lumina=neighbours],
+html:not([data-full]) [data-lumina=tile-l2],
+html:not([data-full]) body:has([data-screen-label="Clip"]) [data-lumina=dock],
+html:not([data-full]) body:has([data-screen-label="Clip"]) [data-lumina=footer],
+html:not([data-full]) [data-lumina=footer],
+html:not([data-full]) [data-lumina=viewer-top],
+html:not([data-full]) [data-lumina=tile-title],
+html:not([data-full]) [data-lumina=tile-dots],
+html:not([data-full]) [data-lumina=tile-marks],
+html:not([data-full]) [data-lumina=tile-chips],
+html[data-full] [data-lumina=rail-close],
+html[data-full] [data-lumina=rail-keep],
+html[data-full] [data-lumina=rail-tabs],
+html:not([data-full]) [data-lumina=look-title]{display:none!important}
+/* The wireframe's rail: flat, a hairline on its left, the time under the name, Color's sections as underlined words,
+   Copy · Paste · Reset at the foot of Color. */
+html:not([data-full]) [data-lumina=info]{background:transparent!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;border-radius:0!important;border-left:1px solid rgba(239,236,230,0.12);padding:4px 0 0 22px!important;gap:16px!important}
+html:not([data-full]) [data-lumina=info-head]{background:transparent!important;box-shadow:none!important;padding:0!important}
+html:not([data-full]) [data-lumina=info-head] > div:first-child{flex-wrap:wrap;row-gap:2px}
+html:not([data-full]) [data-lumina=info-when]{order:3;flex-basis:100%;font-size:12px;font-weight:600;color:#9A958D!important}
+html:not([data-full]) [data-lumina=look]{background:transparent!important;box-shadow:none!important;padding:0!important;gap:14px!important}
+html:not([data-full]) [data-lumina=look-head]{order:9;margin-top:6px}
+html:not([data-full]) [data-lumina=look-head] button{background:transparent!important;padding:0 8px 0 0!important;color:#9A958D!important;font-weight:700}
+html:not([data-full]) [data-lumina=look-head] button:hover{color:#EFECE6!important}
+html:not([data-full]) [data-lumina=look-head] [data-lumina=look-say]{order:2;margin-left:auto;font-size:12px}
+html:not([data-full]) [data-lumina=look-head] > span:last-of-type{order:1;margin-left:0!important}
+html:not([data-full]) [data-lumina=look-secs]{background:transparent!important;padding:0!important;border-radius:0!important;box-shadow:inset 0 -1px 0 rgba(239,236,230,0.14)}
+html:not([data-full]) [data-lumina=look-secs] button{background:transparent!important;border-radius:0!important;box-shadow:none!important;font-weight:700}
+html:not([data-full]) [data-lumina=look-secs] button[aria-selected=true]{box-shadow:inset 0 -2px 0 #EFECE6!important;color:#EFECE6!important}
+/* The wireframe's large view: the strip under the frame, the rail the full height with Keep at its foot. */
+html:not([data-full]) [data-lumina=furled-takes]{order:2;border-bottom:0!important;border-top:1px solid rgba(239,236,230,0.06)}
+html:not([data-full]) [data-screen-label=Clip]{order:1}
+html:not([data-full]) [data-lumina=info]{display:flex!important;flex-direction:column;align-self:stretch!important;min-height:100%}
+html:not([data-full]) [data-lumina=info] > *{align-self:stretch!important}
+html:not([data-full]) [data-lumina=info] > [data-lumina=look]{flex:1 1 auto}
+/* The wireframe's time axis: small labels on the rod. */
+html:not([data-full]) [data-lumina=time-at]{font-size:15px!important;line-height:20px!important}
+html:not([data-full]) [data-lumina=time-date]{font-size:11px!important;line-height:16px!important}
+
 body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
 a{color:#EFECE6}a:hover{color:#B8B3AB}
 *,*::before,*::after{transition:none!important}
@@ -144,6 +206,21 @@ body:has([data-view=phone]){background:#111}
   [data-lumina=footer]{grid-template-columns:auto minmax(0,1fr)!important}
   [data-screen-label=Clip]{padding-top:8px!important;padding-bottom:8px!important}
 }
+/* Color: half the screen tall, the rows sharing what is left (owner, 2026-10-29). */
+[data-lumina=look]{min-height:50vh;box-sizing:border-box}
+[data-lumina=look]>[data-lkp]{flex:1 1 auto;min-height:40px;align-content:center}
+/* A press on every button without a spring of its own; reduced motion stays still. */
+@media (prefers-reduced-motion:no-preference){button:not([data-press]):not([aria-disabled=true]):active{transform:scale(0.97);transition:transform 80ms ease-out}}
+/* Import as the wireframe: the drives along the top, one big Drop, AirDrop under it, Included at the foot */
+html:not([data-full]) [data-lumina=drop] { min-height:clamp(160px, calc(100vh - 540px), 420px) !important; box-shadow:none !important; border:1.5px dashed rgba(239,236,230,0.32) !important; }
+html:not([data-full]) [data-lumina=drop] [data-lumina=drop-t] { font-family:'Iowan Old Style','Palatino',Georgia,serif !important; font-size:clamp(44px, 7vw, 68px) !important; line-height:1; }
+html:not([data-full]) [data-lumina=airdrop] { box-shadow:none !important; border:1.5px dashed rgba(239,236,230,0.32); }
+html:not([data-full]) [data-lumina=airdrop][aria-checked=true] { border-style:solid; border-color:rgba(239,236,230,0.6); }
+/* the steps as the wireframe's: words, the one you are on underlined */
+html:not([data-full]) [data-lumina=steps] { background:transparent !important; gap:6px; }
+html:not([data-full]) [data-lumina=steps] > div { display:none; }
+html:not([data-full]) [data-lumina=steps] [role=tab] { background:transparent !important; font-size:13px !important; }
+html:not([data-full]) [data-lumina=steps] [role=tab][aria-selected=true] { text-decoration:underline; text-underline-offset:5px; text-decoration-thickness:1.5px; color:#EFECE6 !important; }
 </style>
 </helmet>
 <div data-screen-label="Skim" data-view="{{ viewName }}" style="position:relative;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-variant-numeric:tabular-nums;font-size:12px;user-select:none;-webkit-user-select:none">
@@ -208,7 +285,7 @@ body:has([data-view=phone]){background:#111}
     </sc-if>
   </div>
   <sc-if value="{{ isSkim }}" hint-placeholder-val="{{ true }}">
-  <div data-lumina="skim-bar" style="flex:none;height:56px;padding:0 24px;box-sizing:border-box;display:{{ skimBarD }};align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
+  <div data-lumina="skim-bar" data-busy="{{ skimBusy }}" style="flex:none;height:56px;padding:0 24px;box-sizing:border-box;display:{{ skimBarD }};align-items:center;gap:18px;border-bottom:1px solid rgba(239,236,230,0.06)">
     <div style="flex:1;min-width:0;display:flex;align-items:center">
       <sc-if value="{{ lvTabsOn }}" hint-placeholder-val="{{ false }}">
       <div data-lumina="levels" role="tablist" aria-label="levels" style="position:relative;display:grid;grid-template-columns:repeat({{ lvN }},68px);padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)">
@@ -295,7 +372,7 @@ body:has([data-view=phone]){background:#111}
     <sc-if value="{{ isImport }}" hint-placeholder-val="{{ false }}">
       <div data-screen-label="Open" onDragOver="{{ dropOver }}" onDragLeave="{{ dropLeave }}" onDrop="{{ dropIn }}" style="flex:1;min-height:0;overflow-y:auto;animation:rise 160ms ease-out">
         <div style="max-width:min(1000px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,5vh,56px) clamp(16px,4vw,48px) 40px;display:flex;flex-direction:column;gap:24px">
-          <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · M4V</span><span style="flex:1"></span>
+          <div data-lumina="open-head" style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:30px;color:#EFECE6">Open clips</span><span style="color:#9A958D">MP4 · MOV · MXF · M4V</span><span style="flex:1"></span>
             <sc-if value="{{ cacheOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="cache" onMouseEnter="{{ cacheEnter }}" onMouseLeave="{{ cacheLeave }}" style="position:relative;align-self:center">
               <button type="button" data-lumina="cache-chip" aria-expanded="{{ cacheOpen }}" onClick="{{ cacheToggle }}" title="What Lumina keeps to open clips faster" style="box-sizing:content-box;padding:0;background:transparent;text-align:left;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 10px;border-radius:14px;display:flex;align-items:center;gap:6px;color:#B8B3AB;background:{{ cacheBg }};cursor:pointer;white-space:nowrap" style-hover="background:rgba(239,236,230,0.14)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="width:6px;height:6px;border-radius:50%;background:#9A958D"></span>{{ cacheChip }}<span style="color:#9A958D">{{ cacheArrow }}</span></button>
               <sc-if value="{{ cacheOpen }}" hint-placeholder-val="{{ false }}">
@@ -324,11 +401,13 @@ body:has([data-view=phone]){background:#111}
               <span data-lumina="resume-hint" style="flex-basis:100%;color:#9A958D;line-height:1.45">{{ resumeHint }}</span>
             </div>
           </sc-if>
-          <button type="button" data-lumina="drop" onClick="{{ pickFolder }}" style="color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
-            <span style="font-size:16px;color:#EFECE6">{{ dropT }}</span>
-            <span style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>{{ pickT }}</span>
+          <sc-if value="{{ drvOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="drives" role="list" aria-label="Drives" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:12px"><sc-for list="{{ drives }}" as="dv" hint-placeholder-count="3"><button type="button" role="listitem" data-lumina="drive" onClick="{{ dv.go }}" aria-label="{{ dv.aria }}" title="{{ dv.tip }}" style="text-align:left;color:inherit;box-sizing:border-box;padding:12px 14px;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:64px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1);display:flex;flex-direction:column;gap:3px;cursor:pointer" style-hover="background:#2E2D2B" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:#9A958D">{{ dv.kind }}</span><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:19px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ dv.name }}</span><span style="color:#B8B3AB">{{ dv.line }}</span></button></sc-for></div></sc-if>
+          <button type="button" data-lumina="drop" onClick="{{ dropGo }}" style="color:inherit;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:200px;box-sizing:border-box;padding:28px;border-radius:14px;background:{{ dropBg }};box-shadow:inset 0 0 0 1.5px {{ dropRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;transition:background 120ms ease-out, box-shadow 120ms ease-out" style-focus="outline:2px solid #FFD27A;outline-offset:2px">
+            <span data-lumina="drop-t" style="font-size:16px;color:#EFECE6">{{ dropT }}</span>
+            <span data-lumina="drop-pick" style="padding:9px 16px;border-radius:10px;background:#FFD27A;color:#1E1D1B;font-weight:800;display:flex;align-items:center;gap:6px"><span data-kbd="1" style="min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);display:grid;place-items:center;font-weight:700;font-size:12px">⌘O</span>{{ pickT }}</span>
             <span data-lumina="drop-note" style="color:#9A958D">{{ dropNote }}</span>
           </button>
+          <sc-if value="{{ adOn }}" hint-placeholder-val="{{ false }}"><button type="button" role="switch" data-lumina="airdrop" aria-checked="{{ adLive }}" onClick="{{ adToggle }}" title="{{ adTip }}" style="color:inherit;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-height:120px;box-sizing:border-box;padding:20px;border-radius:14px;background:{{ adBg }};box-shadow:inset 0 0 0 1.5px {{ adRing }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;text-align:center;transition:background 120ms ease-out" style-hover="background:#2A2927" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="display:flex;align-items:center;gap:10px;font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:26px;color:#EFECE6"><span style="width:8px;height:8px;border-radius:50%;background:{{ adDot }};animation:{{ adAnim }}"></span>AirDrop</span><span data-lumina="airdrop-say" style="font-weight:600;color:{{ adSayC }}">{{ adSay }}</span></button></sc-if>
           <input ref="{{ fileRef }}" type="file" webkitdirectory="" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <input ref="{{ clipRef }}" type="file" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ filesIn }}" style="display:none"></input>
           <sc-if value="{{ impMsgOn }}" hint-placeholder-val="{{ false }}"><div role="status" data-lumina="imp-msg" aria-busy="{{ impBusy }}" style="color:#FFD27A;display:flex;align-items:center;gap:9px"><sc-if value="{{ impBusy }}" hint-placeholder-val="{{ false }}"><span style="flex:none;width:7px;height:7px;border-radius:50%;background:#FFD27A;animation:breathe 1.2s ease-in-out infinite;will-change:opacity"></span></sc-if><span>{{ impMsg }}</span></div></sc-if>
@@ -371,6 +450,16 @@ body:has([data-view=phone]){background:#111}
           </div>
         </div>
       </div>
+      <sc-if value="{{ incOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="included" aria-label="Included" style="flex:none;display:flex;gap:16px;align-items:center;padding:10px 20px 12px;background:rgba(35,34,32,0.74);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);border-top:1px solid rgba(239,236,230,0.1)">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:baseline;gap:10px;white-space:nowrap;overflow:hidden"><span style="font-weight:700;color:#B8B3AB">Included</span><span data-lumina="prep" role="status" style="min-width:0;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ incPrep }}</span></div>
+          <div data-lumina="included-row" style="display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px">
+            <sc-if value="{{ incEmpty }}" hint-placeholder-val="{{ false }}"><div data-lumina="included-empty" style="flex:none;width:220px;min-height:64px;box-sizing:border-box;border-radius:10px;border:1px dashed rgba(239,236,230,0.22);display:grid;place-items:center;color:#9A958D">Empty</div></sc-if>
+            <sc-for list="{{ incTiles }}" as="it" hint-placeholder-count="2"><div data-lumina="included-tile" title="{{ it.tip }}" style="flex:none;width:220px;min-height:64px;box-sizing:border-box;padding:8px 12px;border-radius:10px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);display:flex;flex-direction:column;gap:2px;overflow:hidden"><span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:#9A958D">{{ it.kind }}</span><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:17px;color:#EFECE6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.name }}</span><span style="color:#B8B3AB;white-space:nowrap">{{ it.line }}</span><div data-lumina="included-bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{ it.n }}" aria-valuenow="{{ it.ok }}" style="margin-top:4px;height:3px;border-radius:2px;background:rgba(239,236,230,0.1);overflow:hidden"><div style="height:100%;width:{{ it.pct }};background:#B8B3AB;transition:width 200ms ease-out"></div></div></div></sc-for>
+          </div>
+        </div>
+        <button type="button" data-lumina="sort-now" aria-disabled="{{ incNo }}" onClick="{{ incGo }}" title="Sort what is included (⏎)" style="flex:none;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;min-width:120px;min-height:44px;padding:8px 16px;border-radius:10px;background:{{ incBg }};color:{{ incFg }};cursor:{{ incCur }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:14px;font-weight:800">Sort now</span><span data-kbd="1" style="font-weight:700;font-size:11px;opacity:0.7">⏎</span></button>
+      </div></sc-if>
     </sc-if>
     <!-- Add clips (LOCAL-CHANGES 282): after Open's own inputs, so Open's folder input stays the page's first file input -->
     <input ref="{{ addRef }}" type="file" data-lumina="add-input" accept="video/*,.mp4,.mov,.m4v,.mxf,.3gp" multiple="" onChange="{{ addIn }}" style="display:none"></input>
@@ -651,26 +740,27 @@ body:has([data-view=phone]){background:#111}
             </button>
           </sc-for>
           <sc-for list="{{ ft }}" as="g" hint-placeholder-count="8">
-            <button type="button" data-gi="{{ g.i }}" data-fold="{{ g.n }}" data-first="{{ g.first }}" onMouseEnter="{{ fEnter }}" onMouseMove="{{ fMove }}" onMouseLeave="{{ fLeave }}" onClick="{{ fClick }}" onDoubleClick="{{ fDbl }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="color:inherit;text-align:left;cursor:pointer;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:absolute;left:{{ g.x }}px;top:{{ g.y }}px;width:{{ g.w }}px;height:{{ fTh }}px;display:flex;flex-direction:column;gap:6px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;overflow:hidden">
+            <button type="button" data-gi="{{ g.i }}" data-fold="{{ g.n }}" aria-label="{{ g.aria }}" data-first="{{ g.first }}" onMouseEnter="{{ fEnter }}" onMouseMove="{{ fMove }}" onMouseLeave="{{ fLeave }}" onClick="{{ fClick }}" onDoubleClick="{{ fDbl }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="color:inherit;text-align:left;cursor:pointer;box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:absolute;left:{{ g.x }}px;top:{{ g.y }}px;width:{{ g.w }}px;height:{{ fTh }}px;display:flex;flex-direction:column;gap:6px;padding:8px;margin:-8px;border-radius:10px;background:{{ g.bg }};outline:{{ g.out }};outline-offset:1px;overflow:hidden">
               <div style="position:relative;flex:none;height:{{ fPh }}px;border-radius:3px;overflow:hidden;background:#2A2826">
                 <div style="position:absolute;inset:0;background:{{ g.thumb }};filter:{{ g.flt }}"></div>
                 <sc-if value="{{ g.phOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-wait" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 10px;text-align:center;white-space:nowrap;overflow:hidden;pointer-events:none"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ g.phName }}</span><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ g.phSub }}</span></div></sc-if>
                 <div style="position:absolute;inset:0;border-radius:3px;box-shadow:{{ g.edge }};pointer-events:none"></div>
                 <sc-if value="{{ g.skOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="skim-bar" style="position:absolute;left:0;right:0;bottom:0;height:3px;display:flex;gap:1px;pointer-events:none"><sc-for list="{{ g.sk }}" as="s" hint-placeholder-count="8"><span style="flex:1;background:{{ s.c }}"></span></sc-for></div></sc-if>
                 <sc-if value="{{ g.badgeOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="fold-badge" style="position:absolute;left:6px;bottom:7px;max-width:calc(100% - 12px);box-sizing:border-box;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:#EFECE6;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.badge }}</div></sc-if>
-                <sc-if value="{{ g.durOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;bottom:7px;padding:0 5px;border-radius:4px;background:rgba(22,21,20,0.72);color:#EFECE6;font-size:11px;line-height:16px">{{ g.cell }}</div></sc-if>
+                <sc-if value="{{ g.nmOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-name" style="position:absolute;left:6px;bottom:7px;max-width:calc(100% - 96px);box-sizing:border-box;padding:0 7px;border-radius:4px;background:rgba(22,21,20,0.78);color:#EFECE6;font-size:12px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none">{{ g.title }}</div></sc-if><sc-if value="{{ g.gamOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-gamma" style="position:absolute;right:{{ g.gamR }};bottom:7px;padding:0 6px;border-radius:4px;background:rgba(22,21,20,0.78);box-shadow:inset 0 0 0 1px {{ g.gamRing }};color:#EFECE6;font-size:11px;line-height:16px;pointer-events:none">{{ g.gam }}</div></sc-if><sc-if value="{{ g.durOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;bottom:7px;padding:0 5px;border-radius:4px;background:rgba(22,21,20,0.72);color:#EFECE6;font-size:11px;line-height:16px">{{ g.cell }}</div></sc-if>
+                <sc-if value="{{ g.evOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ev-badge" style="position:absolute;left:6px;top:6px;padding:0 6px;border-radius:4px;background:{{ g.evBg }};box-shadow:{{ g.evSh }};color:{{ g.evC }};font-weight:{{ g.evW }};font-size:11px;line-height:16px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none">{{ g.evT }}</div></sc-if>
                 <sc-if value="{{ g.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:#161514;color:{{ g.markC }};font-weight:700">{{ g.mark }}</div></sc-if>
                 <sc-if value="{{ g.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ g.ghostC }};font-weight:700;opacity:0.7">{{ g.ghostT }}</div></sc-if>
               </div>
-              <div style="flex:none;height:{{ g.tH }};display:flex;align-items:baseline;justify-content:space-between;gap:8px;overflow:hidden"><span style="font-family:{{ g.tFont }};font-size:{{ g.tSize }};line-height:{{ g.tH }};color:#EFECE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.title }}</span><span style="flex:none;color:{{ g.rightC }};white-space:nowrap">{{ g.right }}</span></div>
-              <sc-if value="{{ g.l2 }}" hint-placeholder-val="{{ true }}"><div style="flex:none;height:16px;line-height:16px;display:flex;justify-content:space-between;gap:8px;color:#B8B3AB;white-space:nowrap;overflow:hidden"><span style="overflow:hidden;text-overflow:ellipsis">{{ g.line }}</span><span data-lumina="tile-why" title="why this tile starts here" style="flex:none;color:#9A958D">{{ g.why }}</span></div></sc-if>
+              <div data-lumina="tile-title" style="flex:none;height:{{ g.tH }};display:flex;align-items:baseline;justify-content:space-between;gap:8px;overflow:hidden"><span style="font-family:{{ g.tFont }};font-size:{{ g.tSize }};line-height:{{ g.tH }};color:#EFECE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.title }}</span><span style="flex:none;color:{{ g.rightC }};white-space:nowrap">{{ g.right }}</span></div>
+              <sc-if value="{{ g.l2 }}" hint-placeholder-val="{{ true }}"><div data-lumina="tile-l2" style="flex:none;height:16px;line-height:16px;display:flex;justify-content:space-between;gap:8px;color:#B8B3AB;white-space:nowrap;overflow:hidden"><span style="overflow:hidden;text-overflow:ellipsis">{{ g.line }}</span><span data-lumina="tile-why" title="why this tile starts here" style="flex:none;color:#9A958D">{{ g.why }}</span></div></sc-if>
               <sc-if value="{{ g.fold }}" hint-placeholder-val="{{ true }}">
-                <div style="flex:none;height:6px;display:flex;gap:3px;overflow:hidden"><sc-if value="{{ g.dotsOn }}" hint-placeholder-val="{{ true }}"><sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="10"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:{{ d.c }}"></span></sc-for></sc-if><sc-if value="{{ g.barOn }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;height:6px;border-radius:3px;overflow:hidden;background:rgba(239,236,230,0.16)"><sc-for list="{{ g.segs }}" as="s" hint-placeholder-count="3"><span style="width:{{ s.w }};background:{{ s.c }}"></span></sc-for></div></sc-if></div>
+                <div data-lumina="tile-dots" style="flex:none;height:6px;display:flex;gap:3px;overflow:hidden"><sc-if value="{{ g.dotsOn }}" hint-placeholder-val="{{ true }}"><sc-for list="{{ g.dots }}" as="d" hint-placeholder-count="10"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:{{ d.c }}"></span></sc-for></sc-if><sc-if value="{{ g.barOn }}" hint-placeholder-val="{{ false }}"><div style="flex:1;display:flex;height:6px;border-radius:3px;overflow:hidden;background:rgba(239,236,230,0.16)"><sc-for list="{{ g.segs }}" as="s" hint-placeholder-count="3"><span style="width:{{ s.w }};background:{{ s.c }}"></span></sc-for></div></sc-if></div>
                 <div data-lumina="tile-marks" title="{{ g.cntT }}" style="flex:none;height:16px;line-height:16px;display:flex;gap:10px;white-space:nowrap;overflow:hidden"><sc-for list="{{ g.cnt }}" as="k" hint-placeholder-count="4"><span style="flex:none;color:{{ k.c }}">{{ k.t }}</span></sc-for></div>
                 <div data-lumina="tile-notes" title="{{ g.noteT }}" style="flex:none;height:16px;line-height:16px;color:{{ g.noteC }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.note }}</div>
               </sc-if>
               <sc-if value="{{ g.l3 }}" hint-placeholder-val="{{ false }}">
-                <div style="flex:none;display:flex;gap:4px;height:20px;overflow:hidden"><sc-for list="{{ g.chips }}" as="c" hint-placeholder-count="2"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="flex:none;height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for><span style="color:#9A958D;line-height:20px">{{ g.chipNone }}</span></div>
+                <div data-lumina="tile-chips" style="flex:none;display:flex;gap:4px;height:20px;overflow:hidden"><sc-for list="{{ g.chips }}" as="c" hint-placeholder-count="2"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="flex:none;height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for><span style="color:#9A958D;line-height:20px">{{ g.chipNone }}</span></div>
                 <div data-lumina="tile-marks" style="flex:none;height:16px;line-height:16px;color:{{ g.stateC }};white-space:nowrap;overflow:hidden">{{ g.state }}</div>
               </sc-if>
             </button>
@@ -725,6 +815,7 @@ body:has([data-view=phone]){background:#111}
                     <sc-if value="{{ grid42 }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px"><sc-for list="{{ p.fr }}" as="f" hint-placeholder-count="8"><div style="aspect-ratio:16/9;background:{{ f.bg }};filter:{{ f.flt }};animation:{{ f.anim }}"></div></sc-for></div></sc-if>
                     <sc-if value="{{ p.phOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-wait" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 10px;text-align:center;white-space:nowrap;overflow:hidden;pointer-events:none"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ p.name }}</span><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ p.phSub }}</span></div></sc-if>
                     <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ p.edge }};pointer-events:none"></div>
+                    <sc-if value="{{ p.evOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ev-badge" style="position:absolute;left:5px;top:5px;padding:0 6px;border-radius:4px;background:{{ p.evBg }};box-shadow:{{ p.evSh }};color:{{ p.evC }};font-weight:{{ p.evW }};font-size:11px;line-height:16px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none">{{ p.evT }}</div></sc-if>
                     <sc-if value="{{ p.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:#161514;color:{{ p.markC }};font-weight:700">{{ p.mark }}</div></sc-if>
                     <sc-if value="{{ p.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ p.ghostC }};font-weight:700;opacity:0.7">{{ p.ghostT }}</div></sc-if>
                   </div>
@@ -758,10 +849,12 @@ body:has([data-view=phone]){background:#111}
                   <div style="position:absolute;inset:0;background:{{ it.bg }};filter:{{ it.flt }};animation:{{ it.anim }};transform:{{ it.zt }};transform-origin:{{ it.zo }}"></div>
                   <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><video ref="{{ vidRef }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transition:opacity 120ms;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></video></sc-if>
                   <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ pvCvRef }}" data-lumina="viewer-preview" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:{{ it.vflt }};opacity:0;transition:opacity 120ms ease-out;transform:{{ it.zt }};transform-origin:{{ it.zo }}"></canvas></sc-if>
+                  <sc-if value="{{ it.vid }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ gdCvRef }}" data-lumina="viewer-look" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 120ms ease-out;transform:{{ it.zt }};transform-origin:{{ it.zo }};pointer-events:none"></canvas></sc-if>
                   <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><canvas ref="{{ olCvRef }}" data-lumina="viewer-outlines" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:{{ it.zt }};transform-origin:{{ it.zo }};pointer-events:none"></canvas></sc-if>
                   <sc-if value="{{ it.zOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="zoom" style="position:absolute;left:8px;bottom:8px;padding:2px 8px;border-radius:5px;background:rgba(22,21,20,0.82);color:#EFECE6;pointer-events:none">{{ it.zT }}</div></sc-if>
                   <sc-if value="{{ it.hvOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:0;bottom:0;left:{{ it.hx }};width:1px;background:rgba(239,236,230,0.6);pointer-events:none"></div></sc-if>
                   <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ it.edge }};pointer-events:none"></div>
+                  <sc-if value="{{ it.evOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ev-badge" style="position:absolute;left:8px;top:8px;padding:0 6px;border-radius:4px;background:{{ it.evBg }};box-shadow:{{ it.evSh }};color:{{ it.evC }};font-weight:{{ it.evW }};font-size:13px;line-height:20px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none">{{ it.evT }}</div></sc-if>
                   <sc-if value="{{ it.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:8px;top:8px;padding:2px 9px;border-radius:5px;background:#161514;color:{{ it.markC }};font-weight:700;font-size:13px">{{ it.mark }}</div></sc-if>
                   <sc-if value="{{ it.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:8px;top:8px;padding:2px 9px;border-radius:5px;background:rgba(22,21,20,0.82);color:{{ it.ghostC }};font-weight:700;font-size:13px;opacity:0.7">{{ it.ghostT }}</div></sc-if>
                 </div>
@@ -773,7 +866,7 @@ body:has([data-view=phone]){background:#111}
                 </div>
                 <sc-if value="{{ it.stripOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="follow-strip" title="{{ it.stripTip }}" style="position:relative;height:5px;margin-top:-4px;border-radius:2px;overflow:hidden;background:rgba(239,236,230,0.06)"><sc-for list="{{ it.strip }}" as="sg" hint-placeholder-count="3"><button type="button" tabindex="-1" data-sure="{{ sg.sure }}" data-t="{{ sg.t }}" aria-label="{{ sg.tip }}" onClick="{{ folSeg }}" style="box-sizing:border-box;padding:0;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:absolute;top:0;bottom:0;left:{{ sg.l }};width:{{ sg.w }};background:{{ sg.bg }};cursor:{{ sg.cur }}"></button></sc-for></div></sc-if>
                 <div style="display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden;color:#9A958D"><sc-if value="{{ it.playOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="viewer-play" title="Play / pause (L)" onClick="{{ playGo }}" style="box-sizing:border-box;padding:0 8px;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;line-height:inherit;border-radius:5px;background:rgba(239,236,230,0.1);color:#EFECE6;cursor:pointer;font-size:12px" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ it.playL }}</button></sc-if><span style="color:{{ it.nameC }}">{{ it.name }}</span><span style="color:{{ it.subC }}">{{ it.sub }}</span></div>
-                <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="viewer-selections" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:30px"><span style="color:#9A958D;margin-right:4px">{{ it.olSay }}</span><sc-for list="{{ it.olChips }}" as="oc" hint-placeholder-count="2"><button type="button" data-ol="{{ oc.id }}" aria-pressed="{{ oc.on }}" title="{{ oc.l }} · choose / let go" onClick="{{ olChip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:{{ oc.bg }};color:{{ oc.fg }};box-shadow:inset 0 0 0 1px {{ oc.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ oc.l }}</button></sc-for><sc-if value="{{ it.folOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="follow" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:6px"><sc-if value="{{ it.folGoOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-go" title="Follow the chosen shape through the whole clip, from this frame" onClick="{{ folGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Follow through the clip</button></sc-if><sc-if value="{{ it.folStopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-stop" title="Stop following" onClick="{{ folStop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop</button></sc-if><sc-if value="{{ it.folSaveOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-matte" title="Save the followed shape as a black-and-white movie for Final Cut, next to the .fcpxml" onClick="{{ folMatte }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Save matte</button></sc-if><sc-if value="{{ it.folFixOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-fix" title="Follow the chosen shape again from this frame, through the stretch that is worth a look" onClick="{{ folFix }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Fix this stretch</button></sc-if><sc-if value="{{ it.folRemoveOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-remove" title="Take the shape out of the clip, filled with the scene from the clip's own frames where it isn't (still camera only), as a layer for Final Cut next to the .fcpxml" onClick="{{ folRemove }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Remove from the clip</button></sc-if><sc-if value="{{ it.folDropOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-drop" title="Let the followed shape go" onClick="{{ folDrop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Let go</button></sc-if><span data-lumina="follow-say" style="color:#9A958D">{{ it.folSay }}</span></span></sc-if></div></sc-if>
+                <sc-if value="{{ it.olOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="viewer-selections" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:30px"><span style="color:#9A958D;margin-right:4px">{{ it.olSay }}</span><sc-for list="{{ it.olChips }}" as="oc" hint-placeholder-count="2"><button type="button" data-ol="{{ oc.id }}" aria-pressed="{{ oc.on }}" title="{{ oc.l }} · choose / let go" onClick="{{ olChip }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:{{ oc.bg }};color:{{ oc.fg }};box-shadow:inset 0 0 0 1px {{ oc.ring }};cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">{{ oc.l }}</button></sc-for><sc-if value="{{ it.folOn }}" hint-placeholder-val="{{ false }}"><span data-lumina="follow" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:6px"><sc-if value="{{ it.folGoOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-go" title="Track this: follow the chosen shape through the whole clip, from this frame · ⏎" onClick="{{ folGo }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Follow through the clip</button></sc-if><sc-if value="{{ it.folStopOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-stop" title="Stop following" onClick="{{ folStop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Stop</button></sc-if><sc-if value="{{ it.folSaveOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-matte" title="Save the followed shape as a black-and-white movie for Final Cut, next to the .fcpxml" onClick="{{ folMatte }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Save matte</button></sc-if><sc-if value="{{ it.folFixOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-fix" title="Follow the chosen shape again from this frame, through the stretch that is worth a look" onClick="{{ folFix }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Fix this stretch</button></sc-if><sc-if value="{{ it.folRemoveOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-remove" title="Take the shape out of the clip, filled with the scene from the clip's own frames where it isn't (still camera only), as a layer for Final Cut next to the .fcpxml" onClick="{{ folRemove }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:rgba(255,210,122,0.16);color:#FFD27A;box-shadow:inset 0 0 0 1px rgba(255,210,122,0.5);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Remove from the clip</button></sc-if><sc-if value="{{ it.folDropOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="follow-drop" title="Let the followed shape go" onClick="{{ folDrop }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;white-space:nowrap;font-size:13px;background:transparent;color:#EFECE6;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.3);cursor:pointer" style-hover="filter:brightness(1.15)" style-focus="outline:2px solid #FFD27A;outline-offset:2px">Let go</button></sc-if><span data-lumina="follow-say" style="color:#9A958D">{{ it.folSay }}</span></span></sc-if></div></sc-if>
               </div>
             </sc-for>
           </div>
@@ -799,12 +892,28 @@ body:has([data-view=phone]){background:#111}
             <sc-for list="{{ nbrs }}" as="nb" hint-placeholder-count="2"><button type="button" data-strip="{{ nb.id }}" title="{{ nb.tip }}" aria-label="{{ nb.tip }}" onClick="{{ sClick }}" draggable="true" onDragStart="{{ dragStart }}" onDragEnd="{{ dragEnd }}" style="box-sizing:content-box;padding:0;background:transparent;border:0;margin:0;font:inherit;color:inherit;text-align:left;-webkit-appearance:none;appearance:none;grid-column:{{ nb.col }};min-width:0;display:flex;flex-direction:column;gap:4px;cursor:pointer;opacity:{{ nb.op }}" style-hover="filter:brightness(1.12)"><div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:4px;overflow:hidden;background:#161514"><div style="position:absolute;inset:0;background:{{ nb.bg }};filter:{{ nb.flt }}"></div><div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ nb.edge }}"></div></div><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ nb.say }}</span></button></sc-for>
           </div></sc-if>
           <div data-lumina="info-head" style="order:0;grid-column:1 / -1;display:flex;flex-direction:column;gap:8px;padding:10px 14px;border-radius:9px;background:{{ cv.hdBg }};box-shadow:inset 4px 0 0 {{ cv.markNowC }}">
-            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:26px;line-height:1.1">{{ cv.name }}</span><span style="color:#B8B3AB">{{ cv.when }}</span><span data-lumina="viewer-mark-now" style="margin-left:auto;color:{{ cv.markNowC }};font-weight:700;white-space:nowrap">{{ cv.markNow }}</span></div>
+            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-family:'Iowan Old Style','Palatino',Georgia,serif;font-size:26px;line-height:1.1">{{ cv.name }}</span><span data-lumina="info-when" style="color:#B8B3AB">{{ cv.when }}</span><span data-lumina="viewer-mark-now" style="margin-left:auto;color:{{ cv.markNowC }};font-weight:700;white-space:nowrap">{{ cv.markNow }}</span><button type="button" data-lumina="rail-close" title="Back to the grid · esc" aria-label="Back to the grid" onClick="{{ backClick }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;margin-left:auto;align-self:center;width:28px;height:28px;border-radius:6px;font-size:20px;line-height:28px;text-align:center;color:#9A958D">×</button></div>
             <div data-lumina="viewer-mark" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               <sc-for list="{{ cv.chips }}" as="c" hint-placeholder-count="3"><span data-cid="{{ c.cid }}" data-chip="{{ c.key }}" title="{{ c.tip }}" style="height:20px;padding:0 7px;border-radius:5px;display:inline-flex;align-items:center;background:{{ c.bg }};box-shadow:{{ c.sh }};color:{{ c.fg }};cursor:default">{{ c.t }}</span></sc-for>
               <span data-lumina="viewer-cut" style="margin-left:auto;color:{{ cutC }};white-space:nowrap">{{ cutSoFar }}</span>
             </div>
           </div>
+<sc-if value="{{ lk.on }}" hint-placeholder-val="{{ false }}"><div data-lumina="look" style="order:1;grid-column:1 / -1;align-self:start;display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:9px;background:#161514;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.08);user-select:none;-webkit-user-select:none">
+            <div data-lumina="rail-tabs" role="tablist" aria-label="Edit" style="display:flex;padding:3px;border-radius:10px;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14)"><button type="button" role="tab" aria-selected="{{ lk.colorOn }}" data-lumina="tab-color" onClick="{{ lk.colorGo }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1;height:34px;border-radius:7px;text-align:center;font-weight:700;background:{{ lk.colorBg }};color:{{ lk.colorFg }}">Color</button><sc-if value="{{ lk.olTab }}" hint-placeholder-val="{{ false }}"><button type="button" role="tab" aria-selected="{{ lk.olOn }}" data-lumina="tab-outline" title="O" onClick="{{ lk.olGo }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1;height:34px;border-radius:7px;text-align:center;font-weight:700;background:{{ lk.olBg }};color:{{ lk.olFg }}">Outline</button></sc-if></div>
+            <div data-lumina="look-head" style="display:flex;align-items:center;gap:10px;min-width:0"><span data-lumina="look-title" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:#EFECE6">Color</span><span data-lumina="look-say" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9A958D">{{ lk.say }}</span>
+              <span style="margin-left:auto;display:flex;gap:4px;flex:none">
+                <button type="button" data-lumina="look-copy" title="Copy this clip's look · ⌘C" onClick="{{ lkCopy }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6">Copy look</button>
+                <sc-if value="{{ lk.pasteOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="look-paste" title="{{ lk.pasteTip }}" onClick="{{ lkPaste }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6">Paste</button></sc-if>
+                <sc-if value="{{ lk.resetOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="look-reset" title="Back to the clip as shot · ⌘Z puts it back" onClick="{{ lkReset }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;color:#9A958D">Reset all</button></sc-if>
+              </span></div>
+            <div data-lumina="look-secs" role="tablist" aria-label="Color" style="display:flex;padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)"><sc-for list="{{ lk.secs }}" as="ls" hint-placeholder-count="4"><button type="button" role="tab" aria-selected="{{ ls.on }}" data-lksec="{{ ls.k }}" onClick="{{ lkSec }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1;height:28px;border-radius:5px;text-align:center;background:{{ ls.bg }};color:{{ ls.fg }};box-shadow:{{ ls.sh }}">{{ ls.t }}</button></sc-for></div>
+            <sc-if value="{{ lk.mixOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="look-hues" style="display:flex;justify-content:space-between;gap:4px"><sc-for list="{{ lk.hues }}" as="lh" hint-placeholder-count="8"><button type="button" data-lkhue="{{ lh.k }}" title="{{ lh.t }}" aria-label="{{ lh.t }}" aria-pressed="{{ lh.on }}" onClick="{{ lkHue }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:relative;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;box-shadow:{{ lh.ring }}"><span style="width:16px;height:16px;border-radius:50%;background:{{ lh.dot }}"></span><sc-if value="{{ lh.ed }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:0;bottom:0;width:6px;height:6px;border-radius:50%;background:#EFECE6;box-shadow:0 0 0 1.5px #161514"></span></sc-if></button></sc-for></div><div style="color:#9A958D">{{ lk.hueSay }}</div></sc-if>
+            <sc-if value="{{ lk.gradeOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="look-zones" style="display:flex;gap:4px"><sc-for list="{{ lk.zones }}" as="lz" hint-placeholder-count="4"><button type="button" data-lkzone="{{ lz.k }}" aria-pressed="{{ lz.on }}" onClick="{{ lkZone }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1;height:28px;border-radius:6px;text-align:center;background:{{ lz.bg }};color:{{ lz.fg }}">{{ lz.t }}</button></sc-for></div>
+              <div style="display:flex;align-items:center;gap:14px"><div data-lumina="look-wheel" title="Drag to tint · ⌥ for fine · 2×click resets" onPointerDown="{{ lkWheelDown }}" onDoubleClick="{{ lkWheelDbl }}" style="position:relative;flex:none;width:132px;height:132px;border-radius:50%;cursor:crosshair;touch-action:none;background:radial-gradient(circle,#2A2826 0 30%,transparent 72%),conic-gradient(from 0deg,hsl(0,55%,45%),hsl(60,55%,45%),hsl(120,55%,45%),hsl(180,55%,45%),hsl(240,55%,45%),hsl(300,55%,45%),hsl(360,55%,45%));box-shadow:inset 0 0 0 1px rgba(239,236,230,0.18)"><div style="position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:rgba(239,236,230,0.5)"></div><div data-lumina="look-puck" style="position:absolute;left:{{ lk.wx }};top:{{ lk.wy }};width:14px;height:14px;margin:-7px;border-radius:50%;background:#EFECE6;box-shadow:0 0 0 2px #161514,0 1px 3px rgba(0,0,0,0.5);pointer-events:none"></div></div>
+              <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="color:#EFECE6">{{ lk.zoneT }}</span><span data-lumina="look-wheel-say" style="color:#9A958D;font-variant-numeric:tabular-nums">{{ lk.wSay }}</span></div></div></sc-if>
+            <sc-for list="{{ lk.rows }}" as="lr" hint-placeholder-count="6"><div data-lkp="{{ lr.p }}" role="slider" aria-label="{{ lr.l }}" aria-valuetext="{{ lr.v }}" title="Drag the row · ⌥ for fine · 2×click resets" onPointerDown="{{ lkDown }}" onDoubleClick="{{ lkDbl }}" style="display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 12px;row-gap:5px;align-items:center;min-height:42px;align-content:center;margin:0 -6px;padding:0 6px;border-radius:7px;cursor:ew-resize;touch-action:none;background:{{ lr.bg }}"><span style="color:#EFECE6">{{ lr.l }}</span><span style="color:{{ lr.vc }};font-variant-numeric:tabular-nums;min-width:44px;text-align:right">{{ lr.v }}</span><div style="grid-column:1 / -1;position:relative;height:12px"><div style="position:absolute;left:0;right:0;top:5px;height:2px;border-radius:1px;background:rgba(239,236,230,0.14)"></div><div style="position:absolute;left:{{ lr.d }};top:2px;width:1px;height:8px;background:rgba(239,236,230,0.3)"></div><div style="position:absolute;left:{{ lr.fl }};width:{{ lr.fw }};top:5px;height:2px;border-radius:1px;background:#EFECE6"></div><div style="position:absolute;left:{{ lr.kx }};top:0;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#1E1D1B;box-shadow:inset 0 0 0 2px #EFECE6"></div></div></div></sc-for>
+          </div></sc-if>
+<button type="button" data-lumina="rail-keep" data-well="keep" aria-pressed="{{ cv.keepOn }}" title="K · on / off" onClick="{{ wClick }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;order:9;flex:none;margin-top:auto;height:46px;border-radius:10px;text-align:center;font-size:14px;font-weight:700;background:{{ cv.keepBg }};color:{{ cv.keepFg }};box-shadow:inset 0 0 0 1px {{ cv.keepRing }}">{{ cv.keepT }}</button>
           <sc-for list="{{ cv.groups }}" as="gr" hint-placeholder-count="3"><div data-facts="{{ gr.key }}" style="order:{{ gr.order }};grid-column:{{ gr.span }};align-self:start;display:flex;flex-direction:column;gap:3px;line-height:1.45;padding:10px 12px;border-radius:9px;background:{{ gr.bg }};box-shadow:inset 0 0 0 1px {{ gr.line }}">
             <span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:{{ gr.tc }}">{{ gr.t }}</span>
             <sc-for list="{{ gr.rows }}" as="fl" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px"><span style="color:#9A958D">{{ fl.k }}</span><span style="color:{{ fl.c }};font-family:{{ fl.ff }};font-size:{{ fl.fs }};overflow-wrap:anywhere">{{ fl.v }}</span></div></sc-for>
@@ -848,7 +957,7 @@ body:has([data-view=phone]){background:#111}
         </div>
       </div>
     </sc-for>
-    <sc-if value="{{ dockExOn }}" hint-placeholder-val="{{ true }}"><button type="button" data-lumina="dock-export" data-press="1" onClick="{{ dockEx }}" title="Export: the Final Cut file, the cut list and where they go (⌘E)" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;align-self:stretch;min-width:96px;padding:8px 14px;border-radius:10px;background:#FFD27A;color:#1E1D1B;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px" style-hover="filter:brightness(1.06)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:14px;font-weight:800">Export</span><span data-kbd="1" style="padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);font-weight:700;font-size:11px">⌘E</span><span style="font-size:11px;font-weight:600;opacity:0.75;white-space:nowrap">{{ dockExN }}</span></button></sc-if>
+    <sc-if value="{{ dockExOn }}" hint-placeholder-val="{{ true }}"><button type="button" data-lumina="dock-export" data-press="1" aria-disabled="{{ dockExNo }}" onClick="{{ dockEx }}" title="Export: the Final Cut file, the cut list and where they go (⌘E)" style="box-sizing:border-box;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:none;align-self:stretch;min-width:96px;padding:8px 14px;border-radius:10px;background:{{ dockExBg }};color:{{ dockExFg }};cursor:{{ dockExCur }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px" style-hover="filter:brightness(1.06)" style-focus="outline:2px solid #FFD27A;outline-offset:2px"><span style="font-size:14px;font-weight:800">{{ dockExT }}</span><span data-kbd="1" style="padding:0 5px;border-radius:5px;background:rgba(30,29,27,0.14);font-weight:700;font-size:11px">⌘E</span><span style="font-size:11px;font-weight:600;opacity:0.75;white-space:nowrap">{{ dockExN }}</span></button></sc-if>
   </div>
   </sc-if>
 
@@ -1010,7 +1119,7 @@ class Component extends DCLogic {
   static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
   W(m) { return m ? Component.WORD[m] || m : ''; }
   static LV = ['Scenes','Clips','Viewer'];
-  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,bk:null,cutsOpen:false,dragN:0,dropOn:null,backHit:false,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:'',rate:true,scenes:false,lut:true,openFc:false,trash:false,mem:false,sorted:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
+  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,bk:null,cutsOpen:false,dragN:0,dropOn:null,backHit:false,prop:null,marks:{},dis:{},evHeld:false,evHot:null,undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:'',rate:true,scenes:false,lut:true,looks:true,openFc:false,trash:false,mem:false,sorted:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
   covers = (() => { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.coverGet ? new Component.HostCovers(v, 200e6) : new Component.CoverCache('lumina-skim-covers', 200e6); })();
@@ -1234,10 +1343,11 @@ class Component extends DCLogic {
   panRef = el => { this.panEl = el; };
 
   componentDidMount() {
+    if (/[?&]full=1\b/.test(location.search)) document.documentElement.setAttribute('data-full', '');
     this.load();
-    this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => { this.panS = null; this.setState({held:null}); };
+    this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => { this.panS = null; this.evUp(); this.setState({held:null}); };
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
-    window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu);
+    window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu); this._ck = e => this.clickAway(e); window.addEventListener('click', this._ck);
     this._md = e => { this.tabFocus = false; const st = this.state; if (!st.sel.length && !st.box) return; const t = e.target; if (this.sc && this.sc.contains(t)) return; if (t.closest && t.closest('[data-well],[data-lumina="memory"],[data-lumina="progress"]')) return; this.setState({sel:[], box:null}); }; window.addEventListener('mousedown', this._md);
     this._vis = () => { if (!document.hidden) { const v = this.vidEl; if (v && this.vidWant != null && v.readyState >= 1) { try { v.currentTime = this.vidWant; } catch (x) {} this.vidAsk = 0; this.vidArm(); } this.bump(); } }; document.addEventListener('visibilitychange', this._vis);
     window.addEventListener('wheel', this._wh, {passive:false}); window.addEventListener('blur', this._bl);
@@ -1261,6 +1371,7 @@ class Component extends DCLogic {
     this._er = e => this.noteErr(e && e.message, e && e.filename ? String(e.filename).split('/').pop() + ':' + (e.lineno || 0) : ''); window.addEventListener('error', this._er);
     this._ur = e => this.noteErr('unhandled: ' + (e && e.reason && e.reason.message || (e && e.reason) || '?'), ''); window.addEventListener('unhandledrejection', this._ur);
     window.luminaSkimReport = {text:() => Component.reportText(this.reportInfo()), save:() => this.reportSave()};
+    window.luminaSkimAirdrop = {arrived:n => this.adArrived(n), changed:r => { this.ad = {...(this.ad || {}), on:!!(r && r.on), folder:(r && r.folder) || null, busy:false}; this.setState(s => ({tick:(s.tick || 0) + 1})); }, state:() => ({...(this.ad || {})})}; this.adRead();
     window.luminaSkimKeep = {take:() => this.keepTake(), reopen:kept => this.keepReopen(kept), offer:kept => this.keepOffer(kept), state:() => this.keepAt || 'idle'};
     // luminaSkimDebug() reports; luminaSkimDebug('panel') also opens the Working memory panel, luminaSkimDebug('off') hides it again, luminaSkimDebug('colour') saves the colour check frames.
     window.luminaSkimDebug = what => { if (what === 'panel') this.setState({dbg:true, memOn:true}); else if (what === 'off') this.setState({dbg:false, memOn:false}); else if (what === 'colour') this.colourCheck(); return {thumbs:this.thumbs.stats(), clips:this.d ? this.d.clips.length : 0, withCover:this.d ? this.d.clips.filter(c => c.frames && c.frames[this.firstIdx()]).length : 0}; };
@@ -1281,7 +1392,7 @@ class Component extends DCLogic {
   componentWillUnmount() {
     window.removeEventListener('mousedown', this._cmd); clearTimeout(this.cacheT); clearTimeout(this.cacheCT);
     clearTimeout(this.kbT); window.removeEventListener('keydown', this._kd); window.removeEventListener('keyup', this._ku);
-    window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
+    window.removeEventListener('mousemove', this._mm); window.removeEventListener('mouseup', this._mu); window.removeEventListener('click', this._ck); window.removeEventListener('mousedown', this._md); document.removeEventListener('visibilitychange', this._vis);
     window.removeEventListener('focus', this._fo); clearInterval(this.plT); clearTimeout(this.exWT);
     window.removeEventListener('wheel', this._wh); window.removeEventListener('blur', this._bl); window.removeEventListener('gesturestart', this._gs); window.removeEventListener('gesturechange', this._gc); window.removeEventListener('gestureend', this._ge); clearTimeout(this.hT); window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kw); window.removeEventListener('dragenter', this.addEnter); window.removeEventListener('dragleave', this.addLeave); window.removeEventListener('dragover', this.addOver); window.removeEventListener('drop', this.addDrop); window.removeEventListener('beforeunload', this._bu); window.removeEventListener('pagehide', this._ph); clearInterval(this._stT); document.removeEventListener('visibilitychange', this._stV); window.removeEventListener('focus', this._stV); this.dropVid();
     clearTimeout(this.propT); clearTimeout(this.flT); clearTimeout(this.pvCvT); this.dockUnmount(); this.touchOff();
@@ -1376,7 +1487,9 @@ class Component extends DCLogic {
     { const wk = this._wk || {}; if (this.d && (wk.d !== this.d || wk.m !== s0.marks)) { this._wk = {d:this.d, m:s0.marks}; if (s0.step === 'skim') this.exWarmSoon(); } }
     if (s0.step === 'export' && !this.plT) this.plT = setInterval(() => { if (!document.hidden && this.state.step === 'export') this.wsPlacesPoll(); }, 4000);
     if (s0.step !== 'export' && this.plT) { clearInterval(this.plT); this.plT = null; }
-    this.syncVid(); this.paintVid(); this.olPaint(); this.fgPaint();
+    if (s0.step === 'import') { this.drvPoll(); if (!this.drvT) this.drvT = setInterval(() => { if (!document.hidden && this.state.step === 'import') this.drvPoll(true); }, 4000); }
+    else if (this.drvT) { clearInterval(this.drvT); this.drvT = null; }
+    this.syncVid(); this.paintVid(); this.gradeDraw(); this.olPaint(); this.fgPaint();
   }
   load() {
     const S = window.LuminaVideoSamples, host = window.LuminaVideo && !window.LuminaVideo.__sample ? window.LuminaVideo : null;
@@ -1420,6 +1533,94 @@ class Component extends DCLogic {
     return null;
   }
   pvFlt(c) { const p = this.prof(c); return p && p.g === 'S-Log3' ? 'url(#lumina-slog3)' : 'contrast(1.35) saturate(1.45) brightness(0.96)'; }
+  // Exposure (E, LOCAL-CHANGES 322): the clip's look Exposure (Color ▸ Light, stops, ±4), one value per clip, which E
+  // moves too. S-Log3 is exact: x stops above the toe is a constant shift of the camera's code value,
+  // 261.5·log10(2)·x/1023, before the S-Log3 table. The table is sampled at the shifted code (sl3Table(x)) rather than the
+  // engine's level being shifted in front of it: the engine's calibration sits inside the table, so only this is a shift of
+  // the code. With the preview off it is the same shift on the log picture. Every other clip: a gain of 2^x in linear
+  // light. The Viewer's look canvas (gradeDraw) does it with the rest of the look; the tiles, which show no other part of
+  // the look, take it here, one SVG filter per value (to 1/100 stop), made when first shown.
+  evOf(c) { return Component.lkGet(this.lookOf(c.id), 'ev'); }
+  shFlt(c) {
+    const pv = this.pvOn(c), base = pv ? this.pvFlt(c) : 'none', k = Math.round(this.evOf(c) * 100); if (!k) return base;
+    const p = this.prof(c), sl = !!p && p.g === 'S-Log3', id = 'lumina-ev' + (sl ? (pv ? 'p' : 's') : 'g') + (k < 0 ? 'm' + -k : k); this.evFilter(id, sl ? (pv ? 'p' : 's') : 'g', k / 100);
+    return 'url(#' + id + ')' + (sl || base === 'none' ? '' : ' ' + base);
+  }
+  // the picture with no preview of its own (the stand-in tiles): the gain alone, in front of what it has
+  evGain(c, rest) { const k = Math.round(this.evOf(c) * 100); if (!k) return rest; const id = 'lumina-evg' + (k < 0 ? 'm' + -k : k); this.evFilter(id, 'g', k / 100); return 'url(#' + id + ')' + (rest === 'none' ? '' : ' ' + rest); }
+  evFilter(id, kind, x) {
+    if (typeof document === 'undefined' || document.getElementById(id)) return; const box = document.getElementById('lumina-pv-filters'); if (!box) return;
+    const fn = a => ['R', 'G', 'B'].map(ch => '<feFunc' + ch + ' ' + a + '/>').join(''), mx = document.querySelector('#lumina-slog3 feColorMatrix');
+    const body = kind === 'p' ? '<feComponentTransfer>' + fn('type="table" tableValues="' + Array.from(this.sl3Table(x), y => y.toFixed(4)).join(' ') + '"') + '</feComponentTransfer><feColorMatrix type="matrix" values="' + (mx ? mx.getAttribute('values') : '') + '"/>'
+      : kind === 's' ? '<feComponentTransfer>' + fn('type="linear" slope="1" intercept="' + (x * Component.EV_CODE).toFixed(5) + '"') + '</feComponentTransfer>' : '<feComponentTransfer>' + fn('type="linear" slope="' + Math.pow(2, x).toFixed(5) + '" intercept="0"') + '</feComponentTransfer>';
+    box.insertAdjacentHTML('beforeend', '<filter id="' + id + '" data-ev="1" color-interpolation-filters="' + (kind === 'g' ? 'linearRGB' : 'sRGB') + '" x="0" y="0" width="1" height="1">' + body + '</filter>');
+    this.evFlN = (this.evFlN || 0) + 1;
+  }
+  static EV_CODE = 261.5 * Math.log10(2) / 1023;
+  static evSay(x) { const r = Math.round(x * 100) / 100; return 'EV ' + (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r).toFixed(2); }
+  // 8-bit levels through a gain of 2^x in linear light (sRGB's curve): the measures of a clip that isn't S-Log3
+  evGainLut(x) { const g = Math.pow(2, x), a = new Uint8ClampedArray(256); for (let v = 0; v < 256; v++) { const s = v / 255, l = (s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)) * g, o = l <= 0.0031308 ? l * 12.92 : 1.055 * Math.pow(Math.min(1, l), 1 / 2.4) - 0.055; a[v] = Math.round(Math.min(1, o) * 255); } return a; }
+  // The clip's light as shot, for ⇧E: the median luminance of a frame in scene-linear terms (S-Log3 decoded, else sRGB's
+  // curve undone), before any nudge. Kept per frame with the measures (pp.sl).
+  sceneSl(img, c) {
+    const p = this.prof(c), sl = !!p && p.g === 'S-Log3', cal = this.cal, D = img.data, lin = new Float32Array(256), v = [];
+    for (let i = 0; i < 256; i++) { if (sl) { const x = (cal ? cal[i] : i / 255) * 1023; lin[i] = Math.max(0, x >= 171.2102946929 ? Math.pow(10, (x - 420) / 261.5) * 0.19 - 0.01 : (x - 95) * 0.01125 / (171.2102946929 - 95)); } else { const s = i / 255; lin[i] = s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); } }
+    for (let i = 0; i < D.length; i += 32) v.push(0.2126 * lin[D[i]] + 0.7152 * lin[D[i + 1]] + 0.0722 * lin[D[i + 2]]);
+    if (!v.length) return 0; v.sort((a, b) => a - b); return v[v.length >> 1];
+  }
+  // ⇧E: each clip's median scene light (as shot) matched to the shoot's median, at most a stop either way.
+  evAutoMap() {
+    const C = this.d ? this.d.clips : [], key = (this.state.tick || 0) + ':' + C.length; if (this.evAM && this.evAM.key === key) return this.evAM.m;
+    const med = a => { a = a.slice().sort((x, y) => x - y); return a.length ? a[a.length >> 1] : 0; }, per = {}, m = {};
+    C.forEach(c => { const v = Object.values(c._px || {}).map(q => q && q.sl).filter(x => x > 0); if (v.length) per[c.id] = med(v); });
+    const mid = med(Object.values(per)); if (mid > 0) Object.keys(per).forEach(id => { m[id] = Math.round(Math.max(-1, Math.min(1, Math.log2(mid / per[id]))) * 100) / 100; });
+    this.evAM = {key, m}; return m;
+  }
+  // E held: the clips it moves (the selection, else the clip in the Viewer, else what K M C would mark). The hold is one
+  // look step (lkBegin … lkEnd), as a drag on the Exposure row is; the row moves with it.
+  evIds() { const st = this.state; if (st.sel.length) return st.sel; if (st.lv >= 2) return st.cur ? [st.cur] : []; return this.targets(); }
+  evDown() {
+    const st = this.state; if (st.evHeld || st.held || this.lkPrev || !this.d || !this.d.clips.length) return; const ids = this.evIds().filter(id => this.byId && this.byId[id]); if (!ids.length) return;
+    this.lkBegin(ids); this.evS = {ids, raw:Object.fromEntries(ids.map(id => [id, this.evOf(this.byId[id])]))}; clearTimeout(this.evT); this.setState(st.lv >= 2 ? {evHeld:true, evHot:ids, lkOn:'ev', lkSec:'light'} : {evHeld:true, evHot:ids, lkOn:'ev'});   // in the Viewer the rail shows Light, where the Exposure row moves
+  }
+  // by d stops: an arrow lands on the nearest third, a scroll moves freely (kept unrounded here, the look holds 1/100)
+  evBy(d, free) {
+    const s = this.evS; if (!s) return; const m = {...this.looks()};
+    s.ids.forEach(id => { const v0 = s.raw[id] + d, v = Math.max(-4, Math.min(4, free ? v0 : Math.round(v0 * 3) / 3)); s.raw[id] = v; const L = {...(m[id] || {})}, w = Component.lkClean('ev', v); if (w) L.ev = w; else delete L.ev; if (Component.lkFlat(L)) delete m[id]; else m[id] = L; });
+    this.looksPut(m);
+  }
+  // E let go: one look step for what moved; the pill stays a second; the measures follow the picture
+  evUp() {
+    const s = this.evS; if (!s) return; this.evS = null; this.setState({evHeld:false, lkOn:null});
+    const n = s.ids.length, c = n === 1 ? this.byId[s.ids[0]] : null; this.lkEnd('exposure on ' + (c ? c.name : this.plural(n, 'clip'))); this.evLinger(s.ids);
+    if ((this.evFlN || 0) > 96) { this.evFlN = 0; document.querySelectorAll('#lumina-pv-filters filter[data-ev]').forEach(f => f.remove()); this.setState(x => ({tick:(x.tick || 0) + 1})); }   // a long scroll made many: made again as shown
+  }
+  evLinger(ids) { clearTimeout(this.evT); this.setState({evHot:ids}); this.evT = setTimeout(() => this.setState({evHot:null}), 1000); }
+  evMeasure(ids) { setTimeout(() => this.remeasure(ids.map(id => this.byId && this.byId[id]).filter(c => c && c.facts && c.facts.state === 'ready')), 0); }
+  // a look step changed these clips (prev / next: id → look or null): when Exposure moved, the pill and the measures follow
+  evMoved(ids, prev, next) { const mv = ids.filter(id => Component.lkGet(prev[id], 'ev') !== Component.lkGet(next[id], 'ev')); if (mv.length) { this.evLinger(mv); this.evMeasure(mv); } }
+  // the look Exposure of these clips set to val (id → stops), one look step
+  evSetAll(ids, val, say) {
+    this.lkBegin(ids); const m = {...this.looks()};
+    ids.forEach(id => { const L = {...(m[id] || {})}, w = Component.lkClean('ev', val[id] || 0); if (w) L.ev = w; else delete L.ev; if (Component.lkFlat(L)) delete m[id]; else m[id] = L; });
+    this.looksPut(m); this.lkEnd(say);
+  }
+  // ⌥E: Exposure back to 0 (the rest of the look stays), one undo step
+  evReset() {
+    const st = this.state; if (st.evHeld || this.lkPrev || !this.d || !this.d.clips.length) return; const ids = this.evIds().filter(id => this.byId && this.byId[id] && this.evOf(this.byId[id])); if (!ids.length) return this.flash('No exposure to put back');
+    this.evSetAll(ids, {}, 'exposure back to 0 · ' + this.plural(ids.length, 'clip')); this.flash('exposure back to 0 · ' + this.plural(ids.length, 'clip'));
+  }
+  // ⇧E: every clip's Exposure set to its match to the shoot, one undo step (⌘Z puts the values back); E nudges from there
+  evAuto() {
+    const st = this.state; if (st.evHeld || this.lkPrev || !this.d || !this.d.clips.length) return; const A = this.evAutoMap(), ids = Object.keys(A).filter(id => this.byId && this.byId[id]);
+    if (!ids.length) return this.flash('Exposure can be matched once the clips are read');
+    this.evSetAll(ids, A, 'exposure matched to the shoot · ' + this.plural(ids.length, 'clip'));
+    this.flash('Exposure matched · each clip to the shoot, at most a stop · ⌘Z puts it back · E nudges from there', 3000);
+  }
+  evChip(list) {
+    const st = this.state, hot = !!st.evHot && list.some(c => st.evHot.includes(c.id)), v = list.map(c => this.evOf(c)), on = v.some(x => Math.round(x * 100)), same = v.every(x => Math.round(x * 100) === Math.round(v[0] * 100));
+    return {evOn:hot || on, evT:same ? Component.evSay(v[0] || 0) : 'EV varies', evBg:hot ? '#161514' : 'rgba(22,21,20,0.72)', evC:hot ? '#FFD27A' : '#B8B3AB', evSh:hot ? 'inset 0 0 0 1px rgba(255,210,122,0.55)' : 'none', evW:hot ? '700' : '400'};
+  }
   // Outlines (O, in the Viewer; the app only): the shapes Vision finds in the frame on show, drawn over the picture.
   // The frame is drawn from the Viewer's own <video> at 1024 px, sent as a JPEG to lumina.video.masks (the bridge's
   // skimMasks, SetsMasks.swift) and answered as outlines in fractions of the frame. While they are on the pointer
@@ -1726,7 +1927,8 @@ class Component extends DCLogic {
   // ⏎ follows the draft (one shape chosen); esc lets the draft go.
   olDraft() { const st = this.state, c = this.byId && this.byId[st.cur], r = this.folOf(c); return st.lv >= 2 && !!st.ol && this.olSel().length === 1 && !!this.folApi() && !(r && (r.state === 'run' || r.fixing)); }
   olDrop() { clearTimeout(this.prAutoT); const st = this.state, m = this.olMap, pk = this.olPr && m && m.get(this.olPr.k); if (Array.isArray(pk)) m.set(this.olPr.k, pk.filter(s => s.id !== 'pick')); if (this.olEdge) this.olEdge.delete(st.cur); this.olPr = null; this.prSeq = (this.prSeq || 0) + 1; this.prBusy = ''; this.prWhy = ''; this.setState({olSel:{...(st.olSel || {}), [st.cur]:[]}}, () => { this.olPainted = null; this.olPaint(); }); }
-  olChip = e => { const id = e.currentTarget.getAttribute('data-ol'); if (!id) return; if (id.startsWith('q:')) return this.prQuick(id.slice(2)); this.olChoose(id); };
+  // A chip turns its shape in or out; ⇧-click solos it (that shape alone), the grammar of Edit's Masks rail (prompt 14).
+  olChip = e => { const id = e.currentTarget.getAttribute('data-ol'); if (!id) return; if (id.startsWith('q:')) return this.prQuick(id.slice(2)); this.olChoose(id, e.shiftKey ? 'only' : undefined); };
   // One tap, as Lightroom's Select buttons (clicks on): Vision's Subject, Sky, People (every person) or Background chosen
   // in place of the clicked outline; the same chip again lets it go. A click on the frame then outlines by clicks again.
   static prQuickIds(list, q) { return (list || []).filter(s => s.id !== 'pick' && (q === 'people' ? s.kind === 'person' : s.kind === q)).map(s => s.id); }
@@ -2047,7 +2249,7 @@ class Component extends DCLogic {
   // the file as shot. Says whether the canvas is the picture.
   vidShow() {
     const v = this.vidEl, c = this.vidFor && this.byId ? this.byId[this.vidFor] : null; if (!v) return false;
-    const up = !!c && this.vidUp === v, via = up && this.pvOn(c) && this.pvVia(this.pvFlt(c)) === 'canvas';
+    const up = !!c && this.vidUp === v, via = up && this.pvVia(this.shFlt(c)) === 'canvas';
     v.style.opacity = up && !via ? '1' : '0';
     return via;
   }
@@ -2129,7 +2331,7 @@ class Component extends DCLogic {
     const h = c.look ? c.look.hue : 40, ev = this.frameEv(c), pv = this.pvOn(c);
     const sl = slot || ((c._sl || (c._sl = {}))[i] || (c._sl[i] = {}));
     if (c.frames && !c.frames[i]) { let j = -1; for (let k = 1; k < 8 && j < 0; k++) { if (c.frames[i - k]) j = i - k; else if (c.frames[i + k]) j = i + k; } if (j >= 0) i = j; }
-    if (c.frames && c.frames[i]) return {bg:this.pic(sl, c, i), flt:pv ? this.pvFlt(c) : 'none', anim:this.pvAn && this.needsPv(c) ? this.pvAn : 'none'};
+    if (c.frames && c.frames[i]) return {bg:this.pic(sl, c, i), flt:this.shFlt(c), anim:this.pvAn && this.needsPv(c) ? this.pvAn : 'none'};
     if (c._file || c._mock) { sl.url = null; sl.pu = null; return {bg:Component.PH, flt:'none', anim:'none'}; }
     let L = 0.5 + ev * 0.085 + Math.sin((i + 1) * 1.7 + c._i) * 0.035 + (f.clip || 0) / 40;
     if (f.bump === i) L += 0.28;
@@ -2138,7 +2340,7 @@ class Component extends DCLogic {
     const a = pv ? 'oklch(' + L.toFixed(3) + ' 0.085 ' + h + ')' : 'oklch(' + (0.44 + L * 0.3).toFixed(3) + ' 0.028 ' + h + ')';
     const b = pv ? 'oklch(' + L2.toFixed(3) + ' 0.06 ' + (h + 35) + ')' : 'oklch(' + (0.44 + L2 * 0.3).toFixed(3) + ' 0.022 ' + (h + 35) + ')';
     const soft = big && f.sharpF && f.sharpF[i] < 0.35;
-    return {bg:'linear-gradient(180deg,' + a + ' 0 58%,' + b + ' 58% 100%)', flt:soft ? 'blur(1.4px)' : 'none', anim:'none'};
+    return {bg:'linear-gradient(180deg,' + a + ' 0 58%,' + b + ' 58% 100%)', flt:this.evGain(c, soft ? 'blur(1.4px)' : 'none'), anim:'none'};
   }
 
   // grouping
@@ -2214,12 +2416,14 @@ class Component extends DCLogic {
   // small to large. The pinch, − / = and the size buttons move along these levels; past 5 a pinch opens the Viewer.
   static ZL = [280, 150, 200, 280, 380, 520];
   static ZL_LINES = [110, 26, 48, 110, 110, 110];
+  // Minimal (LOCAL-CHANGES 317): the frame is the card, its name and facts on it, no lines under it. ?full=1 brings the lines back.
+  static bare = typeof location !== 'undefined' && !/[?&]full=1\b/.test(location.search);
   static ZL_WORD = ['scenes', 'small', 'medium', 'large', 'larger', 'largest'];
   static ZL_DEF = 3;
   static zlGeo(o) {
     const zl = Math.max(0, Math.min(5, o.zl | 0)), pad = Math.min(40, Math.max(16, o.vw * 0.022)), W = Math.max(140, (o.cw ? o.cw : o.vw) - 2 * pad);
     const gx = zl === 1 ? 12 : zl === 2 ? 16 : 22, gy = zl === 1 ? 14 : zl === 2 ? 18 : 26, cols = Math.max(1, Math.floor((W + gx) / (Component.ZL[zl] + gx)));
-    const tw = (W - (cols - 1) * gx) / cols, ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
+    const tw = (W - (cols - 1) * gx) / cols, ph = Math.round(tw * 9 / 16), lines = Component.bare && zl ? 0 : Component.ZL_LINES[zl], th = ph + lines;
     return {zl, cols, tw, th, gx, gy, pitch:th + gy, pad, W, ph, lines, hh:zl ? 46 : 0};
   }
   // Elastic tiles: few clips get larger tiles instead of empty screen. geo is zlGeo's answer for the interval's size,
@@ -2259,7 +2463,7 @@ class Component extends DCLogic {
       gx = zl === 1 ? 12 : zl === 2 ? 16 : 22; gy = zl === 1 ? 14 : zl === 2 ? 18 : 26; tw = (geo.W - (cols - 1) * gx) / cols;
       let up = zl; while (up < 5 && Z[up + 1] <= tw) up++; if (up === zl) break; zl = up;
     }
-    const ph = Math.round(tw * 9 / 16), lines = Component.ZL_LINES[zl], th = ph + lines;
+    const ph = Math.round(tw * 9 / 16), lines = Component.bare && zl ? 0 : Component.ZL_LINES[zl], th = ph + lines;
     return {...geo, zl, cols, tw, th, gx, gy, pitch:th + gy, ph, lines, fit:true};
   }
   // Runs share a row (geo.flow, the time canvas): a run that fits in what is left of the row after the run before it
@@ -2554,16 +2758,17 @@ class Component extends DCLogic {
       const n = g.clips.length, one = n === 1, c0 = g.clips[0], isCur = !!cg && cg.i === g.i, anySel = g.clips.some(c => selSet.has(c.id)), skI = sk && sk.gi === g.i ? sk.i : null;
       const gm = st.held ? (st.sel.length ? (anySel ? st.held : null) : (isCur ? st.held : null)) : null;
       const base = {i:g.i, n, first:c0.id, x:it.x, y:it.y, w:it.w, fold:!one, one, why:one ? '' : g.why || '', bg:anySel ? 'rgba(255,210,122,0.07)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.65)' : 'none', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '#B8B3AB',
-        cell:'', durOn:false, dots:[], dotsOn:false, barOn:false, segs:[], cnt:[], cntT:'', note:'', noteT:'', noteC:'#9A958D', chips:[], chipNone:'', state:'', stateC:'#9A958D', badgeOn:false, badge:'', markOn:false, mark:'', markC:'', thumb:Component.PH, flt:'none', phName:nm(c0), skOn:false, sk:[], l2:true, l3:false, tH:'24px', rightC:'#9A958D'};
+        cell:'', durOn:false, dots:[], dotsOn:false, barOn:false, segs:[], cnt:[], cntT:'', note:'', noteT:'', noteC:'#9A958D', chips:[], chipNone:'', state:'', stateC:'#9A958D', badgeOn:false, badge:'', markOn:false, mark:'', markC:'', thumb:Component.PH, flt:'none', phName:nm(c0), skOn:false, sk:[], l2:true, l3:false, tH:'24px', rightC:'#9A958D', nmOn:false, gamOn:false, gam:'', gamR:'5px', gamRing:'transparent', aria:nm(c0) + ' · ' + this.hm(c0.t) + (one ? '' : ' · ' + this.plural(n, 'clip'))};
       if (one) {
         const m = st.marks[c0.id] || null, ch = this.chips(c0), t = this.tone(c0, skI != null ? skI : fi), pc0 = compact && this.profChip(c0);   // compact tiles have no chip row: the profile goes on the line
-        return {...base, thumb:t.bg, flt:t.flt, cell:c0.dur ? this.fmtDur(c0.dur) : '—', durOn:!compact || zl === 2, phOn:this.waiting(c0), phSub:this.phSub(c0), title:nm(c0), tFont:'inherit', tSize:compact ? '12px' : '13px', tH:compact ? '18px' : '24px',
+        const pg = Component.bare && this.prof(c0), gam = pg ? (pg.g === 'none' ? '709' : /log/i.test(pg.g) ? 'Log' : pg.g) : '', dur = c0.dur ? this.fmtDur(c0.dur) : '—';
+        return {...base, aria:nm(c0) + ' · ' + this.hm(c0.t) + ' · ' + dur + (gam ? ' · ' + gam : '') + (m ? ' · ' + this.W(m) : ''), nmOn:!!Component.bare, gamOn:!!gam, gam, gamR:(14 + dur.length * 6.5).toFixed(0) + 'px', gamRing:gam === 'Log' ? 'rgba(239,236,230,0.7)' : 'transparent', thumb:t.bg, flt:t.flt, cell:dur, durOn:!compact || zl === 2 || !!Component.bare, phOn:this.waiting(c0), phSub:this.phSub(c0), title:nm(c0), tFont:'inherit', tSize:compact ? '12px' : '13px', tH:compact ? '18px' : '24px',
           right:zl === 1 ? (m ? this.W(m) : '') : this.hm(c0.t), rightC:zl === 1 && m ? MK[m] : '#9A958D', l2:zl !== 1, l3:!compact,
           line:compact ? (m ? this.W(m) + ' · ' : '') + this.fmtB(c0.bytes) + (pc0 ? ' · ' + pc0.t : '') : (c0.dur ? this.fmtDur(c0.dur) : '—') + ' · ' + this.fmtB(c0.bytes),
           edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm && !compact, mark:this.W(m), markC:m ? MK[m] : '',
           skOn:skI != null, sk:skI != null ? [0, 1, 2, 3, 4, 5, 6, 7].map(k => ({c:k === skI ? '#FFD27A' : 'rgba(22,21,20,0.55)'})) : [],
           chips:compact ? [] : this.chipRow(c0, ch, 3, 2).chips, chipNone:compact ? '' : this.chipRow(c0, ch, 3, 2).more,
-          state:m ? this.W(m) : '', stateC:m ? MK[m] : '#9A958D'};
+          state:m ? this.W(m) : '', stateC:m ? MK[m] : '#9A958D', ...this.evChip([c0])};
       }
       // a scene tile: skimming shows its clips one by one; else the first clip that has a frame
       const sc0 = skI != null ? g.clips[Math.min(n - 1, skI)] : null, cvc = sc0 || g.clips.find(c => c.frames && c.frames.some(Boolean)) || c0, t0 = this.tone(cvc, fi, false, sc0 ? undefined : this.gSlot[g.i] || (this.gSlot[g.i] = {}));
@@ -2576,7 +2781,7 @@ class Component extends DCLogic {
         markOn:!!allM && !gm, mark:allM ? 'all ' + this.W(allM) : '', markC:allM ? MK[allM] : '',
         skOn:skI != null, sk:skI != null && n <= 40 ? g.clips.map((c, k) => ({c:k === skI ? '#FFD27A' : 'rgba(22,21,20,0.55)'})) : [],
         dotsOn:few, dots:few ? g.clips.map(c => ({c:st.marks[c.id] ? MK[st.marks[c.id]] : 'rgba(239,236,230,0.2)'})) : [], barOn:!few, segs:few ? [] : ['keep', 'maybe', 'cut'].map(m => ({w:(S[m] / n * 100).toFixed(1) + '%', c:MK[m]})),
-        cnt, cntT:cnt.map(k => k.t).join(' · '), note, noteT:note, noteC:S.noted ? '#FFD27A' : '#9A958D'};
+        cnt, cntT:cnt.map(k => k.t).join(' · '), note, noteT:note, noteC:S.noted ? '#FFD27A' : '#9A958D', ...this.evChip(g.clips)};
     }).filter(Boolean);
     vals.fh = L.items.filter(it => it.kind === 'h').map(it => {
       const s = SC[it.s]; if (!s) return null; const ids = s.clips.map(c => c.id), S = Component.foldSum(s.clips.map(c => ({id:c.id, dur:c.dur, bytes:c.bytes, notes:[], pending:false})), st.marks);
@@ -2651,6 +2856,7 @@ class Component extends DCLogic {
       else this.api('mark', step.ids, step.next);
       return (back ? 'undid · ' : 'redid · ') + this.verb(step.next) + ' ' + this.plural(step.ids.length, 'clip');
     }
+    if (step.k === 'look') { const m = {...this.looks()}; step.ids.forEach(id => { const L = (back ? step.prev : step.next)[id]; if (L && !Component.lkFlat(L)) m[id] = L; else delete m[id]; }); this.looksPut(m); this.evMoved(step.ids, step.prev, step.next); this.goClip(step.ids[0]); return (back ? 'undid · ' : 'redid · ') + step.say; }
     if (step.k === 'remove') { this.clipsOut(step, back); return (back ? 'put back · ' : 'took out again · ') + this.plural(step.ids.length, 'clip'); }
   }
   undo() { const st = this.state; if (!st.undo.length) return; const step = st.undo[st.undo.length - 1]; this.setState({undo:st.undo.slice(0, -1), redo:[...st.redo, step]}); this.flash(this.apply(step, true)); }
@@ -2753,16 +2959,28 @@ class Component extends DCLogic {
   static clipAt(flat, cur, d) { const i = flat.indexOf(cur); return i < 0 ? null : flat[i + d] || null; }
   // Preview is the Viewer on the clip under the cursor. Hold Space to look and let go to come back; a tap (under
   // 230 ms, as a quick mark) keeps it open, and the next Space closes it, back where it was opened from.
+  // Space, as the wireframe has it: a tap opens the Viewer and a tap closes it; held, it plays the clip while it is held
+  // (from the grid, letting go goes back to the grid, as before). The hold is told from the tap after 230 ms.
+  spaceHoldArm() {
+    clearTimeout(this.spT); this.spPlayed = false;
+    // Kept playing while held: the Viewer may swap its video in the first moments (a new element starts paused).
+    const tryPlay = (n) => { if (!this.spHeld) return; if (!this.playing) this.vidPlay(); if (this.playing) this.spPlayed = true; if (n < 600) this.spT = setTimeout(() => tryPlay(n + 1), 100); };
+    this.spT = setTimeout(() => tryPlay(0), 230);
+  }
   spaceDown(e) {
     const st = this.state; if (!this.d.clips.length) return;
-    if (st.lv >= 2) { const from = this.pvFrom ?? (st.cv ? 0 : 1); this.pvPeek = null; this.pvFrom = null; return this.pvBack(from); }
+    this.spHeld = true;
+    if (st.lv >= 2) { this.spIn = {at:e.timeStamp}; return this.spaceHoldArm(); }
     let cur = st.cur;
     if (!st.cv && st.lv === 0) { const first = this.firstVis(st.gi); cur = this.gOf[st.cur] === st.gi ? st.cur : first; }
     if (!cur || !this.byId[cur]) return;
     this.pvPeek = {at:e.timeStamp}; this.pvFrom = st.lv; this.pvAt = st.cv && st.lv === 0 && this.sc ? {top:this.sc.scrollTop, cur} : null;
-    this.setState({lv:2, cur, fx:0, sel:[], box:null, pan:[0.5, 0.5]});
+    this.setState({lv:2, cur, fx:0, sel:[], box:null, pan:[0.5, 0.5]}); this.spaceHoldArm();
   }
   spaceUp(e) {
+    this.spHeld = false; clearTimeout(this.spT); const played = this.spPlayed; this.spPlayed = false; if (played && this.playing) this.vidPause();
+    const i = this.spIn; this.spIn = null;
+    if (i) { if (e.timeStamp - i.at >= 230 || this.state.lv < 2) return; const from = this.pvFrom ?? (this.state.cv ? 0 : 1); this.pvPeek = null; this.pvFrom = null; return this.pvBack(from); }
     const p = this.pvPeek; this.pvPeek = null; if (!p || e.timeStamp - p.at < 230 || this.state.lv < 2) return;
     const from = this.pvFrom ?? 0; this.pvFrom = null; this.pvBack(from);
   }
@@ -2852,12 +3070,14 @@ class Component extends DCLogic {
     if (st.step !== 'skim') {
       if (st.step === 'export') { if (meta && k === 'Enter') { e.preventDefault(); return this.wsPlanN() ? this.wsApply() : this.download(); } if (this.wsKey(e)) return; if (k === 'Escape' && !(t && t.tagName === 'INPUT')) { e.preventDefault(); return this.setStep('skim'); } }
       if ((k === 'Enter' || k === ' ') && this.isCtl(t)) { e.preventDefault(); t.click(); }
+      else if (st.step === 'import' && k === 'Enter' && !meta && !e.shiftKey && !e.altKey && !e.repeat && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); return this.hasShoot() ? this.setStep('skim') : this.pickFolder(); }
       return;
     }
     if (k === 'Escape') { e.preventDefault(); return this.esc(); }
     if (st.noKeep && k === 'Enter' && !meta) { e.preventDefault(); return this.noKeepBack(); }
     if (meta && (k === 'Enter' || kl === 'e')) { e.preventDefault(); return this.setStep('export'); }
     if (meta && kl === 'z') { e.preventDefault(); return e.shiftKey ? this.redo() : this.undo(); }
+    if (meta && (kl === 'c' || kl === 'v') && !e.shiftKey && !e.altKey && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) && !String((window.getSelection && window.getSelection()) || '')) { e.preventDefault(); return kl === 'c' ? this.lkCopy() : this.lkPaste(); }
     if (meta && (k === 'Backspace' || k === 'Delete') && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); if (!e.repeat) this.removeClips(this.removeIds()); return; }
     if (meta) return;
     if (t && t.tagName === 'INPUT' && k.startsWith('Arrow')) return;
@@ -2869,6 +3089,11 @@ class Component extends DCLogic {
     }
     // ⇧C unfurls the cut clips folded at the dock's right, right to left, and folds them back.
     if (kl === 'c' && e.shiftKey && !e.altKey) { e.preventDefault(); if (!e.repeat) this.cutsToggle(); return; }
+    // E: exposure (LOCAL-CHANGES 322). Held, ← → step a third of a stop (⇧ a whole one) and a scroll moves it freely; letting
+    // go is one undo step. It is the look's Exposure (Color ▸ Light). ⌥E puts it back to 0, ⇧E matches every clip to the shoot.
+    // Without E the arrows are as ever.
+    if ((e.code === 'KeyE' || kl === 'e') && !st.held && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable))) { e.preventDefault(); if (e.repeat) return; if (e.altKey) return this.evReset(); if (e.shiftKey) return this.evAuto(); return this.evDown(); }
+    if (st.evHeld && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); return this.evBy((k === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 1 / 3)); }
     if (this.dockKey(e)) return;
     if (this.mk[kl] && !e.altKey) { e.preventDefault(); if (e.repeat) return; this.heldAt = e.timeStamp; this.heldTapped = false; return this.setState({held:this.mk[kl]}); }
     if (k === ' ' && !st.held && !(this.isCtl(t) && this.tabFocus)) { e.preventDefault(); if (!e.repeat) this.spaceDown(e); return; }
@@ -2901,7 +3126,8 @@ class Component extends DCLogic {
       case '[': if (this.cvGrid()) return; return this.chapJump(-1);
       case ']': if (this.cvGrid()) return; return this.chapJump(1);
       case 'v': case 'V': return this.pvToggle();
-      case 'o': case 'O': if (e.altKey || e.repeat) return; e.preventDefault(); return this.olToggle();
+      // O, as in Edit's Masks (prompt 14): a tap turns the outlines on or off; held, they show while it is down.
+      case 'o': case 'O': if (e.altKey || e.repeat) return; e.preventDefault(); this.oDown = {t:Date.now(), was:!!this.state.ol}; if (!this.state.ol) this.olToggle(); return;
       case 'l': case 'L': if (e.altKey || e.repeat || st.lv < 2 || st.step !== 'skim') return; e.preventDefault(); return this.vidToggle();
       case 'z': case 'Z': return this.zoomKey();
       case '-': case '_': if (this.cvGrid()) return this.cvZoom(-1); if (k === '_') return; return this.gapsSet(st.nCut - 1);
@@ -2911,8 +3137,10 @@ class Component extends DCLogic {
   ku(e) {
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, st = this.state;
     if (k === 'Shift' || k === 'Meta' || k === 'Alt' || k === 'Control') return;
+    if (k === 'o' && this.oDown) { const d = this.oDown; this.oDown = null; const held = Date.now() - d.t > 300; if ((held ? d.was : !d.was) !== !!st.ol) this.olToggle(); return; }
     // A button a click left focused would take the Space on its release (a click); the preview has it instead.
     if (k === ' ') { if (!(this.isCtl(e.target) && this.tabFocus)) e.preventDefault(); return this.spaceUp(e); }
+    if ((e.code === 'KeyE' || k === 'e') && this.evS) return this.evUp();
     if (this.mk[k] && st.held === this.mk[k]) { const quick = !this.heldTapped && !this.boxS && e.timeStamp - this.heldAt < 230; const m = st.held; this.setState({held:null}); if (quick) this.quick(m); }
   }
   pt(e) { const r = this.sc.getBoundingClientRect(); return {x:e.clientX - r.left + this.sc.scrollLeft, y:e.clientY - r.top + this.sc.scrollTop}; }
@@ -2956,6 +3184,7 @@ class Component extends DCLogic {
     if (this.boxS) {
       const s = this.boxS; this.boxS = null;
       if (!s.moved) return this.setState({box:null, sel:[]});
+      this.boxEndAt = performance.now();
       if (this.mmRaf) { cancelAnimationFrame(this.mmRaf); this.mmRaf = 0; }
       if (s.meta && st.held && st.sel.length) { this.heldTapped = true; const ids = st.sel; this.setState({box:null}); return this.areaMark(ids, st.held); }
       this.setState({box:null});
@@ -2965,6 +3194,8 @@ class Component extends DCLogic {
   wheel(e) {
     const st = this.state; if (st.ready && st.step === 'export') return this.wsWheel(e);
     if (!st.ready || st.step !== 'skim' || !this.d.clips.length) return;
+    // E held: two fingers up or right brighten (macOS's natural scrolling), 300 px a stop
+    if (this.evS) { e.preventDefault(); if (e.ctrlKey) return; const u = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1, dy = e.deltaY * u, dx = -e.deltaX * u; return this.evBy((Math.abs(dy) >= Math.abs(dx) ? dy : dx) / 300, true); }
     if (e.ctrlKey) { e.preventDefault(); return this.zoomBy(-e.deltaY * 0.01, e); }
     // Over the strip above the Viewer a scroll or a swipe either way moves the strip a frame at a time (tsGo's paging, finer).
     if (st.lv >= 2 && e.target && e.target.closest && e.target.closest('[data-lumina="furled-takes"]')) { e.preventDefault(); return this.tsWheel(e); }
@@ -3339,7 +3570,7 @@ class Component extends DCLogic {
       lv0:sk && !empty && !st.cv && st.lv === 0, lv1:sk && !empty && !st.cv && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, tsGo:this.tsGo, tsBack:false, tsFwd:false, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static', lv2Rows:'auto', topCol:'1', picRow:'2', infoCol:'1', infoRow:'3',
-      wClick:this.wClick, 
+      wClick:this.wClick, gdCvRef:this.gdCvRef, lk:{on:false, secs:[], hues:[], zones:[], rows:[]}, lkSec:this.lkSec, lkHue:this.lkHue, lkZone:this.lkZone, lkDown:this.lkDown, lkDbl:this.lkDbl, lkWheelDown:this.lkWheelDown, lkWheelDbl:this.lkWheelDbl, lkCopy:this.lkCopy, lkPaste:this.lkPaste, lkReset:this.lkReset,
       scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, fgCvRef:this.fgCvRef, fgClick:this.fgClick, playGo:this.playGo, pvCvRef:this.pvCvRef, olCvRef:this.olCvRef, olChip:this.olChip, olClick:this.olClick, folGo:this.folGo, folStop:this.folStop, folMatte:this.folMatte, folDrop:this.folDrop, folFix:this.folFix, folSeg:this.folSeg, folRemove:this.folRemove,
       grid42:true,
       boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
@@ -3456,7 +3687,7 @@ class Component extends DCLogic {
             return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:c.dur ? this.fmtDur(c.dur) : '—', size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c), phOn:this.waiting(c), phSub:this.phSub(c),
               edge:gm ? 'inset 0 0 0 2px ' + gc + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gc || '',
               chips:this.chipRow(c, ch, 3, 2).chips,
-              bg:isSel ? 'rgba(255,210,122,0.08)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.7)' : 'none'};
+              bg:isSel ? 'rgba(255,210,122,0.08)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.7)' : 'none', ...this.evChip([c])};
           })};
       });
     }
@@ -3496,6 +3727,7 @@ class Component extends DCLogic {
         .map(([key, t, tc, bg, order, span]) => ({key, t, tc, bg, order, span, line:tc + '30', rows:facts.filter(x => GK[key].includes(x.k))}));
       vals.cv = {name:c.name.replace(/\.\w+$/, ''), when:this.hm(c.t) + ' · ' + this.fmtDur(c.dur), bg:t.bg, flt:t.flt, edge:gm ? 'inset 0 0 0 3px ' + MK[gm] + '99' : m ? 'inset 0 0 0 3px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gm ? MK[gm] : '',
         picks:[['keep', 'K'], ['maybe', 'M'], ['cut', 'C']].map(([pm, pk]) => ({m:pm, k:pk, l:this.W(pm), on:m === pm, fg:m === pm ? '#1E1D1B' : MK[pm], fw:m === pm ? 800 : 400, bg:m === pm ? MK[pm] : 'transparent', ring:'1px ' + MK[pm] + (m === pm ? '' : '80'), capBg:m === pm ? 'rgba(30,29,27,0.14)' : 'rgba(239,236,230,0.12)', capFg:m === pm ? '#1E1D1B' : '#EFECE6'})),
+        keepOn:m === 'keep', keepT:m === 'keep' ? this.W('keep') + ' ✓ · K' : this.W('keep') + ' · K', keepBg:m === 'keep' ? MK.keep : 'transparent', keepFg:m === 'keep' ? '#1E1D1B' : '#EFECE6', keepRing:m === 'keep' ? MK.keep : 'rgba(239,236,230,0.4)',
         markNow:m ? this.W(m) : 'undecided', markNowC:m ? MK[m] : '#9A958D', groups, hdBg:m ? 'linear-gradient(90deg,' + MK[m] + '33,' + MK[m] + '0A 70%),rgba(239,236,230,0.04)' : 'rgba(239,236,230,0.06)',
         ph:(sf * 100).toFixed(2) + '%', tc:c.name.replace(/\.\w+$/, '') + ' · ' + this.tc(secAt) + ' of ' + this.tc(c.dur), fl:'frame ' + (fi + 1) + ' of 8', facts,
         chips:this.chipRow(c, ch, null, 3).chips,
@@ -3503,6 +3735,7 @@ class Component extends DCLogic {
       { const i = this.flat.indexOf(c.id), P = this.flat[i - 1], N = this.flat[i + 1], nb = (id, col, arrow) => { const cc = this.byId[id], mm = st.marks[id], t0 = this.tone(cc, this.firstIdx()), nm = cc.name.replace(/\.\w+$/, '');
           return {id, col, op:mm === 'cut' ? 0.55 : 1, bg:t0.bg, flt:t0.flt, edge:mm ? 'inset 0 0 0 3px ' + MK[mm] : 'inset 0 0 0 1px rgba(239,236,230,0.12)', say:arrow + ' ' + nm + (mm ? ' · ' + this.W(mm) : ''), tip:nm + ' · ' + arrow}; };
         vals.nbrs = [P && nb(P, '1', '←'), N && nb(N, '2', '→')].filter(Boolean); vals.nbOn = st.vw > 640 && vals.nbrs.length > 0; }
+      vals.lk = this.lkVals(c);
       vals.clipOutGo = () => this.removeClips([c.id]);
       vals.backBg = st.backHit ? 'rgba(255,210,122,0.4)' : 'rgba(239,236,230,0.1)'; vals.backAnim = st.backHit ? 'press 140ms ease-out' : 'none';
       vals.ticks = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({l:((i + 0.5) / 8 * 100).toFixed(2) + '%'}));
@@ -3520,7 +3753,7 @@ class Component extends DCLogic {
         const isC = cc.id === c.id, w = isC ? fit.wc : fit.wo, ff = this.skimF(cc), ti = this.tone(cc, Math.min(7, Math.floor(ff * 8)), isC), mm = st.marks[cc.id] || null, g2 = isC ? gm : null, hvOn = !!(st.hv && st.hv.id === cc.id);
         centers.push(x + w / 2); x += w + fit.gap;
         const zz = isC && st.zc > 1.01, say = Component.skimSay((cc.frames || []).filter(Boolean).length, isC, this.vidOff === cc.id);
-        return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, vflt:this.pvOn(cc) ? this.pvFlt(cc) : 'none', anim:ti.anim, vid:isC && !!cc._file && !this.vidNew, drag:!zz && !(isC && this.olHold(cc.id) && this.prOk()) ? 'true' : 'false', hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:isC && Component.zoomHeld(st.zc), zT:'zoomed · Z to fit', cur:isC && Component.zoomHeld(st.zc) ? (this.panS ? 'grabbing' : 'grab') : 'ew-resize',
+        return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, vflt:this.shFlt(cc), ...this.evChip([cc]), anim:ti.anim, vid:isC && !!cc._file && !this.vidNew, drag:!zz && !(isC && this.olHold(cc.id) && this.prOk()) ? 'true' : 'false', hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:isC && Component.zoomHeld(st.zc), zT:'zoomed · Z to fit', cur:isC && Component.zoomHeld(st.zc) ? (this.panS ? 'grabbing' : 'grab') : 'ew-resize',
           edge:g2 ? 'inset 0 0 0 3px ' + MK[g2] + '99' : mm ? 'inset 0 0 0 ' + (isC ? 3 : 2) + 'px ' + MK[mm] : 'none', markOn:!!mm && !g2, mark:this.W(mm), markC:mm ? MK[mm] : '', ghost:!!g2, ghostT:this.W(g2), ghostC:g2 ? MK[g2] : '',
           name:cc.name.replace(/\.\w+$/, ''), nameC:isC ? '#EFECE6' : '#B8B3AB', barVis:isC ? 'visible' : 'hidden', ph:(ff * 100).toFixed(2) + '%',
           sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' + (say ? ' · ' + say : '') : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—') + (say ? ' · ' + say : ''), subC:isC ? '#B8B3AB' : '#9A958D',
@@ -3536,6 +3769,7 @@ class Component extends DCLogic {
     Object.assign(vals, this.extraVals(markN, markB, und));
     Object.assign(vals, this.dockVals(vals));
     vals.hints = (vals.hints || []).map(h => ({...h, bg:Component.kbLit(h.k, st.kbLit) ? 'rgba(239,236,230,0.34)' : 'rgba(239,236,230,0.12)'}));
+    vals.skimBusy = vals.loadOn || vals.unsupOn || vals.busyBarOn || vals.recNoteOn || vals.pauseOn || vals.haltOn || vals.cancelAsk ? 'true' : 'false';
     vals.skimBarD = st.lv >= 2 && !vals.loadOn && !vals.unsupOn && !vals.recNoteOn && !vals.pauseOn && !vals.haltOn && !vals.cancelAsk && !vals.lvTabsOn ? 'none' : 'flex';
     return vals;
   }
@@ -3635,12 +3869,12 @@ class Component extends DCLogic {
   static dockNear(order, ids, cur) { if (!ids.length) return null; if (ids.includes(cur)) return cur; const at = order.indexOf(cur), set = new Set(ids); if (at >= 0) for (let i = at + 1; i < order.length; i++) if (set.has(order[i])) return order[i]; return ids[ids.length - 1]; }
   static dockOut(ids, id) { const i = ids.indexOf(id); return i < 0 ? null : ids[i + 1] ?? ids[i - 1] ?? null; }
   // Large under the grid; in the Viewer a slim strip of pictures only, so the large view keeps the height.
-  dockSlim() { return this.state.lv >= 2; }
-  dockPh() { const vh = this.state.vh; return this.dockSlim() ? (vh >= 1000 ? 130 : vh >= 860 ? 104 : vh >= 700 ? 80 : 60) : vh >= 860 ? 110 : vh >= 700 ? 96 : 72; }
+  dockSlim() { return this.state.lv >= 2 || !!Component.bare; }
+  dockPh() { const vh = this.state.vh; if (Component.bare) return 40; /* minimal: a slim Keep strip, as the wireframe */ return this.dockSlim() ? (vh >= 1000 ? 130 : vh >= 860 ? 104 : vh >= 700 ? 80 : 60) : vh >= 860 ? 110 : vh >= 700 ? 96 : 72; }
   // The height the dock takes from the window (the Viewer and the scene fit leave it room).
   // In the Viewer the slim strip keeps its height while it is empty, so the first K does not shrink the picture
   // (a smaller picture let the chapter's neighbours in beside it, which read as K opening the next clip).
-  dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; return this.dockPh() + (this.dockSlim() ? 49 : 68) + 22; }
+  dockH() { const st = this.state; if (st.step !== 'skim' || !this.d || !this.d.clips.length) return 0; if (st.lv >= 2 && !document.documentElement.hasAttribute('data-full')) return 0; /* minimal: no dock in the Viewer */ return this.dockPh() + (this.dockSlim() ? 49 : 68) + 22; }
   dockIn(m) { const bk = this.state.bk; return bk ? m === bk : m === 'keep' || m === 'maybe' || (m === 'cut' && this.state.cutsOpen); }
   dockIds() { const st = this.state; return Component.dockList(this.d ? this.d.clips : [], st.marks, !!st.cutsOpen, st.bk).map(x => x.id); }
   // While the dock has focus it follows the clip you are on when that clip is selected (an undo can move you).
@@ -3722,7 +3956,7 @@ class Component extends DCLogic {
     out.dsecs = ['keep', 'maybe', 'cut'].map(m => {
       const tiles = out.dock.filter((t, k) => L[k].m === m), n = d.clips.reduce((a, c) => a + (st.marks[c.id] === m ? 1 : 0), 0), col = MK[m], drop = st.dropOn === m;
       const open = st.bk ? st.bk === m : m !== 'cut' || !!st.cutsOpen, pileOn = m === 'cut' && out.pileOn, hold = (open && !tiles.length) || (m === 'cut' && !n && !st.bk), sub = tiles.length ? this.fmtDur(tiles.reduce((a, t) => a + (this.byId[t.id].dur || 0), 0)) + ' · ' + this.fmtB(this.bytesOf(tiles.map(t => t.id))) : '';
-      return {m, l:this.W(m), n, dot:col, tiles, pileOn, hold, holdW:out.dockW, holdRing:drop ? col : 'rgba(239,236,230,0.12)', holdT:st.dragN ? 'drop to mark ' + this.W(m) : n ? '' : word[m] + ' or drag a clip here',
+      return {m, l:Component.bare && m === 'keep' ? 'Keep' : this.W(m), n, dot:col, tiles, pileOn, hold, holdW:out.dockW, holdRing:drop ? col : 'rgba(239,236,230,0.12)', holdT:st.dragN ? 'drop to mark ' + this.W(m) : n ? '' : Component.bare ? 'Empty' : word[m] + ' or drag a clip here',
         flex:open ? '1 1 0' : 'none', minW:open ? Math.min(out.dockW + 12, 240) : 0, bg:drop ? col + '30' : st.bk === m ? col + '14' : 'rgba(239,236,230,0.03)', ring:drop ? '2px ' + col : '1px ' + col + (st.dragN ? '99' : '33'),
         hBg:st.bk === m ? col : col + '22', hFg:st.bk === m ? '#1E1D1B' : col, tip:st.bk === m ? 'Show all three · click or double-click' : 'Show ' + this.W(m) + ' on its own · click or double-click',
         sum:st.dragN ? 'drop here' : open ? sub : '', sumC:drop ? col : '#9A958D'};
@@ -3869,7 +4103,7 @@ class Component extends DCLogic {
   }
   // Export's choices that are not about one shoot (ratings, keyword, scenes, LUT, Open in Final Cut, Clear working memory)
   // are kept for the next export. Move cut to Trash never is: it is chosen for each shoot.
-  static EX_PREFS = ['rate', 'kw', 'scenes', 'lut', 'openFc', 'mem', 'sorted'];
+  static EX_PREFS = ['rate', 'kw', 'scenes', 'lut', 'looks', 'openFc', 'mem', 'sorted'];
   exPrefs() { this.exPrefsIn = true; try { const o = JSON.parse(localStorage.getItem('lumina-skimexport') || '{}') || {}, out = {}; Component.EX_PREFS.forEach(k => { if (k in o && typeof o[k] === typeof this.state.ex[k]) out[k] = o[k]; }); return out; } catch (x) { return {}; } }
   exPrefsSave(ex) { const o = {}; Component.EX_PREFS.forEach(k => { o[k] = ex[k]; }); this.persist('lumina-skimexport', JSON.stringify(o)); }
   exSet(k, val) { this.setState(s => { const ex = {...s.ex, [k]:val}; if (Component.EX_PREFS.indexOf(k) >= 0) this.exPrefsSave(ex); return {exDone:null, exRes:null, ex}; }); }
@@ -4773,6 +5007,58 @@ class Component extends DCLogic {
   // A phone or a tablet picks clips (iPhone: Photos or Files; Android: its photo picker), a computer a folder; the other is
   // one button below. Neither shows a folder picker where the browser has none (iOS Safari before 18.4).
   canFolder() { return typeof document !== 'undefined' && 'webkitdirectory' in document.createElement('input') && !/iPhone|iPod/.test(navigator.userAgent); }
+  // AirDrop (the app only, lumina.video.airdrop): a switch that watches the folder AirDrop saves to (Downloads, chosen
+  // once). What lands there joins the shoot as Add clips would: the app hands the batch to the add input, no panel.
+  adApi() { const v = this.exHostApi(); return v && v.airdrop ? v : null; }
+  adRead() { const v = this.adApi(); if (!v) return; Promise.resolve().then(() => v.airdrop({})).then(r => { if (r) { this.ad = {...(this.ad || {}), on:!!r.on, folder:r.folder || null}; this.setState(s => ({tick:(s.tick || 0) + 1})); } }, () => {}); }
+  adToggle = e => {
+    if (e && e.currentTarget && e.currentTarget.blur) e.currentTarget.blur(); const v = this.adApi(); if (!v || (this.ad && this.ad.busy)) return; const on = !(this.ad && this.ad.on);
+    this.ad = {...(this.ad || {}), busy:true}; this.setState(s => ({tick:(s.tick || 0) + 1}));
+    Promise.resolve().then(() => v.airdrop({on})).then(r => { this.ad = {on:!!(r && r.on), folder:(r && r.folder) || null, n:on ? 0 : (this.ad.n || 0)}; }, () => { this.ad = {...this.ad, busy:false}; })
+      .then(() => this.setState(s => ({tick:(s.tick || 0) + 1})));
+  };
+  adArrived(n) {
+    const st = this.state, el = this.addEl;
+    if (!el || this.keepAt === 'opening' || st.big || st.bigAdd || st.mix || (st.impMsg && st.impMsg === st.impBusyT)) return 'wait';
+    this.ad = {...(this.ad || {}), n:((this.ad && this.ad.n) || 0) + (Number(n) || 0)};
+    try { window.luminaSkimAirdropping = 'add'; } catch (x) {} el.click(); this.setState(s => ({tick:(s.tick || 0) + 1})); return 'ok';
+  }
+  adVals() {
+    const a = this.ad || {}, on = !!a.on, show = !!this.adApi() && this.state.step === 'import';
+    return {adOn:show, adLive:on ? 'true' : 'false', adToggle:this.adToggle, adSay:a.busy ? '…' : !on ? 'Off · click to listen' : a.n ? this.plural(a.n, 'clip') + ' arrived' : 'Live',
+      adTip:on ? 'Listening' + (a.folder ? ' to ' + a.folder : '') + ' · click to stop' : 'Listen for clips AirDropped to this Mac', adDot:on ? '#EFECE6' : '#5B5854', adAnim:on ? 'breathe 1.6s ease-in-out infinite' : 'none',
+      adSayC:on ? '#EFECE6' : '#9A958D', adBg:on ? '#262523' : '#232220', adRing:on ? 'rgba(239,236,230,0.5)' : 'rgba(239,236,230,0.18)'};
+  }
+  // Import's Included dock (the minimal page): what is in the shoot, a tile per folder it came from, how far the read is, Sort now.
+  incVals(has) {
+    const st = this.state, d = this.d, on = Component.bare && st.step === 'import';
+    if (!on) return {incOn:false, incTiles:[], incEmpty:false};
+    const C = has ? d.clips : [], by = new Map();
+    C.forEach(c => { const p = String(c.path || c.name).split('/'), k = p.length > 1 ? p[p.length - 2] || d.shoot.name : d.shoot.name; const g = by.get(k) || {n:0, ok:0, dur:0, air:false}; g.n++; g.dur += c.dur || 0; if (c.why || (c.facts && c.facts.state !== 'pending')) g.ok++; if (/\/Downloads\//.test(c.path || '')) g.air = true; by.set(k, g); });
+    const running = !!(st.imp && st.imp.done < st.imp.n);
+    return {incOn:true, incEmpty:!C.length, incNo:has ? 'false' : 'true', incGo:() => { if (this.hasShoot()) this.setStep('skim'); },
+      incBg:has ? '#EFECE6' : 'rgba(239,236,230,0.08)', incFg:has ? '#1E1D1B' : '#9A958D', incCur:has ? 'pointer' : 'default',
+      incPrep:!C.length ? 'Click a card or Drop · AirDrop lands here' : running ? 'reading ' + st.imp.done + ' of ' + st.imp.n : this.plural(C.length, 'clip') + ' · ' + this.fmtDur(C.reduce((a, c) => a + (c.dur || 0), 0)),
+      incTiles:[...by].map(([k, g]) => ({kind:g.air ? 'AirDrop' : 'Folder', name:k, n:g.n, ok:g.ok, pct:Math.round(100 * g.ok / Math.max(1, g.n)) + '%', line:this.plural(g.n, 'clip') + (g.ok < g.n ? ' · ' + g.ok + ' / ' + g.n + ' ready' : ' · ' + this.fmtDur(g.dur)), tip:k + ' · ' + this.plural(g.n, 'clip')}))};
+  }
+  // Import's drives: the cards and plugged-in drives the Mac has mounted (lumina.video.places, the list Export's
+  // workshop reads), read on Import and every 4 s while it shows. A click opens Finder to choose clips there: a page
+  // can't open a drive's clips by itself.
+  clickAway(e) {
+    const st = this.state; if (st.step !== 'skim' || !st.sel || !st.sel.length || e.shiftKey || e.metaKey || e.ctrlKey) return;
+    if (performance.now() - (this.boxEndAt || -1e9) < 300) return;   // the click that ends a drag-select keeps it
+    const t = e.target; if (!t || !t.closest || t.closest('[data-clip],[data-gi],[data-strip],button,a,input,textarea,[role=slider],[role=tab],[data-lumina=dock],[data-lumina=look],[data-nobox]')) return;
+    this.setState({sel:[]});
+  }
+  drvPoll(force) {
+    if (!force && performance.now() - (this.drvAt || -1e9) < 4000) return; this.drvAt = performance.now();
+    const v = this.exHostApi(); if (!v || !v.places) return;
+    Promise.resolve().then(() => v.places()).then(pl => {
+      const d = ((pl && pl.drives) || []).filter(x => x && (x.card || x.ejectable)).map(x => { const line = x.free != null ? this.fmtB(x.free) + ' free' : (x.readOnly ? 'read only' : '');
+        return {name:x.name, kind:x.card ? 'Card' : 'Drive', line, aria:x.name + (line ? ', ' + line : ''), tip:'Choose clips on ' + x.name}; });
+      if (JSON.stringify(d) !== JSON.stringify(this.imDrv || [])) { this.imDrv = d; this.setState(s => ({tick:(s.tick || 0) + 1})); }
+    }, () => {});
+  }
   pickFolder = () => { const el = this.isTouch() || !this.canFolder() ? this.clipEl || this.fileEl : this.fileEl; if (el) { this.pickWait(el); el.click(); } };
   // A status that is still going on (Looking through…, Listing…, Adding…): Open's line and Skim's bar show it with a
   // breathing dot. Any other status, or none, ends it.
@@ -4803,6 +5089,7 @@ class Component extends DCLogic {
   dropLeave = () => this.setState({dropHot:false});
   dropIn = async e => {
     e.preventDefault(); this.setState({dropHot:false}); this.pickNext = false; if (this.state.mix) return;
+    if (Component.bare && this.canAdd()) return;   // the window's own drop (addDrop) adds it to the shoot
     const got = await this.dropFiles(e); if (!got) return; this.rel = got.rel; this.importFiles(got.files, 0, got.cut ? {files:got.cut} : null);
   };
   // What was dropped, folders walked: the files and each one's place inside what was dropped. Null when a newer drop or pick took over.
@@ -5049,12 +5336,14 @@ class Component extends DCLogic {
   // clips (a phone's too); a folder is dropped.
   addRef = el => { this.addEl = el; if (el) el.multiple = true; };
   addDirRef = el => { this.addDirEl = el; if (el) el.multiple = true; };
-  canAdd() { const d = this.d, st = this.state; return !!(d && d.shoot && d.shoot.real && d.clips.length && st.step === 'skim' && !st.mix); }
+  canAdd() { const d = this.d, st = this.state; return !!(d && d.shoot && d.shoot.real && d.clips.length && (st.step === 'skim' || (Component.bare && st.step === 'import')) && !st.mix); }
+  // Import's Drop and drives (the minimal page): the first folder opens the shoot, the next ones join it (Add clips).
+  dropGo = () => Component.bare && this.canAdd() ? this.addClips() : this.pickFolder();
   addClips = () => {
     if (!this.canAdd()) return; const app = !!this.exHostApi(), el = app && !this.isTouch() ? this.addDirEl || this.addEl : this.addEl;
     if (!el) return; if (app) window.luminaSkimAdding = true; this.pickWait(el); el.click();
   };
-  addIn = e => { const fs = [...(e.target.files || [])]; e.target.value = ''; this.addFiles(fs, {rel:Component.hostRel(fs), dropped:false}); };
+  addIn = e => { try { window.luminaSkimAirdropping = null; } catch (x) {} const fs = [...(e.target.files || [])]; e.target.value = ''; this.addFiles(fs, {rel:Component.hostRel(fs), dropped:false}); };
   static hasFiles(e) { const t = e && e.dataTransfer && e.dataTransfer.types; return !!t && [...t].indexOf('Files') >= 0; }
   addEnter = e => { if (!this.canAdd() || !Component.hasFiles(e)) return; this.addN = (this.addN || 0) + 1; if (!this.state.addHot) this.setState({addHot:true}); };
   addLeave = e => { if (!this.state.addHot) return; this.addN = Math.max(0, (this.addN || 0) - 1); if (!this.addN) this.setState({addHot:false}); };
@@ -5593,7 +5882,7 @@ class Component extends DCLogic {
           let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!Component.lookAgain(this.blank(im), c._dark ? 2 : k)) break; await new Promise(r => setTimeout(r, 120 + k * 160)); }
           if (this.blank(im)) c._dark = true;   // a clip known to hold dark frames is not looked at three times for each
           if (!this.prof(c) || c.profile.source === 'picture') (c._raw || (c._raw = {}))[i] = Component.rawSpread(im);
-          const fb = await this.frameBlob(cv); this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
+          const fb = await this.frameBlob(cv); this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); pp.sl = this.sceneSl(im, c); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
           this.bump();
         }
         if (px.length) this.noteSpeed((performance.now() - t0) / px.length); c.facts = this.factsAll(c); c.why = null; c.tries = 0;
@@ -5603,20 +5892,386 @@ class Component extends DCLogic {
       this.bump(); done(); if (this.prio && this.prio.length) setTimeout(() => this.drainPrio(), 0);
     });
   }
+  // ---- Color: a look per clip (Lightroom mobile's Light · Color · Mix · Grade), drawn on the real picture.
+  // LOOK-BEGIN (pure: Tests/web/skim-look.test.mjs runs this block on its own)
+  // A look is a flat object of the values that differ from rest: {ev:0.4, 'mix.blue.s':-20, 'grade.sh.h':210, …}.
+  static LK_SECS = [['light', 'Light'], ['color', 'Color'], ['mix', 'Mix'], ['grade', 'Grade']];
+  static LK_ROWS = {light:[['ev', 'Exposure', 4], ['con', 'Contrast', 100], ['hl', 'Highlights', 100], ['sh', 'Shadows', 100], ['wh', 'Whites', 100], ['bl', 'Blacks', 100]],
+    color:[['temp', 'Temp', 100], ['tint', 'Tint', 100], ['vib', 'Vibrance', 100], ['sat', 'Saturation', 100]]};
+  static LK_HUES = [['red', 'Red', 0], ['orange', 'Orange', 30], ['yellow', 'Yellow', 60], ['green', 'Green', 120], ['aqua', 'Aqua', 180], ['blue', 'Blue', 220], ['purple', 'Purple', 270], ['magenta', 'Magenta', 320]];
+  static LK_ZONES = [['sh', 'Shadows'], ['mid', 'Midtones'], ['hi', 'Highlights'], ['all', 'Global']];
+  static lkDef(p) { return p === 'grade.blend' ? 50 : 0; }
+  static lkRange(p) { if (p === 'ev') return [-4, 4]; if (p === 'grade.blend' || /\.s$/.test(p) && p.indexOf('grade.') === 0) return [0, 100]; if (/^grade\.\w+\.h$/.test(p)) return [0, 360]; return [-100, 100]; }
+  static lkGet(L, p) { const v = L && L[p]; return typeof v === 'number' && isFinite(v) ? v : Component.lkDef(p); }
+  static lkClean(p, v) { const [a, b] = Component.lkRange(p); if (/^grade\.\w+\.h$/.test(p)) return Math.round(((v % 360) + 360) % 360); v = Math.max(a, Math.min(b, v)); return p === 'ev' ? Math.round(v * 100) / 100 : Math.round(v); }
+  static lkFlat(L) { return !L || Object.keys(L).every(p => Component.lkGet(L, p) === Component.lkDef(p) || /^grade\.\w+\.h$/.test(p) && !Component.lkGet(L, p.replace(/h$/, 's'))); }
+  static lkFmt(p, v) { if (p === 'ev') return (v > 0 ? '+' : '') + v.toFixed(2); if (/\.h$/.test(p) && p.indexOf('grade.') === 0) return v + '°'; if (p === 'grade.blend' || /^grade\.\w+\.s$/.test(p)) return String(v); return (v > 0 ? '+' : '') + v; }
+  static lkName(p) {
+    const r = [...Component.LK_ROWS.light, ...Component.LK_ROWS.color].find(x => x[0] === p); if (r) return r[1];
+    let m = /^mix\.(\w+)\.(h|s|l)$/.exec(p); if (m) return (Component.LK_HUES.find(x => x[0] === m[1]) || [, m[1]])[1] + ' ' + {h:'hue', s:'saturation', l:'luminance'}[m[2]];
+    m = /^grade\.(\w+)\.(h|s|l)$/.exec(p); if (m) return (Component.LK_ZONES.find(x => x[0] === m[1]) || [, m[1]])[1].toLowerCase() + ' ' + {h:'tint', s:'tint', l:'luminance'}[m[2]];
+    return {'grade.blend':'blending', 'grade.bal':'balance'}[p] || p;
+  }
+  // What a look does, in a few words: the first three moves, then how many more.
+  static lkWords(L) {
+    if (Component.lkFlat(L)) return 'as shot';
+    const ps = Object.keys(L).filter(p => Component.lkGet(L, p) !== Component.lkDef(p) && !/^grade\.\w+\.h$/.test(p));
+    const w = ps.slice(0, 3).map(p => /^grade\.\w+\.s$/.test(p) ? Component.lkName(p) + ' ' + Component.lkGet(L, p.replace(/s$/, 'h')) + '°' : Component.lkName(p) + ' ' + Component.lkFmt(p, Component.lkGet(L, p)));
+    return w.join(' · ') + (ps.length > 3 ? ' · ' + (ps.length - 3) + ' more' : '');
+  }
+  // The numbers the picture uses, the same for the shader and for the reference below.
+  static lkU(L) {
+    const G = p => Component.lkGet(L, p), H = Component.LK_HUES, Z = ['sh', 'mid', 'hi', 'all'];
+    return {ev:G('ev'), temp:G('temp') / 100, tint:G('tint') / 100, con:G('con') / 100, hl:G('hl') / 100, sh:G('sh') / 100, wh:G('wh') / 100, bl:G('bl') / 100, vib:G('vib') / 100, sat:G('sat') / 100,
+      mixC:H.map(h => h[2]), mixH:H.map(h => G('mix.' + h[0] + '.h') / 100), mixS:H.map(h => G('mix.' + h[0] + '.s') / 100), mixL:H.map(h => G('mix.' + h[0] + '.l') / 100),
+      gH:Z.map(z => G('grade.' + z + '.h')), gS:Z.map(z => G('grade.' + z + '.s') / 100), gL:Z.map(z => G('grade.' + z + '.l') / 100), blend:G('grade.blend') / 100, bal:G('grade.bal') / 100};
+  }
+  static lkHsv(r, g, b) { const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0; if (d > 1e-6) { h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; } return [h, mx > 0 ? d / mx : 0, mx]; }
+  static lkRgb(h, s, v) { const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); }; return [f(5), f(3), f(1)]; }
+  // One curve for every channel (so a grey stays grey), each move monotonic on its own: blacks, shadows,
+  // contrast, highlights, whites. x is display-referred 0…1.
+  static lkTone(x, u) {
+    const TAU = Math.PI * 2;
+    x += u.bl * 0.12 * Math.pow(1 - x, 4);
+    x += u.sh * 0.8 * x * Math.pow(1 - x, 3);
+    x -= u.con * 0.6 * Math.sin(TAU * x) / TAU;
+    x += u.hl * 0.8 * x * x * x * (1 - x);
+    x += u.wh * 0.12 * Math.pow(x, 4);
+    return Math.max(0, Math.min(1, x));
+  }
+  // The reference for one pixel (display-referred RGB 0…1 in, out). The shader in lkFS does the same steps.
+  static lkPx(rgb, L) {
+    const u = L && L.mixC ? L : Component.lkU(L), lin = v => Math.pow(Math.max(0, v), 2.2), gam = v => Math.pow(Math.max(0, v), 1 / 2.2);
+    let [r, g, b] = rgb.map(lin);
+    // white balance and exposure in linear light: temp moves red against blue, tint green against both
+    const e = Math.pow(2, u.ev);
+    r *= Math.pow(2, 0.35 * u.temp + 0.125 * u.tint) * e; g *= Math.pow(2, -0.25 * u.tint) * e; b *= Math.pow(2, -0.35 * u.temp + 0.125 * u.tint) * e;
+    // a soft shoulder so an exposure push rolls off instead of clipping hard: none at 0, from 0.8 up by +1 stop
+    const kn = 1 - 0.2 * Math.max(0, Math.min(1, u.ev)), sh = v => { v = gam(v); return v < kn || kn >= 1 ? v : kn + (1 - kn) * (1 - Math.exp(-(v - kn) / (1 - kn))); };
+    [r, g, b] = [r, g, b].map(v => Component.lkTone(sh(v), u));
+    // vibrance (more on dull colours) and saturation, about luma
+    let Y = 0.2126 * r + 0.7152 * g + 0.0722 * b, cs = Math.max(r, g, b) - Math.min(r, g, b);
+    const k = Math.max(0, (1 + u.sat) * (1 + u.vib * (u.vib > 0 ? 1 - Math.min(1, cs * 1.5) : 1)));
+    [r, g, b] = [r, g, b].map(v => Y + (v - Y) * k);
+    // colour mix: each pixel's hue shares out between the two nearest of eight centres; greys aren't touched
+    let [h, s, v] = Component.lkHsv(Math.max(0, r), Math.max(0, g), Math.max(0, b));
+    const C = u.mixC; let dh = 0, ds = 0, dl = 0;
+    for (let i = 0; i < 8; i++) {
+      const a = C[i], bN = C[(i + 1) % 8] + (i === 7 ? 360 : 0), hh = h < a ? h + 360 : h;
+      if (hh >= a && hh < bN) { const f = (hh - a) / (bN - a), j = (i + 1) % 8; dh = u.mixH[i] * (1 - f) + u.mixH[j] * f; ds = u.mixS[i] * (1 - f) + u.mixS[j] * f; dl = u.mixL[i] * (1 - f) + u.mixL[j] * f; break; }
+    }
+    const wc = Math.min(1, s * 3);
+    if (wc > 0 && (dh || ds || dl)) { h = (h + dh * 30 * wc + 360) % 360; s = Math.max(0, Math.min(1, s * (1 + ds * wc))); v = Math.max(0, v * (1 + dl * 0.35 * wc)); [r, g, b] = Component.lkRgb(h, s, v); }
+    // colour grading: a tint per tonal zone (wheel: angle = hue, distance = strength) plus a luminance move;
+    // balance moves the split between zones, blending widens them
+    Y = Math.max(0, Math.min(1, 0.2126 * r + 0.7152 * g + 0.0722 * b));
+    const yb = Math.pow(Y, Math.pow(2, -u.bal)), p = 2.5 - 2 * u.blend;
+    const mS = Math.pow(1 - yb, p), mH = Math.pow(yb, p), m = [mS, Math.max(0, 1 - mS - mH), mH, 1];
+    for (let z = 0; z < 4; z++) {
+      if (u.gS[z]) { const t = Component.lkRgb(u.gH[z], 1, 1), ty = 0.2126 * t[0] + 0.7152 * t[1] + 0.0722 * t[2], a = u.gS[z] * 0.15 * m[z]; r += (t[0] - ty) * a; g += (t[1] - ty) * a; b += (t[2] - ty) * a; }
+      if (u.gL[z]) { const a = u.gL[z] * 0.2 * m[z]; r += a; g += a; b += a; }
+    }
+    return [r, g, b].map(x => Math.max(0, Math.min(1, x)));
+  }
   static SL3T = [0.0000, 0.0225, 0.0459, 0.0709, 0.0984, 0.1292, 0.1631, 0.1996, 0.2387, 0.2810, 0.3268, 0.3766, 0.4301, 0.4876, 0.5500, 0.6167, 0.6851, 0.7530, 0.8170, 0.8740, 0.9223, 0.9604, 0.9866, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000];
   static SL3M = [1.9014, -0.8790, -0.0434, 0.0067, -0.1553, 1.3955, -0.2447, 0.0003, 0.0021, -0.3185, 1.3129, -0.0011];
-  toDisplay(img, c) {
-    const p = this.prof(c); if (!p || p.g !== 'S-Log3') return img;
-    const L = this.sl3Lut || (this.sl3Lut = this.sl3Table());
+  // A clip's S-Log3 code values (0…1, as Final Cut reads them) to Rec.709: the table above at 33 points, then the matrix.
+  // The preview runs the same table (sl3Table, which first undoes this engine's own decode) and matrix.
+  // shift: Exposure on S-Log3, added to the code before the table (sl3Table(ev), EV_CODE a stop).
+  static lkSl3(rgb, shift) {
+    const T = Component.SL3T, n = T.length - 1, M = Component.SL3M, sh = shift || 0;
+    const [r, g, b] = rgb.map(v => { const x = Math.max(0, Math.min(1, v + sh)) * n, i = Math.min(n - 1, Math.floor(x)); return T[i] + (T[i + 1] - T[i]) * (x - i); });
+    return [0, 1, 2].map(k => Math.max(0, Math.min(1, M[k * 4] * r + M[k * 4 + 1] * g + M[k * 4 + 2] * b + M[k * 4 + 3])));
+  }
+  // What the preview shows a clip through before its look (gradeDraw's mode): 0 as shot, 1 S-Log3 → Rec.709 (lkSl3),
+  // 2 the other log profiles' filter (S-Log2, HLG), written out as LK_FS does.
+  static lkIn(rgb, mode) {
+    if (mode === 1) return Component.lkSl3(rgb);
+    if (mode !== 2) return rgb;
+    const c = rgb.map(v => (v - 0.5) * 1.35 + 0.5), y = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    return c.map(v => Math.max(0, Math.min(1, (y + (v - y) * 1.45) * 0.96)));
+  }
+  // What the Viewer's look canvas (gradeDraw, LK_FS) draws for one code value of a clip shown in `mode` with look L. On S-Log3
+  // (mode 1) Exposure is not the look's linear gain: it is a shift of the camera's code before the table, to 1/100 stop, and the
+  // look then runs with ev 0 (evOf's note). Every other clip: lkIn, then lkPx with its Exposure.
+  static lkPreview(rgb, L, mode) {
+    const u = Component.lkU(L);
+    if (mode !== 1) return Component.lkPx(Component.lkIn(rgb, mode), u);
+    const sh = Math.round(u.ev * 100) / 100 * 261.5 * Math.log10(2) / 1023; u.ev = 0;
+    return Component.lkPx(Component.lkSl3(rgb, sh), u);
+  }
+  // The look as a .cube for Final Cut's Custom LUT effect: an n³ grid of the clip's code values, each through lkPreview (the
+  // clip then goes to Final Cut with Camera LUT None). Red varies fastest.
+  static lkCube(L, mode, title, n) {
+    n = n || 33; mode = mode === true ? 1 : mode || 0;
+    const out = ['TITLE "' + String(title || 'Lumina Skim look').replace(/["\r\n]/g, ' ') + '"', 'LUT_3D_SIZE ' + n, 'DOMAIN_MIN 0 0 0', 'DOMAIN_MAX 1 1 1'];
+    for (let b = 0; b < n; b++) for (let g = 0; g < n; g++) for (let r = 0; r < n; r++) out.push(Component.lkPreview([r / (n - 1), g / (n - 1), b / (n - 1)], L, mode).map(v => v.toFixed(6)).join(' '));
+    return out.join('\n') + '\n';
+  }
+  // ---- How Final Cut 12.4 names a custom LUT in a .fcpxml (read from its own export, 2026-11-03). The Custom LUT effect's
+  // "LUT" parameter is base64 of a Motion parameter (ozml) whose value is "<hash>:<name>". Final Cut finds the LUT only in its
+  // Custom LUTs folder (~/Library/Application Support/ProApps/Custom LUTs), by the hash of the file's path inside that folder:
+  // MD5 of the path in UTF-16LE, printed as four little-endian 32-bit words. A path anywhere else is not followed.
+  static lkMd5(bytes) {
+    const K = [], S = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
+    for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) >>> 0;
+    const n = bytes.length, m = new Uint8Array(((n + 8) >> 6) * 64 + 64); m.set(bytes); m[n] = 0x80;
+    const bits = n * 8; for (let i = 0; i < 8; i++) m[m.length - 8 + i] = i < 4 ? (bits >>> (8 * i)) & 255 : Math.floor(bits / 4294967296) >>> (8 * (i - 4)) & 255;
+    let h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476;
+    for (let o = 0; o < m.length; o += 64) {
+      const w = []; for (let i = 0; i < 16; i++) w[i] = m[o + i * 4] | m[o + i * 4 + 1] << 8 | m[o + i * 4 + 2] << 16 | m[o + i * 4 + 3] << 24;
+      let a = h0, b = h1, c = h2, d = h3;
+      for (let i = 0; i < 64; i++) {
+        const r = i >> 4; let f, g;
+        if (r === 0) { f = (b & c) | (~b & d); g = i; } else if (r === 1) { f = (d & b) | (~d & c); g = (5 * i + 1) & 15; } else if (r === 2) { f = b ^ c ^ d; g = (3 * i + 5) & 15; } else { f = c ^ (b | ~d); g = (7 * i) & 15; }
+        const t = d; d = c; c = b; const x = (a + f + K[i] + w[g]) | 0, sh = S[r * 4 + (i & 3)]; b = (b + (x << sh | x >>> (32 - sh))) | 0; a = t;
+      }
+      h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0;
+    }
+    const out = new Uint8Array(16); [h0, h1, h2, h3].forEach((h, i) => { for (let k = 0; k < 4; k++) out[i * 4 + k] = (h >>> (8 * k)) & 255; }); return out;
+  }
+  static lkLutHash(rel) {
+    const s = String(rel), u = new Uint8Array(s.length * 2); for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); u[i * 2] = c & 255; u[i * 2 + 1] = c >> 8; }
+    const d = Component.lkMd5(u), hx = x => (x < 16 ? '0' : '') + x.toString(16); let o = '';
+    for (let i = 0; i < 16; i += 4) o += hx(d[i + 3]) + hx(d[i + 2]) + hx(d[i + 1]) + hx(d[i]);
+    return o;
+  }
+  // The parameter's value for one reference ("<hash>:<name>", or '' for none): the reference as an NSKeyedArchiver binary
+  // plist, framed (8-byte length, '*', the plist, two zero bytes) and written in Motion's 6-bit alphabet, inside the ozml
+  // text Final Cut writes, base64. lkLutParam(hash + ':C4815 look') is byte for byte what Final Cut 12.4 exported.
+  static lkLutParam(ref) {
+    const str = s => { const a = /^[\x00-\x7f]*$/.test(s), len = s.length, out = [];
+      const hd = (k, n) => { if (n < 15) out.push(k << 4 | n); else { out.push(k << 4 | 15); if (n < 256) out.push(0x10, n); else out.push(0x11, n >> 8, n & 255); } };
+      if (a) { hd(5, len); for (let i = 0; i < len; i++) out.push(s.charCodeAt(i)); } else { hd(6, len); for (let i = 0; i < len; i++) { const c = s.charCodeAt(i); out.push(c >> 8, c & 255); } }
+      return out; };
+    const plist = s => {
+      const ob = [[0xd4, 1, 2, 3, 4, 5, 6, 7, 10], str('$version'), str('$archiver'), str('$top'), str('$objects'), [0x12, 0x00, 0x01, 0x86, 0xa0], str('NSKeyedArchiver'), [0xd1, 8, 9], str('$0'), [0x80, 1], [0xa2, 11, 12], str('$null'), str(s)];
+      const head = [0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30], body = [...head], offs = [];
+      ob.forEach(o => { offs.push(body.length); body.push(...o); });
+      const table = body.length, sz = table < 256 ? 1 : 2;
+      offs.forEach(v => { if (sz === 2) body.push(v >> 8); body.push(v & 255); });
+      const be8 = v => [0, 0, 0, 0, (v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255];
+      body.push(0, 0, 0, 0, 0, 0, sz, 1, ...be8(ob.length), ...be8(0), ...be8(table));
+      return body;
+    };
+    const enc = s => { const p = plist(s), b = [0, 0, 0, 0, (p.length >>> 24) & 255, (p.length >>> 16) & 255, (p.length >>> 8) & 255, p.length & 255, 0x2a, ...p, 0, 0];
+      const A = '*-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'; let o = '', acc = 0, nb = 0;
+      for (const x of b) { acc = (acc << 8) | x; nb += 8; while (nb >= 6) { nb -= 6; o += A[(acc >> nb) & 63]; } acc &= (1 << nb) - 1; }
+      if (nb) o += A[(acc << (6 - nb)) & 63];
+      return o; };
+    const oz = '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE ozxmlscene>\n<ozml version="5.15">\n\n<factory id="1" uuid="4d0e48d84fca424d82aa98a027c6ec5c">\n\t<description>Channel</description>\n\t<manufacturer>Apple</manufacturer>\n\t<version>1</version>\n</factory>\n\n\n<parameter name="LUT" id="3" flags="4295032848">\n\t<flags>4295032848</flags>\n\t<numberOfKeypoints>0</numberOfKeypoints>\n\t<defaultVal>' + enc('') + '</defaultVal>\n\t<dataValue>' + enc(String(ref || '')) + '</dataValue>\n</parameter>\n\n</ozml>\n';
+    return typeof btoa === 'function' ? btoa(oz) : Buffer.from(oz, 'latin1').toString('base64');
+  }
+  // LOOK-END
+  // The same steps on the GPU. mode 0: as shot; 1: S-Log3 → Rec.709 (the page's own table and matrix,
+  // the ones toDisplay uses); 2: the other log profiles' filter, written out.
+  static LK_FS = `precision highp float;
+varying vec2 vUv; uniform sampler2D uVid, uLut; uniform int uMode; uniform mat3 uM; uniform vec3 uO;
+uniform float uShift, uEv, uTemp, uTint, uCon, uHl, uSh, uWh, uBl, uVib, uSat, uBlend, uBal;
+uniform float uMixC[8], uMixH[8], uMixS[8], uMixL[8]; uniform float uGH[4], uGS[4], uGL[4];
+float lut(float v) { return texture2D(uLut, vec2((v * 255.0 + 0.5) / 256.0, 0.5)).r; }
+float tone(float x) { const float T = 6.28318530718;
+  x += uBl * 0.12 * pow(1.0 - x, 4.0); x += uSh * 0.8 * x * pow(1.0 - x, 3.0); x -= uCon * 0.6 * sin(T * x) / T;
+  x += uHl * 0.8 * x * x * x * (1.0 - x); x += uWh * 0.12 * pow(x, 4.0); return clamp(x, 0.0, 1.0); }
+float shoulder(float v) { float kn = 1.0 - 0.2 * clamp(uEv, 0.0, 1.0); v = pow(max(v, 0.0), 1.0 / 2.2); return v < kn || kn >= 1.0 ? v : kn + (1.0 - kn) * (1.0 - exp(-(v - kn) / (1.0 - kn))); }
+vec3 hsv(vec3 c) { float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b)), d = mx - mn, h = 0.0;
+  if (d > 1e-6) { if (mx == c.r) h = mod((c.g - c.b) / d, 6.0); else if (mx == c.g) h = (c.b - c.r) / d + 2.0; else h = (c.r - c.g) / d + 4.0; h *= 60.0; if (h < 0.0) h += 360.0; }
+  return vec3(h, mx > 0.0 ? d / mx : 0.0, mx); }
+float hk(float n, vec3 c) { float k = mod(n + c.x / 60.0, 6.0); return c.z - c.z * c.y * max(0.0, min(min(k, 4.0 - k), 1.0)); }
+vec3 rgb(vec3 c) { return vec3(hk(5.0, c), hk(3.0, c), hk(1.0, c)); }
+void main() {
+  vec3 c = texture2D(uVid, vUv).rgb;
+  if (uMode == 0) c = clamp(c + uShift, 0.0, 1.0);   // S-Log3 with the preview off: Exposure is a shift of the log code
+  if (uMode == 1) c = clamp(uM * vec3(lut(c.r), lut(c.g), lut(c.b)) + uO, 0.0, 1.0);
+  else if (uMode == 2) { c = (c - 0.5) * 1.35 + 0.5; float y = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = clamp((y + (c - y) * 1.45) * 0.96, 0.0, 1.0); }
+  c = pow(max(c, 0.0), vec3(2.2));
+  float e = exp2(uEv);
+  c *= vec3(exp2(0.35 * uTemp + 0.125 * uTint), exp2(-0.25 * uTint), exp2(-0.35 * uTemp + 0.125 * uTint)) * e;
+  c = vec3(tone(shoulder(c.r)), tone(shoulder(c.g)), tone(shoulder(c.b)));
+  float Y = dot(c, vec3(0.2126, 0.7152, 0.0722)), cs = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+  float k = max(0.0, (1.0 + uSat) * (1.0 + uVib * (uVib > 0.0 ? 1.0 - min(1.0, cs * 1.5) : 1.0)));
+  c = Y + (c - Y) * k;
+  vec3 q = hsv(max(c, 0.0)); float dh = 0.0, ds = 0.0, dl = 0.0;
+  for (int i = 0; i < 7; i++) { float a = uMixC[i], b = uMixC[i + 1];   // GLSL ES 1.0: indices are loop symbols, so the wrap is written out below
+    if (q.x >= a && q.x < b) { float f = (q.x - a) / (b - a); dh = mix(uMixH[i], uMixH[i + 1], f); ds = mix(uMixS[i], uMixS[i + 1], f); dl = mix(uMixL[i], uMixL[i + 1], f); } }
+  { float a = uMixC[7], b = uMixC[0] + 360.0, hh = q.x < a ? q.x + 360.0 : q.x;
+    if (hh >= a && hh < b) { float f = (hh - a) / (b - a); dh = mix(uMixH[7], uMixH[0], f); ds = mix(uMixS[7], uMixS[0], f); dl = mix(uMixL[7], uMixL[0], f); } }
+  float wc = min(1.0, q.y * 3.0);
+  if (wc > 0.0 && (dh != 0.0 || ds != 0.0 || dl != 0.0)) { q.x = mod(q.x + dh * 30.0 * wc + 360.0, 360.0); q.y = clamp(q.y * (1.0 + ds * wc), 0.0, 1.0); q.z = max(0.0, q.z * (1.0 + dl * 0.35 * wc)); c = rgb(q); }
+  Y = clamp(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+  float yb = pow(Y, exp2(-uBal)), p = 2.5 - 2.0 * uBlend, mS = pow(1.0 - yb, p), mH = pow(yb, p);
+  float m[4]; m[0] = mS; m[1] = max(0.0, 1.0 - mS - mH); m[2] = mH; m[3] = 1.0;
+  for (int z = 0; z < 4; z++) {
+    if (uGS[z] != 0.0) { vec3 t = rgb(vec3(uGH[z], 1.0, 1.0)); c += (t - dot(t, vec3(0.2126, 0.7152, 0.0722))) * uGS[z] * 0.15 * m[z]; }
+    c += uGL[z] * 0.2 * m[z];
+  }
+  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+  // Looks are kept per shoot, like the mattes, in this browser (and on the Mac in the app).
+  lookKey(d) { return 'lumina-skim:looks:' + this.storeKey(d || this.d).replace(/^lumina-skim:/, ''); }
+  looks() { const d = this.d; if (!d) return {}; const k = this.lookKey(d); if (this.lookK !== k) { this.lookK = k; let m = null; try { m = JSON.parse(localStorage.getItem(k) || 'null'); } catch (x) {} this.lookM = m && typeof m === 'object' ? m : {}; } return this.lookM; }
+  looksPut(m) {
+    this.lookM = m; clearTimeout(this.lookT); const k = this.lookKey();
+    this.lookT = setTimeout(() => this.persist(k, Object.keys(this.lookM).length ? JSON.stringify(this.lookM) : null), 300);
+    this.setState(s => ({lkTick:(s.lkTick || 0) + 1})); this.gradeDraw();
+  }
+  lookOf(id) { return this.looks()[id] || null; }
+  // Export: the .cube for each clip with a look (Final Cut's Custom LUT effect). The clip goes to Final Cut with Camera LUT
+  // None and the cube carries what the preview shows it through (lkIn: the S-Log3 conversion for S-Log3 clips, the filter
+  // for S-Log2 and HLG, nothing for Rec.709), then the look. Final Cut reads a custom LUT only from its own Custom LUTs folder,
+  // so each cube has a place there, "Lumina Skim/<event>/<clip> <tag>.cube" (the tag from its contents: a changed look is a new
+  // file, and an older project keeps the one it used); the .fcpxml names that place. Cubes are memoised by look and mode.
+  lkLuts(clips, event) {
+    const M = this.looks ? this.looks() : {}, out = {}, memo = this.lkCubes || (this.lkCubes = new Map());
+    const safe = t => String(t || '').replace(/[\/:\\\u0000-\u001f]/g, ' ').replace(/^[.\s]+/, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Skim';
+    const ev = safe(event);
+    (clips || []).forEach(c => {
+      const L = M[c.id]; if (Component.lkFlat(L)) return;
+      const g = c.profile && c.profile.gamma, mode = g === 'S-Log3' ? 1 : g === 'S-Log2' || g === 'HLG' ? 2 : 0, stem = safe(String(c.name || '').replace(/\.\w+$/, ''));
+      const k = mode + '|' + JSON.stringify(Object.keys(L).sort().map(p => [p, L[p]]));
+      let e = memo.get(k);
+      if (!e) { const text = Component.lkCube(L, mode, 'Lumina Skim'); let h = 0x811c9dc5; for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619); e = {text, tag:(h >>> 0).toString(16).padStart(8, '0').slice(0, 6)}; memo.set(k, e); if (memo.size > 400) memo.delete(memo.keys().next().value); }
+      const name = stem + ' ' + e.tag, rel = 'Lumina Skim/' + ev + '/' + name + '.cube';
+      out[c.id] = {name, file:name + '.cube', rel, text:e.text.replace(/^TITLE "[^"\n]*"/, 'TITLE "' + name.replace(/"/g, ' ') + '"'), mode, param:Component.lkLutParam(Component.lkLutHash(rel) + ':' + name)};
+    });
+    return out;
+  }
+  // One undo step per gesture: the look before the drag and after it.
+  lkBegin(ids) { const m = this.looks(); this.lkPrev = {ids, prev:Object.fromEntries(ids.map(id => [id, m[id] ? {...m[id]} : null]))}; }
+  lkEnd(say) {
+    const b = this.lkPrev; this.lkPrev = null; if (!b) return; const m = this.looks(), next = Object.fromEntries(b.ids.map(id => [id, m[id] ? {...m[id]} : null]));
+    if (b.ids.every(id => JSON.stringify(b.prev[id]) === JSON.stringify(next[id]))) return;
+    this.pushStep({k:'look', ids:b.ids, prev:b.prev, next, say}); this.evMoved(b.ids, b.prev, next);
+  }
+  lkSet(id, p, v) {
+    const m = {...this.looks()}, L = {...(m[id] || {})}; v = Component.lkClean(p, v);
+    if (v === Component.lkDef(p)) delete L[p]; else L[p] = v;
+    if (Component.lkFlat(L)) delete m[id]; else m[id] = L;
+    this.looksPut(m);
+  }
+  lkVals(c) {
+    const st = this.state, L = this.lookOf(c.id) || {}, sec = st.lkSec || 'light', G = p => Component.lkGet(L, p), hue = st.lkHue || 'blue', zone = st.lkZone || 'mid';
+    const row = (p, l) => { const [a, b] = Component.lkRange(p), v = G(p), d = Component.lkDef(p), f = (v - a) / (b - a), f0 = (d - a) / (b - a), set = v !== d;
+      return {p, l, v:Component.lkFmt(p, v), vc:set ? '#EFECE6' : '#9A958D', bg:st.lkOn === p ? 'rgba(239,236,230,0.06)' : 'transparent', d:(f0 * 100).toFixed(2) + '%', fl:(Math.min(f, f0) * 100).toFixed(2) + '%', fw:(Math.abs(f - f0) * 100).toFixed(2) + '%', kx:(f * 100).toFixed(2) + '%'}; };
+    const rows = sec === 'mix' ? [['h', 'Hue'], ['s', 'Saturation'], ['l', 'Luminance']].map(([k, l]) => row('mix.' + hue + '.' + k, l))
+      : sec === 'grade' ? [row('grade.' + zone + '.l', 'Luminance'), row('grade.blend', 'Blending'), row('grade.bal', 'Balance')]
+      : Component.LK_ROWS[sec].map(([p, l]) => row(p, l));
+    const wh = G('grade.' + zone + '.h'), ws = G('grade.' + zone + '.s'), rad = wh * Math.PI / 180;
+    const hName = (Component.LK_HUES.find(h => h[0] === hue) || [, 'Blue'])[1];
+    const olA = !!this.olApi(), olOn = !!st.ol, tab = (on) => ({bg:on ? 'rgba(239,236,230,0.12)' : 'transparent', fg:on ? '#EFECE6' : '#9A958D'});
+    const tc = tab(!olOn), to = tab(olOn);
+    return {on:true, colorOn:!olOn, colorBg:tc.bg, colorFg:tc.fg, colorGo:() => { if (this.state.ol) this.olClick(); }, olTab:olA, olOn, olBg:to.bg, olFg:to.fg, olGo:() => { if (!this.state.ol) this.olClick(); }, say:Component.lkWords(L), resetOn:!Component.lkFlat(L), pasteOn:!!this.lkClip, pasteTip:this.lkClip ? 'Paste ' + this.lkClip.from + "'s look · ⌘V · " + Component.lkWords(this.lkClip.L) : '',
+      secs:Component.LK_SECS.map(([k, t]) => ({k, t, on:k === sec, bg:k === sec ? '#5B5854' : 'transparent', fg:k === sec ? '#EFECE6' : '#9A958D', sh:k === sec ? '0 0.5px 1px rgba(0,0,0,.4)' : 'none'})),
+      mixOn:sec === 'mix', hueSay:hName + (hue === 'blue' || hue === 'aqua' ? ' · sky and water sit here' : ''),
+      hues:Component.LK_HUES.map(([k, t, h]) => ({k, t, on:k === hue, dot:'hsl(' + h + ',62%,56%)', ring:k === hue ? '0 0 0 2px #EFECE6' : 'none', ed:['h', 's', 'l'].some(x => G('mix.' + k + '.' + x) !== 0)})),
+      gradeOn:sec === 'grade', zoneT:(Component.LK_ZONES.find(z => z[0] === zone) || [, ''])[1],
+      zones:Component.LK_ZONES.map(([k, t]) => ({k, t, on:k === zone, bg:k === zone ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.04)', fg:k === zone ? '#EFECE6' : '#9A958D'})),
+      wx:(50 + Math.sin(rad) * ws / 2).toFixed(2) + '%', wy:(50 - Math.cos(rad) * ws / 2).toFixed(2) + '%', wSay:ws ? 'hue ' + wh + '° · ' + ws : 'no tint', rows};
+  }
+  lkSec = e => this.setState({lkSec:e.currentTarget.getAttribute('data-lksec')});
+  lkHue = e => this.setState({lkHue:e.currentTarget.getAttribute('data-lkhue')});
+  lkZone = e => this.setState({lkZone:e.currentTarget.getAttribute('data-lkzone')});
+  // A row: drag anywhere on it (Exposure a stop per 120 px, the others a step per 2 px; ⌥ a quarter of that).
+  lkDown = e => {
+    if (e.button !== 0) return; const c = this.byId && this.byId[this.state.cur], el = e.currentTarget, p = el.getAttribute('data-lkp'); if (!c || !p) return;
+    e.preventDefault(); const x0 = e.clientX, v0 = Component.lkGet(this.lookOf(c.id), p); let on = false;
+    const mv = ev => { const dx = ev.clientX - x0; if (!on) { if (Math.abs(dx) < 3) return; on = true; this.lkBegin([c.id]); this.setState({lkOn:p}); }
+      const sp = ev.altKey ? 0.25 : 1; this.lkSet(c.id, p, v0 + (p === 'ev' ? dx / 120 : dx / 2) * sp); };
+    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); if (on) { this.setState({lkOn:null}); this.lkEnd(Component.lkName(p) + ' on ' + c.name); } };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  };
+  lkDbl = e => { const c = this.byId && this.byId[this.state.cur], p = e.currentTarget.getAttribute('data-lkp'); if (!c || !p) return; this.lkBegin([c.id]); this.lkSet(c.id, p, Component.lkDef(p)); this.lkEnd(Component.lkName(p) + ' reset on ' + c.name); };
+  // The wheel: the angle is the hue, the distance from the middle the strength. ⌥ moves a quarter as far.
+  lkWheelDown = e => {
+    if (e.button !== 0) return; const c = this.byId && this.byId[this.state.cur], el = e.currentTarget; if (!c) return; e.preventDefault();
+    const zone = this.state.lkZone || 'mid', r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, R = r.width / 2;
+    const L0 = this.lookOf(c.id), h0 = Component.lkGet(L0, 'grade.' + zone + '.h'), s0 = Component.lkGet(L0, 'grade.' + zone + '.s');
+    const p0 = [Math.sin(h0 * Math.PI / 180) * s0 / 100 * R, -Math.cos(h0 * Math.PI / 180) * s0 / 100 * R], start = [e.clientX, e.clientY];
+    const at = ev => { const fine = ev.altKey ? 0.25 : 1, x = fine < 1 ? p0[0] + (ev.clientX - start[0]) * fine : ev.clientX - cx, y = fine < 1 ? p0[1] + (ev.clientY - start[1]) * fine : ev.clientY - cy;
+      const s = Math.min(100, Math.hypot(x, y) / R * 100), h = (Math.atan2(x, -y) * 180 / Math.PI + 360) % 360;
+      this.lkSet(c.id, 'grade.' + zone + '.h', h); this.lkSet(c.id, 'grade.' + zone + '.s', s < 2 ? 0 : s); };
+    this.lkBegin([c.id]); if (!e.altKey) at(e);
+    const up = () => { window.removeEventListener('pointermove', at); window.removeEventListener('pointerup', up); this.lkEnd(zone === 'all' ? 'global tint on ' + c.name : Component.lkName('grade.' + zone + '.s') + ' on ' + c.name); };
+    window.addEventListener('pointermove', at); window.addEventListener('pointerup', up);
+  };
+  lkWheelDbl = () => { const c = this.byId && this.byId[this.state.cur], zone = this.state.lkZone || 'mid'; if (!c) return; this.lkBegin([c.id]); this.lkSet(c.id, 'grade.' + zone + '.s', 0); this.lkSet(c.id, 'grade.' + zone + '.h', 0); this.lkEnd('tint reset on ' + c.name); };
+  lkReset = () => { const c = this.byId && this.byId[this.state.cur]; if (!c) return; this.lkBegin([c.id]); const m = {...this.looks()}; delete m[c.id]; this.looksPut(m); this.lkEnd('look reset on ' + c.name); };
+  // Copy a clip's look and paste it on others, shot to shot: in the Viewer onto the clip on show, in the grid onto the selection.
+  lkCopy = () => {
+    const st = this.state, c = this.byId && this.byId[st.cur]; if (!c) return;
+    const L = this.lookOf(c.id); this.lkClip = {from:c.name.replace(/\.\w+$/, ''), L:L ? {...L} : {}};
+    this.flash('look copied · ' + Component.lkWords(this.lkClip.L)); this.setState(s => ({lkTick:(s.lkTick || 0) + 1}));
+  };
+  lkPaste = () => {
+    const st = this.state, lc = this.lkClip; if (!lc) { this.flash('copy a look first · ⌘C'); return; }
+    const sel = st.lv < 2 && st.sel && st.sel.length ? st.sel : null, ids = (sel || [st.cur]).filter(id => this.byId && this.byId[id]); if (!ids.length) return;
+    this.lkBegin(ids); const m = {...this.looks()}; ids.forEach(id => { if (Component.lkFlat(lc.L)) delete m[id]; else m[id] = {...lc.L}; }); this.looksPut(m);
+    const say = lc.from + "'s look on " + (ids.length > 1 ? this.plural(ids.length, 'clip') : this.byId[ids[0]].name);
+    this.lkEnd(say); this.flash('pasted · ' + say);
+  };
+  // The grade on the picture: a WebGL canvas over the Viewer's video, only while the clip has a look.
+  gdCvRef = el => { if (this.gdRv && this.gdV && this.gdV.cancelVideoFrameCallback) this.gdV.cancelVideoFrameCallback(this.gdRv); this.gdRv = 0; this.gdCv = el || null; this.gdGl = null; if (el) this.gradeDraw(); };
+  gradeGl() {
+    const cv = this.gdCv; if (this.gdGl && this.gdGl.cv === cv) return this.gdGl;
+    const gl = cv.getContext('webgl', {premultipliedAlpha:false, antialias:false, preserveDrawingBuffer:false}); if (!gl) return null;
+    const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const pr = gl.createProgram();
+    try { gl.attachShader(pr, sh(gl.VERTEX_SHADER, 'attribute vec2 p; varying vec2 vUv; void main() { vUv = vec2(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5); gl_Position = vec4(p, 0.0, 1.0); }')); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, Component.LK_FS)); }
+    catch (x) { this.gdErr = String(x && x.message || x); return null; }
+    gl.bindAttribLocation(pr, 0, 'p'); gl.linkProgram(pr); if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { this.gdErr = gl.getProgramInfoLog(pr); return null; }
+    gl.useProgram(pr); const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    const tex = unit => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.CLAMP_TO_EDGE)); [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.LINEAR)); return t; };
+    const vid = tex(0), lut = tex(1), U = n => gl.getUniformLocation(pr, n);
+    gl.uniform1i(U('uVid'), 0); gl.uniform1i(U('uLut'), 1);
+    this.gdGl = {cv, gl, vid, lut, U, lutFor:null}; return this.gdGl;
+  }
+  gradeDraw() {
+    const cv = this.gdCv, v = this.vidEl, st = this.state; if (!cv) return;
+    const c = st.step === 'skim' && st.lv >= 2 && this.byId ? this.byId[st.cur] : null, L = c ? this.lookOf(c.id) : null;
+    const on = !!c && !!v && this.vidFor === c.id && this.vidUp === v && !Component.lkFlat(L) && v.readyState >= 2 && v.videoWidth > 0;
+    if (v && this.gdV !== v) { this.gdV = v; ['seeked', 'play', 'loadeddata'].forEach(k => v.addEventListener(k, () => this.gradeDraw())); }
+    // Why the picture is (not) graded, on the canvas for tests: on · as shot · no video · no frame · no webgl.
+    const why = !c ? 'no clip' : Component.lkFlat(L) ? 'as shot' : !v || this.vidFor !== c.id || this.vidUp !== v || v.readyState < 2 || !(v.videoWidth > 0) ? 'no video' : !this.vidHas(v) ? 'no frame' : 'on';
+    if (why !== 'on') { cv.dataset.look = why; if (!on) cv.style.opacity = '0'; return; }
+    const g = this.gradeGl(); if (!g) { cv.dataset.look = 'no webgl' + (this.gdErr ? ': ' + this.gdErr : ''); cv.style.opacity = '0'; return; } const gl = g.gl, U = g.U;
+    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    const w = Math.max(2, Math.min(v.videoWidth, Math.round((cv.clientWidth || 320) * dpr * Math.max(1, st.zc || 1)))), h = Math.max(2, Math.round(w * v.videoHeight / v.videoWidth));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    gl.viewport(0, 0, w, h);
+    const pv = this.pvOn(c), flt = pv ? this.pvFlt(c) : 'none', mode = !pv ? 0 : flt.indexOf('url(') === 0 ? 1 : 2;
+    // Exposure on S-Log3 is the shift of the code (evOf's note): with the preview on it is in the table, as the tiles' filter
+    // has it; with it off a shift of the log picture; the gain in linear light below is for every other clip.
+    const pr = this.prof(c), sl = !!pr && pr.g === 'S-Log3', ek = Math.round(Component.lkGet(L, 'ev') * 100);
+    if (mode === 1 && (g.lutFor !== this.sl3Lut || g.lutEv !== ek)) {
+      const T0 = this.sl3Lut || (this.sl3Lut = this.sl3Table()), T = ek ? this.sl3Table(ek / 100) : T0, px = new Uint8Array(256 * 4); g.lutEv = ek;
+      for (let i = 0; i < 256; i++) { const q = Math.max(0, Math.min(255, Math.round(T[i] * 255))); px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = q; px[i * 4 + 3] = 255; }
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, g.lut); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, px); g.lutFor = this.sl3Lut;
+    }
+    const M = Component.SL3M; gl.uniformMatrix3fv(U('uM'), false, [M[0], M[4], M[8], M[1], M[5], M[9], M[2], M[6], M[10]]); gl.uniform3f(U('uO'), M[3], M[7], M[11]); gl.uniform1i(U('uMode'), mode);
+    const u = Component.lkU(L); if (sl) u.ev = 0; gl.uniform1f(U('uShift'), sl && mode === 0 ? ek / 100 * Component.EV_CODE : 0);
+    [['uEv', 'ev'], ['uTemp', 'temp'], ['uTint', 'tint'], ['uCon', 'con'], ['uHl', 'hl'], ['uSh', 'sh'], ['uWh', 'wh'], ['uBl', 'bl'], ['uVib', 'vib'], ['uSat', 'sat'], ['uBlend', 'blend'], ['uBal', 'bal']].forEach(([n, k]) => gl.uniform1f(U(n), u[k]));
+    [['uMixC', 'mixC'], ['uMixH', 'mixH'], ['uMixS', 'mixS'], ['uMixL', 'mixL'], ['uGH', 'gH'], ['uGS', 'gS'], ['uGL', 'gL']].forEach(([n, k]) => gl.uniform1fv(U(n + '[0]') || U(n), new Float32Array(u[k])));
+    try { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, g.vid); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v); } catch (x) { cv.dataset.look = 'no upload'; cv.style.opacity = '0'; return; }
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); cv.style.opacity = '1'; cv.dataset.look = 'on';
+    // While it plays, every new frame of the video is graded as it arrives.
+    if (!v.paused && !this.gdRv) { const next = () => { this.gdRv = 0; this.gradeDraw(); }; this.gdRv = v.requestVideoFrameCallback ? v.requestVideoFrameCallback(next) : requestAnimationFrame(next); }
+  }
+  // with the clip's exposure (x, stops; the colour check passes 0): the same table at the shifted code, or the gain
+  toDisplay(img, c, x = this.evOf(c)) {
+    const p = this.prof(c), k = Math.round(x * 100);
+    if (!p || p.g !== 'S-Log3') { if (!k) return img; const G = this.evGainLut(k / 100), S = img.data, o = new Uint8ClampedArray(S.length); for (let i = 0; i < S.length; i += 4) { o[i] = G[S[i]]; o[i + 1] = G[S[i + 1]]; o[i + 2] = G[S[i + 2]]; o[i + 3] = 255; } return {data:o, width:img.width, height:img.height}; }
+    const L = k ? this.sl3Table(k / 100) : this.sl3Lut || (this.sl3Lut = this.sl3Table());
     const M = Component.SL3M, D = img.data, out = new Uint8ClampedArray(D.length);
     for (let i = 0; i < D.length; i += 4) { const r = L[D[i]], g = L[D[i + 1]], b = L[D[i + 2]]; out[i] = (M[0] * r + M[1] * g + M[2] * b + M[3]) * 255; out[i + 1] = (M[4] * r + M[5] * g + M[6] * b + M[7]) * 255; out[i + 2] = (M[8] * r + M[9] * g + M[10] * b + M[11]) * 255; out[i + 3] = 255; }
     return {data:out, width:img.width, height:img.height};
   }
   // The S-Log3 curve for each level the page sees: the camera's code value first (undoing this engine's own
   // conversion of BT.709-tagged video, measured by calibrate()), then the S-Log3 curve at 33 points, fitted to Final Cut's Sony S-Log3/S-Gamut3.Cine camera LUT.
-  sl3Table() {
-    const T = Component.SL3T, n = T.length - 1, cal = this.cal, a = new Float32Array(256);
-    for (let v = 0; v < 256; v++) { const code = cal ? cal[v] : v / 255, x = code * n, i = Math.min(n - 1, Math.floor(x)), f = x - i; a[v] = T[i] + (T[i + 1] - T[i]) * f; }
+  // ev: stops of exposure, a shift of the code before the curve (Component.EV_CODE a stop)
+  sl3Table(ev) {
+    const T = Component.SL3T, n = T.length - 1, cal = this.cal, a = new Float32Array(256), sh = ev ? ev * 261.5 * Math.log10(2) / 1023 : 0;
+    for (let v = 0; v < 256; v++) { const code = Math.max(0, Math.min(1, (cal ? cal[v] : v / 255) + sh)), x = code * n, i = Math.min(n - 1, Math.floor(x)), f = x - i; a[v] = T[i] + (T[i + 1] - T[i]) * f; }
     return a;
   }
   // Every engine shows BT.709-tagged video through its own conversion before a filter or a canvas sees it
@@ -5644,6 +6299,7 @@ class Component extends DCLogic {
         this.cal = inv; this.sl3Lut = null; this.calDev = Math.round(Math.max(...obs.map((o, i) => Math.abs(o * 255 - i))));
         const tv = Array.from(this.sl3Table(), y => y.toFixed(4)).join(' ');
         document.querySelectorAll('#lumina-slog3 feFuncR, #lumina-slog3 feFuncG, #lumina-slog3 feFuncB').forEach(f => f.setAttribute('tableValues', tv));
+        document.querySelectorAll('#lumina-pv-filters filter[data-ev]').forEach(f => f.remove());   // the exposure filters hold the old table: made again as shown
         document.documentElement.dataset.luminaCal = JSON.stringify({engine:k, at:[0, 32, 64, 128, 192, 255].map(i => Math.round(obs[i] * 255))});
         this.setState(s => ({tick:(s.tick || 0) + 1}));
         return;
@@ -5713,7 +6369,7 @@ class Component extends DCLogic {
           const im = ctx.getImageData(0, 0, 320, 180);
           await new Promise(r => setTimeout(r, 20 * (1 + (this.simHeat || 0) * 0.6)));
           const fb = await this.frameBlob(cv); if (tok !== this.qTok) throw 'stopped';
-          this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
+          this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); pp.sl = this.sceneSl(im, c); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
           this.bump();
         }
         if (px.length) this.noteSpeed((performance.now() - t0) / px.length); c.facts = this.factsAll(c); c.why = null; c.tries = 0;
@@ -5726,7 +6382,7 @@ class Component extends DCLogic {
   async remeasure(list) {
     const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180; const ctx = cv.getContext('2d', {willReadFrequently:true});
     for (const c of list) { if (!c.frames || !c.frames.some(Boolean)) continue; const px = [];
-      for (let i = 0; i < c.frames.length; i++) { const u = c.frames[i]; if (!u) continue; try { const bm = await createImageBitmap(await (await fetch(u)).blob()); ctx.drawImage(bm, 0, 0, 320, 180); if (bm.close) bm.close(); const pp = this.pix(this.toDisplay(ctx.getImageData(0, 0, 320, 180), c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; } catch (x) {} }
+      for (let i = 0; i < c.frames.length; i++) { const u = c.frames[i]; if (!u) continue; try { const bm = await createImageBitmap(await (await fetch(u)).blob()); ctx.drawImage(bm, 0, 0, 320, 180); if (bm.close) bm.close(); const im = ctx.getImageData(0, 0, 320, 180), pp = this.pix(this.toDisplay(im, c)); pp.sl = this.sceneSl(im, c); px.push(pp); (c._px || (c._px = {}))[i] = pp; } catch (x) {} }
       if (px.length) { c.facts = this.provMark(this.factsOf(px), px.length); this.setState(s => ({tick:(s.tick || 0) + 1})); } }
   }
   factsOf(px) {
@@ -5776,7 +6432,7 @@ class Component extends DCLogic {
           for (const k of Component.checkTimes(c.fps, isFinite(v.duration) ? v.duration : 0)) {
             v.currentTime = k.t; await wait('seeked', 8000); await this.painted(v);
             let im = null; for (let j = 0; j < 3; j++) { ctx.drawImage(v, 0, 0, W, H); im = ctx.getImageData(0, 0, W, H); if (!Component.lookAgain(this.blank(im), j)) break; await new Promise(r => setTimeout(r, 120 + j * 160)); }
-            rows.push({clip:c.name, sec:k.sec, frame:k.n, asked:k.t, at:v.currentTime, raw:im, shown:this.toDisplay(im, c)});
+            rows.push({clip:c.name, sec:k.sec, frame:k.n, asked:k.t, at:v.currentTime, raw:im, shown:this.toDisplay(im, c, 0)});
           }
         } catch (x) { rows.push({clip:c.name, failed:String(x)}); }
         URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {}
@@ -5833,7 +6489,7 @@ class Component extends DCLogic {
   buildX() {
     const st = this.state, d = this.d, ex = st.ex; if (!d) return {n:0, text:''};
     let fp = 0; d.clips.forEach(c => { const t = [c.dur, c.nf, c.fd, c.fps, c.w, c.h, c.ltc, c.path, c.profile && c.profile.gamma, c.profile && c.profile.primaries, c.ach, c.arate, c.facts && c.facts.state, c.facts && String(c.facts.idx), c.facts && String(c.facts.sharpF), c.facts && c.facts.bump].join('|'); for (let i = 0; i < t.length; i++) fp = (fp * 31 + t.charCodeAt(i)) | 0; });
-    const bk = [d, d.clips.length, fp, st.marks, JSON.stringify(ex), this.SC, this.G, JSON.stringify(this.exHost || null), JSON.stringify(this.mattes ? this.mattes() : null), JSON.stringify(this.patches ? this.patches() : null)], bm = this.bxM;
+    const bk = [d, d.clips.length, fp, st.marks, JSON.stringify(ex), this.SC, this.G, JSON.stringify(this.exHost || null), JSON.stringify(this.mattes ? this.mattes() : null), JSON.stringify(this.patches ? this.patches() : null), JSON.stringify(this.looks ? this.looks() : null)], bm = this.bxM;
     if (bm && bm.k.every((v, i) => v === bk[i])) return bm.x;
     const bx = (() => {
     const xe = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -5860,7 +6516,10 @@ class Component extends DCLogic {
     const src = c => { let p = c.path || c.name; if (p[0] !== '/') { const i = p.indexOf('/'); p = root ? root + '/' + (tops.size <= 1 && i >= 0 ? p.slice(i + 1) : p) : '/Volumes/' + p; } return 'file://' + p.split('/').map(encodeURIComponent).join('/'); };
     // Final Cut's own name for its built-in Sony conversion, as it writes it on a clip whose Camera LUT is set to
     // Sony S-Log3/S-Gamut3.Cine (read from an export of Final Cut Pro 12.4). Only that pair is known; other log clips get none.
-    const lut = c => ex.lut !== false && c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine' ? ' customLUTOverride="35 (Sony_SLog3_SGamut3Cine_v2)"' : '';
+    // A clip with a look goes with Camera LUT None: its cube (lkLuts) carries the conversion the preview showed, then the look.
+    const LT = (ex.looks !== false && this.lkLuts && this.lkLuts(clips, ex.event || d.shoot.name)) || {}, lutFx = Object.keys(LT).length ? 'lut1' : null;
+    const lkF = (c, pad) => LT[c.id] ? [pad + '<filter-video ref="lut1" name="Custom LUT">', pad + '  <param name="LUT" key="3" value="' + LT[c.id].param + '"/>', pad + '  <param name="Input" key="100/101" value="0 (Rec. 709)"/>', pad + '  <param name="Output" key="100/102" value="0 (Rec. 709)"/>', pad + '</filter-video>'] : [];
+    const lut = c => !LT[c.id] && ex.lut !== false && c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine' ? ' customLUTOverride="35 (Sony_SLog3_SGamut3Cine_v2)"' : '';
     // every clip starts at 0s, where Final Cut reads it: Final Cut takes a file's start from the file itself and reads 00:00:00:00
     // for Sony MP4s, sidecar or not, so a start at the camera's LtcChange left the clip with "no shared media range" (Modified File,
     // no relink; 2026-10-15). The timecode stays in Skim (c.ltc).
@@ -5890,6 +6549,7 @@ class Component extends DCLogic {
       if (kw.length) cl.push('        <keyword start="' + s0 + '" duration="' + du + '" value="' + xe(kw.join(', ')) + '"/>');
       if (rate) cl.push('        <rating start="' + s0 + '" duration="' + du + '" value="' + rate + '"/>');
       cl.push(...flagMk(c, f, s0));
+      cl.push(...lkF(c, '        '));
       cl.push('      </asset-clip>');
       // the followed shape's matte (Follow ▸ Save matte), the clip's length frame for frame, beside it in the event with the keyword "matte"
       const mt = MT[c.id]; if (mt && mt.path) {
@@ -5931,18 +6591,19 @@ class Component extends DCLogic {
       let at = 0, last = -1;
       order.forEach(x => {
         const k = Math.max(1, Math.floor(x.nf * x.f.n * S.dd / (x.f.dd * S.n))), du = k * S.n + '/' + S.dd + 's';
-        const open = x.p !== last || !!x.pt;
+        const open = x.p !== last || !!x.pt || !!LT[x.c.id];
         pj.push('            <asset-clip ref="a' + (x.i + 1) + '" offset="' + (at ? at * S.n + '/' + S.dd + 's' : '0s') + '" name="' + x.nm + '"' + (x.s0 !== '0s' ? ' start="' + x.s0 + '"' : '') + ' duration="' + du + '" format="' + x.f.id + '" tcFormat="NDF"' + (open ? '>' : '/>'));
         if (x.pt) pj.push('              <asset-clip ref="' + x.pt + '" lane="1" offset="' + x.s0 + '" name="' + x.nm + ' patch" duration="' + du + '" format="' + x.f.id + '" tcFormat="NDF"/>');
         if (x.p !== last) { const mk = x.m || 'und'; pj.push('              <marker start="' + x.s0 + '" duration="' + x.f.n + '/' + x.f.dd + 's" value="' + xe(NM[mk] + ' · ' + n[x.p] + (n[x.p] === 1 ? ' clip' : ' clips')) + '"/>'); last = x.p; }
+        pj.push(...lkF(x.c, '              '));
         if (open) pj.push('            </asset-clip>');
         at += k;
       });
       pj.unshift('      <project name="' + xe((ex.event || d.shoot.name) + ' · sorted') + '">', '        <sequence format="' + S.id + '" duration="' + (at * S.n) + '/' + S.dd + 's" tcStart="0s" tcFormat="NDF">', '          <spine>');
       pj.push('          </spine>', '        </sequence>', '      </project>');
     }
-    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <import-options>', '    <option key="copy assets" value="0"/>', '  </import-options>', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...co, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
-    return {n:clips.length, text, kws:[...kws]};
+    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <import-options>', '    <option key="copy assets" value="0"/>', '  </import-options>', '  <resources>', ...fl, ...al, ...(lutFx ? ['    <effect id="lut1" name="Custom LUT" uid="FxPlug:14B39AEF-607D-42DF-98DD-DB3DD345E925"/>'] : []), '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...co, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
+    return {n:clips.length, text, kws:[...kws], luts:LT};
   })();
     this.bxM = {k:bk, x:bx}; return bx;
   }
@@ -6047,7 +6708,11 @@ class Component extends DCLogic {
       if (a.getAttribute('start') != null && !time(a.getAttribute('start'))) say(who + ' has a start that cannot be read.');
       if (a.getAttribute('id')) assets[a.getAttribute('id')] = {du, f:a.getAttribute('format'), s:a.getAttribute('start') || '0s'};
     });
-    rk.forEach(r => { if (tag(r) !== 'format' && tag(r) !== 'asset') say('The resources hold something this page does not write.'); });
+    // a look: Final Cut's Custom LUT effect, once, used by the clips as a filter with its three parameters (lkLuts)
+    const fx = rk.filter(r => tag(r) === 'effect'), fxId = fx.length === 1 && fx[0].getAttribute('uid') === 'FxPlug:14B39AEF-607D-42DF-98DD-DB3DD345E925' ? fx[0].getAttribute('id') : null;
+    if (fx.length && !fxId) say('The resources hold an effect this page does not write.');
+    const lutOk = k => tag(k) === 'filter-video' && !!fxId && k.getAttribute('ref') === fxId && kids(k).length === 3 && kids(k).every(q => tag(q) === 'param' && !kids(q).length) && ['LUT', 'Input', 'Output'].every((nm, i) => kids(k)[i].getAttribute('name') === nm && !!kids(k)[i].getAttribute('value'));
+    rk.forEach(r => { if (tag(r) !== 'format' && tag(r) !== 'asset' && tag(r) !== 'effect') say('The resources hold something this page does not write.'); });
     const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip'), pj = ek.filter(c => tag(c) === 'project'), cf = ek.filter(c => tag(c) === 'collection-folder');
     if (cl.length + pj.length + cf.length !== ek.length || pj.length > 1 || cf.length > 1) say('The event holds something this page does not write.');
     // the Skim folder: keyword collections and smart collections that match a rating or a keyword, nothing else
@@ -6062,7 +6727,8 @@ class Component extends DCLogic {
         if (tag(c) !== 'asset-clip') { say('The timeline holds something this page does not write.'); return; }
         if (!assets[c.getAttribute('ref')]) say(who + ' refers to media that is not in the file.');
         if (!time(c.getAttribute('offset')) || !time(c.getAttribute('duration'))) say(who + ' has a position or length that cannot be read.');
-        const mk = kids(c); if (mk.length > 1 || mk.some(k => tag(k) !== 'marker' || !k.getAttribute('value') || !time(k.getAttribute('start')))) say(who + ' carries something this page does not write.'); }); });
+        const ck = kids(c), lf = ck.filter(k => tag(k) === 'filter-video'), mk = ck.filter(k => tag(k) !== 'filter-video');
+        if (mk.length > 1 || lf.length > 1 || lf.some(k => !lutOk(k)) || mk.some(k => tag(k) !== 'marker' || !k.getAttribute('value') || !time(k.getAttribute('start')))) say(who + ' carries something this page does not write.'); }); });
     cl.forEach(c => {
       const who = 'Clip “' + (c.getAttribute('name') || c.getAttribute('ref') || '') + '”', a = assets[c.getAttribute('ref')], du = time(c.getAttribute('duration'));
       const fid = c.getAttribute('format'), f = fmts[fid != null ? fid : a && a.f];
@@ -6072,16 +6738,17 @@ class Component extends DCLogic {
       else if (f && (du[0] * f[1]) % (du[1] * f[0])) say(who + ' has a length that is not a whole number of frames.');
       else if (a && a.du && du[0] * a.du[1] > a.du[0] * du[1]) say(who + ' is longer than its media.');
       ['offset', 'start'].forEach(k => { const t = c.getAttribute(k); if (t != null && !time(t)) say(who + ' has a position that cannot be read.'); });
-      let nr = 0, nk = 0; const cs = c.getAttribute('start') || '0s';
+      let nr = 0, nk = 0, nl = 0; const cs = c.getAttribute('start') || '0s';
       if (a && a.s && cs !== a.s) say(who + ' does not start where its media does.');
       kids(c).forEach(k => {
         const t = tag(k), val = k.getAttribute('value'), whole = k.getAttribute('start') === cs && k.getAttribute('duration') === c.getAttribute('duration') && !kids(k).length;
         if (t === 'rating') { nr++; if (!whole || (val !== 'favorite' && val !== 'reject')) say(who + ' carries a rating this page does not write.'); }
         else if (t === 'keyword') { nk++; if (!whole || !val || val.split(', ').some(w => (kws || ['maybe']).indexOf(w) < 0)) say(who + ' carries a keyword this page does not write.'); }
         else if (t === 'marker') { const ms = time(k.getAttribute('start')), c0 = time(cs), md = time(k.getAttribute('duration')); if (!val || !ms || !md || kids(k).length || (c0 && du && (ms[0] * c0[1] < c0[0] * ms[1] || ms[0] * c0[1] * du[1] >= (c0[0] * du[1] + du[0] * c0[1]) * ms[1]))) say(who + ' has a marker outside it or one this page does not write.'); }
+        else if (t === 'filter-video' && lutOk(k)) nl++;
         else say(who + ' carries something this page does not write.');
       });
-      if (nr > 1 || nk > 1) say(who + ' is rated or tagged more than once.');
+      if (nr > 1 || nk > 1 || nl > 1) say(who + ' is rated or tagged more than once.');
     });
     if (n != null && cl.length !== n) say('The file holds ' + cl.length + ' clip' + (cl.length === 1 ? '' : 's') + ' but the button says ' + n + '.');
     return done();
@@ -6106,6 +6773,11 @@ class Component extends DCLogic {
     a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
     this.exSent(x, name, blob.size);
     const rows = [{ok:true, t:'Downloaded ' + name + ' · ' + this.plural(x.n, 'clip') + ' to your browser\u2019s download folder.'}];
+    const LU = Object.values(x.luts || {});
+    if (LU.length) {
+      LU.forEach((e, i) => setTimeout(() => { const b = document.createElement('a'), w = URL.createObjectURL(new Blob([e.text], {type:'text/plain'})); b.href = w; b.download = e.file; document.body.appendChild(b); b.click(); b.remove(); setTimeout(() => URL.revokeObjectURL(w), 4000); }, 300 * (i + 1)));
+      rows.push({ok:true, t:'Downloaded ' + this.plural(LU.length, '.cube LUT') + ', one per clip with a look. Final Cut reads LUTs only from its own Custom LUTs folder: put them in ~/Library/Application Support/ProApps/Custom LUTs/Lumina Skim/' + LU[0].rel.split('/')[1] + '/ before you import the .fcpxml, or Final Cut shows \u201cMissing Custom LUT\u201d.'});
+    }
     if (ex.mem) rows.push(this.exMem());
     this.setState({exRes:{head:'Exported', rows, out:{name}, done:true, mem:!!ex.mem}});
   };
@@ -6120,12 +6792,35 @@ class Component extends DCLogic {
     const rows = [{ok:true, t:'Saved ' + r.name + ' · ' + this.plural(x.n, 'clip') + ' in ' + this.tilde(r.folder)}], out = {path:r.path, name:r.name, fc:false, moved:0};
     // the background check, run again now on exactly what was saved, so the result says whether Final Cut will take it
     if (v.exportCheck) { let c = null; try { c = await v.exportCheck(x.text); } catch (e) {} if (c) { this.setState({exVer:{text:x.text, ...c, at:Date.now()}}); const say = Component.verifySay(c, x.n, true); rows.push({ok:!say.bad, t:say.t}); } }
+    // the looks: a .cube per clip beside the .fcpxml, and in Final Cut's Custom LUTs folder before Final Cut opens the file
+    if (x.luts && Object.keys(x.luts).length) { const lr = await this.exLuts(v, x); rows.push(...lr); if (lr.some(y => y.lutAsk)) out.lutAsk = x; }
     if (ex.openFc && this.exHost && this.exHost.finalCut) { const o = await this.exFc(v, r.path); out.fc = o.ok; rows.push(o); }
     if (ex.trash && !ex.all) { const t = await this.exTrash(); if (t) { rows.push(t.row); out.moved = t.n; } }
     if (ex.mem) rows.push(this.exMem());
     this.exBusy = false; if (this.d !== d) return;
     this.setState({exRes:{head:'Exported', rows, out, done:true, mem:!!ex.mem}});
   }
+  // Each clip's look: saved as a .cube beside the .fcpxml (the workshop's folder or Save to; with neither, no save panel per
+  // cube), then put in Final Cut's Custom LUTs folder, the only place its Custom LUT effect reads (lkLuts).
+  async exLuts(v, x) {
+    const L = Object.values(x.luts), rows = [], dir = this.exDir('fcp'), H = this.exHost; let n = 0, why = '';
+    if (dir || (H && !H.ask)) {
+      for (const e of L) { let r = null; try { r = await v.exportSave(e.file, e.text, dir, null); } catch (er) {} if (r && r.ok) n++; else why = why || (r && r.why) || 'the app did not answer'; }
+      rows.push({ok:n === L.length, t:'Saved ' + this.plural(n, '.cube LUT') + ' beside it, one per clip with a look' + (why ? '. Not saved: ' + why : '.')});
+    }
+    rows.push(await this.exLutsInstall(v, L));
+    return rows;
+  }
+  async exLutsInstall(v, L) {
+    const ev = (L[0] && L[0].rel.split('/')[1]) || '', where = 'Custom LUTs \u25b8 Lumina Skim \u25b8 ' + ev;
+    let pl = null; try { pl = v.lutsPlace ? await v.lutsPlace() : null; } catch (e) {} this.lutsAt = pl;
+    if (!pl || !pl.path) return {ok:false, lutAsk:true, t:'Final Cut reads LUTs only from its own Custom LUTs folder (' + this.tilde((pl && pl.want) || '~/Library/Application Support/ProApps/Custom LUTs') + '), and Lumina has no access to it yet. Give access below and the LUTs go there; or copy the .cube files into ' + where + ' yourself. Until then Final Cut shows \u201cMissing Custom LUT\u201d on those clips.'};
+    let r = null; try { r = await v.lutsInstall(L.map(e => ({rel:e.rel, text:e.text}))); } catch (e) {}
+    const ok = Array.isArray(r) ? r.filter(y => y && y.ok).length : 0, bad = Array.isArray(r) ? r.find(y => !y || !y.ok) : null;
+    return {ok:ok === L.length, t:ok ? 'Put ' + this.plural(ok, 'LUT') + ' in Final Cut\u2019s ' + where + '; the clips use them through the Custom LUT effect, Camera LUT None.' + (bad ? ' Not put there: ' + ((bad && bad.why) || 'the app did not answer') + '.' : '') : 'No LUT put in Final Cut\u2019s Custom LUTs folder: ' + ((bad && bad.why) || 'the app did not answer') + '.'};
+  }
+  exLutsGrant = () => { const v = this.exHostApi(), R = this.state.exRes, x = R && R.out && R.out.lutAsk; if (!v || !v.lutsChoose || !x) return;
+    Promise.resolve().then(() => v.lutsChoose()).then(pl => { this.lutsAt = pl || null; if (!pl || !pl.path) return; return this.exLutsInstall(v, Object.values(x.luts)).then(row => this.exAddRow(row, {out:{...this.state.exRes.out, lutAsk:row.ok ? null : x}})); }, () => {}); };
   async exFc(v, path) {
     let o = null; try { o = await v.openInFinalCut(path); } catch (e) {}
     return o && o.ok ? {ok:true, t:'Opened in ' + (o.app || 'Final Cut Pro') + '. Pick a library in its import window; the clips arrive in the event \u201c' + (this.state.ex.event || (this.d && this.d.shoot.name) || '') + '\u201d.'}
@@ -6244,7 +6939,7 @@ class Component extends DCLogic {
     const flat = this.flat || [], i = flat.indexOf(st.cur);
     return {
       webPrevT:'Web preview: your clips are read on ' + dev + '; nothing is uploaded. ' + (mob ? 'Pick any number of clips from ' + (/iPhone/.test(dev) ? 'Photos or Files' : 'your gallery or Files') + '; they are listed by when they were shot.' : 'Use Safari: it plays every Sony format, the same as the Lumina app. Open one shoot at a time and keep each clip\u2019s .XML beside it.'),
-      dropT:clipsFirst ? (t ? 'Choose clips' : 'Drop clips') : 'Drop a card, a folder or clips', pickT:clipsFirst ? (/iPhone/.test(dev) ? 'Photos or Files…' : 'Choose clips…') : 'Choose…',
+      dropT:Component.bare ? 'Drop' : clipsFirst ? (t ? 'Choose clips' : 'Drop clips') : 'Drop a card, a folder or clips', pickT:clipsFirst ? (/iPhone/.test(dev) ? 'Photos or Files…' : 'Choose clips…') : 'Choose…',
       navOn:t && st.step === 'skim' && st.lv >= 2, phoneViewOn:Component.PHONE_VIEW, viewName:st.phone ? 'phone' : 'full', phoneA:!!st.phone, phoneBg:st.phone ? '#5B5854' : 'rgba(239,236,230,0.06)', navPrevOp:i > 0 ? 1 : 0.4, navNextOp:i >= 0 && i < flat.length - 1 ? 1 : 0.4};
   }
   cardList() {
@@ -6279,13 +6974,15 @@ class Component extends DCLogic {
     return {lead:'Frame ' + (fi + 1) + ' · ' + nm(st.cur), list:out};
   }
   extraVals(markN, markB, und) {
-    const st = this.state, d = this.d, MK = Component.MK, has = this.hasShoot(), steps = [['import', 'Open'], ['skim', 'Skim'], ['export', 'Export']];
+    const st = this.state, d = this.d, MK = Component.MK, has = this.hasShoot(), steps = Component.bare ? [['import', 'Import'], ['skim', 'Sort'], ['export', 'Export']] : [['import', 'Open'], ['skim', 'Skim'], ['export', 'Export']];
     const si = steps.findIndex(s => s[0] === st.step), ms = this.memStats();
     const picked = has && (markN.keep || 0) + (markN.maybe || 0) > 0;
-    const v = {dockExOn:picked, dockEx:() => this.setStep('export'), dockExN:picked ? this.plural(markN.keep + markN.maybe, 'clip') : '', isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
+    const exBare = Component.bare && has && st.step === 'skim';
+    const v = {dockExOn:picked || exBare, dockEx:() => { if (picked) this.setStep('export'); }, dockExN:picked ? this.plural(markN.keep + markN.maybe, 'clip') : '', dockExNo:picked ? 'false' : 'true',
+      dockExT:Component.bare ? 'Export…' : 'Export', dockExBg:picked ? '#FFD27A' : 'rgba(239,236,230,0.08)', dockExFg:picked ? '#1E1D1B' : '#9A958D', dockExCur:picked ? 'pointer' : 'default', isSkim:st.step === 'skim', isImport:st.step === 'import', isExport:st.step === 'export' && has, hasShoot:has, stX:si * 64,
       // Export is gold (LOCAL-CHANGES 279): the step the work goes to stands out once a clip is selected or a maybe (marks kept from before count)
       stepTabs:steps.map((s, i) => { const ex = s[0] === 'export' && picked; return {t:s[1], on:i === si, fg:ex ? (i === si ? '#1E1D1B' : '#FFD27A') : i === si ? '#EFECE6' : (i === 0 || has ? '#9A958D' : '#5B5854'), bg:ex ? (i === si ? '#FFD27A' : 'rgba(255,210,122,0.14)') : 'transparent', fw:ex ? '700' : '400', go:() => this.setStep(s[0])}; }),
-      dbgOn:!!st.dbg, cvA:!!st.cv, cvT:'one grid · ' + (st.cv ? 'on' : 'off'), cvFg:st.cv ? '#1E1D1B' : '#B8B3AB', cvBg:st.cv ? '#B8B3AB' : 'rgba(239,236,230,0.06)', cvToggle:this.cvToggle, dropNote:(window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves ' + this.devName() + '.') + ' Marks stay in this tab and are gone when it closes.',
+      dbgOn:!!st.dbg, cvA:!!st.cv, cvT:'one grid · ' + (st.cv ? 'on' : 'off'), cvFg:st.cv ? '#1E1D1B' : '#B8B3AB', cvBg:st.cv ? '#B8B3AB' : 'rgba(239,236,230,0.06)', cvToggle:this.cvToggle, dropNote:window.luminaPreview ? 'Read only.' : 'Read only. Nothing leaves ' + this.devName() + '.',
       closeGo:this.closeShoot, closeT:st.closeConfirm ? 'Close? Click again' : 'Close', closeFg:st.closeConfirm ? '#FFD27A' : '#9A958D', closeBg:st.closeConfirm ? 'rgba(255,210,122,0.18)' : 'rgba(239,236,230,0.06)',
       closeTip:'Close ' + (d && d.shoot.name ? '“' + d.shoot.name + '”' : 'this shoot') + ' · back to Open. Marks are not saved: ' + (Object.keys(st.marks).length ? 'its ' + this.plural(Object.keys(st.marks).length, 'mark') + ' will be lost. Download for Final Cut first.' : 'nothing to lose.') + ' ⌘W',
       forgetOn:Component.KEEP_MARKS && has && (Object.keys(st.marks).length > 0 || !!st.memConfirm), forgetGo:this.forgetMarks, forgetT:'Forget ' + this.plural(Object.keys(st.marks).length, 'mark') + (st.memConfirm ? '? Click again' : ''), forgetFg:st.memConfirm ? '#FF8A7A' : '#9A958D', forgetBg:st.memConfirm ? 'rgba(255,138,122,0.22)' : 'rgba(239,236,230,0.06)',
@@ -6331,7 +7028,8 @@ class Component extends DCLogic {
       staleOn:!!st.stale, staleGo:() => this.staleGo(), staleLater:() => this.staleLater(),
       exAskOn:!!st.exAsk && has && st.step === 'skim', exAskTop:st.stale ? '58px' : '10px', exAskT:st.exAsk ? this.exAskSay() : '', exAskGo:() => this.setStep('export'), exAskX:() => this.setState({exAsk:false}), resumeOn:!!st.resume && !has, resumeName:st.resume ? st.resume.name : '', resumeLine:st.resume ? this.plural(st.resume.n, 'clip') + (st.resume.marks ? ' · ' + this.plural(st.resume.marks, 'mark') : '') + (st.resume.host ? '' : ' · Safari asks for the folder once') : '', resumeGo:this.resumeGo, resumeAdd:this.resumeAdd,
       resumeHint:st.resume && st.resume.host ? 'Resume opens the same clips again from where they are, no Finder. Add clips brings the shoot back, then Finder opens to add more to it. Your clips are never touched.'
-        : 'Both open Finder once: Safari can’t open files again by itself. Resume: choose the shoot’s folder (or one above it) and its clips and marks come back. Add clips: choose any folder; the shoot’s clips come back with their marks and the rest join them. Your clips are never touched.', ...this.cacheVals(has), nowOn:has, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
+        : 'Both open Finder once: Safari can’t open files again by itself. Resume: choose the shoot’s folder (or one above it) and its clips and marks come back. Add clips: choose any folder; the shoot’s clips come back with their marks and the rest join them. Your clips are never touched.', ...this.cacheVals(has), nowOn:has && !Component.bare, nowName:has ? d.shoot.name : '', nowLine:has ? this.plural(d.clips.length, 'clip') + ' · ' + (d.clips.length - und) + ' decided · ' + und + ' undecided' + (d.shoot.source ? ' · ' + d.shoot.source : '') : '', goSkim:() => this.setStep('skim'),
+      drvOn:st.step === 'import' && (this.imDrv || []).length > 0, drives:(this.imDrv || []).map(d => ({...d, go:this.dropGo})), dropGo:this.dropGo, ...this.adVals(), ...this.incVals(has),
       cards:this.cardList().map(c => ({...c, open:() => this.openSample(c.key)})), cardsOn:this.cardList().length > 0,
       recents:st.step === 'import' ? this.recentVals() : [], recOn:false,
       download:this.download, hintLead:''
@@ -6340,7 +7038,8 @@ class Component extends DCLogic {
     v.addOn = !!(has && d.shoot.real && st.step === 'skim'); v.addClips = this.addClips; v.addRef = this.addRef; v.addDirRef = this.addDirRef; v.addIn = this.addIn;
     v.addTip = 'Add clips to “' + (d && d.shoot ? d.shoot.name : '') + '”: a phone’s too. Or drop clips or a folder on the window. Marks stay. ⇧⌘O';
     v.addHot = !!st.addHot; v.addHotT = 'Drop to add to “' + (d && d.shoot ? d.shoot.name : '') + '”';
-    if (v.isSkim && has && !st.held) { const nh = this.cvGrid() ? this.cvHints() : this.navHints(); v.hints = nh.list; v.hintLead = nh.lead; }
+    if (v.isSkim && has && st.evHeld) { v.hints = [{k:'← →', t:'a third of a stop'}, {k:'⇧← →', t:'a stop'}, {k:'scroll', t:'freely'}, {k:'let go', t:'done'}, {k:'⌥E', t:'back to 0'}]; v.hintLead = 'Exposure · ' + this.plural(this.evS ? this.evS.ids.length : 0, 'clip'); }
+    else if (v.isSkim && has && !st.held) { const nh = this.cvGrid() ? this.cvHints() : this.navHints(); v.hints = nh.list; v.hintLead = nh.lead; }
     if (v.isExport) {
       const x = this.buildX(), ex = st.ex, G = this.G || [];
       v.exRows = [
@@ -6350,13 +7049,14 @@ class Component extends DCLogic {
         {k:'undecided', c:'rgba(239,236,230,0.3)', n:this.plural(und, 'clip'), size:this.fmtB(Math.max(0, d.shoot.bytes - markB.keep - markB.maybe - markB.cut)), to:ex.all ? 'unrated' : 'stay on the card'}];
       const sw = (id, t, sub, on, key, dis) => ({id, t, sub, on, op:dis ? 0.45 : 1, cur:dis ? 'default' : 'pointer', track:on ? '#FFD27A' : 'rgba(239,236,230,0.18)', knob:on ? '16px' : '2px', rowBg:'transparent', go:() => { if (!dis) this.exSet(key, !this.state.ex[key]); }});
       const btn = (id, t, tip, on, go) => ({id, t, tip, off:!on, op:on ? 1 : 0.45, cur:on ? 'pointer' : 'default', go:on ? go : () => {}}), fb = b => this.fmtB(b);
-      const host = this.exHostApi(), H = this.exHost, fcOk = !!(H && H.finalCut), kwM = ex.kw == null ? 'maybe' : String(ex.kw).trim(), slogN = d.clips.filter(c => c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine').length;
+      const host = this.exHostApi(), H = this.exHost, fcOk = !!(H && H.finalCut), kwM = ex.kw == null ? 'maybe' : String(ex.kw).trim(), slogN = d.clips.filter(c => c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine').length, lookN = d.clips.filter(c => { const m = st.marks[c.id]; return (ex.all || m === 'keep' || (ex.maybes && m === 'maybe')) && !Component.lkFlat(this.lookOf(c.id)); }).length;
       v.exOpts = [sw('ex-all', 'Everything', ex.all ? 'Every clip; selected ones as Favorites, cut ones marked as not wanted.' : 'Only selected clips' + (ex.maybes ? ' and maybes.' : '.'), ex.all, 'all'),
         sw('ex-maybes', 'Include maybes', kwM ? 'Tagged \u201c' + kwM + '\u201d in Final Cut.' : 'With no keyword.', ex.all || ex.maybes, 'maybes', ex.all)];
       v.exOpts2 = [sw('ex-rate', 'Ratings', ex.rate !== false ? 'Selected clips are Favorites' + (ex.all ? ', cut clips marked as not wanted.' : '.') : 'Every clip arrives unrated.', ex.rate !== false, 'rate'),
         sw('ex-scenes', 'Scenes as keywords', 'Each clip carries its scene, so the browser has a keyword collection per scene.', !!ex.scenes, 'scenes'),
         sw('ex-sorted', 'Sorted timeline', ex.sorted !== false ? 'A project with ' + Component.wsCap(this.W('keep')).toLowerCase() + ' clips first, then maybes, then unmarked, cut last, a marker at the start of each part.' : 'Only the event; no project.', ex.sorted !== false, 'sorted')]
-        .concat(slogN ? [sw('ex-lut', 'Camera LUT', this.plural(slogN, 'S-Log3 clip') + (ex.lut !== false ? ' arrive with Sony S-Log3/S-Gamut3.Cine applied, as here.' : ' arrive as log; set the Camera LUT in Final Cut.'), ex.lut !== false, 'lut')] : [])
+        .concat(slogN ? [sw('ex-lut', 'Camera LUT', this.plural(slogN, 'S-Log3 clip') + (ex.lut !== false ? ' arrive with Sony S-Log3/S-Gamut3.Cine applied, as here.' : ' arrive as log; set the Camera LUT in Final Cut.') + (lookN && ex.looks !== false ? ' A clip with a look has its own LUT instead.' : ''), ex.lut !== false, 'lut')] : [])
+        .concat(lookN ? [sw('ex-looks', 'Looks', ex.looks !== false ? this.plural(lookN, 'clip') + ' with a look \u00b7 LUT each: a .cube beside the .fcpxml, in Final Cut\u2019s Custom LUT effect, as here.' : this.plural(lookN, 'clip') + ' with a look arrive without it; the looks stay in Skim.', ex.looks !== false, 'looks')] : [])
         .concat(host ? [sw('ex-openfc', 'Open in Final Cut', fcOk ? 'After saving, Final Cut Pro opens the file and asks which library.' : 'Final Cut Pro is not on this Mac.', !!ex.openFc && fcOk, 'openFc', !fcOk)] : []);
       v.kwOn = !!(ex.all || ex.maybes); v.exKw = ex.kw == null ? 'maybe' : ex.kw;
       { const cutP = Component.trashPick(d.clips, st.marks, -1e9, () => true), dr = this.drv, canTrash = !!(host && window.lumina.video.trashMove && d.shoot.real), memP = this.farPlan(-1e9), memB = memP.bytes + (memP.dec || 0), no = !!(dr && dr.refusal);
@@ -6382,6 +7082,9 @@ class Component extends DCLogic {
         }
         // the one line under the button: what ⌘⏎ will do, in order
         const fname = (ex.event || d.shoot.name || 'Lumina').replace(/[\/:]/g, '-') + '.fcpxml', will = [host ? 'saves ' + fname + (dirF ? ' to ' + this.tilde(dirF) : H && !H.ask ? ' to ' + this.tilde(H.path) : ' where you pick') : 'downloads ' + fname];
+        const lutN = Object.keys(x.luts || {}).length, hv = this.exHostApi();
+        if (lutN && hv && hv.lutsPlace && this.lutsAt === undefined) { this.lutsAt = null; Promise.resolve().then(() => hv.lutsPlace()).then(pl => { this.lutsAt = pl || null; this.setState(s => ({tick:(s.tick || 0) + 1})); }, () => {}); }
+        if (lutN) will.push((host ? 'saves ' : 'downloads ') + this.plural(lutN, '.cube LUT') + (host && this.lutsAt && this.lutsAt.path ? ' and puts them in Final Cut\u2019s Custom LUTs folder' : ''));
         if (host && ex.openFc && fcOk) will.push('opens it in Final Cut');
         if (canTrash && ex.trash && !ex.all && !no && cutP.list.length) will.push('moves ' + this.plural(cutP.list.length, 'cut clip') + ' (' + fb(cutP.bytes) + ') to the Trash');
         if (ex.mem && memP.n) will.push('clears ' + fb(memB) + ' of working memory');
@@ -6392,6 +7095,7 @@ class Component extends DCLogic {
           v.exResHead = R.head; v.exRes = R.rows.map(r => ({k:r.ok ? '\u2713' : '!', c:r.ok ? '#A9D18E' : '#FFD27A', t:r.t}));
           v.exResBg = bad || !R.done ? 'rgba(255,210,122,0.07)' : 'rgba(169,209,142,0.07)'; v.exResRing = bad || !R.done ? 'rgba(255,210,122,0.28)' : 'rgba(169,209,142,0.28)';
           v.exResBtns = R.busy ? [] : [].concat(o.path && host ? [btn('export-reveal', 'Show in Finder', 'The saved file, in its folder', true, () => this.exReveal(o.path))] : [],
+            o.lutAsk && host ? [btn('export-luts', 'Give access to Final Cut\u2019s LUTs\u2026', 'Final Cut\u2019s Custom LUTs folder, so the clips\u2019 LUTs go there', true, this.exLutsGrant)] : [],
             o.path && host && fcOk && !o.fc ? [btn('export-open-fc', 'Open in Final Cut', 'Final Cut Pro opens the file and asks which library', true, () => this.exOpenFc(o.path))] : [],
             o.moved ? [btn('export-putback', 'Put back \u00b7 ' + this.plural(o.moved, 'clip'), 'Back to where they were, while they are still in the Trash', true, this.exPutBack)] : [],
             R.done && !R.mem ? [btn('export-mem', 'Clear working memory' + (memP.n ? ' \u00b7 ' + fb(memB) : ''), 'Frames in memory down to one preview per clip. Marks stay.', memP.n > 0, this.exMemNow)] : [],

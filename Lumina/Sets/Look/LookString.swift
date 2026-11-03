@@ -12,9 +12,9 @@ import Foundation
 /// unsigned), so two equal looks are equal strings and cache keys.
 ///
 /// Adjustments inside a mask follow the global keys, one `mask:` token per mask, any number of
-/// them, in order (`Look.Local`):
+/// them, in order (`Look.Local`), then the layer's own `inv=1`, `amt=<0 … 100>`, `off=1`:
 ///
-///     … rot:90 mask:subject/ev=+0.30,sh=+15 mask:background/ev=-0.50,sat=-20
+///     … rot:90 mask:subject/ev=+0.30,sh=+15 mask:background/ev=-0.50,sat=-20,inv=1,amt=60
 ///
 /// The page (Edit v22, design v0.05) sends the core's `lookString`, which names some of the same
 /// state its own way (`cDark`, `vMid`, `hue_red`, `curve:~[[x,y],…]`, `wb:/+5`); `parse` reads
@@ -92,11 +92,20 @@ nonisolated struct Look: Equatable, Sendable {
         var vibrance = 0.0, saturation = 0.0, clarity = 0.0, dehaze = 0.0
         /// Sky blue (`blu`, LookSky), behind `Look.skyFeatures`.
         var skyBlue = 0.0
+        /// The layer's own settings (Edit's Masks rail, prompt 14), not sliders: `inv=1` adjusts
+        /// outside the mask instead of inside, `amt=0 … 100` is the layer's opacity (100 = as the
+        /// sliders say), `off=1` is a layer clicked out: kept, with its sliders, and not rendered.
+        var invert = false
+        var amount = 100.0
+        var off = false
 
         init(mask: String) { self.mask = mask }
 
-        /// Every slider at reset: the token is written as nothing at all.
+        /// Every slider at reset: the token is written as nothing at all (whatever its layer settings).
         var isNeutral: Bool { Self.keys.allSatisfy { self[keyPath: $0.field] == 0 } }
+
+        /// What the render does with it: nothing when it is neutral, clicked out or at 0 %.
+        var renders: Bool { !isNeutral && !off && amount > 0 }
 
         /// The look whose stages a mask's sliders are: the same stages as the global ones, on the
         /// picture inside the mask.
@@ -419,6 +428,16 @@ nonisolated struct Look: Equatable, Sendable {
         for pair in parts[1].split(separator: ",", omittingEmptySubsequences: false) {
             let kv = pair.split(separator: "=", omittingEmptySubsequences: false).map(String.init)
             guard kv.count == 2 else { throw ParseError(description: "mask '\(id)' wants k=v, got '\(pair)'") }
+            if kv[0] == "inv" || kv[0] == "off" || kv[0] == "amt" {
+                guard seen.insert(kv[0]).inserted else { throw ParseError(description: "mask '\(id)': '\(kv[0])' given twice") }
+                let v = try number(kv[1], "mask \(id) \(kv[0])")
+                switch kv[0] {
+                case "inv": local.invert = v >= 0.5
+                case "off": local.off = v >= 0.5
+                default: local.amount = min(100, max(0, v.rounded()))
+                }
+                continue
+            }
             guard kv[0] != "blu" || skyFeatures, let field = Local.keys.first(where: { $0.key == kv[0] })?.field else { throw ParseError(description: "mask '\(id)': unknown key '\(kv[0])'") }
             guard seen.insert(kv[0]).inserted else { throw ParseError(description: "mask '\(id)': '\(kv[0])' given twice") }
             local[keyPath: field] = clamp(try number(kv[1], "mask \(id) \(kv[0])"), ranges[kv[0]]!)
@@ -483,7 +502,10 @@ nonisolated struct Look: Equatable, Sendable {
                 let t = signed(local[keyPath: k.field], k.key == "ev" ? 2 : 0)
                 return t == "0" || t == "0.00" ? nil : "\(k.key)=\(t)"
             }
-            if !kv.isEmpty { out.append("mask:\(local.mask)/" + kv.joined(separator: ",")) }
+            guard !kv.isEmpty else { continue }
+            // The layer's settings after its sliders, each only when off its default.
+            let modes = (local.invert ? ["inv=1"] : []) + (local.amount < 100 ? ["amt=\(Int(local.amount))"] : []) + (local.off ? ["off=1"] : [])
+            out.append("mask:\(local.mask)/" + (kv + modes).joined(separator: ","))
         }
         return out.joined(separator: " ")
     }

@@ -489,6 +489,8 @@ def run(a):
         refs = refs[: a.limit]
     if a.bucket:
         refs = [r for r in refs if r["bucket"] == a.bucket]
+    if a.exclude:
+        refs = [r for r in refs if r["stem"] not in set(a.exclude)]
 
     # 2. render
     t = time.time()
@@ -625,6 +627,8 @@ def main(argv):
     ap.add_argument("--keep-heatmaps", type=int, default=2, help="reports whose heatmaps are kept (newest first); the numbers always stay")
     ap.add_argument("--bucket", choices=BUCKETS)
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--exclude", action="append", default=[], metavar="STEM",
+                    help="leave this photo out (repeatable): e.g. exports whose crop or masks a Lightroom CC preset kept")
     ap.add_argument("--label")
     return run(ap.parse_args(argv))
 

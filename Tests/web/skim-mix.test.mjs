@@ -73,8 +73,9 @@ test('a resume: every kept clip found goes straight in; some missing opens the v
 let hevc = false; try { hevc = /libx265/.test(execFileSync('ffmpeg', ['-hide_banner', '-encoders'], {encoding:'utf8'})); } catch (x) {}
 test('an iPhone HEVC .MOV is a clip with its own time, rate and HLG', {skip:!hevc && 'needs ffmpeg with libx265'}, () => {
   const T = fs.mkdtempSync(path.join(os.tmpdir(), 'skim-phone-')), f = path.join(T, 'IMG_0042.MOV');
-  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30000/1001:duration=1', '-c:v', 'libx265', '-x265-params', 'log-level=error', '-pix_fmt', 'yuv420p10le', '-tag:v', 'hvc1',
+  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30000/1001:duration=1', '-vf', 'setparams=color_primaries=bt2020:color_trc=arib-std-b67:colorspace=bt2020nc', '-c:v', 'libx265', '-x265-params', 'log-level=error', '-pix_fmt', 'yuv420p10le', '-tag:v', 'hvc1',
     '-color_primaries', 'bt2020', '-color_trc', 'arib-std-b67', '-colorspace', 'bt2020nc', '-movflags', 'use_metadata_tags', '-metadata', 'com.apple.quicktime.creationdate=2026-10-11T18:30:12-0700', '-metadata', 'com.apple.quicktime.model=iPhone 16 Pro', f]);
+  // ffmpeg 8 tags the file from the frames' own colour, not the -color_* options alone: setparams gives the frames HLG
   const b = new Uint8Array(fs.readFileSync(f)); fs.rmSync(T, {recursive:true, force:true});
   // the moov box, as fileMoov finds it
   let mv = null; for (let o = 0; o + 8 <= b.length;) { const dv = new DataView(b.buffer, o, 8), n = dv.getUint32(0), t = String.fromCharCode(...b.slice(o + 4, o + 8)); if (t === 'moov') { mv = b.slice(o, o + n); break; } o += n; }

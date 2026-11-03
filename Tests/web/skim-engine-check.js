@@ -21,9 +21,12 @@ window.__skimEngineCheck = async function (names) {
     input.files = dt.files; input.dispatchEvent(new Event('change', {bubbles: true}));
     const done = await until(() => { const c = clock(); return c && c.done != null && c; }, 60000);
     if (!ok(done, 'the clips are read to the end' + (done ? ' (' + done.done + ' ms)' : ', within 60 s'))) return;
+    // The minimal page stays on Import with what came in under Included; Sort now opens the grid (as ⏎ does).
+    { const b = $('[data-lumina="sort-now"]'); if (b) b.click(); await until(() => document.querySelectorAll('[data-gi]').length, 3000); }
     ok(done.n === names.length && document.querySelectorAll('[data-gi]').length === names.length, names.length + ' clips listed: ' + done.n + ' in the read, ' + document.querySelectorAll('[data-gi]').length + ' tiles');
     ok(done.unreadable === 0, 'every clip decoded (' + done.unreadable + ' unreadable)');
-    const times = [...document.querySelectorAll('[data-gi]')].map(t => (t.innerText.match(/\b\d{1,2}:\d\d\b/) || [''])[0]);
+    // The time is on the tile, or (the wireframe's tiles: name, length, gamma on the frame) in the tile's accessible name.
+    const times = [...document.querySelectorAll('[data-gi]')].map(t => ((t.innerText + ' ' + (t.getAttribute('aria-label') || '')).match(/\b\d{1,2}:\d\d\b/) || [''])[0]);
     ok(new Set(times.filter(Boolean)).size === names.length, 'each clip shows its own capture time: ' + times.join(', '));
     ok(/\b1 s\b/.test(document.body.innerText), 'clip lengths shown');
     const tile = $('[data-gi="0"]'); if (tile) tile.click(); await wait(300);

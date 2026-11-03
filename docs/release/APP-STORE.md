@@ -56,6 +56,13 @@ NOTARY_PROFILE=lumina-notary bash Scripts/release.sh dmg --strict
 
 The dmg for direct download: signed, notarised, stapled, Gatekeeper-checked, with its SHA-256.
 
+To hand DMGs to people (both apps, checked from quarantine as a recipient's Mac sees them, into
+`~/LuminaEvidence/release/<date>/` with SHA-256s and a changes list; nothing is uploaded):
+
+```bash
+bash Scripts/publish_dmg.sh both      # or lumina / skim; --ref <ref> (default origin/main)
+```
+
 ```bash
 ASC_KEY_ID=<KEYID> ASC_ISSUER_ID=<ISSUER> bash Scripts/release.sh store --strict --upload
 ```
