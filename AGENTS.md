@@ -21,7 +21,9 @@ those files **byte for byte** inside a native window.
 - Project agents (`.claude/agents/`): `page-ui-editor` (a page change, checked headlessly),
   `hot-build-pusher` (a branch into Lumina Dev, Lumina Skim or Safari :8765 without stopping another
   session's watcher), `pr-shepherd` (local checks CI will run, one push, one PR, merges only when told),
-  `canvas-debugger` (the native Edit canvas, measured first).
+  `canvas-debugger` (the native Edit canvas, measured first), `dmg-publisher` (notarised DMGs of Lumina and/or
+  Lumina Skim for the owner to send by hand, Gatekeeper-checked from quarantine, into `~/LuminaEvidence/release/<date>/`;
+  `bash Scripts/publish_dmg.sh [lumina|skim|both]`; uploads and sends nothing).
 - **No Claude Design zip sync without the owner's say-so.** `bash Scripts/sets_sync_design.sh "<zip>"`
   installs a whole handoff over the page files and would overwrite every in-repo page edit. When the
   owner asks for one, it runs the fixtures, audits the wording and demo layer, installs the files,
