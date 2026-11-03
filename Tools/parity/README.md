@@ -95,6 +95,13 @@ Then index them:
 python3 Tools/parity/import_refs.py ~/LuminaEvidence/parity/refs      # → ~/LuminaEvidence/parity/refs.json
 ```
 
+**Dehaze** (`dhz`, the `dehaze` stage, 2026-10-29) is not in the Classic plug-in's sweep: its
+one-slider development set is the Dehaze rows of sweep 4 ("Lumina sweep 4 Presence": Dehaze at
+−100, −50, −25, +25, +50, +100), ingested by `lr_cc_sweep.py ingest-sweeps` into
+`~/LuminaEvidence/parity/sweeps/refs/sweep04` as `<stem>__Dehaze__<v>.jpg`. Its coefficients were
+fitted on the owner's own Death Valley edits (`fit_edits.py`, `docs/masking/eval/2026-10-29-dehaze.md`);
+the sweep, once exported, is the check that they generalise to one-slider moves.
+
 ### 3. Build the renderer and run
 
 ```bash

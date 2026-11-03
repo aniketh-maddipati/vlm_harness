@@ -40,7 +40,7 @@ final class LookMathTests: XCTestCase {
     /// The twelve sliders at a spread of positions, as `Look.single` names them.
     private var sweep: [(String, Double)] {
         var out: [(String, Double)] = []
-        for s in ["Contrast", "Highlights", "Shadows", "Whites", "Blacks", "Vibrance", "Saturation", "Clarity"] {
+        for s in ["Contrast", "Highlights", "Shadows", "Whites", "Blacks", "Vibrance", "Saturation", "Clarity", "Dehaze"] {
             for v in [-100.0, -50, -10, 10, 50, 100] { out.append((s, v)) }
         }
         for v in [-5.0, -2, -0.5, 0.5, 2, 5] { out.append(("Exposure", v)) }
@@ -52,7 +52,7 @@ final class LookMathTests: XCTestCase {
 
     func testRulesFileLoadsAndIsCanonical() throws {
         XCTAssertEqual(rules.order, LookRules.canonicalOrder)
-        XCTAssertEqual(rules.lookStages, ["camera", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer", "clarity", "sharpen", "vignette"])
+        XCTAssertEqual(rules.lookStages, ["camera", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "dehaze", "curve", "colour", "mixer", "clarity", "sharpen", "vignette"])
         for s in rules.lookStages { XCTAssertNotNil(rules.stages[s], s) }
         XCTAssertNoThrow(try rules.validate())
         var bad = rules!; bad.order = ["exposure", "rawDevelop", "outputTransform"]
@@ -86,7 +86,7 @@ final class LookMathTests: XCTestCase {
         var before = rules!
         for (name, _) in LookRules.addedStages { before.order.removeAll { $0 == name } }          // the order as it was
         let colours: [LookMath.RGB] = [.gray(0.02), .gray(0.18), .gray(0.9), .gray(1.1), LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6), LookMath.RGB(r: 0.7, g: 0.6, b: 0.1)]
-        var looks = sweep.map { Look.single($0.0, $0.1, asShot: asShot)! }
+        var looks = sweep.filter { $0.0 != "Dehaze" }.map { Look.single($0.0, $0.1, asShot: asShot)! }     // dhz is an added key
         for s in ["ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0", "ev:-1.20 con:-30 hl:+50 sh:-40 wh:+30 bl:+20 vib:-40 sat:+25",
                   "ev:+0.30 wb:3200/-20 con:+40 bw:1 nr:30 crop:0.1,0.1,0.8,0.8/2", "", "con:+35 rot:90"] { looks.append(try Look.parse(s)) }
         // Not `vig`: ruled 2026-10-05, the vignette moved to the page's scale (Roundness 0 the frame's
@@ -747,6 +747,42 @@ final class LookMathTests: XCTestCase {
         XCTAssertLessThan(LookMath.clarity(0.55, base: 0.45, clarity: -60, rules), 0.55)
         XCTAssertGreaterThan(LookMath.sharpen(0.55, blur: 0.50, amount: 100, rules), 0.55)
         XCTAssertEqual(LookMath.sharpen(0.5001, blur: 0.5, amount: 100, rules), 0.5001, accuracy: 1e-9, "below the threshold nothing sharpens")
+    }
+
+    // MARK: dehaze (the atmospheric model)
+
+    /// Dehaze scales a pixel's distance from the airlight A (toward A below 0): A is a fixed point,
+    /// a grey stays grey, below A the picture darkens and its colours gain chroma at their hue,
+    /// and at 0 the stage is gone. On a flat patch the dark channel is the pixel's own minimum.
+    func testDehazeIsTheAtmosphericModelAroundTheAirlight() throws {
+        let anchor = LookMath.ToneAnchor(mean: 0.18, spread: 1.2, bright: 0.1, high: 0.8)
+        let a = LookMath.dehazeAirlight(anchor: anchor, rules)
+        XCTAssertEqual(a, 0.8 * rules.k("dehaze", "airlightScale", 1), accuracy: 1e-12, "the airlight follows the photo's bright end")
+        XCTAssertEqual(LookMath.dehazeAirlight(anchor: .reference, rules), max(0.05, rules.k("dehaze", "airlight", 1)), accuracy: 1e-12, "a flat patch gets the fallback")
+        for amount in [-100.0, -30, 30, 100] {
+            XCTAssertEqual(LookMath.dehaze(.gray(a), dark: a, amount: amount, anchor: anchor, rules).g, a, accuracy: 1e-9, "the airlight is a fixed point at \(amount)")
+            let grey = LookMath.dehaze(.gray(0.3), dark: 0.3, amount: amount, anchor: anchor, rules)
+            XCTAssertTrue(grey.isNeutral && grey.g >= 0, "\(amount): \(grey)")
+        }
+        let c = LookMath.RGB(r: 0.35, g: 0.42, b: 0.5), dark = min(c.r, c.g, c.b)      // a hazy, bluish midtone under A
+        let out = LookMath.dehaze(c, dark: dark, amount: 60, anchor: anchor, rules)
+        XCTAssertLessThan(luma(out), luma(c), "haze out: darker below the airlight")
+        XCTAssertGreaterThan(hue(out).C, hue(c).C, "haze out: more chroma")
+        XCTAssertLessThan(hueShift(hue(out).h, hue(c).h), 3, "at its own hue")
+        let back = LookMath.dehaze(c, dark: dark, amount: -60, anchor: anchor, rules)
+        XCTAssertGreaterThan(luma(back), luma(c), "haze in: pulled toward the airlight")
+        XCTAssertLessThan(hue(back).C, hue(c).C)
+        XCTAssertEqual(LookMath.dehaze(c, dark: dark, amount: 0, anchor: anchor, rules), c)
+        // Through the chain and the look string: `dhz` runs only the dehaze stage, is written only
+        // off reset, is Lightroom's Dehaze in `single`, and works inside a mask.
+        let look = try Look.parse("dhz:+40")
+        XCTAssertEqual(rules.lookStages.filter(look.runs), ["dehaze"])
+        XCTAssertEqual(look.format(), "ev:0.00 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 dhz:+40 shp:0 vig:0")
+        XCTAssertEqual(try Look.parse(look.format()), look)
+        XCTAssertEqual(Look.single("Dehaze", 25, asShot: asShot)?.dehaze, 25)
+        XCTAssertNotEqual(LookMath.flat(c, look: look, asShot: asShot, rules: rules), c)
+        XCTAssertEqual(try Look.parse("mask:sky/dhz=+30").locals.first?.dehaze, 30)
+        XCTAssertEqual(try Look.parse("mask:sky/dhz=+30").format(), "ev:0.00 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:0 mask:sky/dhz=+30")
     }
 
     // MARK: outputTransform (the display mapper)

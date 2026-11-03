@@ -162,7 +162,7 @@ final class LookStringTests: XCTestCase {
         let l = try Look.parse(s)
         XCTAssertEqual(l.format(), s)
         XCTAssertEqual(try Look.parse(s.split(separator: " ").reversed().joined(separator: " ")), l, "any order")
-        XCTAssertEqual(Look.keys, ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "dust", "crop", "rot", "mask"])
+        XCTAssertEqual(Look.keys, ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "dhz", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "dust", "crop", "rot", "mask"])
         let old = "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:-20 nr:40 bw:1 crop:0.1000,0.2000,0.5000,0.6000/-1.50"
         XCTAssertEqual(try Look.parse(old).format(), old)
     }

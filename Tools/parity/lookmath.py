@@ -15,13 +15,13 @@ import sys
 
 import numpy as np
 
-STAGES = ["exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "curve", "colour", "mixer", "clarity", "sharpen", "vignette"]
+STAGES = ["exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "dehaze", "curve", "colour", "mixer", "clarity", "sharpen", "vignette"]
 LR_SLIDERS = ["Exposure", "Temperature", "Tint", "Contrast", "Highlights", "Shadows", "Whites", "Blacks",
-              "Vibrance", "Saturation", "Clarity", "Sharpness"]
+              "Vibrance", "Saturation", "Clarity", "Sharpness", "Dehaze"]
 # which stage a Lightroom slider exercises
 SLIDER_STAGE = {"Exposure": "exposure", "Temperature": "whiteBalance", "Tint": "whiteBalance", "Contrast": "contrast",
                 "Highlights": "tone", "Shadows": "tone", "Whites": "whitesBlacks", "Blacks": "whitesBlacks",
-                "Vibrance": "colour", "Saturation": "colour", "Clarity": "clarity", "Sharpness": "sharpen"}
+                "Vibrance": "colour", "Saturation": "colour", "Clarity": "clarity", "Sharpness": "sharpen", "Dehaze": "dehaze"}
 
 
 def k(rules, stage, name, fallback):
@@ -119,7 +119,7 @@ def _signed(v, d=0):
 def parse_look(s):
     """The look string → dict (the twelve sliders + bw). Mirrors Look.parse, without clamping."""
     look = {"ev": 0.0, "wb": None, "con": 0.0, "hl": 0.0, "sh": 0.0, "wh": 0.0, "bl": 0.0, "vib": 0.0, "sat": 0.0,
-            "clr": 0.0, "shp": 0.0, "vig": 0.0, "vigs": VIGNETTE_SHAPE, "tc": (0.0, 0.0, 0.0),
+            "clr": 0.0, "dhz": 0.0, "shp": 0.0, "vig": 0.0, "vigs": VIGNETTE_SHAPE, "tc": (0.0, 0.0, 0.0),
             "crv": None, "crvr": None, "crvg": None, "crvb": None, "mixh": (0.0,) * 8, "mixs": (0.0,) * 8, "mixl": (0.0,) * 8, "bw": False, "prof": "adobe", "crop": None, "nr": None, "rot": 0}
     s = (s or "").strip()
     if s in ("", "none"):
@@ -187,7 +187,7 @@ def single(slider, value, as_shot=(5500.0, 0.0)):
         look["shp"] = value
     else:
         look[{"Contrast": "con", "Highlights": "hl", "Shadows": "sh", "Whites": "wh", "Blacks": "bl",
-              "Vibrance": "vib", "Saturation": "sat", "Clarity": "clr"}[slider]] = value
+              "Vibrance": "vib", "Saturation": "sat", "Clarity": "clr", "Dehaze": "dhz"}[slider]] = value
     return look
 
 
@@ -203,6 +203,8 @@ def format_look(look):
         out.append(f"wb:{int(round(look['wb'][0]))}/{signed(look['wb'][1], 0)}")
     for key in ("con", "hl", "sh", "wh", "bl", "vib", "sat", "clr"):
         out.append(f"{key}:{signed(look[key], 0)}")
+    if look.get("dhz"):
+        out.append(f"dhz:{signed(look['dhz'], 0)}")        # only off reset (Look.format)
     out.append(f"shp:{int(round(look['shp']))}")
     out.append(f"vig:{signed(look['vig'], 0)}")
     shape = tuple(look.get("vigs") or VIGNETTE_SHAPE)
@@ -351,6 +353,34 @@ def contrast(rgb, amount, rules):
     ratio = np.where(y > 1e-9, linear(contrast_curve(perceptual(y, rules), amount, rules), rules) / np.maximum(y, 1e-9), 1.0)
     by_luma = rgb * ratio[..., None]
     return per + (by_luma - per) * mix
+
+
+# ---- dehaze (the atmospheric model, LookMath.dehaze) ---------------------------------------------
+
+def dehaze_airlight(anchor, rules):
+    """A, a grey: airlightScale * the anchor's high, or airlight when the anchor has none."""
+    high = (anchor or {}).get("high")
+    a = high * k(rules, "dehaze", "airlightScale", 1.0) if high is not None else k(rules, "dehaze", "airlight", 1.0)
+    return max(0.05, a)
+
+
+def dehaze_omega(amount, rules):
+    return min(0.95, amount * k(rules, "dehaze", "omegaPerUnit", 0.006))
+
+
+def dehaze_transmission(dark, a, omega, rules):
+    p = max(1.0, k(rules, "dehaze", "hazePower", 1.0))
+    w = np.power(np.clip(np.asarray(dark, dtype=np.float64) / a, 0.0, 1.0), p)
+    return np.maximum(max(0.02, min(1.0, k(rules, "dehaze", "minTransmission", 0.1))), 1.0 - omega * w)
+
+
+def dehaze(rgb, dark, amount, anchor, rules):
+    """(rgb - A) / t + A per channel; `dark` is the (blurred) min channel, shape rgb.shape[:-1]."""
+    if amount == 0:
+        return rgb
+    a = dehaze_airlight(anchor, rules)
+    t = dehaze_transmission(dark, a, dehaze_omega(amount, rules), rules)
+    return (np.asarray(rgb, dtype=np.float64) - a) / t[..., None] + a
 
 
 def curve_runs(look):
@@ -690,6 +720,9 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5):
                 c = through_curve(c * tone_detail(y, y, rules)[..., None], g[..., None], tone_white(rules))
         elif stage == "contrast":
             c = contrast(c, look["con"], rules)
+        elif stage == "dehaze":
+            if look["dhz"] != 0:
+                c = dehaze(c, c.min(axis=-1), look["dhz"], anchor, rules)
         elif stage == "curve":
             if curve_runs(look):
                 c = curve(c, look, rules)
@@ -726,6 +759,9 @@ def apply_image(img, look, as_shot, rules, sigma_scale=None):
             base = gaussian_filter(y, k(rules, "tone", "radiusFraction", 0.03) * long_edge, mode="nearest")
             g = tone_gain(base, anchor, look["hl"], look["sh"], rules)
             c = through_curve(c * tone_detail(y, base, rules)[..., None], g[..., None], tone_white(rules))
+        elif stage == "dehaze" and look["dhz"] != 0:
+            dark = gaussian_filter(c.min(axis=-1), k(rules, "dehaze", "radiusFraction", 0.02) * long_edge, mode="nearest")
+            c = dehaze(c, dark, look["dhz"], anchor, rules)
         elif stage == "clarity" and look["clr"] != 0:
             y = luma(c, rules)
             q = perceptual(y, rules)

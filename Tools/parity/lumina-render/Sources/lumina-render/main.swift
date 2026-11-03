@@ -260,7 +260,7 @@ do {
         print(json(info))
 
     case "ramp":
-        let lookText = option("--look") ?? "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:0"
+        let lookText = option("--look") ?? "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 dhz:+30 shp:30 vig:0"
         let outPath = option("--out")
         let rules = try loadRules(option("--rules"))
         let pipe = try LookPipeline(rules: rules)
