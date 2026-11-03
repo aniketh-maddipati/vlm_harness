@@ -748,6 +748,7 @@ html:not([data-full]) [data-lumina=steps] [role=tab][aria-selected=true] { text-
                 <sc-if value="{{ g.skOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="skim-bar" style="position:absolute;left:0;right:0;bottom:0;height:3px;display:flex;gap:1px;pointer-events:none"><sc-for list="{{ g.sk }}" as="s" hint-placeholder-count="8"><span style="flex:1;background:{{ s.c }}"></span></sc-for></div></sc-if>
                 <sc-if value="{{ g.badgeOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="fold-badge" style="position:absolute;left:6px;bottom:7px;max-width:calc(100% - 12px);box-sizing:border-box;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:#EFECE6;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.badge }}</div></sc-if>
                 <sc-if value="{{ g.nmOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-name" style="position:absolute;left:6px;bottom:7px;max-width:calc(100% - 96px);box-sizing:border-box;padding:0 7px;border-radius:4px;background:rgba(22,21,20,0.78);color:#EFECE6;font-size:12px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none">{{ g.title }}</div></sc-if><sc-if value="{{ g.gamOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-gamma" style="position:absolute;right:{{ g.gamR }};bottom:7px;padding:0 6px;border-radius:4px;background:rgba(22,21,20,0.78);box-shadow:inset 0 0 0 1px {{ g.gamRing }};color:#EFECE6;font-size:11px;line-height:16px;pointer-events:none">{{ g.gam }}</div></sc-if><sc-if value="{{ g.durOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;bottom:7px;padding:0 5px;border-radius:4px;background:rgba(22,21,20,0.72);color:#EFECE6;font-size:11px;line-height:16px">{{ g.cell }}</div></sc-if>
+                <sc-if value="{{ g.evOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ev-badge" style="position:absolute;left:6px;top:6px;padding:0 6px;border-radius:4px;background:{{ g.evBg }};box-shadow:{{ g.evSh }};color:{{ g.evC }};font-weight:{{ g.evW }};font-size:11px;line-height:16px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none">{{ g.evT }}</div></sc-if>
                 <sc-if value="{{ g.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:#161514;color:{{ g.markC }};font-weight:700">{{ g.mark }}</div></sc-if>
                 <sc-if value="{{ g.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:6px;top:6px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ g.ghostC }};font-weight:700;opacity:0.7">{{ g.ghostT }}</div></sc-if>
               </div>
@@ -814,6 +815,7 @@ html:not([data-full]) [data-lumina=steps] [role=tab][aria-selected=true] { text-
                     <sc-if value="{{ grid42 }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px"><sc-for list="{{ p.fr }}" as="f" hint-placeholder-count="8"><div style="aspect-ratio:16/9;background:{{ f.bg }};filter:{{ f.flt }};animation:{{ f.anim }}"></div></sc-for></div></sc-if>
                     <sc-if value="{{ p.phOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="tile-wait" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 10px;text-align:center;white-space:nowrap;overflow:hidden;pointer-events:none"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#B8B3AB">{{ p.name }}</span><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;color:#9A958D">{{ p.phSub }}</span></div></sc-if>
                     <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ p.edge }};pointer-events:none"></div>
+                    <sc-if value="{{ p.evOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ev-badge" style="position:absolute;left:5px;top:5px;padding:0 6px;border-radius:4px;background:{{ p.evBg }};box-shadow:{{ p.evSh }};color:{{ p.evC }};font-weight:{{ p.evW }};font-size:11px;line-height:16px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none">{{ p.evT }}</div></sc-if>
                     <sc-if value="{{ p.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:#161514;color:{{ p.markC }};font-weight:700">{{ p.mark }}</div></sc-if>
                     <sc-if value="{{ p.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:5px;top:5px;padding:1px 7px;border-radius:4px;background:rgba(22,21,20,0.82);color:{{ p.ghostC }};font-weight:700;opacity:0.7">{{ p.ghostT }}</div></sc-if>
                   </div>
@@ -852,6 +854,7 @@ html:not([data-full]) [data-lumina=steps] [role=tab][aria-selected=true] { text-
                   <sc-if value="{{ it.zOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="zoom" style="position:absolute;left:8px;bottom:8px;padding:2px 8px;border-radius:5px;background:rgba(22,21,20,0.82);color:#EFECE6;pointer-events:none">{{ it.zT }}</div></sc-if>
                   <sc-if value="{{ it.hvOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:0;bottom:0;left:{{ it.hx }};width:1px;background:rgba(239,236,230,0.6);pointer-events:none"></div></sc-if>
                   <div style="position:absolute;inset:0;border-radius:4px;box-shadow:{{ it.edge }};pointer-events:none"></div>
+                  <sc-if value="{{ it.evOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="ev-badge" style="position:absolute;left:8px;top:8px;padding:0 6px;border-radius:4px;background:{{ it.evBg }};box-shadow:{{ it.evSh }};color:{{ it.evC }};font-weight:{{ it.evW }};font-size:13px;line-height:20px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none">{{ it.evT }}</div></sc-if>
                   <sc-if value="{{ it.markOn }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:8px;top:8px;padding:2px 9px;border-radius:5px;background:#161514;color:{{ it.markC }};font-weight:700;font-size:13px">{{ it.mark }}</div></sc-if>
                   <sc-if value="{{ it.ghost }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;right:8px;top:8px;padding:2px 9px;border-radius:5px;background:rgba(22,21,20,0.82);color:{{ it.ghostC }};font-weight:700;font-size:13px;opacity:0.7">{{ it.ghostT }}</div></sc-if>
                 </div>
@@ -1116,7 +1119,7 @@ class Component extends DCLogic {
   static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
   W(m) { return m ? Component.WORD[m] || m : ''; }
   static LV = ['Scenes','Clips','Viewer'];
-  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,bk:null,cutsOpen:false,dragN:0,dropOn:null,backHit:false,prop:null,marks:{},dis:{},undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:'',rate:true,scenes:false,lut:true,openFc:false,trash:false,mem:false,sorted:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
+  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,bk:null,cutsOpen:false,dragN:0,dropOn:null,backHit:false,prop:null,marks:{},dis:{},evHeld:false,evHot:null,undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:'',rate:true,scenes:false,lut:true,openFc:false,trash:false,mem:false,sorted:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
   covers = (() => { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.coverGet ? new Component.HostCovers(v, 200e6) : new Component.CoverCache('lumina-skim-covers', 200e6); })();
@@ -1342,7 +1345,7 @@ class Component extends DCLogic {
   componentDidMount() {
     if (/[?&]full=1\b/.test(location.search)) document.documentElement.setAttribute('data-full', '');
     this.load();
-    this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => { this.panS = null; this.setState({held:null}); };
+    this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => { this.panS = null; this.evUp(); this.setState({held:null}); };
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
     window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu); this._ck = e => this.clickAway(e); window.addEventListener('click', this._ck);
     this._md = e => { this.tabFocus = false; const st = this.state; if (!st.sel.length && !st.box) return; const t = e.target; if (this.sc && this.sc.contains(t)) return; if (t.closest && t.closest('[data-well],[data-lumina="memory"],[data-lumina="progress"]')) return; this.setState({sel:[], box:null}); }; window.addEventListener('mousedown', this._md);
@@ -1530,6 +1533,94 @@ class Component extends DCLogic {
     return null;
   }
   pvFlt(c) { const p = this.prof(c); return p && p.g === 'S-Log3' ? 'url(#lumina-slog3)' : 'contrast(1.35) saturate(1.45) brightness(0.96)'; }
+  // Exposure (E, LOCAL-CHANGES 322): the clip's look Exposure (Color ▸ Light, stops, ±4), one value per clip, which E
+  // moves too. S-Log3 is exact: x stops above the toe is a constant shift of the camera's code value,
+  // 261.5·log10(2)·x/1023, before the S-Log3 table. The table is sampled at the shifted code (sl3Table(x)) rather than the
+  // engine's level being shifted in front of it: the engine's calibration sits inside the table, so only this is a shift of
+  // the code. With the preview off it is the same shift on the log picture. Every other clip: a gain of 2^x in linear
+  // light. The Viewer's look canvas (gradeDraw) does it with the rest of the look; the tiles, which show no other part of
+  // the look, take it here, one SVG filter per value (to 1/100 stop), made when first shown.
+  evOf(c) { return Component.lkGet(this.lookOf(c.id), 'ev'); }
+  shFlt(c) {
+    const pv = this.pvOn(c), base = pv ? this.pvFlt(c) : 'none', k = Math.round(this.evOf(c) * 100); if (!k) return base;
+    const p = this.prof(c), sl = !!p && p.g === 'S-Log3', id = 'lumina-ev' + (sl ? (pv ? 'p' : 's') : 'g') + (k < 0 ? 'm' + -k : k); this.evFilter(id, sl ? (pv ? 'p' : 's') : 'g', k / 100);
+    return 'url(#' + id + ')' + (sl || base === 'none' ? '' : ' ' + base);
+  }
+  // the picture with no preview of its own (the stand-in tiles): the gain alone, in front of what it has
+  evGain(c, rest) { const k = Math.round(this.evOf(c) * 100); if (!k) return rest; const id = 'lumina-evg' + (k < 0 ? 'm' + -k : k); this.evFilter(id, 'g', k / 100); return 'url(#' + id + ')' + (rest === 'none' ? '' : ' ' + rest); }
+  evFilter(id, kind, x) {
+    if (typeof document === 'undefined' || document.getElementById(id)) return; const box = document.getElementById('lumina-pv-filters'); if (!box) return;
+    const fn = a => ['R', 'G', 'B'].map(ch => '<feFunc' + ch + ' ' + a + '/>').join(''), mx = document.querySelector('#lumina-slog3 feColorMatrix');
+    const body = kind === 'p' ? '<feComponentTransfer>' + fn('type="table" tableValues="' + Array.from(this.sl3Table(x), y => y.toFixed(4)).join(' ') + '"') + '</feComponentTransfer><feColorMatrix type="matrix" values="' + (mx ? mx.getAttribute('values') : '') + '"/>'
+      : kind === 's' ? '<feComponentTransfer>' + fn('type="linear" slope="1" intercept="' + (x * Component.EV_CODE).toFixed(5) + '"') + '</feComponentTransfer>' : '<feComponentTransfer>' + fn('type="linear" slope="' + Math.pow(2, x).toFixed(5) + '" intercept="0"') + '</feComponentTransfer>';
+    box.insertAdjacentHTML('beforeend', '<filter id="' + id + '" data-ev="1" color-interpolation-filters="' + (kind === 'g' ? 'linearRGB' : 'sRGB') + '" x="0" y="0" width="1" height="1">' + body + '</filter>');
+    this.evFlN = (this.evFlN || 0) + 1;
+  }
+  static EV_CODE = 261.5 * Math.log10(2) / 1023;
+  static evSay(x) { const r = Math.round(x * 100) / 100; return 'EV ' + (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r).toFixed(2); }
+  // 8-bit levels through a gain of 2^x in linear light (sRGB's curve): the measures of a clip that isn't S-Log3
+  evGainLut(x) { const g = Math.pow(2, x), a = new Uint8ClampedArray(256); for (let v = 0; v < 256; v++) { const s = v / 255, l = (s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)) * g, o = l <= 0.0031308 ? l * 12.92 : 1.055 * Math.pow(Math.min(1, l), 1 / 2.4) - 0.055; a[v] = Math.round(Math.min(1, o) * 255); } return a; }
+  // The clip's light as shot, for ⇧E: the median luminance of a frame in scene-linear terms (S-Log3 decoded, else sRGB's
+  // curve undone), before any nudge. Kept per frame with the measures (pp.sl).
+  sceneSl(img, c) {
+    const p = this.prof(c), sl = !!p && p.g === 'S-Log3', cal = this.cal, D = img.data, lin = new Float32Array(256), v = [];
+    for (let i = 0; i < 256; i++) { if (sl) { const x = (cal ? cal[i] : i / 255) * 1023; lin[i] = Math.max(0, x >= 171.2102946929 ? Math.pow(10, (x - 420) / 261.5) * 0.19 - 0.01 : (x - 95) * 0.01125 / (171.2102946929 - 95)); } else { const s = i / 255; lin[i] = s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); } }
+    for (let i = 0; i < D.length; i += 32) v.push(0.2126 * lin[D[i]] + 0.7152 * lin[D[i + 1]] + 0.0722 * lin[D[i + 2]]);
+    if (!v.length) return 0; v.sort((a, b) => a - b); return v[v.length >> 1];
+  }
+  // ⇧E: each clip's median scene light (as shot) matched to the shoot's median, at most a stop either way.
+  evAutoMap() {
+    const C = this.d ? this.d.clips : [], key = (this.state.tick || 0) + ':' + C.length; if (this.evAM && this.evAM.key === key) return this.evAM.m;
+    const med = a => { a = a.slice().sort((x, y) => x - y); return a.length ? a[a.length >> 1] : 0; }, per = {}, m = {};
+    C.forEach(c => { const v = Object.values(c._px || {}).map(q => q && q.sl).filter(x => x > 0); if (v.length) per[c.id] = med(v); });
+    const mid = med(Object.values(per)); if (mid > 0) Object.keys(per).forEach(id => { m[id] = Math.round(Math.max(-1, Math.min(1, Math.log2(mid / per[id]))) * 100) / 100; });
+    this.evAM = {key, m}; return m;
+  }
+  // E held: the clips it moves (the selection, else the clip in the Viewer, else what K M C would mark). The hold is one
+  // look step (lkBegin … lkEnd), as a drag on the Exposure row is; the row moves with it.
+  evIds() { const st = this.state; if (st.sel.length) return st.sel; if (st.lv >= 2) return st.cur ? [st.cur] : []; return this.targets(); }
+  evDown() {
+    const st = this.state; if (st.evHeld || st.held || this.lkPrev || !this.d || !this.d.clips.length) return; const ids = this.evIds().filter(id => this.byId && this.byId[id]); if (!ids.length) return;
+    this.lkBegin(ids); this.evS = {ids, raw:Object.fromEntries(ids.map(id => [id, this.evOf(this.byId[id])]))}; clearTimeout(this.evT); this.setState(st.lv >= 2 ? {evHeld:true, evHot:ids, lkOn:'ev', lkSec:'light'} : {evHeld:true, evHot:ids, lkOn:'ev'});   // in the Viewer the rail shows Light, where the Exposure row moves
+  }
+  // by d stops: an arrow lands on the nearest third, a scroll moves freely (kept unrounded here, the look holds 1/100)
+  evBy(d, free) {
+    const s = this.evS; if (!s) return; const m = {...this.looks()};
+    s.ids.forEach(id => { const v0 = s.raw[id] + d, v = Math.max(-4, Math.min(4, free ? v0 : Math.round(v0 * 3) / 3)); s.raw[id] = v; const L = {...(m[id] || {})}, w = Component.lkClean('ev', v); if (w) L.ev = w; else delete L.ev; if (Component.lkFlat(L)) delete m[id]; else m[id] = L; });
+    this.looksPut(m);
+  }
+  // E let go: one look step for what moved; the pill stays a second; the measures follow the picture
+  evUp() {
+    const s = this.evS; if (!s) return; this.evS = null; this.setState({evHeld:false, lkOn:null});
+    const n = s.ids.length, c = n === 1 ? this.byId[s.ids[0]] : null; this.lkEnd('exposure on ' + (c ? c.name : this.plural(n, 'clip'))); this.evLinger(s.ids);
+    if ((this.evFlN || 0) > 96) { this.evFlN = 0; document.querySelectorAll('#lumina-pv-filters filter[data-ev]').forEach(f => f.remove()); this.setState(x => ({tick:(x.tick || 0) + 1})); }   // a long scroll made many: made again as shown
+  }
+  evLinger(ids) { clearTimeout(this.evT); this.setState({evHot:ids}); this.evT = setTimeout(() => this.setState({evHot:null}), 1000); }
+  evMeasure(ids) { setTimeout(() => this.remeasure(ids.map(id => this.byId && this.byId[id]).filter(c => c && c.facts && c.facts.state === 'ready')), 0); }
+  // a look step changed these clips (prev / next: id → look or null): when Exposure moved, the pill and the measures follow
+  evMoved(ids, prev, next) { const mv = ids.filter(id => Component.lkGet(prev[id], 'ev') !== Component.lkGet(next[id], 'ev')); if (mv.length) { this.evLinger(mv); this.evMeasure(mv); } }
+  // the look Exposure of these clips set to val (id → stops), one look step
+  evSetAll(ids, val, say) {
+    this.lkBegin(ids); const m = {...this.looks()};
+    ids.forEach(id => { const L = {...(m[id] || {})}, w = Component.lkClean('ev', val[id] || 0); if (w) L.ev = w; else delete L.ev; if (Component.lkFlat(L)) delete m[id]; else m[id] = L; });
+    this.looksPut(m); this.lkEnd(say);
+  }
+  // ⌥E: Exposure back to 0 (the rest of the look stays), one undo step
+  evReset() {
+    const st = this.state; if (st.evHeld || this.lkPrev || !this.d || !this.d.clips.length) return; const ids = this.evIds().filter(id => this.byId && this.byId[id] && this.evOf(this.byId[id])); if (!ids.length) return this.flash('No exposure to put back');
+    this.evSetAll(ids, {}, 'exposure back to 0 · ' + this.plural(ids.length, 'clip')); this.flash('exposure back to 0 · ' + this.plural(ids.length, 'clip'));
+  }
+  // ⇧E: every clip's Exposure set to its match to the shoot, one undo step (⌘Z puts the values back); E nudges from there
+  evAuto() {
+    const st = this.state; if (st.evHeld || this.lkPrev || !this.d || !this.d.clips.length) return; const A = this.evAutoMap(), ids = Object.keys(A).filter(id => this.byId && this.byId[id]);
+    if (!ids.length) return this.flash('Exposure can be matched once the clips are read');
+    this.evSetAll(ids, A, 'exposure matched to the shoot · ' + this.plural(ids.length, 'clip'));
+    this.flash('Exposure matched · each clip to the shoot, at most a stop · ⌘Z puts it back · E nudges from there', 3000);
+  }
+  evChip(list) {
+    const st = this.state, hot = !!st.evHot && list.some(c => st.evHot.includes(c.id)), v = list.map(c => this.evOf(c)), on = v.some(x => Math.round(x * 100)), same = v.every(x => Math.round(x * 100) === Math.round(v[0] * 100));
+    return {evOn:hot || on, evT:same ? Component.evSay(v[0] || 0) : 'EV varies', evBg:hot ? '#161514' : 'rgba(22,21,20,0.72)', evC:hot ? '#FFD27A' : '#B8B3AB', evSh:hot ? 'inset 0 0 0 1px rgba(255,210,122,0.55)' : 'none', evW:hot ? '700' : '400'};
+  }
   // Outlines (O, in the Viewer; the app only): the shapes Vision finds in the frame on show, drawn over the picture.
   // The frame is drawn from the Viewer's own <video> at 1024 px, sent as a JPEG to lumina.video.masks (the bridge's
   // skimMasks, SetsMasks.swift) and answered as outlines in fractions of the frame. While they are on the pointer
@@ -2157,7 +2248,7 @@ class Component extends DCLogic {
   // the file as shot. Says whether the canvas is the picture.
   vidShow() {
     const v = this.vidEl, c = this.vidFor && this.byId ? this.byId[this.vidFor] : null; if (!v) return false;
-    const up = !!c && this.vidUp === v, via = up && this.pvOn(c) && this.pvVia(this.pvFlt(c)) === 'canvas';
+    const up = !!c && this.vidUp === v, via = up && this.pvVia(this.shFlt(c)) === 'canvas';
     v.style.opacity = up && !via ? '1' : '0';
     return via;
   }
@@ -2239,7 +2330,7 @@ class Component extends DCLogic {
     const h = c.look ? c.look.hue : 40, ev = this.frameEv(c), pv = this.pvOn(c);
     const sl = slot || ((c._sl || (c._sl = {}))[i] || (c._sl[i] = {}));
     if (c.frames && !c.frames[i]) { let j = -1; for (let k = 1; k < 8 && j < 0; k++) { if (c.frames[i - k]) j = i - k; else if (c.frames[i + k]) j = i + k; } if (j >= 0) i = j; }
-    if (c.frames && c.frames[i]) return {bg:this.pic(sl, c, i), flt:pv ? this.pvFlt(c) : 'none', anim:this.pvAn && this.needsPv(c) ? this.pvAn : 'none'};
+    if (c.frames && c.frames[i]) return {bg:this.pic(sl, c, i), flt:this.shFlt(c), anim:this.pvAn && this.needsPv(c) ? this.pvAn : 'none'};
     if (c._file || c._mock) { sl.url = null; sl.pu = null; return {bg:Component.PH, flt:'none', anim:'none'}; }
     let L = 0.5 + ev * 0.085 + Math.sin((i + 1) * 1.7 + c._i) * 0.035 + (f.clip || 0) / 40;
     if (f.bump === i) L += 0.28;
@@ -2248,7 +2339,7 @@ class Component extends DCLogic {
     const a = pv ? 'oklch(' + L.toFixed(3) + ' 0.085 ' + h + ')' : 'oklch(' + (0.44 + L * 0.3).toFixed(3) + ' 0.028 ' + h + ')';
     const b = pv ? 'oklch(' + L2.toFixed(3) + ' 0.06 ' + (h + 35) + ')' : 'oklch(' + (0.44 + L2 * 0.3).toFixed(3) + ' 0.022 ' + (h + 35) + ')';
     const soft = big && f.sharpF && f.sharpF[i] < 0.35;
-    return {bg:'linear-gradient(180deg,' + a + ' 0 58%,' + b + ' 58% 100%)', flt:soft ? 'blur(1.4px)' : 'none', anim:'none'};
+    return {bg:'linear-gradient(180deg,' + a + ' 0 58%,' + b + ' 58% 100%)', flt:this.evGain(c, soft ? 'blur(1.4px)' : 'none'), anim:'none'};
   }
 
   // grouping
@@ -2676,7 +2767,7 @@ class Component extends DCLogic {
           edge:gm ? 'inset 0 0 0 2px ' + MK[gm] + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm && !compact, mark:this.W(m), markC:m ? MK[m] : '',
           skOn:skI != null, sk:skI != null ? [0, 1, 2, 3, 4, 5, 6, 7].map(k => ({c:k === skI ? '#FFD27A' : 'rgba(22,21,20,0.55)'})) : [],
           chips:compact ? [] : this.chipRow(c0, ch, 3, 2).chips, chipNone:compact ? '' : this.chipRow(c0, ch, 3, 2).more,
-          state:m ? this.W(m) : '', stateC:m ? MK[m] : '#9A958D'};
+          state:m ? this.W(m) : '', stateC:m ? MK[m] : '#9A958D', ...this.evChip([c0])};
       }
       // a scene tile: skimming shows its clips one by one; else the first clip that has a frame
       const sc0 = skI != null ? g.clips[Math.min(n - 1, skI)] : null, cvc = sc0 || g.clips.find(c => c.frames && c.frames.some(Boolean)) || c0, t0 = this.tone(cvc, fi, false, sc0 ? undefined : this.gSlot[g.i] || (this.gSlot[g.i] = {}));
@@ -2689,7 +2780,7 @@ class Component extends DCLogic {
         markOn:!!allM && !gm, mark:allM ? 'all ' + this.W(allM) : '', markC:allM ? MK[allM] : '',
         skOn:skI != null, sk:skI != null && n <= 40 ? g.clips.map((c, k) => ({c:k === skI ? '#FFD27A' : 'rgba(22,21,20,0.55)'})) : [],
         dotsOn:few, dots:few ? g.clips.map(c => ({c:st.marks[c.id] ? MK[st.marks[c.id]] : 'rgba(239,236,230,0.2)'})) : [], barOn:!few, segs:few ? [] : ['keep', 'maybe', 'cut'].map(m => ({w:(S[m] / n * 100).toFixed(1) + '%', c:MK[m]})),
-        cnt, cntT:cnt.map(k => k.t).join(' · '), note, noteT:note, noteC:S.noted ? '#FFD27A' : '#9A958D'};
+        cnt, cntT:cnt.map(k => k.t).join(' · '), note, noteT:note, noteC:S.noted ? '#FFD27A' : '#9A958D', ...this.evChip(g.clips)};
     }).filter(Boolean);
     vals.fh = L.items.filter(it => it.kind === 'h').map(it => {
       const s = SC[it.s]; if (!s) return null; const ids = s.clips.map(c => c.id), S = Component.foldSum(s.clips.map(c => ({id:c.id, dur:c.dur, bytes:c.bytes, notes:[], pending:false})), st.marks);
@@ -2764,7 +2855,7 @@ class Component extends DCLogic {
       else this.api('mark', step.ids, step.next);
       return (back ? 'undid · ' : 'redid · ') + this.verb(step.next) + ' ' + this.plural(step.ids.length, 'clip');
     }
-    if (step.k === 'look') { const m = {...this.looks()}; step.ids.forEach(id => { const L = (back ? step.prev : step.next)[id]; if (L && !Component.lkFlat(L)) m[id] = L; else delete m[id]; }); this.looksPut(m); this.goClip(step.ids[0]); return (back ? 'undid · ' : 'redid · ') + step.say; }
+    if (step.k === 'look') { const m = {...this.looks()}; step.ids.forEach(id => { const L = (back ? step.prev : step.next)[id]; if (L && !Component.lkFlat(L)) m[id] = L; else delete m[id]; }); this.looksPut(m); this.evMoved(step.ids, step.prev, step.next); this.goClip(step.ids[0]); return (back ? 'undid · ' : 'redid · ') + step.say; }
     if (step.k === 'remove') { this.clipsOut(step, back); return (back ? 'put back · ' : 'took out again · ') + this.plural(step.ids.length, 'clip'); }
   }
   undo() { const st = this.state; if (!st.undo.length) return; const step = st.undo[st.undo.length - 1]; this.setState({undo:st.undo.slice(0, -1), redo:[...st.redo, step]}); this.flash(this.apply(step, true)); }
@@ -2997,6 +3088,11 @@ class Component extends DCLogic {
     }
     // ⇧C unfurls the cut clips folded at the dock's right, right to left, and folds them back.
     if (kl === 'c' && e.shiftKey && !e.altKey) { e.preventDefault(); if (!e.repeat) this.cutsToggle(); return; }
+    // E: exposure (LOCAL-CHANGES 322). Held, ← → step a third of a stop (⇧ a whole one) and a scroll moves it freely; letting
+    // go is one undo step. It is the look's Exposure (Color ▸ Light). ⌥E puts it back to 0, ⇧E matches every clip to the shoot.
+    // Without E the arrows are as ever.
+    if ((e.code === 'KeyE' || kl === 'e') && !st.held && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable))) { e.preventDefault(); if (e.repeat) return; if (e.altKey) return this.evReset(); if (e.shiftKey) return this.evAuto(); return this.evDown(); }
+    if (st.evHeld && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); return this.evBy((k === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 1 / 3)); }
     if (this.dockKey(e)) return;
     if (this.mk[kl] && !e.altKey) { e.preventDefault(); if (e.repeat) return; this.heldAt = e.timeStamp; this.heldTapped = false; return this.setState({held:this.mk[kl]}); }
     if (k === ' ' && !st.held && !(this.isCtl(t) && this.tabFocus)) { e.preventDefault(); if (!e.repeat) this.spaceDown(e); return; }
@@ -3041,6 +3137,7 @@ class Component extends DCLogic {
     if (k === 'Shift' || k === 'Meta' || k === 'Alt' || k === 'Control') return;
     // A button a click left focused would take the Space on its release (a click); the preview has it instead.
     if (k === ' ') { if (!(this.isCtl(e.target) && this.tabFocus)) e.preventDefault(); return this.spaceUp(e); }
+    if ((e.code === 'KeyE' || k === 'e') && this.evS) return this.evUp();
     if (this.mk[k] && st.held === this.mk[k]) { const quick = !this.heldTapped && !this.boxS && e.timeStamp - this.heldAt < 230; const m = st.held; this.setState({held:null}); if (quick) this.quick(m); }
   }
   pt(e) { const r = this.sc.getBoundingClientRect(); return {x:e.clientX - r.left + this.sc.scrollLeft, y:e.clientY - r.top + this.sc.scrollTop}; }
@@ -3094,6 +3191,8 @@ class Component extends DCLogic {
   wheel(e) {
     const st = this.state; if (st.ready && st.step === 'export') return this.wsWheel(e);
     if (!st.ready || st.step !== 'skim' || !this.d.clips.length) return;
+    // E held: two fingers up or right brighten (macOS's natural scrolling), 300 px a stop
+    if (this.evS) { e.preventDefault(); if (e.ctrlKey) return; const u = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1, dy = e.deltaY * u, dx = -e.deltaX * u; return this.evBy((Math.abs(dy) >= Math.abs(dx) ? dy : dx) / 300, true); }
     if (e.ctrlKey) { e.preventDefault(); return this.zoomBy(-e.deltaY * 0.01, e); }
     // Over the strip above the Viewer a scroll or a swipe either way moves the strip a frame at a time (tsGo's paging, finer).
     if (st.lv >= 2 && e.target && e.target.closest && e.target.closest('[data-lumina="furled-takes"]')) { e.preventDefault(); return this.tsWheel(e); }
@@ -3585,7 +3684,7 @@ class Component extends DCLogic {
             return {id:c.id, name:c.name.replace(/\.\w+$/, ''), dur:c.dur ? this.fmtDur(c.dur) : '—', size:this.fmtB(c.bytes), time:this.hm(c.t), fr:fr(c), phOn:this.waiting(c), phSub:this.phSub(c),
               edge:gm ? 'inset 0 0 0 2px ' + gc + '99' : m ? 'inset 0 0 0 2px ' + MK[m] : 'none', markOn:!!m && !gm, mark:this.W(m), markC:m ? MK[m] : '', ghost:!!gm, ghostT:this.W(gm), ghostC:gc || '',
               chips:this.chipRow(c, ch, 3, 2).chips,
-              bg:isSel ? 'rgba(255,210,122,0.08)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.7)' : 'none'};
+              bg:isSel ? 'rgba(255,210,122,0.08)' : 'transparent', out:isCur ? '1.5px solid rgba(239,236,230,0.7)' : 'none', ...this.evChip([c])};
           })};
       });
     }
@@ -3651,7 +3750,7 @@ class Component extends DCLogic {
         const isC = cc.id === c.id, w = isC ? fit.wc : fit.wo, ff = this.skimF(cc), ti = this.tone(cc, Math.min(7, Math.floor(ff * 8)), isC), mm = st.marks[cc.id] || null, g2 = isC ? gm : null, hvOn = !!(st.hv && st.hv.id === cc.id);
         centers.push(x + w / 2); x += w + fit.gap;
         const zz = isC && st.zc > 1.01, say = Component.skimSay((cc.frames || []).filter(Boolean).length, isC, this.vidOff === cc.id);
-        return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, vflt:this.pvOn(cc) ? this.pvFlt(cc) : 'none', anim:ti.anim, vid:isC && !!cc._file && !this.vidNew, drag:!zz && !(isC && this.olHold(cc.id) && this.prOk()) ? 'true' : 'false', hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:isC && Component.zoomHeld(st.zc), zT:'zoomed · Z to fit', cur:isC && Component.zoomHeld(st.zc) ? (this.panS ? 'grabbing' : 'grab') : 'ew-resize',
+        return {id:cc.id, w, op:isC || hvOn ? 1 : 0.82, bg:ti.bg, flt:ti.flt, vflt:this.shFlt(cc), ...this.evChip([cc]), anim:ti.anim, vid:isC && !!cc._file && !this.vidNew, drag:!zz && !(isC && this.olHold(cc.id) && this.prOk()) ? 'true' : 'false', hvOn:hvOn && !zz, hx:(ff * 100).toFixed(2) + '%', zt:zz ? 'scale(' + st.zc.toFixed(3) + ')' : 'none', zo:(st.zo.x * 100).toFixed(1) + '% ' + (st.zo.y * 100).toFixed(1) + '%', zOn:isC && Component.zoomHeld(st.zc), zT:'zoomed · Z to fit', cur:isC && Component.zoomHeld(st.zc) ? (this.panS ? 'grabbing' : 'grab') : 'ew-resize',
           edge:g2 ? 'inset 0 0 0 3px ' + MK[g2] + '99' : mm ? 'inset 0 0 0 ' + (isC ? 3 : 2) + 'px ' + MK[mm] : 'none', markOn:!!mm && !g2, mark:this.W(mm), markC:mm ? MK[mm] : '', ghost:!!g2, ghostT:this.W(g2), ghostC:g2 ? MK[g2] : '',
           name:cc.name.replace(/\.\w+$/, ''), nameC:isC ? '#EFECE6' : '#B8B3AB', barVis:isC ? 'visible' : 'hidden', ph:(ff * 100).toFixed(2) + '%',
           sub:isC ? this.tc(ff * cc.dur) + ' of ' + this.tc(cc.dur) + ' · frame ' + (Math.min(7, Math.floor(ff * 8)) + 1) + ' of 8' + (say ? ' · ' + say : '') : this.hm(cc.t) + ' · ' + (cc.dur ? this.fmtDur(cc.dur) : '—') + (say ? ' · ' + say : ''), subC:isC ? '#B8B3AB' : '#9A958D',
@@ -5780,7 +5879,7 @@ class Component extends DCLogic {
           let im = null; for (let k = 0; k < 3; k++) { ctx.drawImage(v, 0, 0, 320, 180); im = ctx.getImageData(0, 0, 320, 180); if (!Component.lookAgain(this.blank(im), c._dark ? 2 : k)) break; await new Promise(r => setTimeout(r, 120 + k * 160)); }
           if (this.blank(im)) c._dark = true;   // a clip known to hold dark frames is not looked at three times for each
           if (!this.prof(c) || c.profile.source === 'picture') (c._raw || (c._raw = {}))[i] = Component.rawSpread(im);
-          const fb = await this.frameBlob(cv); this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
+          const fb = await this.frameBlob(cv); this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); pp.sl = this.sceneSl(im, c); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
           this.bump();
         }
         if (px.length) this.noteSpeed((performance.now() - t0) / px.length); c.facts = this.factsAll(c); c.why = null; c.tries = 0;
@@ -5876,7 +5975,7 @@ class Component extends DCLogic {
   // the ones toDisplay uses); 2: the other log profiles' filter, written out.
   static LK_FS = `precision highp float;
 varying vec2 vUv; uniform sampler2D uVid, uLut; uniform int uMode; uniform mat3 uM; uniform vec3 uO;
-uniform float uEv, uTemp, uTint, uCon, uHl, uSh, uWh, uBl, uVib, uSat, uBlend, uBal;
+uniform float uShift, uEv, uTemp, uTint, uCon, uHl, uSh, uWh, uBl, uVib, uSat, uBlend, uBal;
 uniform float uMixC[8], uMixH[8], uMixS[8], uMixL[8]; uniform float uGH[4], uGS[4], uGL[4];
 float lut(float v) { return texture2D(uLut, vec2((v * 255.0 + 0.5) / 256.0, 0.5)).r; }
 float tone(float x) { const float T = 6.28318530718;
@@ -5890,6 +5989,7 @@ float hk(float n, vec3 c) { float k = mod(n + c.x / 60.0, 6.0); return c.z - c.z
 vec3 rgb(vec3 c) { return vec3(hk(5.0, c), hk(3.0, c), hk(1.0, c)); }
 void main() {
   vec3 c = texture2D(uVid, vUv).rgb;
+  if (uMode == 0) c = clamp(c + uShift, 0.0, 1.0);   // S-Log3 with the preview off: Exposure is a shift of the log code
   if (uMode == 1) c = clamp(uM * vec3(lut(c.r), lut(c.g), lut(c.b)) + uO, 0.0, 1.0);
   else if (uMode == 2) { c = (c - 0.5) * 1.35 + 0.5; float y = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = clamp((y + (c - y) * 1.45) * 0.96, 0.0, 1.0); }
   c = pow(max(c, 0.0), vec3(2.2));
@@ -5929,7 +6029,7 @@ void main() {
   lkEnd(say) {
     const b = this.lkPrev; this.lkPrev = null; if (!b) return; const m = this.looks(), next = Object.fromEntries(b.ids.map(id => [id, m[id] ? {...m[id]} : null]));
     if (b.ids.every(id => JSON.stringify(b.prev[id]) === JSON.stringify(next[id]))) return;
-    this.pushStep({k:'look', ids:b.ids, prev:b.prev, next, say});
+    this.pushStep({k:'look', ids:b.ids, prev:b.prev, next, say}); this.evMoved(b.ids, b.prev, next);
   }
   lkSet(id, p, v) {
     const m = {...this.looks()}, L = {...(m[id] || {})}; v = Component.lkClean(p, v);
@@ -6028,13 +6128,16 @@ void main() {
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     gl.viewport(0, 0, w, h);
     const pv = this.pvOn(c), flt = pv ? this.pvFlt(c) : 'none', mode = !pv ? 0 : flt.indexOf('url(') === 0 ? 1 : 2;
-    if (mode === 1 && g.lutFor !== this.sl3Lut) {
-      const T = this.sl3Lut || (this.sl3Lut = this.sl3Table()), px = new Uint8Array(256 * 4);
+    // Exposure on S-Log3 is the shift of the code (evOf's note): with the preview on it is in the table, as the tiles' filter
+    // has it; with it off a shift of the log picture; the gain in linear light below is for every other clip.
+    const pr = this.prof(c), sl = !!pr && pr.g === 'S-Log3', ek = Math.round(Component.lkGet(L, 'ev') * 100);
+    if (mode === 1 && (g.lutFor !== this.sl3Lut || g.lutEv !== ek)) {
+      const T0 = this.sl3Lut || (this.sl3Lut = this.sl3Table()), T = ek ? this.sl3Table(ek / 100) : T0, px = new Uint8Array(256 * 4); g.lutEv = ek;
       for (let i = 0; i < 256; i++) { const q = Math.max(0, Math.min(255, Math.round(T[i] * 255))); px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = q; px[i * 4 + 3] = 255; }
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, g.lut); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, px); g.lutFor = this.sl3Lut;
     }
     const M = Component.SL3M; gl.uniformMatrix3fv(U('uM'), false, [M[0], M[4], M[8], M[1], M[5], M[9], M[2], M[6], M[10]]); gl.uniform3f(U('uO'), M[3], M[7], M[11]); gl.uniform1i(U('uMode'), mode);
-    const u = Component.lkU(L);
+    const u = Component.lkU(L); if (sl) u.ev = 0; gl.uniform1f(U('uShift'), sl && mode === 0 ? ek / 100 * Component.EV_CODE : 0);
     [['uEv', 'ev'], ['uTemp', 'temp'], ['uTint', 'tint'], ['uCon', 'con'], ['uHl', 'hl'], ['uSh', 'sh'], ['uWh', 'wh'], ['uBl', 'bl'], ['uVib', 'vib'], ['uSat', 'sat'], ['uBlend', 'blend'], ['uBal', 'bal']].forEach(([n, k]) => gl.uniform1f(U(n), u[k]));
     [['uMixC', 'mixC'], ['uMixH', 'mixH'], ['uMixS', 'mixS'], ['uMixL', 'mixL'], ['uGH', 'gH'], ['uGS', 'gS'], ['uGL', 'gL']].forEach(([n, k]) => gl.uniform1fv(U(n + '[0]') || U(n), new Float32Array(u[k])));
     try { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, g.vid); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v); } catch (x) { cv.dataset.look = 'no upload'; cv.style.opacity = '0'; return; }
@@ -6044,18 +6147,21 @@ void main() {
   }
   static SL3T = [0.0000, 0.0225, 0.0459, 0.0709, 0.0984, 0.1292, 0.1631, 0.1996, 0.2387, 0.2810, 0.3268, 0.3766, 0.4301, 0.4876, 0.5500, 0.6167, 0.6851, 0.7530, 0.8170, 0.8740, 0.9223, 0.9604, 0.9866, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000];
   static SL3M = [1.9014, -0.8790, -0.0434, 0.0067, -0.1553, 1.3955, -0.2447, 0.0003, 0.0021, -0.3185, 1.3129, -0.0011];
-  toDisplay(img, c) {
-    const p = this.prof(c); if (!p || p.g !== 'S-Log3') return img;
-    const L = this.sl3Lut || (this.sl3Lut = this.sl3Table());
+  // with the clip's exposure (x, stops; the colour check passes 0): the same table at the shifted code, or the gain
+  toDisplay(img, c, x = this.evOf(c)) {
+    const p = this.prof(c), k = Math.round(x * 100);
+    if (!p || p.g !== 'S-Log3') { if (!k) return img; const G = this.evGainLut(k / 100), S = img.data, o = new Uint8ClampedArray(S.length); for (let i = 0; i < S.length; i += 4) { o[i] = G[S[i]]; o[i + 1] = G[S[i + 1]]; o[i + 2] = G[S[i + 2]]; o[i + 3] = 255; } return {data:o, width:img.width, height:img.height}; }
+    const L = k ? this.sl3Table(k / 100) : this.sl3Lut || (this.sl3Lut = this.sl3Table());
     const M = Component.SL3M, D = img.data, out = new Uint8ClampedArray(D.length);
     for (let i = 0; i < D.length; i += 4) { const r = L[D[i]], g = L[D[i + 1]], b = L[D[i + 2]]; out[i] = (M[0] * r + M[1] * g + M[2] * b + M[3]) * 255; out[i + 1] = (M[4] * r + M[5] * g + M[6] * b + M[7]) * 255; out[i + 2] = (M[8] * r + M[9] * g + M[10] * b + M[11]) * 255; out[i + 3] = 255; }
     return {data:out, width:img.width, height:img.height};
   }
   // The S-Log3 curve for each level the page sees: the camera's code value first (undoing this engine's own
   // conversion of BT.709-tagged video, measured by calibrate()), then the S-Log3 curve at 33 points, fitted to Final Cut's Sony S-Log3/S-Gamut3.Cine camera LUT.
-  sl3Table() {
-    const T = Component.SL3T, n = T.length - 1, cal = this.cal, a = new Float32Array(256);
-    for (let v = 0; v < 256; v++) { const code = cal ? cal[v] : v / 255, x = code * n, i = Math.min(n - 1, Math.floor(x)), f = x - i; a[v] = T[i] + (T[i + 1] - T[i]) * f; }
+  // ev: stops of exposure, a shift of the code before the curve (Component.EV_CODE a stop)
+  sl3Table(ev) {
+    const T = Component.SL3T, n = T.length - 1, cal = this.cal, a = new Float32Array(256), sh = ev ? ev * 261.5 * Math.log10(2) / 1023 : 0;
+    for (let v = 0; v < 256; v++) { const code = Math.max(0, Math.min(1, (cal ? cal[v] : v / 255) + sh)), x = code * n, i = Math.min(n - 1, Math.floor(x)), f = x - i; a[v] = T[i] + (T[i + 1] - T[i]) * f; }
     return a;
   }
   // Every engine shows BT.709-tagged video through its own conversion before a filter or a canvas sees it
@@ -6083,6 +6189,7 @@ void main() {
         this.cal = inv; this.sl3Lut = null; this.calDev = Math.round(Math.max(...obs.map((o, i) => Math.abs(o * 255 - i))));
         const tv = Array.from(this.sl3Table(), y => y.toFixed(4)).join(' ');
         document.querySelectorAll('#lumina-slog3 feFuncR, #lumina-slog3 feFuncG, #lumina-slog3 feFuncB').forEach(f => f.setAttribute('tableValues', tv));
+        document.querySelectorAll('#lumina-pv-filters filter[data-ev]').forEach(f => f.remove());   // the exposure filters hold the old table: made again as shown
         document.documentElement.dataset.luminaCal = JSON.stringify({engine:k, at:[0, 32, 64, 128, 192, 255].map(i => Math.round(obs[i] * 255))});
         this.setState(s => ({tick:(s.tick || 0) + 1}));
         return;
@@ -6152,7 +6259,7 @@ void main() {
           const im = ctx.getImageData(0, 0, 320, 180);
           await new Promise(r => setTimeout(r, 20 * (1 + (this.simHeat || 0) * 0.6)));
           const fb = await this.frameBlob(cv); if (tok !== this.qTok) throw 'stopped';
-          this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
+          this.setFrame(c, i, fb); this.enforce(); { const pp = this.pix(this.toDisplay(im, c)); pp.sl = this.sceneSl(im, c); px.push(pp); (c._px || (c._px = {}))[i] = pp; if (!c.col || i === this.firstIdx()) c.col = pp.col; }
           this.bump();
         }
         if (px.length) this.noteSpeed((performance.now() - t0) / px.length); c.facts = this.factsAll(c); c.why = null; c.tries = 0;
@@ -6165,7 +6272,7 @@ void main() {
   async remeasure(list) {
     const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180; const ctx = cv.getContext('2d', {willReadFrequently:true});
     for (const c of list) { if (!c.frames || !c.frames.some(Boolean)) continue; const px = [];
-      for (let i = 0; i < c.frames.length; i++) { const u = c.frames[i]; if (!u) continue; try { const bm = await createImageBitmap(await (await fetch(u)).blob()); ctx.drawImage(bm, 0, 0, 320, 180); if (bm.close) bm.close(); const pp = this.pix(this.toDisplay(ctx.getImageData(0, 0, 320, 180), c)); px.push(pp); (c._px || (c._px = {}))[i] = pp; } catch (x) {} }
+      for (let i = 0; i < c.frames.length; i++) { const u = c.frames[i]; if (!u) continue; try { const bm = await createImageBitmap(await (await fetch(u)).blob()); ctx.drawImage(bm, 0, 0, 320, 180); if (bm.close) bm.close(); const im = ctx.getImageData(0, 0, 320, 180), pp = this.pix(this.toDisplay(im, c)); pp.sl = this.sceneSl(im, c); px.push(pp); (c._px || (c._px = {}))[i] = pp; } catch (x) {} }
       if (px.length) { c.facts = this.provMark(this.factsOf(px), px.length); this.setState(s => ({tick:(s.tick || 0) + 1})); } }
   }
   factsOf(px) {
@@ -6215,7 +6322,7 @@ void main() {
           for (const k of Component.checkTimes(c.fps, isFinite(v.duration) ? v.duration : 0)) {
             v.currentTime = k.t; await wait('seeked', 8000); await this.painted(v);
             let im = null; for (let j = 0; j < 3; j++) { ctx.drawImage(v, 0, 0, W, H); im = ctx.getImageData(0, 0, W, H); if (!Component.lookAgain(this.blank(im), j)) break; await new Promise(r => setTimeout(r, 120 + j * 160)); }
-            rows.push({clip:c.name, sec:k.sec, frame:k.n, asked:k.t, at:v.currentTime, raw:im, shown:this.toDisplay(im, c)});
+            rows.push({clip:c.name, sec:k.sec, frame:k.n, asked:k.t, at:v.currentTime, raw:im, shown:this.toDisplay(im, c, 0)});
           }
         } catch (x) { rows.push({clip:c.name, failed:String(x)}); }
         URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (x) {}
@@ -6782,7 +6889,8 @@ void main() {
     v.addOn = !!(has && d.shoot.real && st.step === 'skim'); v.addClips = this.addClips; v.addRef = this.addRef; v.addDirRef = this.addDirRef; v.addIn = this.addIn;
     v.addTip = 'Add clips to “' + (d && d.shoot ? d.shoot.name : '') + '”: a phone’s too. Or drop clips or a folder on the window. Marks stay. ⇧⌘O';
     v.addHot = !!st.addHot; v.addHotT = 'Drop to add to “' + (d && d.shoot ? d.shoot.name : '') + '”';
-    if (v.isSkim && has && !st.held) { const nh = this.cvGrid() ? this.cvHints() : this.navHints(); v.hints = nh.list; v.hintLead = nh.lead; }
+    if (v.isSkim && has && st.evHeld) { v.hints = [{k:'← →', t:'a third of a stop'}, {k:'⇧← →', t:'a stop'}, {k:'scroll', t:'freely'}, {k:'let go', t:'done'}, {k:'⌥E', t:'back to 0'}]; v.hintLead = 'Exposure · ' + this.plural(this.evS ? this.evS.ids.length : 0, 'clip'); }
+    else if (v.isSkim && has && !st.held) { const nh = this.cvGrid() ? this.cvHints() : this.navHints(); v.hints = nh.list; v.hintLead = nh.lead; }
     if (v.isExport) {
       const x = this.buildX(), ex = st.ex, G = this.G || [];
       v.exRows = [
