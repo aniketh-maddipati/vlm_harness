@@ -198,3 +198,31 @@ vignette corner (`vigDown`, which moves the overall amount).
 **Automatic and manual meet in the handles.** Whatever Auto, masks or repeat-across did shows up as
 handles you can grab: the gradient Auto placed, the corner it darkened, the subject it lifted, each
 photo's re-solved exposure in the filmstrip. Nothing automatic is a black box; you can pick up all of it.
+
+## Skim: what to take from RapidRAW (2026-11-03)
+
+The biggest finding: today Skim's look never leaves the preview. The `.fcpxml` carries only
+`customLUTOverride` for S-Log3, and the look lives in localStorage. Skim's look maths (`lkPx`) works on
+each pixel alone, with no blur or neighbours, so the whole look can be baked into a `.cube`.
+
+Ranked:
+1. **Look → `.cube` per shot in the `.fcpxml`.** Grade a frame, export a LUT (RapidRAW renders an
+   identity HALD through its pipeline, `export_processing.rs:1379`, and writes it out,
+   `lut_processing.rs:450`). Bake the S-Log3 table, the matrix and `lkPx` over a 33³ grid. About 2 d.
+   The `.fcpxml` form for a custom LUT on a clip is unverified; check it against Final Cut 12.4.
+2. **Calibration + "match to this clip".** Per-primary hue and saturation (`shader.wgsl:649`) as a fifth
+   look section, plus an automatic fit from a reference clip's frame stats. This is shot matching for
+   the A7III S-Log3 / A7SIII 709 mix. 4–5 d.
+3. **User LUTs applied in S-Log3 space with an intensity** (`shader.wgsl:248, 1505, 1922`). Skim's
+   `uLut` is 1D today; WebGL1 needs a packed 3D texture. 2–3 d.
+4. **Colour and luma range keyers** (`mask_generation.rs:1040, 1141`). Per pixel, so they bake into
+   the cube with no matte and no flicker. 2 d.
+5. **Group retakes across clips with FeaturePrint** (`SetsNear`). RapidRAW's dhash
+   (`culling.rs:198`) is weaker; Skim already measures sharpness, ev and clipping per frame. 2 d.
+
+Bad fits:
+- AgX display transform: it breaks the preview ≡ Final Cut match.
+- Grain: tied to fixed pixel positions, so it looks like a dirty screen on video.
+- Glow, halation, flare: spatial, so a LUT can't carry them.
+- Per-frame models (SAM, U²-Net sky, Depth Anything, lens blur, inpainting): they flicker.
+  Skim's Follow and `SkimPlate` suit video better.
