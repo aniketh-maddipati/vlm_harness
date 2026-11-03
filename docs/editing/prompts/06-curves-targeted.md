@@ -16,3 +16,18 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Region parity criteria on sweep 7; luma mode: hue drift ≈ 0 and saturation within 2 % on ramps; the gesture works on the canvas and in the image fallback path.
 
 **Depends on:** 00.
+
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Curve (06)*
+
+- **Do:** press on the photo and a point drops on the curve at that tone. Drag ↕.
+- **Hands:** the curve panel is one 1 px line over the histogram. Points are magnetic to the original
+  line (a detent), and double-click removes one.
+  - Luma is the default, so curves never shift colour.
+  - R, G and B are behind ⌥ on the panel.
+- **Repeat:** each point can be stored at its percentile ("the photo's 20 % tone"), so a curve carries
+  across exposures.
+- **Polish:** no grid; three faint quarter ticks only.
+
+**Skim (video) mirror.** Skim has no curve. Add RGB / Luma curves to its Light section (1D tables in the shader, like its existing `uLut`). LUT-able. Targeted curve by pressing on the viewer.

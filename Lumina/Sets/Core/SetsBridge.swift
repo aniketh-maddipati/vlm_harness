@@ -116,6 +116,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// ⌘R: Finder, with the file selected. The probe swaps this out so a fuzz run never brings
     /// Finder forward on the desktop of whoever is using the Mac.
     var reveal: (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) }
+    /// The hand kit's detent tick (Edit's soft stops): a Force Touch trackpad's alignment haptic. The probe and
+    /// the tests swap it out; a Mac without a Force Touch trackpad simply feels nothing.
+    var haptic: () -> Void = { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
     /// Handoff's Show in Finder and Delete in Finder…: Finder, with these selected (swapped out by the probe and the tests too).
     var revealAll: ([URL]) -> Void = { NSWorkspace.shared.activateFileViewerSelecting($0) }
     /// Handoff's Open in Lightroom: hands folders or files to Lightroom Classic (swapped out by the tests).
@@ -438,6 +441,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "switchPage":
             guard SetsPage.switchable, let side = body["to"] as? String, let page = SetsPage(side: side) else { return (false, nil) }
             onSwitchPage?(page)
+            return (true, nil)
+        case "haptic":
+            haptic()
             return (true, nil)
         case "pageError":
             let text = (body["message"] as? String).map { String($0.prefix(300)) }

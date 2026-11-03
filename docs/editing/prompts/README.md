@@ -5,7 +5,15 @@ They all run the shared loop in `LOOP.md`: measure → maths in three copies →
 checks → measure → show the owner → repeat (≤ 5 rounds) → PR, never merged unasked.
 
 Background: `../RAPIDRAW-PARITY.md` (gaps, "better" scores), `../COLOUR-GRADING.md`,
-`../LEARNED-LOOKS.md`.
+`../LEARNED-LOOKS.md`, and **`../UX.md`**: the interaction language and every task's UX. Each prompt
+carries its task's UX section, which wins over its older UI bullets.
+
+**Video too.** Every prompt ends with a **Skim (video) mirror** section, run as `LOOP.md` step 6b once the stills part passes:
+- the same maths in Skim's look (JS + GLSL), checked against `lookmath.py`
+- measured once per shot and held, so the look doesn't flicker
+- reaches Final Cut as a `.cube` per shot (per-pixel colour), as mattes (local work), or stays preview only, said in the UI
+
+Mirrors marked "None" are deliberate: Lightroom sweeps, sharpening, temporal NR.
 
 To start one: open a session in this repo with "Run `docs/editing/prompts/<file>`."
 
@@ -14,7 +22,7 @@ To start one: open a session in this repo with "Run `docs/editing/prompts/<file>
 | Wave | Prompts | Why |
 |---|---|---|
 | 0 | `00` parity baseline · `00b` Lightroom sweeps | numbers to start from; one owner Lightroom session covers every fit |
-| 1 (no sweep needed) | `07` WB pad · `09` NR (needs the ISO ladder) · `10` lens · `13` grain · `14` masks panel · `19` presets/LUTs · `20` compare/clipping · `21` export | independent native areas |
+| 1 (no sweep needed) | **`00c` hand kit first** (puck, detents + haptics, gestures, carry preview, fan, task rail) · `07` WB pad · `09` NR (needs the ISO ladder) · `10` lens · `13` grain · `14` masks panel · `19` presets/LUTs · `20` compare/clipping · `21` export | independent native areas |
 | 2 (after the sweeps return) | `01` highlights · `02` clarity/texture/vibrance · `03` dehaze · `04` HSL/B&W · `06` curves · `08` sharpening · `12` vignette corners | fits |
 | 3 | `05` colour grading (after 04) · `11` transform (after 10) · `15` drawn masks · `16` range/depth (after 14) · `22` repeat edits (after 14) | build on wave 1–2 |
 | 4 | `05b` grading agent · `17` locals in masks · `18` heal/clone/remove · `23` learned looks | build on wave 3 |

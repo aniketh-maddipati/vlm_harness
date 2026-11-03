@@ -281,6 +281,8 @@
     prefetch: list => prefetch(list),
     // The page's events (BRIDGE-v0.03 §3): flow, moved, stayed, readEnd, leadReady, shifted, openCancel.
     // Esc on "Opening <name>…" cancels the listing, so a late answer can't open the folder.
+    // The hand kit's detent tick (Edit's soft stops): a Force Touch haptic on the Mac; nothing in a browser.
+    haptic: kind => { try { Promise.resolve(native('haptic', { kind: String(kind || 'alignment') })).catch(() => {}); } catch (_) {} },
     emit: (type, detail) => {
       events.push({ type, detail, t: Math.round(performance.now()) }); if (events.length > 200) events.shift();
       if (type === 'openCancel') native('openCancel', {}).catch(() => {});
@@ -1255,6 +1257,23 @@
   window.lumina.edit = edit;
   // Prompt 1 §3's four calls, on window.lumina itself.
   window.lumina.preview = edit.preview;
+  // Small renders of a look on any photo of the shoot (Edit's carry previews on the filmstrip, the fan's tiles,
+  // the contact sheet): the image path in its own lane (`lane=thumb`), so they never make the canvas's renders
+  // stale. The same (photo, look, size) gets the same URL, so a re-render of the page fetches nothing new;
+  // a newer look for the photo gets a newer seq, and the older one still loading answers 409.
+  const thumbs = { urls: new Map(), seq: new Map() };
+  window.lumina.thumb = (rel, look, px, tier) => {
+    const l = current; if (!l || !l.data || !rel) return null;
+    const [, p] = photoAt(l, String(rel)); if (!p) return null;
+    const t = tier === 'base' ? 'base' : 'small', size = Math.max(32, Math.min(2048, Math.round(+px || 160))), key = rel + '|' + (look || '') + '|' + size + '|' + t;
+    const hit = thumbs.urls.get(key); if (hit) return hit;
+    const seq = (thumbs.seq.get(rel) || 0) + 1; thumbs.seq.set(rel, seq);
+    const q = { look: macLook(look || '', p), px: t === 'small' ? size * 4 : size, seq, tier: t, lane: 'thumb' }, pv = previewOf(p.lg);
+    if (pv && +pv.l > 0) { q.o = pv.o; q.l = pv.l; q.ori = pv.ori || 1; }
+    if (ed.decoder != null) q.decoder = ed.decoder;
+    const url = renderURL(String(rel), q); thumbs.urls.set(key, url); if (thumbs.urls.size > 400) thumbs.urls.delete(thumbs.urls.keys().next().value);
+    return url;
+  };
   window.lumina.canvasRect = edit.canvasRect;
   window.lumina.drag = edit.drag;
   window.lumina.roi = edit.roi;

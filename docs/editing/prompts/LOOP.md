@@ -41,7 +41,7 @@ Read it in full before starting.
    - **Hands-on rule:** every new slider gets its on-photo gesture where one makes sense, with the
      existing grammar (drag; ⇧ fine; ⌥ finer; esc cancels; double-click resets; click the number to
      type; `dragStart` / `dragEnd` emitted like `vigDown` / `histDown`).
-   - **Keys:** before taking a key, grep the page's key handler (`c==='Key…'`) and `static HELP`. Taken now: A C H N Q R S T V W X Y Z, 0, 2, \\, `,` `.` `[` `]` `=`. The feature prompts reserve J (heal), K (clipping), B (split), U (upright), O (mask overlay), L (outcome tiles), F (flip in Crop). If one clashes, pick another and say so.
+   - **Keys:** before taking a key, grep the page's key handler (`c==='Key…'`) and `static HELP`. Taken now: A C H N Q R S T V W X Y Z, Space (large view), Tab (focus), 0, 2, \\, `,` `.` `[` `]` `=`. The UX (`docs/editing/UX.md`) reserves G (loupe), / (grade agent), ⌘-hold (vectorscope while grading), and the feature prompts reserve J (heal), K (clipping), B (split), U (upright), O (mask overlay), L (outcome tiles), F (flip in Crop). If one clashes, pick another and say so.
    - The help sheet (`static HELP`) lists every new key and gesture.
    - Section reset, the `•` changed dot, ⌘C/⌘V and "same as last" all carry the new keys.
    - **`plumbing.js` supplies data and behaviour, never UI.** New keys reach the Mac through the
@@ -71,6 +71,30 @@ Read it in full before starting.
    - Push the page into the running builds with the project agent `hot-build-pusher` (Lumina Dev /
      Safari :8765). Don't start new servers.
    - Send a before/after screenshot or a short recording with `SendUserFile`.
+6b. **Skim (video) mirror**, when the feature prompt has a "Skim mirror" section that isn't "none".
+   Do it after the stills part passes; if it's large, open it as a second PR from the same branch.
+   - **Where:** `design/handoff/lumina-skim/Lumina Skim v3.dc.html`, at the look block between
+     `LOOK-BEGIN` and `LOOK-END` (JS reference) and `LK_FS` (the GLSL). Keys follow Skim's flat form
+     (`grade.sh.h`, `mix.blue.s`, …). Use `bash Scripts/dev-skim.sh --watch`, or the `hot-build-pusher`
+     agent, to see it in Lumina Skim.
+   - **Same maths:** Skim's JS and GLSL become the 4th and 5th copies of the stage. Add a cross-check
+     test: `Tests/web/skim-look.test.mjs` runs the JS on the ramps that `lookmath.py` uses and compares,
+     within 1/255. Skim works on display-referred Rec.709, after its S-Log3 → Rec.709 step: say where
+     the stills form had to be adapted.
+   - **Over time:** anything measured per photo (anchors, masks, signatures) is measured once per
+     shot, from a few frames, and held across the clip. Flicker check: frame-to-frame ΔE of static
+     regions on a T7 clip (`/Volumes/T7/Lumina/fixtures/video/`, read only) must not rise against the
+     clip with no look.
+   - **To Final Cut:**
+     - per-pixel colour (WB, tone, curves, HSL, grade) → one `.cube` per clip or shot, written into the
+       Save to folder and referenced from the `.fcpxml`, as mattes already are;
+     - local and spatial work → mattes, the Follow path;
+     - anything else → preview only, said plainly in the UI.
+     - A new file kind is reach: it needs a row in `TRUST.md`.
+   - **Checks:** `node Tests/web/skim-look.test.mjs`, `node Tests/web/skim-look-browser.mjs`, and
+     `xvfb-run … Tests/web/skim-engine.py webkitgtk` (Linux), or `python3 Tests/web/skim-engine.py safari`
+     on the Mac. `SetsPageBytesTests` keeps the two copies of the Skim page equal.
+   - Same hands-on rule: the gesture works on Skim's viewer too.
 7. **Decide.** Pass → step 3 of "Finish". Fail → change one thing (form *or* coefficients, never
    both at once), go back to 1.
    - Coefficients: `bash Tools/parity/loop.sh <id>` / `fit.py`.

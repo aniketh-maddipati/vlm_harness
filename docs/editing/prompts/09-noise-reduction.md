@@ -18,3 +18,19 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** At matched noise σ, detail ≥ Lightroom's on the ladder; colour blotches gone at ISO 6400 at the default.
 
 **Depends on:** none.
+
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Detail: sharpening and noise (08, 09)*
+
+- **Do:** detail is judged at 100 %, so the task opens the loupe. Hold **G** on a detail (the loupe; AGENTS.md's RAW 9 loupe key) and drag ↕ =
+  amount.
+- **Hands:**
+  - Sharpening: pinch = radius; ⌥ shows the edge mask in the loupe (white = sharpened).
+  - Noise: ↕ = luminance noise, ↔ = colour noise. A split line inside the loupe slides between before
+    and after.
+- **Repeat:** keyed to ISO. Applying to a selection proposes the same noise reduction for the same
+  ISO, scaled for the others.
+- **Polish:** the loupe has no frame, just a 1 px ring and its zoom figure.
+
+**Skim (video) mirror.** None in this prompt. Video NR is temporal (motion-compensated); it's its own project, so park it in `docs/masking/BACKLOG.md` with the ISO-ladder findings.

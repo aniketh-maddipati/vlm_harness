@@ -17,3 +17,21 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Parity criteria per band on sweep 5; isolation: neighbouring hues move ≤ Lightroom's; held-out within tolerance.
 
 **Depends on:** 00.
+
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Colour: HSL and B&W (04)*
+
+- **Do:** press on a colour in the photo. A short arc of the hue ring appears around the puck, showing
+  that colour's band.
+  - Drag ↔ slides the colour along its arc (hue).
+  - Drag ↕ = saturation; ⇧↕ = luminance.
+  - The other pixels of the same band pulse once, so you see what else will change.
+- **B&W:** the same press-and-drag ↕ makes that colour's grey lighter or darker, like a coloured filter
+  on the lens. The puck shows the filter's colour chip.
+- **Repeat:** a hue band is the same on every photo, so it carries naturally. Skin protection is on
+  when the band crosses skin.
+- **Polish:** the eight colour dots in the panel are the only colour in the UI; the active one gets a
+  gold ring.
+
+**Skim (video) mirror.** Skim's Mix already has 8 hue bands, in HSV with round strengths. Replace them with the fitted Oklab bands, so stills and video agree, and add the B&W mix. LUT-able: goes in the shot's `.cube`. ⌥-drag on a colour in the viewer.

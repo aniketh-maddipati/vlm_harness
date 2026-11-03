@@ -13,3 +13,14 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** Spectrum and per-band variance within 10 % of Lightroom's at each position; canvas ≡ export statistics; deterministic per seed.
 
 **Depends on:** none.
+
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Grain (13)*
+
+- **Do:** one puck in the loupe (grain at fit is a lie). ↕ amount, pinch = size, ↔ = roughness.
+  Three swatches (fine / medium / coarse) as starting points.
+- **Repeat:** carries exactly. Seeded per photo; per frame on video.
+- **Polish:** the swatches are 24 px live crops of *this* photo.
+
+**Skim (video) mirror.** Preview in Skim with grain seeded **per frame** (static grain on video looks like dirt on the lens). Final Cut has its own grain at delivery: preview only, said in the UI.

@@ -17,3 +17,15 @@ Run the agent loop in `docs/editing/prompts/LOOP.md` for this feature (read it f
 **Done when.** The ranges are deterministic and identical across tiers; depth (if approved) runs ≤ 300 ms per photo at `.utility` and is cached.
 
 **Depends on:** 14.
+
+**UX** (from `docs/editing/UX.md`; this section is the UI spec, and where the UI bullets above differ, it wins). Built on the shared hand kit (prompt 00c: puck, detents with haptics, pinch / rotate / pressure, chrome dim, hover handles, select-then-touch carry, the fan); use its pieces, don't rebuild them. Everything follows UX.md's grammar and polish tokens.
+
+*Range masks: colour, tone, depth (16)*
+
+- **Do:**
+  - ⌘-click a colour: the mask grows from it, and ↔ = tolerance with a live marching outline.
+  - ⌘⌥-click a tone: the same for brightness.
+  - Depth: drag from near to far on the photo to set the band.
+- **Repeat:** ranges are about colour and tone, so they carry well across photos and frames.
+
+**Skim (video) mirror.** Colour and luminance ranges are keyers on video. Per frame in `LK_FS`, cheap, no tracking needed. Export as a matte rendered over the clip (the Follow writer) or as preview only; decide by cost. Depth per frame is out of scope for video.
