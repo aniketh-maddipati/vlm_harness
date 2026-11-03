@@ -1,0 +1,54 @@
+{
+  "_doc": "Tools/agentloop: routing, prices and caps. Prices are USD per 1M tokens (xAI docs, read 2026-11-03; prompts of 200k tokens or more bill at twice these, so contexts are capped below that). Edit caps here, not in code.",
+  "grok": {
+    "endpoint": "https://api.x.ai/v1/responses",
+    "keychain_service": "xai-api-key",
+    "models": {
+      "grok-build-0.1": {"context": 256000, "in": 1.00, "cached_in": 0.20, "out": 2.00},
+      "grok-4.3":       {"context": 1000000, "in": 1.25, "cached_in": 0.20, "out": 2.50}
+    },
+    "web_search_per_call": 0.005,
+    "max_output_tokens": 4000,
+    "max_input_chars": 600000,
+    "timeout_s": 180
+  },
+  "claude": {
+    "cli": "claude",
+    "per_task_usd": 1.00,
+    "timeout_s": 1200
+  },
+  "budget": {
+    "run_grok_usd": 0.50,
+    "run_claude_usd": 3.00,
+    "month_grok_usd": 10.00,
+    "max_subtasks": 12
+  },
+  "routes": {
+    "search":     {"worker": "grok", "model": "grok-build-0.1", "why": "bulk code search: lots of input, short answer"},
+    "summarize":  {"worker": "grok", "model": "grok-build-0.1", "why": "read and summarise tracked files"},
+    "log-triage": {"worker": "grok", "model": "grok-build-0.1", "why": "test / CI log triage"},
+    "lint-fix":   {"worker": "grok", "model": "grok-build-0.1", "why": "a patch, applied only outside protected paths, then ci_local.sh"},
+    "doc-draft":  {"worker": "grok", "model": "grok-build-0.1", "why": "a draft into the run folder; a person or Claude places it"},
+    "large-read": {"worker": "grok", "model": "grok-4.3",       "why": "1M-token context for a whole-area read"},
+    "research":   {"worker": "grok", "model": "grok-4.3",       "why": "web / X search built in ($5 per 1k searches)", "web_search": true},
+    "page-ui":    {"worker": "claude", "agent": "page-ui-editor",  "why": "page design work: design/handoff, byte copies, headless checks"},
+    "canvas":     {"worker": "claude", "agent": "canvas-debugger", "why": "the native Edit canvas, measured first"},
+    "bridge":     {"worker": "claude", "why": "native bridge / plumbing / trust rules"},
+    "look-math":  {"worker": "claude", "why": "three copies of the maths and the parity rules"},
+    "code-edit":  {"worker": "claude", "why": "edits to the repo"},
+    "release":    {"worker": "claude", "why": "signing, entitlements, release scripts"},
+    "test-run":   {"worker": "local", "why": "a bounded command through Scripts/test_guard.py"},
+    "ci":         {"worker": "local", "why": "Scripts/ci_local.sh: what CI would run"}
+  },
+  "protected": [
+    "Lumina/Sets/Core/*", "Lumina/Sets/Web/*", "Lumina/Sets/Look/*", "Lumina/Sets/Sets*.swift", "Lumina/LuminaApp.swift",
+    "design/handoff/*", "Config/*", "*.entitlements", "*Info.plist", "*.xcconfig",
+    "docs/release/*", "Scripts/trust_check.py", "Scripts/test_guard.py", "Scripts/release*", ".github/*",
+    "Tools/parity/lookmath.py", "Tools/parity/criteria.json", "Tools/parity/golden.json"
+  ],
+  "local_commands": [
+    "bash Scripts/ci_local.sh", "python3 Scripts/trust_check.py", "python3 Scripts/page_bytes.py",
+    "node --test ", "make parity-test", "make culleval-test", "make masklab-test",
+    "python3 -m unittest discover -s Tools/agentloop/tests"
+  ]
+}

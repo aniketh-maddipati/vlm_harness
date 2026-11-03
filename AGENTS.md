@@ -21,7 +21,9 @@ those files **byte for byte** inside a native window.
 - Project agents (`.claude/agents/`): `page-ui-editor` (a page change, checked headlessly),
   `hot-build-pusher` (a branch into Lumina Dev, Lumina Skim or Safari :8765 without stopping another
   session's watcher), `pr-shepherd` (local checks CI will run, one push, one PR, merges only when told),
-  `canvas-debugger` (the native Edit canvas, measured first).
+  `canvas-debugger` (the native Edit canvas, measured first), `dmg-publisher` (notarised DMGs of Lumina and/or
+  Lumina Skim for the owner to send by hand, Gatekeeper-checked from quarantine, into `~/LuminaEvidence/release/<date>/`;
+  `bash Scripts/publish_dmg.sh [lumina|skim|both]`; uploads and sends nothing).
 - **No Claude Design zip sync without the owner's say-so.** `bash Scripts/sets_sync_design.sh "<zip>"`
   installs a whole handoff over the page files and would overwrite every in-repo page edit. When the
   owner asks for one, it runs the fixtures, audits the wording and demo layer, installs the files,
@@ -205,6 +207,10 @@ above (Linux: the node fixtures, `Tests/web`, `make parity-test`, `Tests/linux-s
 classes with `-only-testing`, `probe.sh smoke`), fix what fails, and push the finished change in one go.
 CI's per-class pick follows names (a test file that names a type the change declares); main runs the
 whole target, so a break that reaches a class only indirectly still shows there.
+`bash Scripts/ci_local.sh` does all of that in one command (`--dry-run` lists the steps, `--probe` adds
+the screen-owning probe smoke / screens and Skim in Safari), every step through `test_guard.py`, and
+ends in one PASS / FAIL line. Who does what (Claude Code, Cursor, Grok through `Tools/agentloop`):
+`docs/dev/WORK-SPLIT.md`.
 
 ## Running tests without disturbing the Mac
 
@@ -305,7 +311,10 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
   `Tools/parity/lr_cc_sweep.py presets` writes click-to-apply presets and `… ingest <exports>`
   names the JPEG exports from their embedded XMP (`presets --sweep 2` adds ten seeded three-slider
   combos, `--sweep 3` white balance per photo, because Lightroom CC ignores a preset that sets only
-  Temperature or only Tint; the ingest also writes `<stem>__asshot.json` and the combos' JSON).
+  Temperature or only Tint; the ingest also writes `<stem>__asshot.json` and the combos' JSON;
+  `presets --sweep batch` is sweeps 4–13, one feature each, `ingest-sweeps` reads them back, the
+  owner's steps are `docs/editing/prompts/SWEEPS-OWNER.md`). A CC preset resets neither crop, masks
+  nor healing: the ingest refuses an export that carries one (sweep 13's own AI mask aside).
   Someone's *own edits* (`make parity-personal`,
   JPEG exports with "All metadata" + their RAWs) are a held-out acceptance set: measured, never
   fitted (ruled 2026-09-30). Both live in `~/LuminaEvidence`, never in the repo.

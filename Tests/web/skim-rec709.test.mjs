@@ -23,9 +23,10 @@ function method(name){
   throw new Error('unbalanced braces in ' + name);
 }
 
-const names = ['prof', 'needsPv', 'pvFlt', 'pvOn', 'pvVia', 'pvDisabled', 'gammaName', 'vidShow', 'vidHas'];
-const Skim = new Function('return class {\n' + names.map(method).join('\n') + '\n}')();
-const page = (pv, clips = []) => Object.assign(new Skim(), { state:{pv}, d:{clips} });
+const names = ['prof', 'needsPv', 'pvFlt', 'pvOn', 'shFlt', 'evOf', 'pvVia', 'pvDisabled', 'gammaName', 'vidShow', 'vidHas'];
+// evOf reads the clip's look Exposure (LOCAL-CHANGES 322): no look here, so 0 and the plain filter
+const Skim = new Function('Component', 'return class {\n' + names.map(method).join('\n') + '\n}')({ lkGet:(L, p) => L && typeof L[p] === 'number' ? L[p] : 0 });
+const page = (pv, clips = []) => Object.assign(new Skim(), { state:{pv}, d:{clips}, lookOf:() => null });
 const clip = (gamma, source = 'sidecar') => ({ profile:{gamma, primaries:'', source} });
 
 const SL3 = clip('S-Log3'), SL2 = clip('S-Log2'), HLG = clip('HLG'), REC = clip('none');
@@ -89,7 +90,7 @@ test('the Viewer\'s canvas and video take the clip\'s filter, and are wired up',
   assert.match(cv[0], /transform:\{\{ it\.zt \}\}/);
   assert.match(src, /<video ref="\{\{ vidRef \}\}"[^>]*filter:\{\{ it\.vflt \}\}/);
   // the clip's own filter, whether or not a still of it has been made yet
-  assert.match(src, /vflt:this\.pvOn\(cc\) \? this\.pvFlt\(cc\) : 'none'/);
+  assert.match(src, /vflt:this\.shFlt\(cc\),/);
   assert.match(src, /pvCvRef:this\.pvCvRef/);
   assert.match(src, /this\.syncVid\(\); this\.paintVid\(\);/);
 });
@@ -187,7 +188,7 @@ test('colour check: the note goes into the picture as a valid chunk in front of 
 test('colour check: S-Log3 clips only, through the page\'s own conversion; the first click reads, the second saves one picture', async () => {
   const pieces = [extractMethod(src, 'checkTimes', 'static checkTimes(fps, dur) {'), extractMethod(src, 'lookAgain', 'static lookAgain(blank, k) {'), extractMethod(src, 'pngNote', 'static pngNote(u8, key, text) {'),
     'static SL3T = ' + src.match(/static SL3T = (\[[^\]]+\]);/)[1] + ';', 'static SL3M = ' + src.match(/static SL3M = (\[[^\]]+\]);/)[1] + ';',
-    extractMethod(src, 'prof', 'prof(c) {'), extractMethod(src, 'toDisplay', 'toDisplay(img, c) {'), extractMethod(src, 'sl3Table'), extractMethod(src, 'blank', 'blank(img) {'),
+    extractMethod(src, 'prof', 'prof(c) {'), extractMethod(src, 'toDisplay', 'toDisplay(img, c, x = this.evOf(c)) {'), extractMethod(src, 'sl3Table', 'sl3Table(ev) {'), extractMethod(src, 'blank', 'blank(img) {'),
     extractMethod(src, 'colourCheck', 'colourCheck = async () => {') + ';'];
   const W = 960, H = 540, saved = [], asked = [];
   class ImageData { constructor(data, w, h) { this.data = data; this.width = w; this.height = h; } }

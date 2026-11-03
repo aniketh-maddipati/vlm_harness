@@ -128,17 +128,26 @@ case "$MODE" in
     APP="$OUT/export/$APPNAME.app"
     DMG="$OUT/${APPNAME// /-}-$VERSION.dmg"
     STAGE="$(mktemp -d)"; trap 'rm -rf "$STAGE"' EXIT
+    # The app is notarised and stapled before it goes into the dmg, so a copy dragged to
+    # /Applications carries its own ticket and opens offline too; the dmg is notarised after.
+    if [[ -n "${NOTARY_PROFILE:-}" ]]; then
+      say "notarising the app (a few minutes)"
+      ditto -c -k --keepParent "$APP" "$STAGE/app.zip"
+      xcrun notarytool submit "$STAGE/app.zip" --keychain-profile "$NOTARY_PROFILE" --wait | tee "$OUT/notary-app.log"
+      grep -q "status: Accepted" "$OUT/notary-app.log" || die "the app's notarisation was not accepted: xcrun notarytool log <id> --keychain-profile $NOTARY_PROFILE"
+      rm -f "$STAGE/app.zip"
+      xcrun stapler staple "$APP"
+    fi
     ditto "$APP" "$STAGE/$APPNAME.app"
     ln -s /Applications "$STAGE/Applications"
     say "making $(basename "$DMG")"
     hdiutil create -volname "$APPNAME $VERSION" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov -quiet "$DMG"
     codesign --sign "Developer ID Application" --timestamp "$DMG"
     if [[ -n "${NOTARY_PROFILE:-}" ]]; then
-      say "notarising (a few minutes)"
+      say "notarising the dmg (a few minutes)"
       xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait | tee "$OUT/notary.log"
       grep -q "status: Accepted" "$OUT/notary.log" || die "notarisation was not accepted: xcrun notarytool log <id> --keychain-profile $NOTARY_PROFILE"
       xcrun stapler staple "$DMG"
-      xcrun stapler staple "$APP"
       bash Scripts/release_preflight.sh "$APP" dmg --notarised ${STRICT[@]+"${STRICT[@]}"}
       spctl --assess --type open --context context:primary-signature -v "$DMG"
     else

@@ -68,4 +68,33 @@ final class SkimExportTests: XCTestCase {
         XCTAssertNil(SkimExport.dtd(in: tmp, version: "1.10"), "no Final Cut here")
         XCTAssertNil(SkimExport.dtd(in: tmp, version: "../x"))
     }
+
+    // Looks: one cube per clip in Final Cut's Custom LUTs folder, at the place the .fcpxml names (measured on Final Cut 12.4:
+    // its Custom LUT effect reads only from that folder).
+    func testACubeGoesUnderLuminaSkimInFinalCutsFolderAndIsNeverReplaced() throws {
+        let root = tmp.appendingPathComponent("Custom LUTs", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let cube = "TITLE \"C0001 a1b2c3\"\nLUT_3D_SIZE 2\n0 0 0\n1 0 0\n0 1 0\n1 1 0\n0 0 1\n1 0 1\n0 1 1\n1 1 1\n"
+        let one = SkimExport.installLUT(cube, rel: "Lumina Skim/Day 1/C0001 a1b2c3.cube", into: root)
+        XCTAssertTrue(one.ok, one.why)
+        XCTAssertEqual(one.path, root.appendingPathComponent("Lumina Skim/Day 1/C0001 a1b2c3.cube").path)
+        XCTAssertEqual(try String(contentsOfFile: one.path, encoding: .utf8), cube)
+        XCTAssertTrue(SkimExport.installLUT(cube, rel: "Lumina Skim/Day 1/C0001 a1b2c3.cube", into: root).ok, "the same cube again: already there")
+        let other = SkimExport.installLUT(cube + "\n", rel: "Lumina Skim/Day 1/C0001 a1b2c3.cube", into: root)
+        XCTAssertFalse(other.ok, "a different file of that name stays")
+        XCTAssertEqual(try String(contentsOfFile: one.path, encoding: .utf8), cube)
+        XCTAssertEqual(SkimExport.safeName("C0001 a1b2c3.cube"), "C0001 a1b2c3.cube", "a cube is saved beside the .fcpxml too")
+    }
+
+    func testOnlyLuminaSkimPlacesAndCubeTextAreWritten() {
+        let root = tmp.appendingPathComponent("Custom LUTs", isDirectory: true), cube = "LUT_3D_SIZE 2\n"
+        for rel in ["x.cube", "Other/Day/x.cube", "Lumina Skim/x.cube", "Lumina Skim/../x.cube", "Lumina Skim/Day/../x.cube", "Lumina Skim/.hid/x.cube",
+                    "Lumina Skim/Day/x.txt", "Lumina Skim/Day/a:b.cube", "Lumina Skim/Day/sub/x.cube", "/Lumina Skim/Day/x.cube", "Lumina Skim//x.cube"] {
+            XCTAssertNil(SkimExport.lutPlace(rel), rel)
+            XCTAssertFalse(SkimExport.installLUT(cube, rel: rel, into: root).ok, rel)
+        }
+        XCTAssertFalse(SkimExport.installLUT("<fcpxml/>", rel: "Lumina Skim/Day/x.cube", into: root).ok, "not a cube")
+        XCTAssertNotNil(SkimExport.lutPlace("Lumina Skim/Café · 夕方/C0007 a1b2c3.cube"))
+        XCTAssertEqual(SkimExport.finalCutLUTs(home: URL(fileURLWithPath: "/Users/me")).path, "/Users/me/Library/Application Support/ProApps/Custom LUTs")
+    }
 }

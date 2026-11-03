@@ -437,6 +437,51 @@ nonisolated enum LookMath {
         return RGB(r: max(0, out.r), g: max(0, out.g), b: max(0, out.b))
     }
 
+    // MARK: sky blue (the `blu` key of a mask's adjustments; LookSky)
+
+    /// The `blu` local's numbers. They live here, not in rules-v1.json: the feature is a prototype
+    /// behind `LookSky.enabled` and must not touch the parity rules. Target: the ColorChecker's
+    /// Blue Sky patch (sRGB 98, 122, 157 → Oklab hue 257.7°, a sky blue every reference chart
+    /// agrees on). Chroma cap: `capShare` of the sRGB gamut at that hue, drawn as a triangle
+    /// through its cusp (L 0.60, C 0.219), so a near-white sky gets a pale blue that stays in gamut.
+    enum SkyBlue {
+        static let hue = 257.7, capShare = 0.4, cuspL = 0.60, cuspC = 0.219
+        /// Hues within `turnFull`° of the target turn all the way; past `turnNone`° not at all
+        /// (greens, oranges, skin keep theirs inside a loose sky mask).
+        static let turnFull = 35.0, turnNone = 70.0
+        /// Below chroma `greyFull` a pixel has no hue to keep: it takes the target's.
+        static let greyFull = 0.02, greyNone = 0.05
+
+        static func cap(_ L: Double) -> Double {
+            let l = min(1, max(0, L))
+            return capShare * (l <= cuspL ? cuspC * l / cuspL : cuspC * (1 - l) / (1 - cuspL))
+        }
+    }
+
+    /// Sky blue on one colour (linear working space), `amount` 0 … 100. In Oklab, L held: the hue
+    /// turns toward `SkyBlue.hue` by `amount`% (cyan and violet skies, nothing far from blue),
+    /// then chroma rises toward the cap along the target hue (grey and white skies, nothing that is
+    /// already as blue as the cap). A pixel already at the target with chroma ≥ cap is unchanged.
+    static func skyBlue(_ c: RGB, amount: Double) -> RGB {
+        let s = min(1, max(0, amount / 100))
+        guard s > 0 else { return c }
+        let lab = toOklab(c)
+        var a = lab.a, b = lab.b
+        let C = hypot(a, b)
+        var turn = 0.0
+        if C > 1e-9 {
+            var dh = (SkyBlue.hue - atan2(b, a) * 180 / .pi).truncatingRemainder(dividingBy: 360)
+            if dh > 180 { dh -= 360 } else if dh <= -180 { dh += 360 }
+            turn = 1 - smoothstep(SkyBlue.turnFull, SkyBlue.turnNone, abs(dh))
+            let r = s * turn * dh * .pi / 180
+            (a, b) = (a * cos(r) - b * sin(r), a * sin(r) + b * cos(r))
+        }
+        let add = s * max(turn, 1 - smoothstep(SkyBlue.greyFull, SkyBlue.greyNone, C)) * max(0, SkyBlue.cap(lab.L) - hypot(a, b))
+        let ht = SkyBlue.hue * .pi / 180
+        let out = fromOklab(lab.L, a + add * cos(ht), b + add * sin(ht))
+        return RGB(r: max(0, out.r), g: max(0, out.g), b: max(0, out.b))
+    }
+
     // MARK: mixer (the colour mixer: hue, saturation, luminance per colour)
 
     /// The centres of the eight bands, Oklab hue in degrees, in `Look.Mixer.colours`' order.
@@ -735,6 +780,7 @@ nonisolated enum LookMath {
                 continue
             }
         }
+        if look.skyBlue != 0 { c = skyBlue(c, amount: look.skyBlue) }   // LookSky's `blu`, after the rules' stages
         return c
     }
 }
