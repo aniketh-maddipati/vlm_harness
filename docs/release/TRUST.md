@@ -109,6 +109,7 @@ so the Lumina app's page has no way to reach them.
 | `canvasLayout` | — | — |
 | `canvasLook` | — (a look with `mask:` tokens: the photo's preview, as `masks` does, when its masks were not found yet) | — |
 | `canvasDrag` | — | — |
+| `haptic` | — | — (a Force Touch trackpad tick, `NSHapticFeedbackManager` `.alignment`, on Edit's soft stops; nothing in the probe) |
 | `canvasZoom` | — | — |
 | `canvasLoupe` | the RAW's region at 100 % | — |
 | `canvasMask` | the photo on the canvas's preview, as `masks` does, when its masks were not found yet | — (draws one mask's outline on screen) |
@@ -201,7 +202,7 @@ so the Lumina app's page has no way to reach them.
 | Host | Serves |
 |---|---|
 | `app` | the page files (with the CSP), and photos from the opened folders by byte range (`media/`) |
-| `render` | Edit previews rendered from a RAW in the opened folders |
+| `render` | Edit previews rendered from a RAW in the opened folders (`lane=thumb`: small renders of a look on any photo of the shoot, for the filmstrip's carry previews, the fan and the contact sheet) |
 | `vendor` | React and Babel from the bundle |
 | `photo` | flat stand-in images for the design's sample shoot |
 

@@ -116,6 +116,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// ⌘R: Finder, with the file selected. The probe swaps this out so a fuzz run never brings
     /// Finder forward on the desktop of whoever is using the Mac.
     var reveal: (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) }
+    /// The hand kit's detent tick (Edit's soft stops): a Force Touch trackpad's alignment haptic. The probe and
+    /// the tests swap it out; a Mac without a Force Touch trackpad simply feels nothing.
+    var haptic: () -> Void = { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
     /// Handoff's Show in Finder and Delete in Finder…: Finder, with these selected (swapped out by the probe and the tests too).
     var revealAll: ([URL]) -> Void = { NSWorkspace.shared.activateFileViewerSelecting($0) }
     /// Handoff's Open in Lightroom: hands folders or files to Lightroom Classic (swapped out by the tests).
@@ -439,6 +442,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             guard SetsPage.switchable, let side = body["to"] as? String, let page = SetsPage(side: side) else { return (false, nil) }
             onSwitchPage?(page)
             return (true, nil)
+        case "haptic":
+            haptic()
+            return (true, nil)
         case "pageError":
             let text = (body["message"] as? String).map { String($0.prefix(300)) }
             onPageError?(text?.isEmpty == false ? text : nil)
@@ -634,10 +640,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // outline over the photo, a hairline with a faint tint inside, in its own coordinates
             // (crop, turn, zoom). Null or a missing id hides it. An id that is not one LookMasks names
             // (a-z, 0-9, -; at most 64) is refused. False when nothing can draw it (the image path).
+            // `style` (prompt 14): "outline" (the default), "lift" or "overlay"; anything else is the default.
             let id = body["id"] as? String
             if let id, !Look.Local.isID(Substring(id)) { return (false, nil) }
             guard let c = canvas else { return (false, nil) }
-            return (c.showMask(id), nil)
+            let style = (body["style"] as? String).flatMap(LookCanvasController.MaskStyle.init(rawValue:)) ?? .outline
+            return (c.showMask(id, style: style), nil)
         case "canvasStats":
             var out = canvas?.snapshot() ?? ["path": "image"]
             out["facts"] = editFacts()

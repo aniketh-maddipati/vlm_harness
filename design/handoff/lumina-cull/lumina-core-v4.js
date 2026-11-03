@@ -86,9 +86,21 @@ function addKw(x,kw){ x=x.replace(/<rdf:li>Lumina pass \d+<\/rdf:li>/g,'').repla
 // ev two decimals with a sign · integers with a sign (0 unsigned) · shp / nr unsigned · wb as K/tint (either side may be empty)
 // · bw:1 · dust:1 · crop:x,y,w,h/angle (fractions, 4 decimals) + cropRatio:<preset> · anything else (curve points, strings) as
 // '~' + encodeURIComponent(JSON). Null values are dropped. '' is the neutral look.
+// masks (Edit's Masks, prompt 14): [{id, ev, con, hl, sh, wh, bl, vib, sat, clr, inv, amt, off}] → one
+// mask:<id>/k=v,… token each, last, in order, as LookString.swift's format writes them: the sliders off 0
+// (ev 2 places, the others whole, signed), then inv=1, amt=<0…100> under 100, off=1; a mask with no slider
+// off 0 writes nothing. The id names a role found again on each photo (subject, person-1, sky, background).
 const LOOK_ORDER=['ev','wb','con','hl','sh','wh','bl','vib','sat','clr','shp','nr','vig','bw','crop'];
+const MASK_KEYS=['ev','con','hl','sh','wh','bl','vib','sat','clr','blu'];
+function maskToken(m){ if(!m||!/^[a-z0-9-]{1,64}$/.test(String(m.id||''))) return ''; const kv=[];
+  MASK_KEYS.forEach(k=>{ const v=+m[k]; if(!isFinite(v)) return; const t=k==='ev'?(+v.toFixed(2)?(v>0?'+':'')+v.toFixed(2):''):(Math.round(v)?(v>0?'+':'')+Math.round(v):''); if(t) kv.push(k+'='+t); });
+  if(!kv.length) return ''; if(m.inv) kv.push('inv=1'); const a=m.amt==null?100:Math.max(0,Math.min(100,Math.round(+m.amt))); if(a<100) kv.push('amt='+a); if(m.off) kv.push('off=1');
+  return 'mask:'+m.id+'/'+kv.join(','); }
+function parseMask(v){ const [id,rest]=v.split('/'); if(!/^[a-z0-9-]{1,64}$/.test(id||'')) return null; const m={id};
+  (rest||'').split(',').filter(Boolean).forEach(p=>{ const [k,x]=p.split('='), n=+x; if(!isFinite(n)) return; if(k==='inv') m.inv=n>=0.5; else if(k==='off') m.off=n>=0.5; else if(k==='amt') m.amt=Math.max(0,Math.min(100,Math.round(n))); else if(MASK_KEYS.includes(k)) m[k]=n; });
+  return m; }
 function lookString(L){ if(!L) return ''; const o=[], has=k=>L[k]!=null&&L[k]!=='', sg=v=>v>0?'+'+v:String(v), num=v=>Number.isInteger(v)?sg(v):sg(+v.toFixed(3)), r4=v=>String(+(+v).toFixed(4));
-  const keys=Object.keys(L).filter(k=>has(k)&&k!=='tint'&&k!=='cropRatio'), rest=keys.filter(k=>!LOOK_ORDER.includes(k)).sort(); if(!has('wb')&&has('tint')) keys.push('wb');
+  const keys=Object.keys(L).filter(k=>has(k)&&k!=='tint'&&k!=='cropRatio'&&k!=='masks'), rest=keys.filter(k=>!LOOK_ORDER.includes(k)).sort(); if(!has('wb')&&has('tint')) keys.push('wb');
   [...LOOK_ORDER.filter(k=>keys.includes(k)),...rest].forEach(k=>{ const v=L[k];
     if(k==='ev') o.push('ev:'+(v>0?'+':'')+(+v).toFixed(2));
     else if(k==='wb') o.push('wb:'+(has('wb')?Math.round(L.wb):'')+'/'+(has('tint')?num(Math.round(L.tint)):''));
@@ -99,6 +111,7 @@ function lookString(L){ if(!L) return ''; const o=[], has=k=>L[k]!=null&&L[k]!==
     else if(k==='crop'&&v&&typeof v==='object'){ o.push('crop:'+[v.x,v.y,v.w,v.h].map(x=>r4(x||0)).join(',')+'/'+r4(v.ang||0)); if(v.ratio!=null) o.push('cropRatio:'+encodeURIComponent(String(v.ratio))); }
     else if(typeof v==='number'&&isFinite(v)) o.push(k+':'+num(v));
     else o.push(k+':~'+encodeURIComponent(JSON.stringify(v))); });
+  if(Array.isArray(L.masks)){ const seen=new Set(); L.masks.forEach(m=>{ const t=maskToken(m); if(t&&!seen.has(m.id)){ seen.add(m.id); o.push(t); } }); }
   return o.join(' '); }
 function parseLook(s){ const o={}; if(!s) return o; let ratio=null; String(s).trim().split(/\s+/).forEach(tok=>{ const j=tok.indexOf(':'); if(j<1) return; const k=tok.slice(0,j), v=tok.slice(j+1);
     try{ if(k==='wb'){ const [K,T]=v.split('/'); if(K!=='') o.wb=+K; if(T!=null&&T!=='') o.tint=+T; }
@@ -107,6 +120,7 @@ function parseLook(s){ const o={}; if(!s) return o; let ratio=null; String(s).tr
       else if(k==='prof'){ if(v==='adobe') o.prof='adobe'; }
       else if(k==='crop'){ const [xywh,ang]=v.split('/'), n=xywh.split(',').map(Number); o.crop={x:n[0],y:n[1],w:n[2],h:n[3],ang:+(ang||0)}; }
       else if(k==='cropRatio') ratio=decodeURIComponent(v);
+      else if(k==='mask'){ const m=parseMask(v); if(m) (o.masks=o.masks||[]).push(m); }
       else if(v.startsWith('~')) o[k]=JSON.parse(decodeURIComponent(v.slice(1)));
       else o[k]=+v; }catch(_){} });
   if(o.crop&&ratio!=null) o.crop.ratio=ratio; return o; }

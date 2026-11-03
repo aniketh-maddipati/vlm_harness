@@ -140,6 +140,26 @@ final class LookMasksTests: XCTestCase {
         XCTAssertFalse(found[3].outline.isEmpty)
     }
 
+    /// Masks stored by kind (prompt 14 → 22): people and objects are numbered by how much they
+    /// stand out, not by the finder's order, so `person-1` is the main person on every photo and a
+    /// look's `mask:person-1` carried to the next photo lands on that photo's main person.
+    func testPeopleAndObjectsAreNumberedByHowMuchTheyStandOut() {
+        let w = 120, h = 60
+        let small = disc(w, h, cx: 15, cy: 30, r: 6), big = disc(w, h, cx: 60, cy: 30, r: 16), mid = disc(w, h, cx: 100, cy: 30, r: 10)
+        // The finder returns them small first; the ids follow prominence.
+        let people = M.name(people: [region(small), region(big), region(mid)], objects: [])
+        XCTAssertEqual(people.map(\.id), ["subject", "person-1", "person-2", "person-3", "background"])
+        XCTAssertEqual(people[1].area, M.area(big), accuracy: 1e-9)
+        XCTAssertEqual(people[2].area, M.area(mid), accuracy: 1e-9)
+        XCTAssertEqual(people[3].area, M.area(small), accuracy: 1e-9)
+        // Another photo, the finder's order reversed: the same roles get the same ids.
+        let again = M.name(people: [region(mid), region(big), region(small)], objects: [])
+        XCTAssertEqual(again.map(\.area), people.map(\.area))
+        // Saliency counts (saliency × √area): a small bright object outranks a large dull one.
+        let objs = M.name(people: [], objects: [region(big, saliency: 0.1), region(small, saliency: 0.9)])
+        XCTAssertEqual(objs.first(where: { $0.id == "object-1" })?.area ?? 0, M.area(small), accuracy: 1e-9)
+    }
+
     func testWithoutSaliencyTheLargestIsTheSubject() {
         let w = 40, h = 40
         let small = disc(w, h, cx: 10, cy: 10, r: 4), large = disc(w, h, cx: 26, cy: 26, r: 10)

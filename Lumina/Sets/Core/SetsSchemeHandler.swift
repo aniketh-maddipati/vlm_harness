@@ -13,7 +13,7 @@ import WebKit
 ///   them on a canvas. Never a whole RAW, never the network.
 /// - `lumina://photo/seed/<seed>/<w>/<h>`  stand-in photos for the design's sample shoot (the
 ///   page's picsum URLs are pointed here). Debug fixture data only; off once the sample goes.
-/// - `lumina://render/<folder/file>?look=<look string>&px=<long edge>&seq=<n>[&tier=small][&decoder=8]`
+/// - `lumina://render/<folder/file>?look=<look string>&px=<long edge>&seq=<n>[&tier=small][&decoder=8][&lane=thumb]`
 ///   the Edit step's preview when the native canvas isn't available (the image fallback path):
 ///   the RAW through LookPipeline (LookRenderer: developed once per (file, px, decoder), the look
 ///   per request, one render at a time). `tier=small` renders a quarter of `px` on each edge (the
@@ -194,11 +194,14 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
         var preview: LookBases.PreviewFallback?
         let o = SetsNumber.fileRange(q["o"]), l = SetsNumber.fileRange(q["l"])
         if o > 0, l > 0 { preview = LookBases.PreviewFallback(offset: o, length: l, orientation: SetsNumber.orientation(q["ori"])) }
-        renderer.requested(rel: rel, seq: seq)
+        // `lane=thumb`: small renders of another look of a photo (carry previews, the fan, the contact
+        // sheet) keep their own sequence numbers, so they never overtake the canvas's, or it theirs.
+        let lane = q["lane"] == "thumb" ? "thumb" : nil
+        renderer.requested(rel: LookRenderer.staleKey(rel, lane), seq: seq)
         // A look with `mask:` tokens: the photo's masks, cached or found on its embedded preview, on the render queue.
         let masks = self.masks, maskPreview = preview.map { SetsIngest.Preview(rel: rel, offset: $0.offset, length: $0.length, orientation: $0.orientation) }
         let found: () -> [LookMasks.Found]? = { masks?.waiting(rel: rel, preview: maskPreview) }
-        renderer.enqueue({ try renderer.renderJPEG(url: file, rel: rel, look: look, px: px, seq: seq, decoder: decoder, preview: preview, masks: found) }) { [weak self] r in
+        renderer.enqueue({ try renderer.renderJPEG(url: file, rel: rel, look: look, px: px, seq: seq, decoder: decoder, preview: preview, masks: found, lane: lane) }) { [weak self] r in
             guard let self, !self.lock.withLock({ self.stopped.remove(ObjectIdentifier(task)) != nil }) else { return }
             switch r {
             case .success(let data):
