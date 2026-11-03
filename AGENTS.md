@@ -201,7 +201,7 @@ ARWs, macOS 27) run on a Mac.
 
 **Before you push, run what CI will run, then push once.** Each push restarts a macOS run of several
 minutes (a newer push cancels the older one, so a series of quick pushes keeps the runners busy and
-the PR waiting). `python3 Scripts/ci_changes.py $(git diff --name-only origin/main...)` prints which
+the PR waiting). `git diff -z --name-only origin/main... | xargs -0 python3 Scripts/ci_changes.py` prints which
 areas your change sets and the XCTest classes CI will pick (`xctest=`); run the matching local checks
 above (Linux: the node fixtures, `Tests/web`, `make parity-test`, `Tests/linux-swift`; Mac: those
 classes with `-only-testing`, `probe.sh smoke`), fix what fails, and push the finished change in one go.
