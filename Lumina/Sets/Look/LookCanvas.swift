@@ -233,6 +233,11 @@ final class LookCanvasController: NSObject {
     private let maskQueue = DispatchQueue(label: "lumina.look.masks", qos: .userInitiated)
     /// `lumina.edit.showMask(id)`: the mask whose outline the canvas draws over the photo, nil for none.
     private var shownMask: String?
+    /// How it is drawn (Edit's Masks, prompt 14): `outline` a hairline and a faint tint (a layer
+    /// hovered); `lift` the layer picked up, a soft glow on its edge and the rest of the photo dimmed
+    /// to 70 % (the only shadow in the UI); `overlay` the mask itself while O is held, filled red.
+    enum MaskStyle: String { case outline, lift, overlay }
+    private var maskStyle: MaskStyle = .outline
     /// The outline drawn last, kept while nothing it depends on moves (a slider drag reuses it).
     private var maskOverlay: (key: String, image: CIImage)?
     /// Finds the masks of a photo (its rel and embedded preview); `done` on the main thread, nil
@@ -773,8 +778,8 @@ final class LookCanvasController: NSObject {
     /// light hairline, a faint tint inside), in its own coordinates, so it follows the crop, the
     /// turn, the zoom and Crop's draft; nil hides it. The masks are the photo's (`findMasks`); an
     /// id the photo does not have draws nothing. False on the image path, where nothing native draws.
-    func showMask(_ id: String?) -> Bool {
-        if id != shownMask { shownMask = id; maskOverlay = nil }
+    func showMask(_ id: String?, style: MaskStyle = .outline) -> Bool {
+        if id != shownMask || style != maskStyle { shownMask = id; maskStyle = style; maskOverlay = nil }
         ensureMasks()
         kickRest(); kick()
         return path == .native && view != nil
@@ -838,7 +843,7 @@ final class LookCanvasController: NSObject {
         guard let id = shownMask, let pm = photoMasks, pm.rel == current?.rel, let found = pm.masks?.found.first(where: { $0.id == id }) else { return image }
         let w = Int(size.width.rounded()), h = Int(size.height.rounded())
         guard w > 1, h > 1, [t.a, t.b, t.c, t.d, t.tx, t.ty].allSatisfy(\.isFinite) else { return image }
-        let key = "\(pm.masks?.key ?? "")|\(id)|\(w)x\(h)|\(t.a),\(t.b),\(t.c),\(t.d),\(t.tx),\(t.ty)|\(stats.dpr)"
+        let key = "\(pm.masks?.key ?? "")|\(id)|\(maskStyle.rawValue)|\(w)x\(h)|\(t.a),\(t.b),\(t.c),\(t.d),\(t.tx),\(t.ty)|\(stats.dpr)"
         if let o = maskOverlay, o.key == key { return o.image.composited(over: image) }
         guard let space = CGColorSpace(name: CGColorSpace.sRGB),
               let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return image }
@@ -849,13 +854,35 @@ final class LookCanvasController: NSObject {
             outline.closeSubpath()
         }
         guard !outline.isEmpty else { return image }
-        ctx.addPath(outline)
-        ctx.setFillColor(red: 239.0 / 255, green: 236.0 / 255, blue: 230.0 / 255, alpha: 0.14)
-        ctx.fillPath(using: .evenOdd)
+        let px = max(1, CGFloat(stats.dpr))
+        ctx.setLineJoin(.round)
+        switch maskStyle {
+        case .outline:
+            ctx.addPath(outline)
+            ctx.setFillColor(red: 239.0 / 255, green: 236.0 / 255, blue: 230.0 / 255, alpha: 0.14)
+            ctx.fillPath(using: .evenOdd)
+        case .lift:
+            // Everything outside the layer at 70 %: black at 30 % over the photo, even-odd against the outline.
+            ctx.addRect(CGRect(x: 0, y: 0, width: w, height: h))
+            ctx.addPath(outline)
+            ctx.setFillColor(red: 0, green: 0, blue: 0, alpha: 0.30)
+            ctx.fillPath(using: .evenOdd)
+            // The glow: a wide soft stroke, blurred.
+            ctx.saveGState()
+            ctx.setShadow(offset: .zero, blur: 10 * px, color: CGColor(srgbRed: 1, green: 0.97, blue: 0.9, alpha: 0.7))
+            ctx.addPath(outline)
+            ctx.setStrokeColor(red: 239.0 / 255, green: 236.0 / 255, blue: 230.0 / 255, alpha: 0.35)
+            ctx.setLineWidth(3 * px)
+            ctx.strokePath()
+            ctx.restoreGState()
+        case .overlay:
+            ctx.addPath(outline)
+            ctx.setFillColor(red: 1, green: 0.32, blue: 0.27, alpha: 0.5)
+            ctx.fillPath(using: .evenOdd)
+        }
         ctx.addPath(outline)
         ctx.setStrokeColor(red: 239.0 / 255, green: 236.0 / 255, blue: 230.0 / 255, alpha: 0.85)
-        ctx.setLineWidth(max(1, CGFloat(stats.dpr)))
-        ctx.setLineJoin(.round)
+        ctx.setLineWidth(px)
         ctx.strokePath()
         guard let cg = ctx.makeImage() else { return image }
         let overlay = CIImage(cgImage: cg)

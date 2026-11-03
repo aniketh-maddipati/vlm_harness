@@ -82,6 +82,22 @@ final class LookMaskPipelineTests: XCTestCase {
         }
     }
 
+    /// A layer's settings (Edit's Masks rail, prompt 14): `inv=1` adjusts outside the mask,
+    /// `amt` blends partway, `off=1` renders as the look without the layer.
+    func testInvertOpacityAndOffOfALayer() throws {
+        let dev = pipe.flat(.gray(0.18), size: 64).withMasks([box("left", 0, 0, 0.5, 1)], key: "test/layer")
+        let plain = pipe.apply(Look(), to: dev), full = pipe.apply(try Look.parse("mask:left/ev=+1"), to: dev)
+        let inv = pipe.apply(try Look.parse("mask:left/ev=+1,inv=1"), to: dev)
+        XCTAssertEqual(pipe.pixel(inv, x: 8, y: 32).g, pipe.pixel(plain, x: 8, y: 32).g, accuracy: 1e-3, "inverted: inside untouched")
+        XCTAssertEqual(pipe.pixel(inv, x: 56, y: 32).g, pipe.pixel(full, x: 8, y: 32).g, accuracy: 2e-3, "inverted: outside gets the adjustment")
+        let half = pipe.apply(try Look.parse("mask:left/ev=+1,amt=50"), to: dev)
+        let p = pipe.pixel(plain, x: 8, y: 32).g, f = pipe.pixel(full, x: 8, y: 32).g
+        XCTAssertEqual(pipe.pixel(half, x: 8, y: 32).g, (p + f) / 2, accuracy: 4e-3, "50 %: halfway, blended in the working space")
+        XCTAssertEqual(pipe.pixel(half, x: 56, y: 32).g, p, accuracy: 1e-3)
+        let off = pipe.apply(try Look.parse("mask:left/ev=+1,off=1"), to: dev)
+        for x in [8, 56] { XCTAssertEqual(pipe.pixel(off, x: x, y: 32), pipe.pixel(plain, x: x, y: 32)) }
+    }
+
     func testAnUnknownMaskRendersLikeTheLookWithoutIt() throws {
         let dev = gradient(48, 32)
         let with = dev.withMasks([box("subject", 0.2, 0.2, 0.8, 0.8)], key: "test/u")

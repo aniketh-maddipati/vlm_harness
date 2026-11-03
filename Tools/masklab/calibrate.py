@@ -10,7 +10,9 @@ the mask lab's layout (EVID/runs/<date>/skim and EVID/labels).
 Every labelled frame becomes a row: its cues (SkimFollow.Cues), cues derived from the clip so far (the
 area against the start frame's), and its true IoU. A rule is a set of thresholds:
 
-    sure  ⇔  found  ∧ tracker ≥ T  ∧ agree ≥ A  ∧ rivals ≤ R  ∧ ¼·S ≤ area/start ≤ S  ∧ jump ≤ J  ∧ ¬refound
+    sure  ⇔  found  ∧ tracker ≥ T  ∧ agree ≥ A  ∧ rivals ≤ R  ∧ ¼·S ≤ area/start ≤ S  ∧ jump ≤ J  ∧ look ≤ L  ∧ ¬refound
+
+`look` is the feature-print distance from the shape's box to the start frame's (logged when SkimTracker.logsLook).
 
 The fit picks, on the --fit runs only, the rule that calls the most frames sure while the frames it calls
 sure average IoU ≥ --target (0.85) and at most --bad-share (0.05) of them are under IoU 0.5. Then it
@@ -34,6 +36,7 @@ GRID = {
     "rivals": [1, 2, 99],
     "start": [1.5, 2.0, 3.0, 99.0],
     "jump": [1.2, 1.35, 1.6, 99.0],
+    "look": [0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 99.0],
 }
 
 
@@ -65,6 +68,7 @@ def rows(run, labels):
                 "refound": bool(c.get("refound")),
                 "start": max(area / a0, a0 / area) if area and a0 else None,
                 "jump": max(area / last, last / area) if area and last else None,
+                "look": c.get("look"),
             })
     return out
 
@@ -77,7 +81,7 @@ def sure(r, rule):
     ok = lambda v, test: v is None or test(v)
     return (ok(r["tracker"], lambda v: v >= rule["tracker"]) and ok(r["agree"], lambda v: v >= rule["agree"])
             and r["rivals"] <= rule["rivals"] and ok(r["start"], lambda v: v <= rule["start"])
-            and ok(r["jump"], lambda v: v <= rule["jump"]))
+            and ok(r["jump"], lambda v: v <= rule["jump"]) and ok(r.get("look"), lambda v: v <= rule.get("look", 99.0)))
 
 
 def measure(rs, called):
@@ -91,15 +95,56 @@ def measure(rs, called):
 
 
 def fit(rs, target=0.85, bad=0.05):
-    best, best_m = None, None
-    for vals in itertools.product(*GRID.values()):
-        rule = dict(zip(GRID, vals))
-        m = measure(rs, [sure(r, rule) for r in rs])
-        if m["iou_sure"] is None or m["iou_sure"] < target or m["bad_share"] > bad:
+    """The rule in GRID that calls the most frames sure with IoU when sure ≥ target and at most `bad` of them under 0.5.
+    Vectorized: each cue's test is one boolean array per threshold, so the whole grid runs in seconds."""
+    if not rs:
+        return None, None
+    col = lambda k, fill: np.array([fill if r.get(k) is None else r[k] for r in rs], float)
+    base = np.array([r["found"] and not r["refound"] for r in rs])
+    tests = {
+        "tracker": lambda t, v=col("tracker", np.inf): v >= t,
+        "agree": lambda t, v=col("agree", np.inf): v >= t,
+        "rivals": lambda t, v=col("rivals", 0): v <= t,
+        "start": lambda t, v=col("start", 1.0): v <= t,
+        "jump": lambda t, v=col("jump", 1.0): v <= t,
+        "look": lambda t, v=col("look", 0.0): v <= t,
+    }
+    masks = {k: [tests[k](t) for t in GRID[k]] for k in GRID}
+    iou = np.array([r["iou"] for r in rs])
+    low = iou < 0.5
+    best, best_n = None, -1
+    for idx in itertools.product(*(range(len(GRID[k])) for k in GRID)):
+        m = base.copy()
+        for k, i in zip(GRID, idx):
+            m &= masks[k][i]
+        n = int(m.sum())
+        if n == 0 or n <= best_n or iou[m].mean() < target or low[m].mean() > bad:
             continue
-        if best_m is None or m["sure_share"] > best_m["sure_share"]:
-            best, best_m = rule, m
-    return best, best_m
+        best, best_n = {k: GRID[k][i] for k, i in zip(GRID, idx)}, n
+    return (best, measure(rs, [sure(r, best) for r in rs])) if best else (None, None)
+
+
+def frame_states(run, rule):
+    """Every tracked frame's state under `rule` (sure, or today's shaky / lost where the rule says not sure), per clip:
+    what the strip would show. Labels are not needed."""
+    out = {}
+    for clip, folder in score.clip_dirs(run).items():
+        timing = score.load_timing(folder) or {}
+        cues, states = timing.get("cues_frames"), timing.get("sure_frames")
+        if not cues or not states:
+            continue
+        a0 = next((c.get("area") for c in cues if c and c.get("area")), None)
+        row = []
+        for c, today in zip(cues, states):
+            c = c or {}
+            area, last = c.get("area"), c.get("last")
+            r = {"found": area is not None, "refound": bool(c.get("refound")), "tracker": c.get("tracker"),
+                 "agree": c.get("agree"), "rivals": c.get("rivals", 0), "look": c.get("look"),
+                 "start": max(area / a0, a0 / area) if area and a0 else None,
+                 "jump": max(area / last, last / area) if area and last else None}
+            row.append("sure" if sure(r, rule) else ("lost" if today == "lost" or not r["found"] else "shaky"))
+        out[clip] = {"start_frame": int(timing.get("start_frame", 0)), "sure_frames": row}
+    return out
 
 
 def parse_run(arg):
@@ -116,6 +161,8 @@ def main(argv=None):
     ap.add_argument("--target", type=float, default=0.85, help="mean IoU the sure frames must reach (0.85)")
     ap.add_argument("--bad-share", type=float, default=0.05, help="most sure frames allowed under IoU 0.5 (0.05)")
     ap.add_argument("--out", help="write the rule and every number here (JSON)")
+    ap.add_argument("--states-out", help="write each --test run's per-frame states under the fitted rule here (JSON, "
+                                         "{run: {clip: {start_frame, sure_frames}}}), for sheet.py --states")
     a = ap.parse_args(argv)
 
     fit_rows = [r for arg in a.fit for r in rows(*parse_run(arg))]
@@ -144,6 +191,9 @@ def main(argv=None):
         if new:
             line += f" · fitted sure {new['sure_share']:.0%} IoU {f(new['iou_sure'])} bad {f(new['bad_share'])}"
         print(line)
+    if a.states_out and rule:
+        with open(a.states_out, "w") as fh:
+            json.dump({parse_run(arg)[0]: frame_states(parse_run(arg)[0], rule) for arg in a.test}, fh)
     if a.out:
         with open(a.out, "w") as fh:
             json.dump(report, fh, indent=1)

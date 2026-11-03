@@ -16,6 +16,7 @@ try {
   await p.goto('file://' + page); await p.waitForTimeout(1000);
   await p.setInputFiles('input[type=file]:not([webkitdirectory]):not([data-lumina])', files);
   for (let k = 0; k < 40 && !(await p.evaluate(() => /Imported clips/.test(document.body.innerText))); k++) await p.waitForTimeout(250);
+  await p.evaluate(() => { const b = document.querySelector('[data-lumina="sort-now"]'); if (b) b.click(); }); await p.waitForTimeout(400);   // the minimal page stays on Import: Sort now
   await p.waitForTimeout(1500); await p.keyboard.press('k'); await p.waitForTimeout(150);
   await p.keyboard.press('Meta+e'); await p.waitForTimeout(1200);
   const rows = await p.$$eval('[data-lumina="ws-row"]', es => es.map(e => [e.getAttribute('data-kind'), e.innerText.replace(/\s+/g, ' ').trim()]));

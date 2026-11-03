@@ -1,0 +1,344 @@
+<div id="liw" role="region" aria-label="Lumina Sources wireframe">
+<p class="vis-sr-only">Sources wireframe. Left destination tiles, right filesystem list, footer with destinations and counts.</p>
+<style>
+#liw {
+  --ink: light-dark(#1a1917, #EFECE6);
+  --mute: light-dark(#6b6760, #9A958D);
+  --line: light-dark(rgba(26,25,23,0.35), rgba(239,236,230,0.35));
+  --fill: light-dark(rgba(26,25,23,0.04), rgba(239,236,230,0.04));
+  --serif: "Iowan Old Style", Palatino, Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.4;
+}
+#liw * { box-sizing: border-box; }
+#liw button { font: inherit; color: inherit; background: transparent; border: 0; cursor: pointer; padding: 0; }
+#liw .frame {
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  min-height: 540px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#liw .top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1.5px solid var(--line);
+  flex: none;
+}
+#liw .brand { font-family: var(--serif); font-size: 18px; }
+#liw .tabs { display: flex; gap: 16px; margin: 0 auto; font-size: 12px; color: var(--mute); }
+#liw .tabs .on { color: var(--ink); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+#liw .split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+}
+#liw .left {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  overflow: auto;
+  border-right: 1.5px solid var(--line);
+}
+#liw .right {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--fill);
+}
+#liw .right-hd {
+  flex: none;
+  padding: 12px 14px;
+  border-bottom: 1.5px solid var(--line);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+#liw .right-hd .title { font-family: var(--serif); font-size: 16px; }
+#liw .fs { flex: 1; min-height: 0; overflow: auto; padding: 6px 0; font-size: 12px; }
+#liw .fs-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  cursor: grab;
+  user-select: none;
+}
+#liw .fs-row:hover { background: rgba(239,236,230,0.08); }
+#liw .fs-row.depth-1 { padding-left: 28px; }
+#liw .chev { width: 14px; color: var(--mute); flex: none; font-size: 11px; }
+#liw .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--mute);
+}
+#liw .dot.card { background: #FF8A7A; }
+#liw .dot.drive { background: #B8B3AB; }
+#liw .dot.phone { background: #7FA8D8; }
+#liw .dot.drone { background: #A9D18E; }
+#liw .dot.lr { background: #D9C9A8; }
+#liw .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#liw .tag {
+  flex: none;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(239,236,230,0.08);
+  color: var(--mute);
+}
+#liw .title { font-family: var(--serif); font-size: 22px; font-weight: 400; }
+#liw .sub { color: var(--mute); font-size: 12px; }
+#liw .foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 14px;
+  padding: 12px 16px;
+  border-top: 1.5px solid var(--line);
+  font-size: 12px;
+  flex: none;
+}
+#liw .foot .dests { font-weight: 650; }
+#liw .foot .stats { color: var(--mute); }
+#liw .demos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+#liw .demos button {
+  height: 26px;
+  padding: 0 10px;
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mute);
+}
+#liw .demos button[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--fill);
+}
+#liw .rules {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--mute);
+}
+</style>
+
+<div class="frame">
+  <div class="top">
+    <span class="brand">Lumina</span>
+    <div class="tabs" aria-hidden="true">
+      <span class="on">Sources</span>
+      <span>Stacks</span>
+      <span>Ship</span>
+    </div>
+    <span class="sub">wireframe</span>
+  </div>
+
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);">
+    <div class="body" style="border-right:1.5px solid var(--line);">
+      <div class="head">
+        <span class="title">In shoot</span>
+        <span class="sub" id="liw2-count">No sources yet</span>
+        <span class="grow"></span>
+        <button type="button" class="add" id="liw2-add">Add source</button>
+      </div>
+      <div class="empty" id="liw2-empty" style="min-height:200px">
+        <strong>Drag from the right</strong>
+        <span>Or click a destination row. Empty destination lanes stay hidden.</span>
+      </div>
+      <div class="lanes" id="liw2-lanes" hidden></div>
+    </div>
+    <div style="display:flex;flex-direction:column;min-height:0;background:var(--fill);">
+      <div style="padding:12px 14px;border-bottom:1.5px solid var(--line);display:flex;align-items:baseline;gap:8px;flex:none">
+        <span class="title" style="font-size:16px">Destinations</span>
+        <span class="sub">filesystem list</span>
+      </div>
+      <div id="liw2-fs" style="flex:1;overflow:auto;padding:6px 0;font-size:12px"></div>
+    </div>
+  </div>
+
+  <div class="foot" id="liw2-foot" aria-live="polite"></div>
+</div>
+
+<div class="rules">
+  <strong>Footer</strong>
+  <ul>
+    <li>Destinations first (Phone · SD card · T7).</li>
+    <li>Then file count and total size.</li>
+    <li>Then Log · MP4 · HEIF · RAW (skip zeros).</li>
+  </ul>
+  <div class="demos" role="group" aria-label="Demo states">
+    <button type="button" data-demo="empty" aria-pressed="false">Empty</button>
+    <button type="button" data-demo="one" aria-pressed="false">One card</button>
+    <button type="button" data-demo="multi" aria-pressed="true">Phone + card + T7</button>
+    <button type="button" data-demo="dup" aria-pressed="false">Two T7 folders</button>
+  </div>
+</div>
+</div>
+
+<script>
+(() => {
+  const root = document.getElementById("lumina-input-wf2");
+  if (!root) return;
+
+  const catalog = [
+    { id: "sony-card", dest: "SD card", destKey: "card-sony", name: "100MSDCF", meta: "480 ARW · read-only", files: 480, gb: 18.4, raw: 480, log: 0, mp4: 0, heif: 0 },
+    { id: "sony-card-2", dest: "SD card", destKey: "card-sony", name: "101MSDCF", meta: "120 ARW · new", files: 120, gb: 4.6, raw: 120, log: 0, mp4: 0, heif: 0 },
+    { id: "t7-portland", dest: "T7", destKey: "t7", name: "Portland / Coffee", meta: "86 files · granted", files: 86, gb: 12.1, raw: 64, log: 0, mp4: 8, heif: 14 },
+    { id: "t7-road", dest: "T7", destKey: "t7", name: "Road trip / Clips", meta: "1,200 MP4 · granted", files: 1200, gb: 186.0, raw: 0, log: 820, mp4: 380, heif: 0 },
+    { id: "phone", dest: "Phone", destKey: "phone", name: "Downloads batch", meta: "28 HEIC · 6 MP4", files: 34, gb: 2.8, raw: 0, log: 0, mp4: 6, heif: 28 },
+    { id: "lr", dest: "Lightroom", destKey: "lr", name: "~/Pictures/Selects", meta: "16 RAW + XMP", files: 16, gb: 1.9, raw: 16, log: 0, mp4: 0, heif: 0 },
+    { id: "drone", dest: "Drone card", destKey: "drone", name: "101MEDIA", meta: "38 DNG · 14 MP4", files: 52, gb: 6.4, raw: 38, log: 14, mp4: 0, heif: 0 }
+  ];
+
+  const demos = {
+    empty: [],
+    one: ["sony-card"],
+    multi: ["sony-card", "t7-portland", "phone"],
+    dup: ["sony-card", "t7-portland", "t7-road", "phone"]
+  };
+
+  let selected = [];
+  let demo = "empty";
+
+  function byId(id) { return catalog.find((c) => c.id === id); }
+  function fmtN(n) { return new Intl.NumberFormat("en-US").format(n); }
+  function fmtGb(n) {
+    if (n < 1) return Math.round(n * 1024) + " MB";
+    const r = n >= 100 ? Math.round(n) : Math.round(n * 10) / 10;
+    return r + " GB";
+  }
+  function preferredOrder(name) {
+    const order = ["Phone", "SD card", "T7", "Drone card", "Lightroom"];
+    const i = order.indexOf(name);
+    return i === -1 ? 99 : i;
+  }
+  function grouped() {
+    const map = new Map();
+    selected.forEach((id) => {
+      const s = byId(id);
+      if (!s) return;
+      if (!map.has(s.destKey)) map.set(s.destKey, { dest: s.dest, items: [] });
+      map.get(s.destKey).items.push(s);
+    });
+    return Array.from(map.values())
+      .filter((g) => g.items.length > 0)
+      .sort((a, b) => preferredOrder(a.dest) - preferredOrder(b.dest));
+  }
+  function preferredOrder(name) {
+    const order = ["Phone", "SD card", "T7", "Drone card", "Lightroom"];
+    const i = order.indexOf(name);
+    return i === -1 ? 99 : i;
+  }
+  function totals() {
+    let files = 0, gb = 0, raw = 0, log = 0, mp4 = 0, heif = 0;
+    selected.forEach((id) => {
+      const s = byId(id);
+      if (!s) return;
+      files += s.files; gb += s.gb; raw += s.raw; log += s.log; mp4 += s.mp4; heif += s.heif;
+    });
+    return { files, gb, raw, log, mp4, heif };
+  }
+
+  function renderFooter() {
+    const groups = grouped();
+    const t = totals();
+    if (!groups.length) {
+      footEl.innerHTML = "<span class=\"dests\">No sources</span>";
+      return;
+    }
+    const destLine = groups.map((g) => g.dest).join(" · ");
+    const bits = [];
+    bits.push(fmtN(t.files) + " files");
+    bits.push(fmtGb(t.gb));
+    if (t.log) bits.push(fmtN(t.log) + " Log");
+    if (t.mp4) bits.push(fmtN(t.mp4) + " MP4");
+    if (t.heif) bits.push(fmtN(t.heif) + " HEIF");
+    if (t.raw) bits.push(fmtN(t.raw) + " RAW");
+    footEl.innerHTML = "<span class=\"dests\">" + destLine + "</span><span class=\"sep\"> · </span><span class=\"stats\">" + bits.join(" · ") + "</span>";
+  }
+
+  function render() {
+    const groups = grouped();
+    const n = selected.length;
+    countEl.textContent = n === 0 ? "No sources yet" : n + " source" + (n === 1 ? "" : "s");
+    if (!groups.length) {
+      emptyEl.hidden = false;
+      lanesEl.hidden = true;
+      lanesEl.innerHTML = "";
+      renderFooter();
+      return;
+    }
+    emptyEl.hidden = true;
+    lanesEl.hidden = false;
+    lanesEl.innerHTML = "";
+    groups.forEach((g) => {
+      const files = g.items.reduce((a, i) => a + i.files, 0);
+      const gb = g.items.reduce((a, i) => a + i.gb, 0);
+      const lane = document.createElement("section");
+      lane.className = "lane";
+      const hd = document.createElement("div");
+      hd.className = "lane-hd";
+      hd.innerHTML = "<span class=\"lane-name\">" + g.dest + "</span><span class=\"lane-meta\">" + g.items.length + " · " + fmtN(files) + " files · " + fmtGb(gb) + "</span>";
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      g.items.forEach((item) => {
+        const tile = document.createElement("div");
+        tile.className = "tile";
+        tile.innerHTML = "<span class=\"nm\">" + item.name + "</span><span class=\"mt\">" + item.meta + "</span>";
+        grid.appendChild(tile);
+      });
+      const addTile = document.createElement("button");
+      addTile.type = "button";
+      addTile.className = "tile add-tile";
+      addTile.textContent = "Add here";
+      addTile.addEventListener("click", () => addFromDest(g.items[0].destKey));
+      grid.appendChild(addTile);
+      lane.appendChild(hd);
+      lane.appendChild(grid);
+      lanesEl.appendChild(lane);
+    });
+    renderFooter();
+  }
+
+  root.querySelector("#liw2-add").addEventListener("click", addNext);
+  root.querySelector("#liw2-add-empty").addEventListener("click", addNext);
+  root.querySelectorAll("[data-demo]").forEach((btn) => {
+    btn.addEventListener("click", () => setDemo(btn.getAttribute("data-demo")));
+  });
+
+  function syncDemoButtons() {
+    root.querySelectorAll("[data-demo]").forEach((btn) => {
+      btn.setAttribute("aria-pressed", btn.getAttribute("data-demo") === demo ? "true" : "false");
+    });
+  }
+
+  setDemo("multi");
+})();
+</script>
+</div>

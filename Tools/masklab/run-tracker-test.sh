@@ -49,11 +49,11 @@ fi
 
 # `skim`: the app's own track (SkimTracker, #308), built with swiftc from the app's files (Tools/masklab/skim).
 SKIM_BIN=""
-if [[ " $TRACKERS " == *" skim "* ]]; then
+if [[ " $TRACKERS " == *" skim "* || " $TRACKERS " == *" skim-prompted "* ]]; then
   mkdir -p "$EVID/build"; SKIM_BIN="$EVID/build/masklab-skim"
   swiftc -O -swift-version 5 -o "$SKIM_BIN" "$ROOT/Lumina/Sets/Look/LookMasks.swift" "$ROOT/Lumina/Sets/Core/SetsMasks.swift" \
     "$ROOT/Lumina/Sets/Video/SkimFollow.swift" "$ROOT/Lumina/Sets/Core/SkimFollower.swift" "$ROOT/Lumina/Sets/Core/SkimTracker.swift" \
-    "$HERE/skim/Stub.swift" "$HERE/skim/main.swift"
+    "$ROOT/Lumina/Sets/Core/SkimPrompt.swift" "$HERE/skim/Stub.swift" "$HERE/skim/main.swift"
 fi
 
 RUN="$EVID/runs/$(date +%Y%m%d-%H%M%S)"
@@ -105,7 +105,10 @@ for tracker in $TRACKERS; do
     [ "$first" = 1 ] && [ "${MASKLAB_SAVE_FRAMES:-}" ] && args+=(--save-frames "$MASKLAB_SAVE_FRAMES")
     echo "+ masklab-track ${args[*]}" >>"$LOG"
     # A failed clip is reported and the run goes on to the next; nothing is retried.
+    # skim-prompted: the start outlined by Vision's prompted segmenter on the box, and each frame's outline from it
+    # with the followed box as its prompt (a shape outlined by clicks in the app; OUTLINING.md B2). macOS 27.
     tool="$BIN"; [ "$tracker" = skim ] && tool="$SKIM_BIN"
+    [ "$tracker" = skim-prompted ] && { tool="$SKIM_BIN"; args+=(--prompted); }
     if ! "$tool" "${args[@]}" 2>&1 | tee -a "$LOG"; then
       echo "masklab: $tracker on $stem failed (see $LOG)" | tee -a "$LOG"; failed=$((failed + 1))
     fi

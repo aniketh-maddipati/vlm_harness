@@ -1,0 +1,420 @@
+<div id="lumina-input-wf" class="liw" role="region" aria-label="Lumina input page wireframe">
+  <p class="vis-sr-only">Wireframe for the Sources input page. Add sources into a growing tile grid grouped by destination. Empty destinations stay hidden. Click Add source to append tiles.</p>
+
+  <style>
+    #lumina-input-wf {
+      --ink: light-dark(#1a1917, #EFECE6);
+      --mute: light-dark(#6b6760, #9A958D);
+      --line: light-dark(rgba(26,25,23,0.35), rgba(239,236,230,0.35));
+      --fill: light-dark(rgba(26,25,23,0.04), rgba(239,236,230,0.04));
+      --serif: "Iowan Old Style", Palatino, Georgia, serif;
+      --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    #lumina-input-wf * { box-sizing: border-box; }
+    #lumina-input-wf button {
+      font: inherit;
+      color: inherit;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      padding: 0;
+    }
+    #lumina-input-wf .frame {
+      border: 1.5px solid var(--line);
+      border-radius: 10px;
+      min-height: 520px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #lumina-input-wf .top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1.5px solid var(--line);
+    }
+    #lumina-input-wf .brand {
+      font-family: var(--serif);
+      font-size: 18px;
+    }
+    #lumina-input-wf .tabs {
+      display: flex;
+      gap: 16px;
+      margin: 0 auto;
+      font-size: 12px;
+      color: var(--mute);
+    }
+    #lumina-input-wf .tabs .on {
+      color: var(--ink);
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+    #lumina-input-wf .body {
+      flex: 1;
+      padding: 20px 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 0;
+      overflow: auto;
+    }
+    #lumina-input-wf .head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 12px;
+    }
+    #lumina-input-wf .title {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 400;
+    }
+    #lumina-input-wf .sub {
+      color: var(--mute);
+      font-size: 12px;
+    }
+    #lumina-input-wf .grow { flex: 1; min-width: 8px; }
+    #lumina-input-wf .add {
+      height: 32px;
+      padding: 0 14px;
+      border: 1.5px solid var(--line);
+      border-radius: 8px;
+      font-weight: 650;
+      font-size: 12px;
+    }
+    #lumina-input-wf .add:hover {
+      background: var(--fill);
+    }
+    #lumina-input-wf .empty {
+      flex: 1;
+      min-height: 280px;
+      border: 1.5px dashed var(--line);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--mute);
+      text-align: center;
+      padding: 24px;
+    }
+    #lumina-input-wf .empty strong {
+      color: var(--ink);
+      font-weight: 650;
+      font-size: 14px;
+    }
+    #lumina-input-wf .lanes {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    #lumina-input-wf .lane {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #lumina-input-wf .lane-hd {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px;
+    }
+    #lumina-input-wf .lane-name {
+      font-weight: 700;
+      font-size: 13px;
+    }
+    #lumina-input-wf .lane-meta {
+      color: var(--mute);
+      font-size: 11px;
+    }
+    #lumina-input-wf .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    #lumina-input-wf .tile {
+      aspect-ratio: 4 / 3;
+      border: 1.5px solid var(--line);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 10px;
+      gap: 2px;
+      background: var(--fill);
+      text-align: left;
+      min-height: 110px;
+    }
+    #lumina-input-wf .tile .nm {
+      font-weight: 650;
+      font-size: 12px;
+    }
+    #lumina-input-wf .tile .mt {
+      color: var(--mute);
+      font-size: 11px;
+    }
+    #lumina-input-wf .tile.add-tile {
+      border-style: dashed;
+      align-items: center;
+      justify-content: center;
+      color: var(--mute);
+      font-weight: 650;
+      font-size: 12px;
+      text-align: center;
+    }
+    #lumina-input-wf .foot {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-top: 1.5px solid var(--line);
+      font-size: 12px;
+      color: var(--mute);
+    }
+    #lumina-input-wf .rules {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border: 1.5px solid var(--line);
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--mute);
+    }
+    #lumina-input-wf .rules strong {
+      color: var(--ink);
+      font-weight: 650;
+    }
+    #lumina-input-wf .rules ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+    #lumina-input-wf .rules li { margin: 4px 0; }
+    #lumina-input-wf .demos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    #lumina-input-wf .demos button {
+      height: 26px;
+      padding: 0 10px;
+      border: 1.5px solid var(--line);
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--mute);
+    }
+    #lumina-input-wf .demos button[aria-pressed="true"] {
+      color: var(--ink);
+      background: var(--fill);
+    }
+  </style>
+
+  <div class="frame">
+    <div class="top">
+      <span class="brand">Lumina</span>
+      <div class="tabs" aria-hidden="true">
+        <span class="on">Sources</span>
+        <span>Stacks</span>
+        <span>Ship</span>
+      </div>
+      <span class="sub">wireframe</span>
+    </div>
+
+    <div class="body">
+      <div class="head">
+        <span class="title">Sources</span>
+        <span class="sub" id="liw-count">No sources yet</span>
+        <span class="grow"></span>
+        <button type="button" class="add" id="liw-add">Add source</button>
+      </div>
+
+      <div class="empty" id="liw-empty">
+        <strong>Add a folder, card, or drive</strong>
+        <span>Drop anywhere, or use Add source. Lanes appear only when something is added from that destination.</span>
+        <button type="button" class="add" id="liw-add-empty">Add source</button>
+      </div>
+
+      <div class="lanes" id="liw-lanes" hidden></div>
+    </div>
+
+    <div class="foot">
+      <span id="liw-foot">0 sources · 0 files · nothing copied</span>
+      <span class="grow"></span>
+      <span>Next · Stacks</span>
+    </div>
+  </div>
+
+  <div class="rules">
+    <strong>Input rules</strong>
+    <ul>
+      <li>One growing tile grid of sources you add.</li>
+      <li>Tiles group into a lane per destination (card, T7 folder, phone dump, Lightroom folder).</li>
+      <li>Same destination merges into one lane (two folders on the T7 stay under T7).</li>
+      <li>A destination with zero sources is not shown.</li>
+    </ul>
+    <div class="demos" role="group" aria-label="Demo states">
+      <button type="button" data-demo="empty" aria-pressed="true">Empty</button>
+      <button type="button" data-demo="one" aria-pressed="false">One card</button>
+      <button type="button" data-demo="multi" aria-pressed="false">Card + T7 + phone</button>
+      <button type="button" data-demo="dup" aria-pressed="false">Two T7 folders</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const root = document.getElementById("lumina-input-wf");
+  if (!root) return;
+
+  const catalog = [
+    { id: "sony-card", dest: "Sony α7 IV · Card", destKey: "card-sony", name: "100MSDCF", meta: "480 ARW · read-only" },
+    { id: "sony-card-2", dest: "Sony α7 IV · Card", destKey: "card-sony", name: "101MSDCF", meta: "120 ARW · new" },
+    { id: "t7-portland", dest: "T7 Shield", destKey: "t7", name: "Portland / Coffee", meta: "86 files · granted" },
+    { id: "t7-road", dest: "T7 Shield", destKey: "t7", name: "Road trip / Clips", meta: "1,200 MP4 · granted" },
+    { id: "phone", dest: "iPhone · AirDrop", destKey: "phone", name: "Downloads batch", meta: "28 HEIC · 6 MP4" },
+    { id: "lr", dest: "Lightroom folder", destKey: "lr", name: "~/Pictures/Selects", meta: "16 RAW + XMP" },
+    { id: "drone", dest: "DJI Mavic · Card", destKey: "drone", name: "101MEDIA", meta: "38 DNG · 14 MP4" }
+  ];
+
+  const demos = {
+    empty: [],
+    one: ["sony-card"],
+    multi: ["sony-card", "t7-portland", "phone"],
+    dup: ["sony-card", "t7-portland", "t7-road", "phone"]
+  };
+
+  let selected = [];
+  let demo = "empty";
+  let addCursor = 0;
+
+  const emptyEl = root.querySelector("#liw-empty");
+  const lanesEl = root.querySelector("#liw-lanes");
+  const countEl = root.querySelector("#liw-count");
+  const footEl = root.querySelector("#liw-foot");
+
+  function byId(id) {
+    return catalog.find((c) => c.id === id);
+  }
+
+  function grouped() {
+    const map = new Map();
+    selected.forEach((id) => {
+      const s = byId(id);
+      if (!s) return;
+      if (!map.has(s.destKey)) map.set(s.destKey, { dest: s.dest, items: [] });
+      map.get(s.destKey).items.push(s);
+    });
+    return Array.from(map.values()).filter((g) => g.items.length > 0);
+  }
+
+  function fileCount() {
+    return selected.length;
+  }
+
+  function render() {
+    const groups = grouped();
+    const n = selected.length;
+    countEl.textContent = n === 0 ? "No sources yet" : n + " source" + (n === 1 ? "" : "s");
+    footEl.textContent = n + " sources · tethered · nothing copied";
+
+    if (groups.length === 0) {
+      emptyEl.hidden = false;
+      lanesEl.hidden = true;
+      lanesEl.innerHTML = "";
+      return;
+    }
+
+    emptyEl.hidden = true;
+    lanesEl.hidden = false;
+    lanesEl.innerHTML = "";
+
+    groups.forEach((g) => {
+      const lane = document.createElement("section");
+      lane.className = "lane";
+      lane.setAttribute("aria-label", g.dest);
+
+      const hd = document.createElement("div");
+      hd.className = "lane-hd";
+      hd.innerHTML = "<span class=\"lane-name\">" + g.dest + "</span><span class=\"lane-meta\">" + g.items.length + " source" + (g.items.length === 1 ? "" : "s") + "</span>";
+      lane.appendChild(hd);
+
+      const grid = document.createElement("div");
+      grid.className = "grid";
+
+      g.items.forEach((item) => {
+        const tile = document.createElement("div");
+        tile.className = "tile";
+        tile.innerHTML = "<span class=\"nm\">" + item.name + "</span><span class=\"mt\">" + item.meta + "</span>";
+        grid.appendChild(tile);
+      });
+
+      const addTile = document.createElement("button");
+      addTile.type = "button";
+      addTile.className = "tile add-tile";
+      addTile.textContent = "Add here";
+      addTile.addEventListener("click", () => addFromDest(g.items[0].destKey));
+      grid.appendChild(addTile);
+
+      lane.appendChild(grid);
+      lanesEl.appendChild(lane);
+    });
+  }
+
+  function addNext() {
+    const unused = catalog.filter((c) => !selected.includes(c.id));
+    if (unused.length === 0) {
+      addCursor = 0;
+      const again = catalog[addCursor % catalog.length];
+      if (!selected.includes(again.id)) selected.push(again.id);
+      addCursor += 1;
+    } else {
+      selected.push(unused[0].id);
+    }
+    demo = "custom";
+    syncDemoButtons();
+    render();
+  }
+
+  function addFromDest(destKey) {
+    const next = catalog.find((c) => c.destKey === destKey && !selected.includes(c.id));
+    if (next) {
+      selected.push(next.id);
+    } else {
+      const any = catalog.find((c) => !selected.includes(c.id));
+      if (any) selected.push(any.id);
+    }
+    demo = "custom";
+    syncDemoButtons();
+    render();
+  }
+
+  function setDemo(name) {
+    demo = name;
+    selected = (demos[name] || []).slice();
+    syncDemoButtons();
+    render();
+  }
+
+  function syncDemoButtons() {
+    root.querySelectorAll("[data-demo]").forEach((btn) => {
+      btn.setAttribute("aria-pressed", btn.getAttribute("data-demo") === demo ? "true" : "false");
+    });
+  }
+
+  root.querySelector("#liw-add").addEventListener("click", addNext);
+  root.querySelector("#liw-add-empty").addEventListener("click", addNext);
+  root.querySelectorAll("[data-demo]").forEach((btn) => {
+    btn.addEventListener("click", () => setDemo(btn.getAttribute("data-demo")));
+  });
+
+  render();
+})();
+</script>
+</div>
