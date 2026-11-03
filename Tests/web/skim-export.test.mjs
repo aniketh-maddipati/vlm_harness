@@ -255,3 +255,47 @@ test('soft frames and a brightness jump become markers at the frame Skim measure
   k.facts.state = 'reading';
   const u = loadBuildX().fn.call(c).text; assert.doesNotMatch(u.slice(0, u.indexOf('<project')), /<marker /, 'only facts that finished');
 });
+
+// ---- Looks: a clip with a look goes with Camera LUT None and Final Cut's Custom LUT effect naming its cube (lkLuts).
+const pageSrc = fs.readFileSync(PAGE, 'utf8');
+const LK = (() => { const a = pageSrc.indexOf('// LOOK-BEGIN'), b = pageSrc.indexOf('// LOOK-END'); return new Function('class Component {\n' + pageSrc.slice(a, b) + '\n}\nreturn Component;')(); })();
+const lkLuts = new Function('Component', 'return function ' + extractMethod(pageSrc, 'lkLuts', 'lkLuts(clips, event) {'))(LK);
+const withLooks = (over = {}) => {
+  const c = ctxFromFixture(fx, { all: true, ...over });
+  c.d.clips.forEach((k, i) => { k.profile = i < 3 ? { gamma: 'S-Log3', primaries: 'S-Gamut3.Cine' } : null; });
+  const ids = c.d.clips.map(k => k.id), M = { [ids[0]]: { ev: 0.5, temp: 30 }, [ids[3]]: { sat: -40 } };
+  c.looks = () => M; c.lkLuts = lkLuts; return { c, ids };
+};
+test('looks: one Custom LUT effect, a filter on each clip with a look (event and timeline), Camera LUT None for those only', () => {
+  const { c, ids } = withLooks(), x = loadBuildX().fn.call(c);
+  assert.deepEqual(Object.keys(x.luts).sort(), [ids[0], ids[3]].sort());
+  assert.equal((x.text.match(/<effect id="lut1" name="Custom LUT" uid="FxPlug:14B39AEF-607D-42DF-98DD-DB3DD345E925"\/>/g) || []).length, 1);
+  assert.equal((x.text.match(/<filter-video ref="lut1" name="Custom LUT">/g) || []).length, 4, 'two clips, each in the event and in the sorted timeline');
+  assert.equal(attr(x.text, 'asset', 'a1', 'customLUTOverride'), null, 'the log clip with a look: Camera LUT None, its cube converts');
+  assert.equal(attr(x.text, 'asset', 'a2', 'customLUTOverride'), '35 (Sony_SLog3_SGamut3Cine_v2)', 'a log clip without a look keeps today’s conversion');
+  const e = x.luts[ids[0]];
+  assert.match(e.rel, /^Lumina Skim\/[^/]+\/[^/]+ [0-9a-f]{6}\.cube$/); assert.equal(e.mode, 1); assert.equal(x.luts[ids[3]].mode, 0);
+  assert.ok(x.text.includes('value="' + e.param + '"'));
+  assert.equal(e.param, LK.lkLutParam(LK.lkLutHash(e.rel) + ':' + e.name));
+  assert.match(e.text, new RegExp('^TITLE "' + e.name + '"\\nLUT_3D_SIZE 33\\n'));
+});
+test('looks: the file passes the page check and Final Cut’s DTD', t => {
+  const { c } = withLooks(), x = loadBuildX().fn.call(c);
+  const checkX = new Function('return function ' + extractMethod(pageSrc, 'checkX', 'static checkX(text, n, P, kws) {').replace(/^static /, ''))();
+  const r = checkX(x.text, x.n, MiniDOMParser, x.kws); assert.ok(r.ok, r.problems.join('\n'));
+  const v = validateAgainstDTD(x.text, '1.10'); if (v.skipped) return t.skip(v.skipped); assert.ok(v.ok, v.errors);
+});
+test('looks: a changed look is a new cube name; the same look again is the same name; Looks off writes none', () => {
+  const { c, ids } = withLooks(), a = loadBuildX().fn.call(c).luts[ids[0]].name;
+  assert.equal(loadBuildX().fn.call(c).luts[ids[0]].name, a);
+  const M = c.looks(); M[ids[0]] = { ev: 0.6, temp: 30 }; c.bxM = null;
+  assert.notEqual(loadBuildX().fn.call(c).luts[ids[0]].name, a);
+  c.state.ex.looks = false; c.bxM = null; const off = loadBuildX().fn.call(c);
+  assert.deepEqual(off.luts, {}); assert.doesNotMatch(off.text, /Custom LUT/); assert.match(attr(off.text, 'asset', 'a1', 'customLUTOverride'), /Sony_SLog3/);
+});
+test('looks: the page check refuses an effect or a filter it does not write', () => {
+  const { c } = withLooks(), x = loadBuildX().fn.call(c);
+  const checkX = new Function('return function ' + extractMethod(pageSrc, 'checkX', 'static checkX(text, n, P, kws) {').replace(/^static /, ''))();
+  assert.ok(!checkX(x.text.replace('FxPlug:14B39AEF', 'FxPlug:00000000'), x.n, MiniDOMParser, x.kws).ok);
+  assert.ok(!checkX(x.text.replace('<param name="Output"', '<param name="Mix" key="9" value="1"/><param name="Output"'), x.n, MiniDOMParser, x.kws).ok);
+});

@@ -20,8 +20,9 @@ nonisolated struct SkimExport: Sendable {
         var json: [String: Any] { ok ? ["ok": true, "path": path, "name": (path as NSString).lastPathComponent, "folder": (path as NSString).deletingLastPathComponent] : ["ok": false, "why": why] }
     }
 
-    /// What the page may save: a Final Cut file or a plain-text list, at most 16 MB (a 5,000-clip .fcpxml is about 3 MB).
-    static let extensions: Set<String> = ["fcpxml", "txt"]
+    /// What the page may save: a Final Cut file, a plain-text list or a clip's look as a .cube LUT, at most 16 MB (a 5,000-clip
+    /// .fcpxml is about 3 MB; a 33-point cube about 1 MB).
+    static let extensions: Set<String> = ["fcpxml", "txt", "cube"]
     static let maxBytes = 16 << 20
 
     let file: URL
@@ -95,6 +96,39 @@ nonisolated struct SkimExport: Sendable {
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue else { return Saved(ok: false, path: "", why: "The folder is not there any more. Choose another under Save to.") }
         guard let to = free(in: dir, name: clean) else { return Saved(ok: false, path: "", why: "Too many files with that name in the folder.") }
+        return write(text, to: to)
+    }
+
+    /// Final Cut's Custom LUTs folder, where its Custom LUT effect reads LUTs from (`~/Library/Application Support/ProApps/
+    /// Custom LUTs`): a .fcpxml names a LUT by its path inside that folder, never by a path elsewhere (measured on Final Cut
+    /// Pro 12.4, 2026-11-03). Skim writes only under `Lumina Skim/` there.
+    static func finalCutLUTs(home: URL) -> URL {
+        home.appendingPathComponent("Library/Application Support/ProApps/Custom LUTs", isDirectory: true)
+    }
+
+    /// A cube's place inside the Custom LUTs folder as the page names it: "Lumina Skim/<event>/<name>.cube", each part a plain
+    /// name (no dot first, no control characters, colons or backslashes, at most 128 characters). Nil for anything else.
+    static func lutPlace(_ rel: String) -> [String]? {
+        let parts = rel.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count == 3, parts[0] == "Lumina Skim", parts[2].lowercased().hasSuffix(".cube") else { return nil }
+        for p in parts {
+            guard !p.isEmpty, p.count <= 128, p.first != ".", p.first?.isWhitespace != true, p != "..",
+                  !p.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) || $0 == ":" || $0 == "\\" }) else { return nil }
+        }
+        return parts
+    }
+
+    /// Puts one cube into Final Cut's Custom LUTs folder (`root`) at the page's place. A file already there with the same bytes
+    /// is that cube (the name carries a tag of its contents), so it counts as installed; a different file is never replaced.
+    static func installLUT(_ text: String, rel: String, into root: URL) -> Saved {
+        guard let parts = lutPlace(rel) else { return Saved(ok: false, path: "", why: "That is not a place Lumina writes a LUT.") }
+        guard text.hasPrefix("TITLE ") || text.hasPrefix("LUT_3D_SIZE"), text.contains("LUT_3D_SIZE ") else { return Saved(ok: false, path: "", why: "That is not a .cube LUT.") }
+        let dir = root.appendingPathComponent(parts[0], isDirectory: true).appendingPathComponent(parts[1], isDirectory: true), to = dir.appendingPathComponent(parts[2])
+        let fm = FileManager.default
+        if fm.fileExists(atPath: to.path) {
+            return (try? Data(contentsOf: to)) == Data(text.utf8) ? Saved(ok: true, path: to.path, why: "") : Saved(ok: false, path: "", why: "A different LUT with that name is already in Final Cut's Custom LUTs folder.")
+        }
+        do { try fm.createDirectory(at: dir, withIntermediateDirectories: true) } catch { return Saved(ok: false, path: "", why: "Lumina may not write in Final Cut's Custom LUTs folder. Give it access again in Export.") }
         return write(text, to: to)
     }
 

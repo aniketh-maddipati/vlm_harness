@@ -839,6 +839,32 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             guard let picked else { return (skimExportPlace(), nil) }
             if let bm = try? picked.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) { skimExports.set(.init(bookmark: bm, path: picked.path)) }
             return (skimExportPlace(), nil)
+        case "skimLutsPlace":
+            // Export's looks: Final Cut's Custom LUTs folder, if Lumina was given access to it (`skim/luts.json`), and where it is.
+            return (skimLutsPlace(), nil)
+        case "skimLutsChoose":
+            // Give access: the folder panel, opened at Final Cut's Custom LUTs folder, after the user's click; only a folder
+            // named "Custom LUTs" is taken (the panel asks again), kept as a security-scoped bookmark in `skim/luts.json`.
+            var refusal: String?, picked: URL?
+            let want = SkimExport.finalCutLUTs(home: SkimDrive.realHome())
+            while picked == nil {
+                guard let p = await chooser.chooseDestination(label: "skim-luts", suggested: skimLutsFolder() ?? want, refusal: refusal) else { return (skimLutsPlace(), nil) }
+                if p.lastPathComponent != "Custom LUTs" { refusal = "That is not Final Cut's Custom LUTs folder. It is in your Library, under Application Support ▸ ProApps."; continue }
+                picked = p
+            }
+            guard let picked else { return (skimLutsPlace(), nil) }
+            if let bm = try? picked.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) { skimLuts.set(.init(bookmark: bm, path: picked.path)) }
+            return (skimLutsPlace(), nil)
+        case "skimLutsInstall":
+            // Each clip's look as a .cube in Final Cut's Custom LUTs folder, under "Lumina Skim/<event>/", as a new file, read
+            // back; a file already there is kept (the same bytes count as installed, other bytes are refused, never replaced).
+            guard let list = body["items"] as? [[String: Any]], list.count <= 2000 else { return ([Any](), nil) }
+            guard let root = skimLutsFolder() else { return (list.map { _ in ["ok": false, "why": "Lumina has no access to Final Cut's Custom LUTs folder."] as [String: Any] }, nil) }
+            let items = list.map { (rel: $0["rel"] as? String ?? "", text: $0["text"] as? String ?? "") }
+            let scoped = root.startAccessingSecurityScopedResource()
+            let out = await Task.detached(priority: .userInitiated) { items.map { SkimExport.installLUT($0.text, rel: $0.rel, into: root).json } }.value
+            if scoped { root.stopAccessingSecurityScopedResource() }
+            return (out, nil)
         case "skimExportAsk":
             // Ask each time: the kept folder is forgotten; each save opens the save panel.
             skimExports.set(nil)
@@ -1230,6 +1256,21 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     private var pickSaveToResolved: (bookmark: Data, url: URL)?
     /// The files Handoff moved to the Trash in this run, by where they went: the only ones Put Back takes.
     private var pickTrashed: [String: String] = [:]
+
+    /// Final Cut's Custom LUTs folder, once the user gave Lumina access to it (`skim/luts.json`, the same kind of bookmark as Save to).
+    private var skimLuts: SkimExport { SkimExport(file: supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("luts.json")) }
+    private func skimLutsFolder() -> URL? {
+        guard let p = skimLuts.place() else { return nil }
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: p.bookmark, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+        if stale, let bm = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) { skimLuts.set(.init(bookmark: bm, path: url.path)) }
+        return url
+    }
+    private func skimLutsPlace() -> [String: Any] {
+        let want = SkimExport.finalCutLUTs(home: SkimDrive.realHome()).path
+        if let u = skimLutsFolder() { return ["path": u.path, "want": want] }
+        return ["path": NSNull(), "want": want]
+    }
 
     /// What Export shows under Save to, and where the open shoot was read from.
     private func skimExportPlace() -> [String: Any] {
