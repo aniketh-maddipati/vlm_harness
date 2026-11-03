@@ -52,7 +52,7 @@ Read it in full before starting.
    - `node Tests/web/plumbing-harness.mjs`
    - `node Tests/web/parity.mjs`
    - `python3 Scripts/trust_check.py`
-   - On the Mac: `python3 Scripts/ci_changes.py $(git diff --name-only origin/main...)` →
+   - On the Mac: `git diff -z --name-only origin/main... | xargs -0 python3 Scripts/ci_changes.py` →
      `xcodebuild … -only-testing:LuminaLogicTests/<the classes it names> test`, then
      `bash Scripts/probe.sh smoke`.
    - A screen that changes on purpose shows up in `probe.sh screens`. **Do not re-record
