@@ -92,6 +92,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 // The Edit canvas: the one native view over the page (AGENTS.md), above the web view.
                 if page == .pick || both { bridge.attachCanvas(host: host) }
                 bridge.onSwitchPage = { [weak self] in self?.switchPage(to: $0) }
+                bridge.onAirdrop = { [weak self] in self?.skimAirdropArrived($0) }
+                bridge.onAirdropState = { [weak self] st in
+                    self?.webView?.evaluateJavaScript("window.luminaSkimAirdrop && luminaSkimAirdrop.changed && luminaSkimAirdrop.changed(\(Self.json(st)))", completionHandler: nil)
+                }
                 bridge.onReady = { [weak self] in
                     // Back on Photos: the shoot that was open when the window went to Video opens again.
                     guard let self, let id = self.pickReturn else { return }
@@ -124,7 +128,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                     }
                 }
                 #endif
-                if page == .skim || both { keepSkimLast() }
+                if page == .skim || both { keepSkimLast(); bridge.skimAirdropResume() }
             } catch {
                 LuminaLog.app.fault("web view setup failed: \(String(describing: error), privacy: .private)")
             }
@@ -282,6 +286,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     /// What Add clips brought into the open shoot since (LOCAL-CHANGES 282): handed back with `skimURLs` on a reload, never
     /// the shoot's folder (`skimOpened` stays on the folder it was opened from, so Trash and Arrange keep to it).
     private var skimAddedURLs: [URL] = []
+    /// The open shoot was started by AirDrop (`skimAirdropAdd` with no shoot open): it has no folder, so Trash, Arrange,
+    /// the drive line and Follow never act in the watched folder (Downloads). Kept with the shoot across ⌘R and a relaunch.
+    private var skimNoFolder = false
     /// Set while a reload reopens the shoot: the page's file input is answered with these, with no panel.
     private var skimReopenURLs: [URL]?
     /// A pick too big for one go (`SkimPickScan`): the first clips by path, handed over when the page's card asks for them.
@@ -456,6 +463,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         LuminaLog.app.notice("skim: reopening the shoot the last run left")
         skimURLs = urls
         skimAddedURLs = Self.resolveBookmarks((saved["added"] as? [String]) ?? [])
+        skimNoFolder = (saved["noFolder"] as? Bool) ?? false
         skimKept = kept
         skimNote = "Picked up where you were"
         skimRestoring = true
@@ -478,6 +486,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     private var skimLastKept: String?
     private var skimLastURLs: [URL]?
     private var skimLastAdded: [URL] = []
+    private var skimLastNoFolder = false
     private var skimLastTimer: Timer?
     private var skimLastSaved: String?
     private var skimResignObserver: NSObjectProtocol?
@@ -496,6 +505,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             let urls = Self.resolveBookmarks(marks)
             if !urls.isEmpty {
                 skimLastKept = kept; skimLastURLs = urls; skimLastAdded = Self.resolveBookmarks((saved["added"] as? [String]) ?? [])
+                skimLastNoFolder = (saved["noFolder"] as? Bool) ?? false
                 skimLastSaved = kept
             }
         }
@@ -512,9 +522,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 guard let self, let kept = kept as? String, !kept.contains("\"dropped\":true"), kept != self.skimLastSaved else { return }
                 let mark = { (u: URL) in try? u.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil).base64EncodedString() }
                 let marks = urls.compactMap(mark), added = self.skimAddedURLs.compactMap(mark)
-                guard !marks.isEmpty, let data = try? JSONSerialization.data(withJSONObject: ["kept": kept, "at": Date().timeIntervalSince1970, "bookmarks": marks, "added": added] as [String: Any]) else { return }
+                guard !marks.isEmpty, let data = try? JSONSerialization.data(withJSONObject: ["kept": kept, "at": Date().timeIntervalSince1970, "bookmarks": marks, "added": added, "noFolder": self.skimNoFolder] as [String: Any]) else { return }
                 try? data.write(to: file, options: .atomic)
-                self.skimLastSaved = kept; self.skimLastKept = kept; self.skimLastURLs = urls; self.skimLastAdded = self.skimAddedURLs
+                self.skimLastSaved = kept; self.skimLastKept = kept; self.skimLastURLs = urls; self.skimLastAdded = self.skimAddedURLs; self.skimLastNoFolder = self.skimNoFolder
             }
         }
     }
@@ -541,7 +551,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 if let kept = kept as? String, !kept.contains("\"dropped\":true") {
                     let mark = { (u: URL) in try? u.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil).base64EncodedString() }
                     let marks = urls.compactMap(mark), added = self.skimAddedURLs.compactMap(mark)
-                    if let data = try? JSONSerialization.data(withJSONObject: ["kept": kept, "at": Date().timeIntervalSince1970, "bookmarks": marks, "added": added] as [String: Any]) {
+                    if let data = try? JSONSerialization.data(withJSONObject: ["kept": kept, "at": Date().timeIntervalSince1970, "bookmarks": marks, "added": added, "noFolder": self.skimNoFolder] as [String: Any]) {
                         try? data.write(to: file, options: .atomic)
                     }
                 }
@@ -663,6 +673,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         panel.message = refusal ?? (label == "xmp" ? "Choose the folder for the .xmp sidecars." : label == "skim" ? "Choose the folder Skim saves its Final Cut files and cut lists in." : label == "skim-place" ? "Give Lumina access to this drive or folder. Export then shows what is in it and can save there; Lumina only adds the files you save and moves the clips you ask it to." : "Choose where the export goes.")
         if label == "skim" { panel.prompt = "Save Here" }
         if label == "skim-place" { panel.prompt = "Give Access" }
+        if label == "skim-airdrop" {
+            panel.prompt = "Watch This Folder"
+            panel.message = "Choose the folder AirDrop saves to (Downloads). Clips that arrive there while AirDrop is on join Skim. Lumina only reads them."
+        }
         panel.directoryURL = suggested
         return await run(panel)
     }
@@ -709,7 +723,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     private func skimPick() async -> [URL]? {
         if let held = skimBigHeld, !skimBigForAdd {
             skimBigHeld = nil
-            if await skimEval("window.luminaSkimBig ? luminaSkimBig.want() : false") as? Bool == true { skimURLs = held.first; skimAddedURLs = []; bridge.skimOpened(held.first); return await skimHand(held) }
+            if await skimEval("window.luminaSkimBig ? luminaSkimBig.want() : false") as? Bool == true { skimURLs = held.first; skimAddedURLs = []; skimNoFolder = false; skimOpenedHere(held.first); return await skimHand(held) }
         }
         skimBigHeld = nil
         guard let urls = await chooseClips() else { return nil }
@@ -720,7 +734,7 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             return nil
         }
         await skimEval("window.luminaSkimBig && luminaSkimBig.looking(null)")
-        skimURLs = urls; skimAddedURLs = []; bridge.skimOpened(urls)
+        skimURLs = urls; skimAddedURLs = []; skimNoFolder = false; skimOpenedHere(urls)
         return r.clips > 0 ? await skimHand(r) : urls
     }
 
@@ -743,6 +757,76 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         }
         await skimEval("window.luminaSkimBig && luminaSkimBig.looking(null)")
         return await skimAdded(urls, r)
+    }
+
+    /// The shoot's folder for the bridge (Trash, Arrange, the drive line), none for a shoot AirDrop started.
+    private func skimOpenedHere(_ urls: [URL]) { bridge.skimOpened(skimNoFolder ? [] : urls) }
+
+    // MARK: Live AirDrop (SkimAirdrop)
+
+    /// Clips that arrived and are waiting for the page's add click (`runOpenPanelWith`), in the order they came.
+    private var skimAirdropBatch: [URL] = []
+    /// The delivery loop is running.
+    private var skimAirdropDelivering = false
+    /// When the page last said 'ok': its click is on its way, so it isn't asked again for a few seconds.
+    private var skimAirdropAsked: Date?
+
+    /// A batch settled in the watched folder (`bridge.onAirdrop`). It becomes the answer to the page's next add click
+    /// first, then the page is asked (its click can reach `runOpenPanelWith` before the ask's completion runs).
+    func skimAirdropArrived(_ urls: [URL]) {
+        let have = Set(skimAirdropBatch.map(\.path))
+        skimAirdropBatch += urls.filter { !have.contains($0.path) }
+        guard !skimAirdropDelivering else { return }
+        deliverSkimAirdrop(tries: 0)
+    }
+
+    /// Asks the page (`luminaSkimAirdrop.arrived(n)`) every 0.5 s while it says 'wait' (opening, a card up, busy) or isn't
+    /// there yet; after a minute the clips stay for the next arrival. On 'ok' the page clicks its Add clips input.
+    private func deliverSkimAirdrop(tries: Int) {
+        guard !skimAirdropBatch.isEmpty, tries < 120 else { skimAirdropDelivering = false; return }
+        skimAirdropDelivering = true
+        let again = { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { MainActor.assumeIsolated { self?.deliverSkimAirdrop(tries: tries + 1) } }
+        }
+        // Not on Skim (both pages in one window), or the last 'ok' is still on its way: later.
+        if SetsPage.current != .skim || webView == nil || skimCurtain != nil || (skimAirdropAsked.map { Date().timeIntervalSince($0) < 5 } ?? false) { again(); return }
+        webView?.evaluateJavaScript("window.luminaSkimAirdrop ? window.luminaSkimAirdrop.arrived(\(skimAirdropBatch.count)) : 'wait'") { [weak self] r, _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                switch r as? String {
+                case "ok": self.skimAirdropAsked = Date(); self.skimAirdropDelivering = false
+                case "wait": again()
+                default:
+                    // The page turned them down (AirDrop off on its side): they are not offered again.
+                    self.skimAirdropBatch = []; self.skimAirdropDelivering = false
+                }
+            }
+        }
+    }
+
+    /// The page's add click after an arrival: what Add clips does with picked clips (`skimPickAdd`), with no panel. With no
+    /// shoot open the page imports them as a new shoot; that shoot has no folder (`skimNoFolder`), so the watched folder
+    /// never becomes the folder Trash, Arrange or the drive line act in.
+    private func skimAirdropAdd(_ urls: [URL]) async -> [URL]? {
+        let open = (await skimEval("window.luminaSkimKeep ? !!luminaSkimKeep.take() : false") as? Bool) == true
+        if open {
+            let room = (await skimEval("window.luminaSkimBig && luminaSkimBig.room ? luminaSkimBig.room() : \(SkimPickScan.clips)") as? Int) ?? SkimPickScan.clips
+            guard var r = await skimCount(urls, room: room) else { return nil }
+            r.picked = urls
+            if r.cut || r.clips > room {
+                skimBigHeld = r; skimBigForAdd = true
+                await skimEval("window.luminaSkimBig && luminaSkimBig.showAdd && luminaSkimBig.showAdd(\(Self.json(r.json)))")
+                return nil
+            }
+            await skimEval("window.luminaSkimBig && luminaSkimBig.looking(null)")
+            return await skimAdded(urls, r)
+        }
+        guard let r = await skimCount(urls, room: SkimPickScan.clips) else { return nil }
+        await skimEval("window.luminaSkimBig && luminaSkimBig.looking(null)")
+        // more than a shoot holds: the first clips by path, as "Open the first 1,500" would
+        let given = r.tooBig ? r.first : urls
+        skimURLs = given; skimAddedURLs = []; skimNoFolder = true; skimOpenedHere(given)
+        return r.clips > 0 ? await skimHand(r) : given
     }
 
     /// Clips joining the open shoot: kept for ⌘R, and their places told to the page (window.luminaSkimPicked, what was
@@ -798,11 +882,11 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         if SetsPage.current == .skim {
             // The folder the clips are in is the open shoot's folder for the storage line (drive, Trash).
             // A reload in place answers with the clips that were open, with no panel (reloadSkimKeeping).
-            if let urls = skimReopenURLs { skimReopenURLs = nil; bridge.skimOpened(skimURLs ?? urls); completionHandler(urls); return }
+            if let urls = skimReopenURLs { skimReopenURLs = nil; skimOpenedHere(skimURLs ?? urls); completionHandler(urls); return }
             Task { @MainActor in
                 // Resume on Open's card (LOCAL-CHANGES 288): the last shoot's clips from their bookmarks, no panel.
                 if await skimPageFlag("window.luminaSkimResuming === true ? (window.luminaSkimResuming = false, true) : false"), let last = skimLastURLs {
-                    skimURLs = last; skimAddedURLs = skimLastAdded; bridge.skimOpened(last)
+                    skimURLs = last; skimAddedURLs = skimLastAdded; skimNoFolder = skimLastNoFolder; skimOpenedHere(last)
                     // counted and handed over as clips, as a pick is (skimHand), so a big folder never holds the page
                     let all = last + skimLastAdded
                     if let r = await skimCount(all, room: SkimPickScan.clips) {
@@ -810,6 +894,13 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                         if r.clips > 0, !r.tooBig { completionHandler(await skimHand(r)); return }
                     }
                     completionHandler(all); return
+                }
+                // Live AirDrop (the page sets window.luminaSkimAirdropping just before it clicks its Add clips input, after
+                // `luminaSkimAirdrop.arrived` said 'ok'): the clips that arrived, no panel, as Add clips takes them.
+                if await skimPageFlag("(() => { const a = window.luminaSkimAirdropping; if (!a) return false; window.luminaSkimAirdropping = null; window.luminaSkimAdding = false; return true; })()") {
+                    let batch = skimAirdropBatch.filter { FileManager.default.fileExists(atPath: $0.path) }
+                    skimAirdropBatch = []; skimAirdropAsked = nil
+                    completionHandler(batch.isEmpty ? nil : await skimAirdropAdd(batch)); return
                 }
                 // Add clips (the page sets window.luminaSkimAdding just before its click): more clips for the open shoot. The
                 // page is told where they are (window.luminaSkimPicked, set before it gets the files) so the Final Cut file

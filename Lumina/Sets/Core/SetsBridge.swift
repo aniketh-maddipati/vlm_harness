@@ -95,6 +95,11 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     var onReady: (() -> Void)?
     /// The page's Photos / Video switch (`window.luminaSwitch.go`, Debug builds): the window loads the other page.
     var onSwitchPage: ((SetsPage) -> Void)?
+    /// Skim's live AirDrop (SkimAirdrop): clips that settled in the watched folder, on the main thread. The window hands
+    /// them to the page as Add clips (`SetsWindowController.skimAirdropArrived`).
+    var onAirdrop: (([URL]) -> Void)?
+    /// The watch stopped by itself (the folder moved, was deleted or can't be read): the new state, for the page.
+    var onAirdropState: (([String: Any]) -> Void)?
     /// The Edit canvas (addendum §2): native pixels over the page's canvas rect, or the image
     /// fallback path when there is no Metal device. Made by `attachCanvas` once the web view is up.
     private(set) var canvas: LookCanvasController?
@@ -850,6 +855,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 skimPlaces.add(.init(bookmark: bm, path: picked.path))
             }
             return (await skimPlacesJSON(), nil)
+        case "skimAirdrop":
+            // Live AirDrop: on (the folder panel the first time, opened at Downloads, after the user's click; the folder
+            // picked is kept as a security-scoped bookmark in `skim/airdrop.json`), off (the bookmark stays), or, with
+            // `on: null`, the state. Arrivals are only read, and only ever added as clips (`onAirdrop`).
+            let want = body["on"] as? Bool
+            if want == true, skimAirdropWatch == nil { await skimAirdropOn() }
+            if want == false { skimAirdropOff(keep: true) }
+            return (skimAirdropState(), nil)
         case "skimPlaceRemove":
             // Take a kept folder off the list (the folder itself is not touched).
             guard let path = body["path"] as? String else { return (await skimPlacesJSON(), nil) }
@@ -1067,6 +1080,89 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         default:
             return (nil, "unknown op \(op)")
         }
+    }
+
+    // MARK: Skim's live AirDrop (SkimAirdrop)
+
+    /// The bridge, held weakly by the watch's callbacks (they run on the watch's queue).
+    private final class SkimAirdropOwner: @unchecked Sendable {
+        weak var bridge: SetsBridge?
+        init(_ b: SetsBridge) { bridge = b }
+    }
+
+    private var skimAirdropStore: SkimAirdropStore { SkimAirdropStore(file: supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("airdrop.json")) }
+    private var skimAirdropWatch: SkimAirdropWatch?
+    /// The watched folder, its security scope open while it is watched.
+    private var skimAirdropScoped: URL?
+
+    /// What the page is told: whether the folder is watched now, and the folder kept (watched or not; null when none).
+    func skimAirdropState() -> [String: Any] {
+        ["on": skimAirdropWatch != nil, "folder": skimAirdropWatch?.folder.path ?? skimAirdropStore.read()?.path ?? NSNull()]
+    }
+
+    /// At launch (Skim only): the watch comes back when the switch was left on.
+    func skimAirdropResume() {
+        guard skimAirdropWatch == nil, let saved = skimAirdropStore.read(), saved.on else { return }
+        guard let url = skimAirdropResolve(saved), skimAirdropStart(url) else {
+            LuminaLog.app.error("skim airdrop: the watched folder can't be read; the switch is off")
+            var off = saved; off.on = false; skimAirdropStore.write(off)
+            return
+        }
+    }
+
+    private func skimAirdropOn() async {
+        if let saved = skimAirdropStore.read(), let url = skimAirdropResolve(saved), skimAirdropStart(url) {
+            var on = saved; on.on = true; on.path = url.path; skimAirdropStore.write(on)
+            return
+        }
+        // No folder kept, or it can't be found any more: the panel, at the real Downloads folder.
+        let downloads = SkimDrive.realHome().appendingPathComponent("Downloads", isDirectory: true)
+        guard let picked = await chooser.chooseDestination(label: "skim-airdrop", suggested: downloads, refusal: nil),
+              let bm = try? picked.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) else { return }
+        // The panel's URL is open for this run already; the bookmark is what brings it back after a relaunch.
+        guard skimAirdropStart(picked) else { LuminaLog.app.error("skim airdrop: the folder picked can't be read"); return }
+        skimAirdropStore.write(.init(bookmark: bm, path: picked.path, on: true))
+    }
+
+    /// Stops watching; `keep` keeps the bookmark (and writes the switch off).
+    private func skimAirdropOff(keep: Bool) {
+        skimAirdropWatch?.stop(); skimAirdropWatch = nil
+        skimAirdropScoped?.stopAccessingSecurityScopedResource(); skimAirdropScoped = nil
+        if keep, var saved = skimAirdropStore.read(), saved.on { saved.on = false; skimAirdropStore.write(saved) }
+    }
+
+    private func skimAirdropResolve(_ saved: SkimAirdropStore.Saved) -> URL? {
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: saved.bookmark, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+        if url.startAccessingSecurityScopedResource() { skimAirdropScoped = url }
+        if stale, let bm = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
+            skimAirdropStore.write(.init(bookmark: bm, path: url.path, on: saved.on))
+        }
+        return url
+    }
+
+    private func skimAirdropStart(_ folder: URL) -> Bool {
+        let me = SkimAirdropOwner(self)
+        let watch = SkimAirdropWatch(folder: folder, onBatch: { urls in
+            Task { @MainActor in
+                guard let self = me.bridge, self.skimAirdropWatch?.folder == folder else { return }
+                LuminaLog.app.notice("skim airdrop: \(urls.count, privacy: .public) clips arrived")
+                self.onAirdrop?(urls)
+            }
+        }, onGone: {
+            Task { @MainActor in
+                guard let self = me.bridge, self.skimAirdropWatch?.folder == folder else { return }
+                LuminaLog.app.error("skim airdrop: the watched folder went away; the switch is off")
+                self.skimAirdropOff(keep: true)
+                self.onAirdropState?(self.skimAirdropState())
+            }
+        })
+        guard watch.start() else {
+            skimAirdropScoped?.stopAccessingSecurityScopedResource(); skimAirdropScoped = nil
+            return false
+        }
+        skimAirdropWatch = watch
+        return true
     }
 
     /// The workshop's kept folders (`skim/places.json`, SkimPlaces).
