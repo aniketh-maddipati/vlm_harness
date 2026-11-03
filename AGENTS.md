@@ -204,6 +204,10 @@ above (Linux: the node fixtures, `Tests/web`, `make parity-test`, `Tests/linux-s
 classes with `-only-testing`, `probe.sh smoke`), fix what fails, and push the finished change in one go.
 CI's per-class pick follows names (a test file that names a type the change declares); main runs the
 whole target, so a break that reaches a class only indirectly still shows there.
+`bash Scripts/ci_local.sh` does all of that in one command (`--dry-run` lists the steps, `--probe` adds
+the screen-owning probe smoke / screens and Skim in Safari), every step through `test_guard.py`, and
+ends in one PASS / FAIL line. Who does what (Claude Code, Cursor, Grok through `Tools/agentloop`):
+`docs/dev/WORK-SPLIT.md`.
 
 ## Running tests without disturbing the Mac
 

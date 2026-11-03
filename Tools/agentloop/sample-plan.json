@@ -1,0 +1,24 @@
+{
+  "task": "Skim's Final Cut export test failed after a page change: find why, fix the test helper's lint, note it for the handoff, relabel the export button, and check the result the way CI would.",
+  "subtasks": [
+    {"id": "triage", "kind": "log-triage", "title": "Why did the export test fail?",
+     "prompt": "Read the ci_local logs and the export tests. Name the failing assertion, the likely cause and the file to look at.",
+     "paths": ["Tests/web/skim-export*.mjs", "Tests/web/mini-xml.mjs"], "inputs": []},
+    {"id": "callers", "kind": "search", "title": "Every caller of the export builder in the tests",
+     "prompt": "List each test that builds or checks the Final Cut XML (function, file:line) and what it asserts.",
+     "paths": ["Tests/web/skim-*.mjs", "Tests/web/lib.mjs"]},
+    {"id": "bridge-read", "kind": "search", "title": "How the native side writes the matte the .fcpxml names",
+     "prompt": "Find where the matte file path is chosen.", "paths": ["Lumina/Sets/Core/SkimMatte.swift"]},
+    {"id": "lint", "kind": "lint-fix", "title": "Unused imports and lets in the export test helper",
+     "prompt": "Remove unused imports and variables. No behaviour change.", "paths": ["Tests/web/skim-export.mjs"],
+     "depends_on": ["triage"]},
+    {"id": "note", "kind": "doc-draft", "title": "Handoff note for the fix",
+     "prompt": "Three lines for the Skim handoff: what failed, why, what changed.", "paths": ["Tests/web/skim-export.test.mjs"],
+     "depends_on": ["triage", "callers"]},
+    {"id": "label", "kind": "page-ui", "title": "Export button reads 'Save for Final Cut'",
+     "prompt": "Change the Skim page's export button label; keep keys and layout.", "paths": ["design/handoff/lumina-skim/*"],
+     "depends_on": ["triage"]},
+    {"id": "ci", "kind": "ci", "title": "What CI would run", "command": "bash Scripts/ci_local.sh",
+     "depends_on": ["lint", "label"]}
+  ]
+}
