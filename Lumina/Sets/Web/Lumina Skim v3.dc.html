@@ -1119,7 +1119,7 @@ class Component extends DCLogic {
   static VERB = {keep:'select', maybe:'maybe', cut:'cut'};
   W(m) { return m ? Component.WORD[m] || m : ''; }
   static LV = ['Scenes','Clips','Viewer'];
-  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,bk:null,cutsOpen:false,dragN:0,dropOn:null,backHit:false,prop:null,marks:{},dis:{},evHeld:false,evHot:null,undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:'',rate:true,scenes:false,lut:true,openFc:false,trash:false,mem:false,sorted:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
+  state = {progOn:false,zl:3,skim:null,z1:1,zc:1,zo:{x:0.5,y:0.5},noKeep:false,ready:false,lv:0,gi:0,cur:null,fx:0,nCut:0,cuts:null,pv:true,sel:[],box:null,held:null,dk:null,bk:null,cutsOpen:false,dragN:0,dropOn:null,backHit:false,prop:null,marks:{},dis:{},evHeld:false,evHot:null,undo:[],redo:[],flash:null,step:'import',dbg:typeof window !== 'undefined' && Component.isDebug(location.search, location.hash),cv:typeof window !== 'undefined' && Component.isCanvas(location.search, location.hash),memOn:false,memConfirm:false,ex:{event:'',kw:'maybe',maybes:true,all:false,root:'',rate:true,scenes:false,lut:true,looks:true,openFc:false,trash:false,mem:false,sorted:true},exDone:null,dropHot:false,impMsg:null,imp:null,hv:null,vw:typeof window !== 'undefined' ? window.innerWidth : 1440,vh:typeof window !== 'undefined' ? window.innerHeight : 900};
   mk = {k:'keep',m:'maybe',c:'cut',x:'cut'};
   thumbs = new Component.ThumbCache((src, s) => this.makeBmp(src, s), 128 * 1048576);
   covers = (() => { const v = typeof window !== 'undefined' && window.lumina && window.lumina.video; return v && v.coverGet ? new Component.HostCovers(v, 200e6) : new Component.CoverCache('lumina-skim-covers', 200e6); })();
@@ -4103,7 +4103,7 @@ class Component extends DCLogic {
   }
   // Export's choices that are not about one shoot (ratings, keyword, scenes, LUT, Open in Final Cut, Clear working memory)
   // are kept for the next export. Move cut to Trash never is: it is chosen for each shoot.
-  static EX_PREFS = ['rate', 'kw', 'scenes', 'lut', 'openFc', 'mem', 'sorted'];
+  static EX_PREFS = ['rate', 'kw', 'scenes', 'lut', 'looks', 'openFc', 'mem', 'sorted'];
   exPrefs() { this.exPrefsIn = true; try { const o = JSON.parse(localStorage.getItem('lumina-skimexport') || '{}') || {}, out = {}; Component.EX_PREFS.forEach(k => { if (k in o && typeof o[k] === typeof this.state.ex[k]) out[k] = o[k]; }); return out; } catch (x) { return {}; } }
   exPrefsSave(ex) { const o = {}; Component.EX_PREFS.forEach(k => { o[k] = ex[k]; }); this.persist('lumina-skimexport', JSON.stringify(o)); }
   exSet(k, val) { this.setState(s => { const ex = {...s.ex, [k]:val}; if (Component.EX_PREFS.indexOf(k) >= 0) this.exPrefsSave(ex); return {exDone:null, exRes:null, ex}; }); }
@@ -5973,6 +5973,95 @@ class Component extends DCLogic {
     }
     return [r, g, b].map(x => Math.max(0, Math.min(1, x)));
   }
+  static SL3T = [0.0000, 0.0225, 0.0459, 0.0709, 0.0984, 0.1292, 0.1631, 0.1996, 0.2387, 0.2810, 0.3268, 0.3766, 0.4301, 0.4876, 0.5500, 0.6167, 0.6851, 0.7530, 0.8170, 0.8740, 0.9223, 0.9604, 0.9866, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000];
+  static SL3M = [1.9014, -0.8790, -0.0434, 0.0067, -0.1553, 1.3955, -0.2447, 0.0003, 0.0021, -0.3185, 1.3129, -0.0011];
+  // A clip's S-Log3 code values (0…1, as Final Cut reads them) to Rec.709: the table above at 33 points, then the matrix.
+  // The preview runs the same table (sl3Table, which first undoes this engine's own decode) and matrix.
+  // shift: Exposure on S-Log3, added to the code before the table (sl3Table(ev), EV_CODE a stop).
+  static lkSl3(rgb, shift) {
+    const T = Component.SL3T, n = T.length - 1, M = Component.SL3M, sh = shift || 0;
+    const [r, g, b] = rgb.map(v => { const x = Math.max(0, Math.min(1, v + sh)) * n, i = Math.min(n - 1, Math.floor(x)); return T[i] + (T[i + 1] - T[i]) * (x - i); });
+    return [0, 1, 2].map(k => Math.max(0, Math.min(1, M[k * 4] * r + M[k * 4 + 1] * g + M[k * 4 + 2] * b + M[k * 4 + 3])));
+  }
+  // What the preview shows a clip through before its look (gradeDraw's mode): 0 as shot, 1 S-Log3 → Rec.709 (lkSl3),
+  // 2 the other log profiles' filter (S-Log2, HLG), written out as LK_FS does.
+  static lkIn(rgb, mode) {
+    if (mode === 1) return Component.lkSl3(rgb);
+    if (mode !== 2) return rgb;
+    const c = rgb.map(v => (v - 0.5) * 1.35 + 0.5), y = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    return c.map(v => Math.max(0, Math.min(1, (y + (v - y) * 1.45) * 0.96)));
+  }
+  // What the Viewer's look canvas (gradeDraw, LK_FS) draws for one code value of a clip shown in `mode` with look L. On S-Log3
+  // (mode 1) Exposure is not the look's linear gain: it is a shift of the camera's code before the table, to 1/100 stop, and the
+  // look then runs with ev 0 (evOf's note). Every other clip: lkIn, then lkPx with its Exposure.
+  static lkPreview(rgb, L, mode) {
+    const u = Component.lkU(L);
+    if (mode !== 1) return Component.lkPx(Component.lkIn(rgb, mode), u);
+    const sh = Math.round(u.ev * 100) / 100 * 261.5 * Math.log10(2) / 1023; u.ev = 0;
+    return Component.lkPx(Component.lkSl3(rgb, sh), u);
+  }
+  // The look as a .cube for Final Cut's Custom LUT effect: an n³ grid of the clip's code values, each through lkPreview (the
+  // clip then goes to Final Cut with Camera LUT None). Red varies fastest.
+  static lkCube(L, mode, title, n) {
+    n = n || 33; mode = mode === true ? 1 : mode || 0;
+    const out = ['TITLE "' + String(title || 'Lumina Skim look').replace(/["\r\n]/g, ' ') + '"', 'LUT_3D_SIZE ' + n, 'DOMAIN_MIN 0 0 0', 'DOMAIN_MAX 1 1 1'];
+    for (let b = 0; b < n; b++) for (let g = 0; g < n; g++) for (let r = 0; r < n; r++) out.push(Component.lkPreview([r / (n - 1), g / (n - 1), b / (n - 1)], L, mode).map(v => v.toFixed(6)).join(' '));
+    return out.join('\n') + '\n';
+  }
+  // ---- How Final Cut 12.4 names a custom LUT in a .fcpxml (read from its own export, 2026-11-03). The Custom LUT effect's
+  // "LUT" parameter is base64 of a Motion parameter (ozml) whose value is "<hash>:<name>". Final Cut finds the LUT only in its
+  // Custom LUTs folder (~/Library/Application Support/ProApps/Custom LUTs), by the hash of the file's path inside that folder:
+  // MD5 of the path in UTF-16LE, printed as four little-endian 32-bit words. A path anywhere else is not followed.
+  static lkMd5(bytes) {
+    const K = [], S = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
+    for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) >>> 0;
+    const n = bytes.length, m = new Uint8Array(((n + 8) >> 6) * 64 + 64); m.set(bytes); m[n] = 0x80;
+    const bits = n * 8; for (let i = 0; i < 8; i++) m[m.length - 8 + i] = i < 4 ? (bits >>> (8 * i)) & 255 : Math.floor(bits / 4294967296) >>> (8 * (i - 4)) & 255;
+    let h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476;
+    for (let o = 0; o < m.length; o += 64) {
+      const w = []; for (let i = 0; i < 16; i++) w[i] = m[o + i * 4] | m[o + i * 4 + 1] << 8 | m[o + i * 4 + 2] << 16 | m[o + i * 4 + 3] << 24;
+      let a = h0, b = h1, c = h2, d = h3;
+      for (let i = 0; i < 64; i++) {
+        const r = i >> 4; let f, g;
+        if (r === 0) { f = (b & c) | (~b & d); g = i; } else if (r === 1) { f = (d & b) | (~d & c); g = (5 * i + 1) & 15; } else if (r === 2) { f = b ^ c ^ d; g = (3 * i + 5) & 15; } else { f = c ^ (b | ~d); g = (7 * i) & 15; }
+        const t = d; d = c; c = b; const x = (a + f + K[i] + w[g]) | 0, sh = S[r * 4 + (i & 3)]; b = (b + (x << sh | x >>> (32 - sh))) | 0; a = t;
+      }
+      h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0;
+    }
+    const out = new Uint8Array(16); [h0, h1, h2, h3].forEach((h, i) => { for (let k = 0; k < 4; k++) out[i * 4 + k] = (h >>> (8 * k)) & 255; }); return out;
+  }
+  static lkLutHash(rel) {
+    const s = String(rel), u = new Uint8Array(s.length * 2); for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); u[i * 2] = c & 255; u[i * 2 + 1] = c >> 8; }
+    const d = Component.lkMd5(u), hx = x => (x < 16 ? '0' : '') + x.toString(16); let o = '';
+    for (let i = 0; i < 16; i += 4) o += hx(d[i + 3]) + hx(d[i + 2]) + hx(d[i + 1]) + hx(d[i]);
+    return o;
+  }
+  // The parameter's value for one reference ("<hash>:<name>", or '' for none): the reference as an NSKeyedArchiver binary
+  // plist, framed (8-byte length, '*', the plist, two zero bytes) and written in Motion's 6-bit alphabet, inside the ozml
+  // text Final Cut writes, base64. lkLutParam(hash + ':C4815 look') is byte for byte what Final Cut 12.4 exported.
+  static lkLutParam(ref) {
+    const str = s => { const a = /^[\x00-\x7f]*$/.test(s), len = s.length, out = [];
+      const hd = (k, n) => { if (n < 15) out.push(k << 4 | n); else { out.push(k << 4 | 15); if (n < 256) out.push(0x10, n); else out.push(0x11, n >> 8, n & 255); } };
+      if (a) { hd(5, len); for (let i = 0; i < len; i++) out.push(s.charCodeAt(i)); } else { hd(6, len); for (let i = 0; i < len; i++) { const c = s.charCodeAt(i); out.push(c >> 8, c & 255); } }
+      return out; };
+    const plist = s => {
+      const ob = [[0xd4, 1, 2, 3, 4, 5, 6, 7, 10], str('$version'), str('$archiver'), str('$top'), str('$objects'), [0x12, 0x00, 0x01, 0x86, 0xa0], str('NSKeyedArchiver'), [0xd1, 8, 9], str('$0'), [0x80, 1], [0xa2, 11, 12], str('$null'), str(s)];
+      const head = [0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30], body = [...head], offs = [];
+      ob.forEach(o => { offs.push(body.length); body.push(...o); });
+      const table = body.length, sz = table < 256 ? 1 : 2;
+      offs.forEach(v => { if (sz === 2) body.push(v >> 8); body.push(v & 255); });
+      const be8 = v => [0, 0, 0, 0, (v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255];
+      body.push(0, 0, 0, 0, 0, 0, sz, 1, ...be8(ob.length), ...be8(0), ...be8(table));
+      return body;
+    };
+    const enc = s => { const p = plist(s), b = [0, 0, 0, 0, (p.length >>> 24) & 255, (p.length >>> 16) & 255, (p.length >>> 8) & 255, p.length & 255, 0x2a, ...p, 0, 0];
+      const A = '*-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'; let o = '', acc = 0, nb = 0;
+      for (const x of b) { acc = (acc << 8) | x; nb += 8; while (nb >= 6) { nb -= 6; o += A[(acc >> nb) & 63]; } acc &= (1 << nb) - 1; }
+      if (nb) o += A[(acc << (6 - nb)) & 63];
+      return o; };
+    const oz = '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE ozxmlscene>\n<ozml version="5.15">\n\n<factory id="1" uuid="4d0e48d84fca424d82aa98a027c6ec5c">\n\t<description>Channel</description>\n\t<manufacturer>Apple</manufacturer>\n\t<version>1</version>\n</factory>\n\n\n<parameter name="LUT" id="3" flags="4295032848">\n\t<flags>4295032848</flags>\n\t<numberOfKeypoints>0</numberOfKeypoints>\n\t<defaultVal>' + enc('') + '</defaultVal>\n\t<dataValue>' + enc(String(ref || '')) + '</dataValue>\n</parameter>\n\n</ozml>\n';
+    return typeof btoa === 'function' ? btoa(oz) : Buffer.from(oz, 'latin1').toString('base64');
+  }
   // LOOK-END
   // The same steps on the GPU. mode 0: as shot; 1: S-Log3 → Rec.709 (the page's own table and matrix,
   // the ones toDisplay uses); 2: the other log profiles' filter, written out.
@@ -6027,6 +6116,26 @@ void main() {
     this.setState(s => ({lkTick:(s.lkTick || 0) + 1})); this.gradeDraw();
   }
   lookOf(id) { return this.looks()[id] || null; }
+  // Export: the .cube for each clip with a look (Final Cut's Custom LUT effect). The clip goes to Final Cut with Camera LUT
+  // None and the cube carries what the preview shows it through (lkIn: the S-Log3 conversion for S-Log3 clips, the filter
+  // for S-Log2 and HLG, nothing for Rec.709), then the look. Final Cut reads a custom LUT only from its own Custom LUTs folder,
+  // so each cube has a place there, "Lumina Skim/<event>/<clip> <tag>.cube" (the tag from its contents: a changed look is a new
+  // file, and an older project keeps the one it used); the .fcpxml names that place. Cubes are memoised by look and mode.
+  lkLuts(clips, event) {
+    const M = this.looks ? this.looks() : {}, out = {}, memo = this.lkCubes || (this.lkCubes = new Map());
+    const safe = t => String(t || '').replace(/[\/:\\\u0000-\u001f]/g, ' ').replace(/^[.\s]+/, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Skim';
+    const ev = safe(event);
+    (clips || []).forEach(c => {
+      const L = M[c.id]; if (Component.lkFlat(L)) return;
+      const g = c.profile && c.profile.gamma, mode = g === 'S-Log3' ? 1 : g === 'S-Log2' || g === 'HLG' ? 2 : 0, stem = safe(String(c.name || '').replace(/\.\w+$/, ''));
+      const k = mode + '|' + JSON.stringify(Object.keys(L).sort().map(p => [p, L[p]]));
+      let e = memo.get(k);
+      if (!e) { const text = Component.lkCube(L, mode, 'Lumina Skim'); let h = 0x811c9dc5; for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619); e = {text, tag:(h >>> 0).toString(16).padStart(8, '0').slice(0, 6)}; memo.set(k, e); if (memo.size > 400) memo.delete(memo.keys().next().value); }
+      const name = stem + ' ' + e.tag, rel = 'Lumina Skim/' + ev + '/' + name + '.cube';
+      out[c.id] = {name, file:name + '.cube', rel, text:e.text.replace(/^TITLE "[^"\n]*"/, 'TITLE "' + name.replace(/"/g, ' ') + '"'), mode, param:Component.lkLutParam(Component.lkLutHash(rel) + ':' + name)};
+    });
+    return out;
+  }
   // One undo step per gesture: the look before the drag and after it.
   lkBegin(ids) { const m = this.looks(); this.lkPrev = {ids, prev:Object.fromEntries(ids.map(id => [id, m[id] ? {...m[id]} : null]))}; }
   lkEnd(say) {
@@ -6148,8 +6257,6 @@ void main() {
     // While it plays, every new frame of the video is graded as it arrives.
     if (!v.paused && !this.gdRv) { const next = () => { this.gdRv = 0; this.gradeDraw(); }; this.gdRv = v.requestVideoFrameCallback ? v.requestVideoFrameCallback(next) : requestAnimationFrame(next); }
   }
-  static SL3T = [0.0000, 0.0225, 0.0459, 0.0709, 0.0984, 0.1292, 0.1631, 0.1996, 0.2387, 0.2810, 0.3268, 0.3766, 0.4301, 0.4876, 0.5500, 0.6167, 0.6851, 0.7530, 0.8170, 0.8740, 0.9223, 0.9604, 0.9866, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000];
-  static SL3M = [1.9014, -0.8790, -0.0434, 0.0067, -0.1553, 1.3955, -0.2447, 0.0003, 0.0021, -0.3185, 1.3129, -0.0011];
   // with the clip's exposure (x, stops; the colour check passes 0): the same table at the shifted code, or the gain
   toDisplay(img, c, x = this.evOf(c)) {
     const p = this.prof(c), k = Math.round(x * 100);
@@ -6382,7 +6489,7 @@ void main() {
   buildX() {
     const st = this.state, d = this.d, ex = st.ex; if (!d) return {n:0, text:''};
     let fp = 0; d.clips.forEach(c => { const t = [c.dur, c.nf, c.fd, c.fps, c.w, c.h, c.ltc, c.path, c.profile && c.profile.gamma, c.profile && c.profile.primaries, c.ach, c.arate, c.facts && c.facts.state, c.facts && String(c.facts.idx), c.facts && String(c.facts.sharpF), c.facts && c.facts.bump].join('|'); for (let i = 0; i < t.length; i++) fp = (fp * 31 + t.charCodeAt(i)) | 0; });
-    const bk = [d, d.clips.length, fp, st.marks, JSON.stringify(ex), this.SC, this.G, JSON.stringify(this.exHost || null), JSON.stringify(this.mattes ? this.mattes() : null), JSON.stringify(this.patches ? this.patches() : null)], bm = this.bxM;
+    const bk = [d, d.clips.length, fp, st.marks, JSON.stringify(ex), this.SC, this.G, JSON.stringify(this.exHost || null), JSON.stringify(this.mattes ? this.mattes() : null), JSON.stringify(this.patches ? this.patches() : null), JSON.stringify(this.looks ? this.looks() : null)], bm = this.bxM;
     if (bm && bm.k.every((v, i) => v === bk[i])) return bm.x;
     const bx = (() => {
     const xe = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -6409,7 +6516,10 @@ void main() {
     const src = c => { let p = c.path || c.name; if (p[0] !== '/') { const i = p.indexOf('/'); p = root ? root + '/' + (tops.size <= 1 && i >= 0 ? p.slice(i + 1) : p) : '/Volumes/' + p; } return 'file://' + p.split('/').map(encodeURIComponent).join('/'); };
     // Final Cut's own name for its built-in Sony conversion, as it writes it on a clip whose Camera LUT is set to
     // Sony S-Log3/S-Gamut3.Cine (read from an export of Final Cut Pro 12.4). Only that pair is known; other log clips get none.
-    const lut = c => ex.lut !== false && c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine' ? ' customLUTOverride="35 (Sony_SLog3_SGamut3Cine_v2)"' : '';
+    // A clip with a look goes with Camera LUT None: its cube (lkLuts) carries the conversion the preview showed, then the look.
+    const LT = (ex.looks !== false && this.lkLuts && this.lkLuts(clips, ex.event || d.shoot.name)) || {}, lutFx = Object.keys(LT).length ? 'lut1' : null;
+    const lkF = (c, pad) => LT[c.id] ? [pad + '<filter-video ref="lut1" name="Custom LUT">', pad + '  <param name="LUT" key="3" value="' + LT[c.id].param + '"/>', pad + '  <param name="Input" key="100/101" value="0 (Rec. 709)"/>', pad + '  <param name="Output" key="100/102" value="0 (Rec. 709)"/>', pad + '</filter-video>'] : [];
+    const lut = c => !LT[c.id] && ex.lut !== false && c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine' ? ' customLUTOverride="35 (Sony_SLog3_SGamut3Cine_v2)"' : '';
     // every clip starts at 0s, where Final Cut reads it: Final Cut takes a file's start from the file itself and reads 00:00:00:00
     // for Sony MP4s, sidecar or not, so a start at the camera's LtcChange left the clip with "no shared media range" (Modified File,
     // no relink; 2026-10-15). The timecode stays in Skim (c.ltc).
@@ -6439,6 +6549,7 @@ void main() {
       if (kw.length) cl.push('        <keyword start="' + s0 + '" duration="' + du + '" value="' + xe(kw.join(', ')) + '"/>');
       if (rate) cl.push('        <rating start="' + s0 + '" duration="' + du + '" value="' + rate + '"/>');
       cl.push(...flagMk(c, f, s0));
+      cl.push(...lkF(c, '        '));
       cl.push('      </asset-clip>');
       // the followed shape's matte (Follow ▸ Save matte), the clip's length frame for frame, beside it in the event with the keyword "matte"
       const mt = MT[c.id]; if (mt && mt.path) {
@@ -6480,18 +6591,19 @@ void main() {
       let at = 0, last = -1;
       order.forEach(x => {
         const k = Math.max(1, Math.floor(x.nf * x.f.n * S.dd / (x.f.dd * S.n))), du = k * S.n + '/' + S.dd + 's';
-        const open = x.p !== last || !!x.pt;
+        const open = x.p !== last || !!x.pt || !!LT[x.c.id];
         pj.push('            <asset-clip ref="a' + (x.i + 1) + '" offset="' + (at ? at * S.n + '/' + S.dd + 's' : '0s') + '" name="' + x.nm + '"' + (x.s0 !== '0s' ? ' start="' + x.s0 + '"' : '') + ' duration="' + du + '" format="' + x.f.id + '" tcFormat="NDF"' + (open ? '>' : '/>'));
         if (x.pt) pj.push('              <asset-clip ref="' + x.pt + '" lane="1" offset="' + x.s0 + '" name="' + x.nm + ' patch" duration="' + du + '" format="' + x.f.id + '" tcFormat="NDF"/>');
         if (x.p !== last) { const mk = x.m || 'und'; pj.push('              <marker start="' + x.s0 + '" duration="' + x.f.n + '/' + x.f.dd + 's" value="' + xe(NM[mk] + ' · ' + n[x.p] + (n[x.p] === 1 ? ' clip' : ' clips')) + '"/>'); last = x.p; }
+        pj.push(...lkF(x.c, '              '));
         if (open) pj.push('            </asset-clip>');
         at += k;
       });
       pj.unshift('      <project name="' + xe((ex.event || d.shoot.name) + ' · sorted') + '">', '        <sequence format="' + S.id + '" duration="' + (at * S.n) + '/' + S.dd + 's" tcStart="0s" tcFormat="NDF">', '          <spine>');
       pj.push('          </spine>', '        </sequence>', '      </project>');
     }
-    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <import-options>', '    <option key="copy assets" value="0"/>', '  </import-options>', '  <resources>', ...fl, ...al, '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...co, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
-    return {n:clips.length, text, kws:[...kws]};
+    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <import-options>', '    <option key="copy assets" value="0"/>', '  </import-options>', '  <resources>', ...fl, ...al, ...(lutFx ? ['    <effect id="lut1" name="Custom LUT" uid="FxPlug:14B39AEF-607D-42DF-98DD-DB3DD345E925"/>'] : []), '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...co, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
+    return {n:clips.length, text, kws:[...kws], luts:LT};
   })();
     this.bxM = {k:bk, x:bx}; return bx;
   }
@@ -6596,7 +6708,11 @@ void main() {
       if (a.getAttribute('start') != null && !time(a.getAttribute('start'))) say(who + ' has a start that cannot be read.');
       if (a.getAttribute('id')) assets[a.getAttribute('id')] = {du, f:a.getAttribute('format'), s:a.getAttribute('start') || '0s'};
     });
-    rk.forEach(r => { if (tag(r) !== 'format' && tag(r) !== 'asset') say('The resources hold something this page does not write.'); });
+    // a look: Final Cut's Custom LUT effect, once, used by the clips as a filter with its three parameters (lkLuts)
+    const fx = rk.filter(r => tag(r) === 'effect'), fxId = fx.length === 1 && fx[0].getAttribute('uid') === 'FxPlug:14B39AEF-607D-42DF-98DD-DB3DD345E925' ? fx[0].getAttribute('id') : null;
+    if (fx.length && !fxId) say('The resources hold an effect this page does not write.');
+    const lutOk = k => tag(k) === 'filter-video' && !!fxId && k.getAttribute('ref') === fxId && kids(k).length === 3 && kids(k).every(q => tag(q) === 'param' && !kids(q).length) && ['LUT', 'Input', 'Output'].every((nm, i) => kids(k)[i].getAttribute('name') === nm && !!kids(k)[i].getAttribute('value'));
+    rk.forEach(r => { if (tag(r) !== 'format' && tag(r) !== 'asset' && tag(r) !== 'effect') say('The resources hold something this page does not write.'); });
     const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip'), pj = ek.filter(c => tag(c) === 'project'), cf = ek.filter(c => tag(c) === 'collection-folder');
     if (cl.length + pj.length + cf.length !== ek.length || pj.length > 1 || cf.length > 1) say('The event holds something this page does not write.');
     // the Skim folder: keyword collections and smart collections that match a rating or a keyword, nothing else
@@ -6611,7 +6727,8 @@ void main() {
         if (tag(c) !== 'asset-clip') { say('The timeline holds something this page does not write.'); return; }
         if (!assets[c.getAttribute('ref')]) say(who + ' refers to media that is not in the file.');
         if (!time(c.getAttribute('offset')) || !time(c.getAttribute('duration'))) say(who + ' has a position or length that cannot be read.');
-        const mk = kids(c); if (mk.length > 1 || mk.some(k => tag(k) !== 'marker' || !k.getAttribute('value') || !time(k.getAttribute('start')))) say(who + ' carries something this page does not write.'); }); });
+        const ck = kids(c), lf = ck.filter(k => tag(k) === 'filter-video'), mk = ck.filter(k => tag(k) !== 'filter-video');
+        if (mk.length > 1 || lf.length > 1 || lf.some(k => !lutOk(k)) || mk.some(k => tag(k) !== 'marker' || !k.getAttribute('value') || !time(k.getAttribute('start')))) say(who + ' carries something this page does not write.'); }); });
     cl.forEach(c => {
       const who = 'Clip “' + (c.getAttribute('name') || c.getAttribute('ref') || '') + '”', a = assets[c.getAttribute('ref')], du = time(c.getAttribute('duration'));
       const fid = c.getAttribute('format'), f = fmts[fid != null ? fid : a && a.f];
@@ -6621,16 +6738,17 @@ void main() {
       else if (f && (du[0] * f[1]) % (du[1] * f[0])) say(who + ' has a length that is not a whole number of frames.');
       else if (a && a.du && du[0] * a.du[1] > a.du[0] * du[1]) say(who + ' is longer than its media.');
       ['offset', 'start'].forEach(k => { const t = c.getAttribute(k); if (t != null && !time(t)) say(who + ' has a position that cannot be read.'); });
-      let nr = 0, nk = 0; const cs = c.getAttribute('start') || '0s';
+      let nr = 0, nk = 0, nl = 0; const cs = c.getAttribute('start') || '0s';
       if (a && a.s && cs !== a.s) say(who + ' does not start where its media does.');
       kids(c).forEach(k => {
         const t = tag(k), val = k.getAttribute('value'), whole = k.getAttribute('start') === cs && k.getAttribute('duration') === c.getAttribute('duration') && !kids(k).length;
         if (t === 'rating') { nr++; if (!whole || (val !== 'favorite' && val !== 'reject')) say(who + ' carries a rating this page does not write.'); }
         else if (t === 'keyword') { nk++; if (!whole || !val || val.split(', ').some(w => (kws || ['maybe']).indexOf(w) < 0)) say(who + ' carries a keyword this page does not write.'); }
         else if (t === 'marker') { const ms = time(k.getAttribute('start')), c0 = time(cs), md = time(k.getAttribute('duration')); if (!val || !ms || !md || kids(k).length || (c0 && du && (ms[0] * c0[1] < c0[0] * ms[1] || ms[0] * c0[1] * du[1] >= (c0[0] * du[1] + du[0] * c0[1]) * ms[1]))) say(who + ' has a marker outside it or one this page does not write.'); }
+        else if (t === 'filter-video' && lutOk(k)) nl++;
         else say(who + ' carries something this page does not write.');
       });
-      if (nr > 1 || nk > 1) say(who + ' is rated or tagged more than once.');
+      if (nr > 1 || nk > 1 || nl > 1) say(who + ' is rated or tagged more than once.');
     });
     if (n != null && cl.length !== n) say('The file holds ' + cl.length + ' clip' + (cl.length === 1 ? '' : 's') + ' but the button says ' + n + '.');
     return done();
@@ -6655,6 +6773,11 @@ void main() {
     a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
     this.exSent(x, name, blob.size);
     const rows = [{ok:true, t:'Downloaded ' + name + ' · ' + this.plural(x.n, 'clip') + ' to your browser\u2019s download folder.'}];
+    const LU = Object.values(x.luts || {});
+    if (LU.length) {
+      LU.forEach((e, i) => setTimeout(() => { const b = document.createElement('a'), w = URL.createObjectURL(new Blob([e.text], {type:'text/plain'})); b.href = w; b.download = e.file; document.body.appendChild(b); b.click(); b.remove(); setTimeout(() => URL.revokeObjectURL(w), 4000); }, 300 * (i + 1)));
+      rows.push({ok:true, t:'Downloaded ' + this.plural(LU.length, '.cube LUT') + ', one per clip with a look. Final Cut reads LUTs only from its own Custom LUTs folder: put them in ~/Library/Application Support/ProApps/Custom LUTs/Lumina Skim/' + LU[0].rel.split('/')[1] + '/ before you import the .fcpxml, or Final Cut shows \u201cMissing Custom LUT\u201d.'});
+    }
     if (ex.mem) rows.push(this.exMem());
     this.setState({exRes:{head:'Exported', rows, out:{name}, done:true, mem:!!ex.mem}});
   };
@@ -6669,12 +6792,35 @@ void main() {
     const rows = [{ok:true, t:'Saved ' + r.name + ' · ' + this.plural(x.n, 'clip') + ' in ' + this.tilde(r.folder)}], out = {path:r.path, name:r.name, fc:false, moved:0};
     // the background check, run again now on exactly what was saved, so the result says whether Final Cut will take it
     if (v.exportCheck) { let c = null; try { c = await v.exportCheck(x.text); } catch (e) {} if (c) { this.setState({exVer:{text:x.text, ...c, at:Date.now()}}); const say = Component.verifySay(c, x.n, true); rows.push({ok:!say.bad, t:say.t}); } }
+    // the looks: a .cube per clip beside the .fcpxml, and in Final Cut's Custom LUTs folder before Final Cut opens the file
+    if (x.luts && Object.keys(x.luts).length) { const lr = await this.exLuts(v, x); rows.push(...lr); if (lr.some(y => y.lutAsk)) out.lutAsk = x; }
     if (ex.openFc && this.exHost && this.exHost.finalCut) { const o = await this.exFc(v, r.path); out.fc = o.ok; rows.push(o); }
     if (ex.trash && !ex.all) { const t = await this.exTrash(); if (t) { rows.push(t.row); out.moved = t.n; } }
     if (ex.mem) rows.push(this.exMem());
     this.exBusy = false; if (this.d !== d) return;
     this.setState({exRes:{head:'Exported', rows, out, done:true, mem:!!ex.mem}});
   }
+  // Each clip's look: saved as a .cube beside the .fcpxml (the workshop's folder or Save to; with neither, no save panel per
+  // cube), then put in Final Cut's Custom LUTs folder, the only place its Custom LUT effect reads (lkLuts).
+  async exLuts(v, x) {
+    const L = Object.values(x.luts), rows = [], dir = this.exDir('fcp'), H = this.exHost; let n = 0, why = '';
+    if (dir || (H && !H.ask)) {
+      for (const e of L) { let r = null; try { r = await v.exportSave(e.file, e.text, dir, null); } catch (er) {} if (r && r.ok) n++; else why = why || (r && r.why) || 'the app did not answer'; }
+      rows.push({ok:n === L.length, t:'Saved ' + this.plural(n, '.cube LUT') + ' beside it, one per clip with a look' + (why ? '. Not saved: ' + why : '.')});
+    }
+    rows.push(await this.exLutsInstall(v, L));
+    return rows;
+  }
+  async exLutsInstall(v, L) {
+    const ev = (L[0] && L[0].rel.split('/')[1]) || '', where = 'Custom LUTs \u25b8 Lumina Skim \u25b8 ' + ev;
+    let pl = null; try { pl = v.lutsPlace ? await v.lutsPlace() : null; } catch (e) {} this.lutsAt = pl;
+    if (!pl || !pl.path) return {ok:false, lutAsk:true, t:'Final Cut reads LUTs only from its own Custom LUTs folder (' + this.tilde((pl && pl.want) || '~/Library/Application Support/ProApps/Custom LUTs') + '), and Lumina has no access to it yet. Give access below and the LUTs go there; or copy the .cube files into ' + where + ' yourself. Until then Final Cut shows \u201cMissing Custom LUT\u201d on those clips.'};
+    let r = null; try { r = await v.lutsInstall(L.map(e => ({rel:e.rel, text:e.text}))); } catch (e) {}
+    const ok = Array.isArray(r) ? r.filter(y => y && y.ok).length : 0, bad = Array.isArray(r) ? r.find(y => !y || !y.ok) : null;
+    return {ok:ok === L.length, t:ok ? 'Put ' + this.plural(ok, 'LUT') + ' in Final Cut\u2019s ' + where + '; the clips use them through the Custom LUT effect, Camera LUT None.' + (bad ? ' Not put there: ' + ((bad && bad.why) || 'the app did not answer') + '.' : '') : 'No LUT put in Final Cut\u2019s Custom LUTs folder: ' + ((bad && bad.why) || 'the app did not answer') + '.'};
+  }
+  exLutsGrant = () => { const v = this.exHostApi(), R = this.state.exRes, x = R && R.out && R.out.lutAsk; if (!v || !v.lutsChoose || !x) return;
+    Promise.resolve().then(() => v.lutsChoose()).then(pl => { this.lutsAt = pl || null; if (!pl || !pl.path) return; return this.exLutsInstall(v, Object.values(x.luts)).then(row => this.exAddRow(row, {out:{...this.state.exRes.out, lutAsk:row.ok ? null : x}})); }, () => {}); };
   async exFc(v, path) {
     let o = null; try { o = await v.openInFinalCut(path); } catch (e) {}
     return o && o.ok ? {ok:true, t:'Opened in ' + (o.app || 'Final Cut Pro') + '. Pick a library in its import window; the clips arrive in the event \u201c' + (this.state.ex.event || (this.d && this.d.shoot.name) || '') + '\u201d.'}
@@ -6903,13 +7049,14 @@ void main() {
         {k:'undecided', c:'rgba(239,236,230,0.3)', n:this.plural(und, 'clip'), size:this.fmtB(Math.max(0, d.shoot.bytes - markB.keep - markB.maybe - markB.cut)), to:ex.all ? 'unrated' : 'stay on the card'}];
       const sw = (id, t, sub, on, key, dis) => ({id, t, sub, on, op:dis ? 0.45 : 1, cur:dis ? 'default' : 'pointer', track:on ? '#FFD27A' : 'rgba(239,236,230,0.18)', knob:on ? '16px' : '2px', rowBg:'transparent', go:() => { if (!dis) this.exSet(key, !this.state.ex[key]); }});
       const btn = (id, t, tip, on, go) => ({id, t, tip, off:!on, op:on ? 1 : 0.45, cur:on ? 'pointer' : 'default', go:on ? go : () => {}}), fb = b => this.fmtB(b);
-      const host = this.exHostApi(), H = this.exHost, fcOk = !!(H && H.finalCut), kwM = ex.kw == null ? 'maybe' : String(ex.kw).trim(), slogN = d.clips.filter(c => c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine').length;
+      const host = this.exHostApi(), H = this.exHost, fcOk = !!(H && H.finalCut), kwM = ex.kw == null ? 'maybe' : String(ex.kw).trim(), slogN = d.clips.filter(c => c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine').length, lookN = d.clips.filter(c => { const m = st.marks[c.id]; return (ex.all || m === 'keep' || (ex.maybes && m === 'maybe')) && !Component.lkFlat(this.lookOf(c.id)); }).length;
       v.exOpts = [sw('ex-all', 'Everything', ex.all ? 'Every clip; selected ones as Favorites, cut ones marked as not wanted.' : 'Only selected clips' + (ex.maybes ? ' and maybes.' : '.'), ex.all, 'all'),
         sw('ex-maybes', 'Include maybes', kwM ? 'Tagged \u201c' + kwM + '\u201d in Final Cut.' : 'With no keyword.', ex.all || ex.maybes, 'maybes', ex.all)];
       v.exOpts2 = [sw('ex-rate', 'Ratings', ex.rate !== false ? 'Selected clips are Favorites' + (ex.all ? ', cut clips marked as not wanted.' : '.') : 'Every clip arrives unrated.', ex.rate !== false, 'rate'),
         sw('ex-scenes', 'Scenes as keywords', 'Each clip carries its scene, so the browser has a keyword collection per scene.', !!ex.scenes, 'scenes'),
         sw('ex-sorted', 'Sorted timeline', ex.sorted !== false ? 'A project with ' + Component.wsCap(this.W('keep')).toLowerCase() + ' clips first, then maybes, then unmarked, cut last, a marker at the start of each part.' : 'Only the event; no project.', ex.sorted !== false, 'sorted')]
-        .concat(slogN ? [sw('ex-lut', 'Camera LUT', this.plural(slogN, 'S-Log3 clip') + (ex.lut !== false ? ' arrive with Sony S-Log3/S-Gamut3.Cine applied, as here.' : ' arrive as log; set the Camera LUT in Final Cut.'), ex.lut !== false, 'lut')] : [])
+        .concat(slogN ? [sw('ex-lut', 'Camera LUT', this.plural(slogN, 'S-Log3 clip') + (ex.lut !== false ? ' arrive with Sony S-Log3/S-Gamut3.Cine applied, as here.' : ' arrive as log; set the Camera LUT in Final Cut.') + (lookN && ex.looks !== false ? ' A clip with a look has its own LUT instead.' : ''), ex.lut !== false, 'lut')] : [])
+        .concat(lookN ? [sw('ex-looks', 'Looks', ex.looks !== false ? this.plural(lookN, 'clip') + ' with a look \u00b7 LUT each: a .cube beside the .fcpxml, in Final Cut\u2019s Custom LUT effect, as here.' : this.plural(lookN, 'clip') + ' with a look arrive without it; the looks stay in Skim.', ex.looks !== false, 'looks')] : [])
         .concat(host ? [sw('ex-openfc', 'Open in Final Cut', fcOk ? 'After saving, Final Cut Pro opens the file and asks which library.' : 'Final Cut Pro is not on this Mac.', !!ex.openFc && fcOk, 'openFc', !fcOk)] : []);
       v.kwOn = !!(ex.all || ex.maybes); v.exKw = ex.kw == null ? 'maybe' : ex.kw;
       { const cutP = Component.trashPick(d.clips, st.marks, -1e9, () => true), dr = this.drv, canTrash = !!(host && window.lumina.video.trashMove && d.shoot.real), memP = this.farPlan(-1e9), memB = memP.bytes + (memP.dec || 0), no = !!(dr && dr.refusal);
@@ -6935,6 +7082,9 @@ void main() {
         }
         // the one line under the button: what ⌘⏎ will do, in order
         const fname = (ex.event || d.shoot.name || 'Lumina').replace(/[\/:]/g, '-') + '.fcpxml', will = [host ? 'saves ' + fname + (dirF ? ' to ' + this.tilde(dirF) : H && !H.ask ? ' to ' + this.tilde(H.path) : ' where you pick') : 'downloads ' + fname];
+        const lutN = Object.keys(x.luts || {}).length, hv = this.exHostApi();
+        if (lutN && hv && hv.lutsPlace && this.lutsAt === undefined) { this.lutsAt = null; Promise.resolve().then(() => hv.lutsPlace()).then(pl => { this.lutsAt = pl || null; this.setState(s => ({tick:(s.tick || 0) + 1})); }, () => {}); }
+        if (lutN) will.push((host ? 'saves ' : 'downloads ') + this.plural(lutN, '.cube LUT') + (host && this.lutsAt && this.lutsAt.path ? ' and puts them in Final Cut\u2019s Custom LUTs folder' : ''));
         if (host && ex.openFc && fcOk) will.push('opens it in Final Cut');
         if (canTrash && ex.trash && !ex.all && !no && cutP.list.length) will.push('moves ' + this.plural(cutP.list.length, 'cut clip') + ' (' + fb(cutP.bytes) + ') to the Trash');
         if (ex.mem && memP.n) will.push('clears ' + fb(memB) + ' of working memory');
@@ -6945,6 +7095,7 @@ void main() {
           v.exResHead = R.head; v.exRes = R.rows.map(r => ({k:r.ok ? '\u2713' : '!', c:r.ok ? '#A9D18E' : '#FFD27A', t:r.t}));
           v.exResBg = bad || !R.done ? 'rgba(255,210,122,0.07)' : 'rgba(169,209,142,0.07)'; v.exResRing = bad || !R.done ? 'rgba(255,210,122,0.28)' : 'rgba(169,209,142,0.28)';
           v.exResBtns = R.busy ? [] : [].concat(o.path && host ? [btn('export-reveal', 'Show in Finder', 'The saved file, in its folder', true, () => this.exReveal(o.path))] : [],
+            o.lutAsk && host ? [btn('export-luts', 'Give access to Final Cut\u2019s LUTs\u2026', 'Final Cut\u2019s Custom LUTs folder, so the clips\u2019 LUTs go there', true, this.exLutsGrant)] : [],
             o.path && host && fcOk && !o.fc ? [btn('export-open-fc', 'Open in Final Cut', 'Final Cut Pro opens the file and asks which library', true, () => this.exOpenFc(o.path))] : [],
             o.moved ? [btn('export-putback', 'Put back \u00b7 ' + this.plural(o.moved, 'clip'), 'Back to where they were, while they are still in the Trash', true, this.exPutBack)] : [],
             R.done && !R.mem ? [btn('export-mem', 'Clear working memory' + (memP.n ? ' \u00b7 ' + fb(memB) : ''), 'Frames in memory down to one preview per clip. Marks stay.', memP.n > 0, this.exMemNow)] : [],

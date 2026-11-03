@@ -673,6 +673,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         panel.message = refusal ?? (label == "xmp" ? "Choose the folder for the .xmp sidecars." : label == "skim" ? "Choose the folder Skim saves its Final Cut files and cut lists in." : label == "skim-place" ? "Give Lumina access to this drive or folder. Export then shows what is in it and can save there; Lumina only adds the files you save and moves the clips you ask it to." : "Choose where the export goes.")
         if label == "skim" { panel.prompt = "Save Here" }
         if label == "skim-place" { panel.prompt = "Give Access" }
+        if label == "skim-luts" {
+            panel.prompt = "Give Access"
+            panel.message = refusal ?? "Final Cut reads custom LUTs only from its Custom LUTs folder. Give Lumina access to it, and Export puts each clip's look there (under Lumina Skim) for the Custom LUT effect the .fcpxml names."
+        }
         if label == "skim-airdrop" {
             panel.prompt = "Watch This Folder"
             panel.message = "Choose the folder AirDrop saves to (Downloads). Clips that arrive there while AirDrop is on join Skim. Lumina only reads them."
