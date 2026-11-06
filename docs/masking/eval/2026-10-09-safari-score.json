@@ -1,0 +1,134 @@
+{
+ "rows": [
+  {
+   "clip": "C4815.MP4",
+   "sec": 2,
+   "frame_offset": 0,
+   "safari_mean": 1.82,
+   "safari_p95": 3.51,
+   "python_mean": 1.32
+  },
+  {
+   "clip": "C4815.MP4",
+   "sec": 5,
+   "frame_offset": 0,
+   "safari_mean": 1.83,
+   "safari_p95": 3.53,
+   "python_mean": 1.31
+  },
+  {
+   "clip": "C4815.MP4",
+   "sec": 8,
+   "frame_offset": 0,
+   "safari_mean": 1.82,
+   "safari_p95": 3.52,
+   "python_mean": 1.31
+  },
+  {
+   "clip": "C4832.MP4",
+   "sec": 2,
+   "frame_offset": 0,
+   "safari_mean": 2.8,
+   "safari_p95": 6.11,
+   "python_mean": 1.66
+  },
+  {
+   "clip": "C4832.MP4",
+   "sec": 5,
+   "frame_offset": 0,
+   "safari_mean": 2.83,
+   "safari_p95": 6.29,
+   "python_mean": 1.66
+  },
+  {
+   "clip": "C4832.MP4",
+   "sec": 8,
+   "frame_offset": 0,
+   "safari_mean": 2.83,
+   "safari_p95": 6.19,
+   "python_mean": 1.65
+  },
+  {
+   "clip": "C4866.MP4",
+   "sec": 2,
+   "frame_offset": 0,
+   "safari_mean": 2.42,
+   "safari_p95": 5.06,
+   "python_mean": 1.34
+  },
+  {
+   "clip": "C4866.MP4",
+   "sec": 5,
+   "frame_offset": 0,
+   "safari_mean": 2.34,
+   "safari_p95": 5.0,
+   "python_mean": 1.23
+  },
+  {
+   "clip": "C4866.MP4",
+   "sec": 8,
+   "frame_offset": 0,
+   "safari_mean": 2.34,
+   "safari_p95": 5.01,
+   "python_mean": 1.23
+  },
+  {
+   "clip": "C4925.MP4",
+   "sec": 2,
+   "frame_offset": 0,
+   "safari_mean": 1.99,
+   "safari_p95": 4.12,
+   "python_mean": 1.35
+  },
+  {
+   "clip": "C4925.MP4",
+   "sec": 5,
+   "frame_offset": 0,
+   "safari_mean": 1.99,
+   "safari_p95": 4.12,
+   "python_mean": 1.35
+  },
+  {
+   "clip": "C4925.MP4",
+   "sec": 8,
+   "frame_offset": 0,
+   "safari_mean": 1.99,
+   "safari_p95": 4.11,
+   "python_mean": 1.34
+  },
+  {
+   "clip": "C4958.MP4",
+   "sec": 2,
+   "frame_offset": 0,
+   "safari_mean": 2.39,
+   "safari_p95": 4.74,
+   "python_mean": 1.61
+  },
+  {
+   "clip": "C4958.MP4",
+   "sec": 5,
+   "frame_offset": 0,
+   "safari_mean": 2.42,
+   "safari_p95": 4.88,
+   "python_mean": 1.61
+  },
+  {
+   "clip": "C4958.MP4",
+   "sec": 8,
+   "frame_offset": 0,
+   "safari_mean": 2.37,
+   "safari_p95": 4.72,
+   "python_mean": 1.59
+  }
+ ],
+ "safari": {
+  "mean": 2.28,
+  "p95": 4.8
+ },
+ "python": {
+  "mean": 1.44,
+  "p95": 2.97
+ },
+ "agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0.1 Safari/605.1.15",
+ "calibration": "{\"engine\":\"vp9\",\"at\":[0,34,73,139,199,255]}"
+}
