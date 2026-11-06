@@ -15,7 +15,7 @@ MOVE
 ⏎             photo: keep, next · closed stack: open · open frame: keep, next frame · after the last frame the stack closes
 ⏎ hold        keep and move on, repeating · a closed stack keeps its best frame · Space opens the large view
 ⌥↓            next row not yet seen
-esc           close the stack
+esc           back out one level: a sheet, the large view, a stack, a mode · never decides
 
 DECIDE (the unit under the cursor)
 K             same as ⏎
@@ -28,12 +28,11 @@ K R           in an open stack or large view: the frame shown
 Q / ⌘Z        undo · ⇧Q / ⇧⌘Z redo · the key bar shows how many steps each way
 ⌥⌘⌫          start over · press twice · clears every keep for this shoot · one undo step
 U L G Y 1–5   not used · the footer names the right key
-⇪ Caps Lock   auto-advance off while on
 
 SEEN · PASSES
 a row is marked seen when the cursor leaves it
 ⇧U            rows not yet seen only
-⇧P            start the next pass: only what you kept · ⏎ keeps, R drops · rows reset to not seen
+⇧P            start the next pass: only what you kept · ⏎ keeps, R drops · rows reset to not seen · ⌘Z undoes it
               later ⇧P just shows this pass's photos or all photos · Save lists every pass: All → Pass 1 → Pass 2 …
 ⇧P again      all photos, picks tray hidden · ⇧P once more shows the tray · esc: all photos with the tray
 picks tray  along the bottom · every pick in time order · click one to jump
@@ -42,7 +41,8 @@ VIEW
 Space         hold: large view while held · tap: toggle · a stack opens at its first frame · ←→ within the stack, else the row
 Z hold        100% · in a stack the same region on every frame · drag moves it
 time axis     large view and open stacks · capture time per frame · gold: most detail · ≈: estimated
-− +           tile size: small / medium / large, scaled to the window
+− +           tile size: small / medium / large, scaled to the window · = at one per row opens the photo
+              large view: zoom in / out · − at Fit goes back to the grid
 B / ⇧B        split / merge here (row or stack)
 H             hide key bar · ?  all keys
 Tab           move between buttons · ⏎ or Space presses the focused one · esc returns to the grid
@@ -72,11 +72,12 @@ force click / 3-tap   large view while held
 (no decisions by gesture · rotate and pinch in large view ignored)
 
 SETTINGS
-⌘,            pick rating (1–5★, default 3) · auto-advance · arrows enter stacks · tile size
+⌘,            pick rating (1–5★, default 3) · arrows enter stacks
 
 STEPS
 ⌘1 Open · ⌘2 Pick · ⌘3 Edit · ⌘4 Save · ⌘O open a folder or card · ⌘R Show in Finder (Pick: the photo · Save: the folder)
-Open: ↑↓ choose · ⏎ open
+Open: ↑↓ choose · ⏎ open · esc back to the shoot
+Edit: esc with nothing open goes back to the step you came from · leaving a step keeps where you were
 Save: ⌘⏎ save · one sidecar per photo that made a pass: rating = last pass made, keyword “Lumina pass N” (one pass: the Settings rating) · read by Lightroom Classic and Capture One
 Guards: with undecided photos left, ⌘⏎ asks once · opening another card with unsaved picks asks once · esc stays`;
 

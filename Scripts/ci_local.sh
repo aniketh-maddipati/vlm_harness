@@ -139,6 +139,7 @@ if [[ $A_web == true ]]; then
   if have_playwright; then
     step "chromium: plumbing harness" 600 -- "NODE_PATH='$NODE_GLOBAL' node Tests/web/plumbing-harness.mjs"
     step "chromium: grid zoom" 300 -- "NODE_PATH='$NODE_GLOBAL' node Tests/web/grid-zoom.mjs"
+    step "chromium: Stills reversible" 300 -- "NODE_PATH='$NODE_GLOBAL' node Tests/web/stills-reversible.mjs"
     step "chromium: Stills web preview" 300 -- "NODE_PATH='$NODE_GLOBAL' node Tests/web/stills-preview.mjs"
   else
     skip "chromium: harness, grid zoom, preview" "no playwright@1.56.1 + Chromium (npm i -g playwright@1.56.1 && npx playwright install chromium)"
