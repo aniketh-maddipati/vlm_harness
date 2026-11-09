@@ -6062,6 +6062,12 @@ class Component extends DCLogic {
     const oz = '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE ozxmlscene>\n<ozml version="5.15">\n\n<factory id="1" uuid="4d0e48d84fca424d82aa98a027c6ec5c">\n\t<description>Channel</description>\n\t<manufacturer>Apple</manufacturer>\n\t<version>1</version>\n</factory>\n\n\n<parameter name="LUT" id="3" flags="4295032848">\n\t<flags>4295032848</flags>\n\t<numberOfKeypoints>0</numberOfKeypoints>\n\t<defaultVal>' + enc('') + '</defaultVal>\n\t<dataValue>' + enc(String(ref || '')) + '</dataValue>\n</parameter>\n\n</ozml>\n';
     return typeof btoa === 'function' ? btoa(oz) : Buffer.from(oz, 'latin1').toString('base64');
   }
+  // A look's Exposure as Final Cut's own Exposure slider (Color Adjustments, param key 3). Measured on Final Cut 12.4
+  // (2026-10-30 sweep): a gain in gamma-2.4 light, 2 stops per 100, clipped at white, so 50 per stop, ±100 at most (±2 stops).
+  // Rounded to 0.1; 0 writes no filter. Against Skim's own S-Log3 exposure it is ~1 ΔE off at ±0.25 stop, ~2 at ±0.5, ~4 at ±1.
+  static lkFcpEv(L) { const ev = Math.round(Component.lkGet(L, 'ev') * 100) / 100; return Math.round(Math.max(-100, Math.min(100, ev * 50)) * 10) / 10 || 0; }
+  // The look without its Exposure: what the .cube carries, since Exposure goes to Final Cut's slider.
+  static lkNoEv(L) { if (!L) return L; const o = {...L}; delete o.ev; return o; }
   // LOOK-END
   // The same steps on the GPU. mode 0: as shot; 1: S-Log3 → Rec.709 (the page's own table and matrix,
   // the ones toDisplay uses); 2: the other log profiles' filter, written out.
@@ -6119,14 +6125,15 @@ void main() {
   // Export: the .cube for each clip with a look (Final Cut's Custom LUT effect). The clip goes to Final Cut with Camera LUT
   // None and the cube carries what the preview shows it through (lkIn: the S-Log3 conversion for S-Log3 clips, the filter
   // for S-Log2 and HLG, nothing for Rec.709), then the look. Final Cut reads a custom LUT only from its own Custom LUTs folder,
-  // so each cube has a place there, "Lumina Skim/<event>/<clip> <tag>.cube" (the tag from its contents: a changed look is a new
+  // so each cube has a place there (the look without its Exposure, which goes on Final Cut's Exposure slider: lkFcpEv, so clips that
+  // differ only in exposure share one cube), "Lumina Skim/<event>/<clip> <tag>.cube" (the tag from its contents: a changed look is a new
   // file, and an older project keeps the one it used); the .fcpxml names that place. Cubes are memoised by look and mode.
   lkLuts(clips, event) {
     const M = this.looks ? this.looks() : {}, out = {}, memo = this.lkCubes || (this.lkCubes = new Map());
     const safe = t => String(t || '').replace(/[\/:\\\u0000-\u001f]/g, ' ').replace(/^[.\s]+/, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Skim';
     const ev = safe(event);
     (clips || []).forEach(c => {
-      const L = M[c.id]; if (Component.lkFlat(L)) return;
+      const L = Component.lkNoEv(M[c.id]); if (Component.lkFlat(L)) return;
       const g = c.profile && c.profile.gamma, mode = g === 'S-Log3' ? 1 : g === 'S-Log2' || g === 'HLG' ? 2 : 0, stem = safe(String(c.name || '').replace(/\.\w+$/, ''));
       const k = mode + '|' + JSON.stringify(Object.keys(L).sort().map(p => [p, L[p]]));
       let e = memo.get(k);
@@ -6136,6 +6143,8 @@ void main() {
     });
     return out;
   }
+  // Export: each clip's look Exposure as Final Cut's Exposure slider value (lkFcpEv), only those that move it.
+  lkEvs(clips) { const M = this.looks ? this.looks() : {}, out = {}; (clips || []).forEach(c => { const v = Component.lkFcpEv(M[c.id]); if (v) out[c.id] = v; }); return out; }
   // One undo step per gesture: the look before the drag and after it.
   lkBegin(ids) { const m = this.looks(); this.lkPrev = {ids, prev:Object.fromEntries(ids.map(id => [id, m[id] ? {...m[id]} : null]))}; }
   lkEnd(say) {
@@ -6519,6 +6528,9 @@ void main() {
     // A clip with a look goes with Camera LUT None: its cube (lkLuts) carries the conversion the preview showed, then the look.
     const LT = (ex.looks !== false && this.lkLuts && this.lkLuts(clips, ex.event || d.shoot.name)) || {}, lutFx = Object.keys(LT).length ? 'lut1' : null;
     const lkF = (c, pad) => LT[c.id] ? [pad + '<filter-video ref="lut1" name="Custom LUT">', pad + '  <param name="LUT" key="3" value="' + LT[c.id].param + '"/>', pad + '  <param name="Input" key="100/101" value="0 (Rec. 709)"/>', pad + '  <param name="Output" key="100/102" value="0 (Rec. 709)"/>', pad + '</filter-video>'] : [];
+    // the look's Exposure on Final Cut's own Exposure slider (Color Adjustments), after the LUT, so it stays a number to change there
+    const EV = (ex.looks !== false && this.lkEvs && this.lkEvs(clips)) || {}, EVF = c => EV[c.id] || 0, caFx = clips.some(c => EVF(c));
+    const caF = (c, pad) => EVF(c) ? [pad + '<filter-video ref="ca1" name="Color Adjustments">', pad + '  <param name="Exposure" key="3" value="' + EVF(c) + '"/>', pad + '</filter-video>'] : [];
     const lut = c => !LT[c.id] && ex.lut !== false && c.profile && c.profile.gamma === 'S-Log3' && c.profile.primaries === 'S-Gamut3.Cine' ? ' customLUTOverride="35 (Sony_SLog3_SGamut3Cine_v2)"' : '';
     // every clip starts at 0s, where Final Cut reads it: Final Cut takes a file's start from the file itself and reads 00:00:00:00
     // for Sony MP4s, sidecar or not, so a start at the camera's LtcChange left the clip with "no shared media range" (Modified File,
@@ -6549,7 +6561,7 @@ void main() {
       if (kw.length) cl.push('        <keyword start="' + s0 + '" duration="' + du + '" value="' + xe(kw.join(', ')) + '"/>');
       if (rate) cl.push('        <rating start="' + s0 + '" duration="' + du + '" value="' + rate + '"/>');
       cl.push(...flagMk(c, f, s0));
-      cl.push(...lkF(c, '        '));
+      cl.push(...lkF(c, '        '), ...caF(c, '        '));
       cl.push('      </asset-clip>');
       // the followed shape's matte (Follow ▸ Save matte), the clip's length frame for frame, beside it in the event with the keyword "matte"
       const mt = MT[c.id]; if (mt && mt.path) {
@@ -6591,18 +6603,18 @@ void main() {
       let at = 0, last = -1;
       order.forEach(x => {
         const k = Math.max(1, Math.floor(x.nf * x.f.n * S.dd / (x.f.dd * S.n))), du = k * S.n + '/' + S.dd + 's';
-        const open = x.p !== last || !!x.pt || !!LT[x.c.id];
+        const open = x.p !== last || !!x.pt || !!LT[x.c.id] || !!EVF(x.c);
         pj.push('            <asset-clip ref="a' + (x.i + 1) + '" offset="' + (at ? at * S.n + '/' + S.dd + 's' : '0s') + '" name="' + x.nm + '"' + (x.s0 !== '0s' ? ' start="' + x.s0 + '"' : '') + ' duration="' + du + '" format="' + x.f.id + '" tcFormat="NDF"' + (open ? '>' : '/>'));
         if (x.pt) pj.push('              <asset-clip ref="' + x.pt + '" lane="1" offset="' + x.s0 + '" name="' + x.nm + ' patch" duration="' + du + '" format="' + x.f.id + '" tcFormat="NDF"/>');
         if (x.p !== last) { const mk = x.m || 'und'; pj.push('              <marker start="' + x.s0 + '" duration="' + x.f.n + '/' + x.f.dd + 's" value="' + xe(NM[mk] + ' · ' + n[x.p] + (n[x.p] === 1 ? ' clip' : ' clips')) + '"/>'); last = x.p; }
-        pj.push(...lkF(x.c, '              '));
+        pj.push(...lkF(x.c, '              '), ...caF(x.c, '              '));
         if (open) pj.push('            </asset-clip>');
         at += k;
       });
       pj.unshift('      <project name="' + xe((ex.event || d.shoot.name) + ' · sorted') + '">', '        <sequence format="' + S.id + '" duration="' + (at * S.n) + '/' + S.dd + 's" tcStart="0s" tcFormat="NDF">', '          <spine>');
       pj.push('          </spine>', '        </sequence>', '      </project>');
     }
-    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <import-options>', '    <option key="copy assets" value="0"/>', '  </import-options>', '  <resources>', ...fl, ...al, ...(lutFx ? ['    <effect id="lut1" name="Custom LUT" uid="FxPlug:14B39AEF-607D-42DF-98DD-DB3DD345E925"/>'] : []), '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...co, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
+    const text = ['<?xml version="1.0" encoding="UTF-8"?>', '<!DOCTYPE fcpxml>', '', '<fcpxml version="1.10">', '  <import-options>', '    <option key="copy assets" value="0"/>', '  </import-options>', '  <resources>', ...fl, ...al, ...(lutFx ? ['    <effect id="lut1" name="Custom LUT" uid="FxPlug:14B39AEF-607D-42DF-98DD-DB3DD345E925"/>'] : []), ...(caFx ? ['    <effect id="ca1" name="Color Adjustments" uid="FxPlug:7E2022A5-202B-4EEB-A311-AC2B585D01B0"/>'] : []), '  </resources>', '  <library>', '    <event name="' + xe(ex.event || d.shoot.name) + '">', ...cl, ...co, ...pj, '    </event>', '  </library>', '</fcpxml>', ''].join('\n');
     return {n:clips.length, text, kws:[...kws], luts:LT};
   })();
     this.bxM = {k:bk, x:bx}; return bx;
@@ -6708,9 +6720,13 @@ void main() {
       if (a.getAttribute('start') != null && !time(a.getAttribute('start'))) say(who + ' has a start that cannot be read.');
       if (a.getAttribute('id')) assets[a.getAttribute('id')] = {du, f:a.getAttribute('format'), s:a.getAttribute('start') || '0s'};
     });
-    // a look: Final Cut's Custom LUT effect, once, used by the clips as a filter with its three parameters (lkLuts)
-    const fx = rk.filter(r => tag(r) === 'effect'), fxId = fx.length === 1 && fx[0].getAttribute('uid') === 'FxPlug:14B39AEF-607D-42DF-98DD-DB3DD345E925' ? fx[0].getAttribute('id') : null;
-    if (fx.length && !fxId) say('The resources hold an effect this page does not write.');
+    // a look: Final Cut's Custom LUT effect, once, used by the clips as a filter with its three parameters (lkLuts); its Exposure:
+    // Color Adjustments, once, a filter with the Exposure parameter alone (lkFcpEv), after the LUT
+    const fx = rk.filter(r => tag(r) === 'effect'), fxOf = u => { const f = fx.filter(r => r.getAttribute('uid') === u); return f.length === 1 ? f[0].getAttribute('id') : null; };
+    const fxId = fxOf('FxPlug:14B39AEF-607D-42DF-98DD-DB3DD345E925'), caId = fxOf('FxPlug:7E2022A5-202B-4EEB-A311-AC2B585D01B0');
+    if (fx.length !== (fxId ? 1 : 0) + (caId ? 1 : 0)) say('The resources hold an effect this page does not write.');
+    const caOk = k => { const q = kids(k); return tag(k) === 'filter-video' && !!caId && k.getAttribute('ref') === caId && q.length === 1 && tag(q[0]) === 'param' && !kids(q[0]).length && q[0].getAttribute('name') === 'Exposure' && q[0].getAttribute('key') === '3' && /^-?\d+(\.\d)?$/.test(q[0].getAttribute('value') || '') && Math.abs(+q[0].getAttribute('value')) <= 100 && +q[0].getAttribute('value') !== 0; };
+    const fxSeq = lf => !lf.length || (lf.length === 1 && (lutOk(lf[0]) || caOk(lf[0]))) || (lf.length === 2 && lutOk(lf[0]) && caOk(lf[1]));
     const lutOk = k => tag(k) === 'filter-video' && !!fxId && k.getAttribute('ref') === fxId && kids(k).length === 3 && kids(k).every(q => tag(q) === 'param' && !kids(q).length) && ['LUT', 'Input', 'Output'].every((nm, i) => kids(k)[i].getAttribute('name') === nm && !!kids(k)[i].getAttribute('value'));
     rk.forEach(r => { if (tag(r) !== 'format' && tag(r) !== 'asset' && tag(r) !== 'effect') say('The resources hold something this page does not write.'); });
     const ek = ev ? kids(ev) : [], cl = ek.filter(c => tag(c) === 'asset-clip' || tag(c) === 'clip'), pj = ek.filter(c => tag(c) === 'project'), cf = ek.filter(c => tag(c) === 'collection-folder');
@@ -6728,7 +6744,7 @@ void main() {
         if (!assets[c.getAttribute('ref')]) say(who + ' refers to media that is not in the file.');
         if (!time(c.getAttribute('offset')) || !time(c.getAttribute('duration'))) say(who + ' has a position or length that cannot be read.');
         const ck = kids(c), lf = ck.filter(k => tag(k) === 'filter-video'), mk = ck.filter(k => tag(k) !== 'filter-video');
-        if (mk.length > 1 || lf.length > 1 || lf.some(k => !lutOk(k)) || mk.some(k => tag(k) !== 'marker' || !k.getAttribute('value') || !time(k.getAttribute('start')))) say(who + ' carries something this page does not write.'); }); });
+        if (mk.length > 1 || !fxSeq(lf) || mk.some(k => tag(k) !== 'marker' || !k.getAttribute('value') || !time(k.getAttribute('start')))) say(who + ' carries something this page does not write.'); }); });
     cl.forEach(c => {
       const who = 'Clip “' + (c.getAttribute('name') || c.getAttribute('ref') || '') + '”', a = assets[c.getAttribute('ref')], du = time(c.getAttribute('duration'));
       const fid = c.getAttribute('format'), f = fmts[fid != null ? fid : a && a.f];
@@ -6738,7 +6754,7 @@ void main() {
       else if (f && (du[0] * f[1]) % (du[1] * f[0])) say(who + ' has a length that is not a whole number of frames.');
       else if (a && a.du && du[0] * a.du[1] > a.du[0] * du[1]) say(who + ' is longer than its media.');
       ['offset', 'start'].forEach(k => { const t = c.getAttribute(k); if (t != null && !time(t)) say(who + ' has a position that cannot be read.'); });
-      let nr = 0, nk = 0, nl = 0; const cs = c.getAttribute('start') || '0s';
+      let nr = 0, nk = 0, nl = 0, nc = 0; const cs = c.getAttribute('start') || '0s';
       if (a && a.s && cs !== a.s) say(who + ' does not start where its media does.');
       kids(c).forEach(k => {
         const t = tag(k), val = k.getAttribute('value'), whole = k.getAttribute('start') === cs && k.getAttribute('duration') === c.getAttribute('duration') && !kids(k).length;
@@ -6746,9 +6762,11 @@ void main() {
         else if (t === 'keyword') { nk++; if (!whole || !val || val.split(', ').some(w => (kws || ['maybe']).indexOf(w) < 0)) say(who + ' carries a keyword this page does not write.'); }
         else if (t === 'marker') { const ms = time(k.getAttribute('start')), c0 = time(cs), md = time(k.getAttribute('duration')); if (!val || !ms || !md || kids(k).length || (c0 && du && (ms[0] * c0[1] < c0[0] * ms[1] || ms[0] * c0[1] * du[1] >= (c0[0] * du[1] + du[0] * c0[1]) * ms[1]))) say(who + ' has a marker outside it or one this page does not write.'); }
         else if (t === 'filter-video' && lutOk(k)) nl++;
+        else if (t === 'filter-video' && caOk(k)) nc++;
         else say(who + ' carries something this page does not write.');
       });
-      if (nr > 1 || nk > 1 || nl > 1) say(who + ' is rated or tagged more than once.');
+      if (nr > 1 || nk > 1 || nl > 1 || nc > 1) say(who + ' is rated or tagged more than once.');
+      if (!fxSeq(kids(c).filter(k => tag(k) === 'filter-video'))) say(who + ' carries something this page does not write.');
     });
     if (n != null && cl.length !== n) say('The file holds ' + cl.length + ' clip' + (cl.length === 1 ? '' : 's') + ' but the button says ' + n + '.');
     return done();
@@ -7055,8 +7073,8 @@ void main() {
       v.exOpts2 = [sw('ex-rate', 'Ratings', ex.rate !== false ? 'Selected clips are Favorites' + (ex.all ? ', cut clips marked as not wanted.' : '.') : 'Every clip arrives unrated.', ex.rate !== false, 'rate'),
         sw('ex-scenes', 'Scenes as keywords', 'Each clip carries its scene, so the browser has a keyword collection per scene.', !!ex.scenes, 'scenes'),
         sw('ex-sorted', 'Sorted timeline', ex.sorted !== false ? 'A project with ' + Component.wsCap(this.W('keep')).toLowerCase() + ' clips first, then maybes, then unmarked, cut last, a marker at the start of each part.' : 'Only the event; no project.', ex.sorted !== false, 'sorted')]
-        .concat(slogN ? [sw('ex-lut', 'Camera LUT', this.plural(slogN, 'S-Log3 clip') + (ex.lut !== false ? ' arrive with Sony S-Log3/S-Gamut3.Cine applied, as here.' : ' arrive as log; set the Camera LUT in Final Cut.') + (lookN && ex.looks !== false ? ' A clip with a look has its own LUT instead.' : ''), ex.lut !== false, 'lut')] : [])
-        .concat(lookN ? [sw('ex-looks', 'Looks', ex.looks !== false ? this.plural(lookN, 'clip') + ' with a look \u00b7 LUT each: a .cube beside the .fcpxml, in Final Cut\u2019s Custom LUT effect, as here.' : this.plural(lookN, 'clip') + ' with a look arrive without it; the looks stay in Skim.', ex.looks !== false, 'looks')] : [])
+        .concat(slogN ? [sw('ex-lut', 'Camera LUT', this.plural(slogN, 'S-Log3 clip') + (ex.lut !== false ? ' arrive with Sony S-Log3/S-Gamut3.Cine applied, as here.' : ' arrive as log; set the Camera LUT in Final Cut.') + (lookN && ex.looks !== false ? ' A clip with a look beyond Exposure has its own LUT instead.' : ''), ex.lut !== false, 'lut')] : [])
+        .concat(lookN ? [sw('ex-looks', 'Looks', ex.looks !== false ? this.plural(lookN, 'clip') + ' with a look \u00b7 the colour as a .cube beside the .fcpxml (Final Cut\u2019s Custom LUT effect), the Exposure on Final Cut\u2019s own Exposure slider, \u00b12 stops at most.' : this.plural(lookN, 'clip') + ' with a look arrive without it; the looks stay in Skim.', ex.looks !== false, 'looks')] : [])
         .concat(host ? [sw('ex-openfc', 'Open in Final Cut', fcOk ? 'After saving, Final Cut Pro opens the file and asks which library.' : 'Final Cut Pro is not on this Mac.', !!ex.openFc && fcOk, 'openFc', !fcOk)] : []);
       v.kwOn = !!(ex.all || ex.maybes); v.exKw = ex.kw == null ? 'maybe' : ex.kw;
       { const cutP = Component.trashPick(d.clips, st.marks, -1e9, () => true), dr = this.drv, canTrash = !!(host && window.lumina.video.trashMove && d.shoot.real), memP = this.farPlan(-1e9), memB = memP.bytes + (memP.dec || 0), no = !!(dr && dr.refusal);
