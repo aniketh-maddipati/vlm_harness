@@ -7,7 +7,7 @@ when the owner says so.
 
 | File | What it does |
 |---|---|
-| `criteria.json` | Splits (seeded dev / held halves), the adopt rule, what may be fitted on what. **Owner only.** |
+| `criteria.json` | Splits (seeded dev / held halves), the adopt rule, what may be fitted on what. **Owner only.** Amended 2026-11-09 by the owner: the held look rows of Uday / Sparks / ToS are one pooled per-shot row (`amended` in the file) |
 | `prepare.py` | Builds the fixed pixel samples once → `~/LuminaEvidence/grademodel/cache/` (never committed) |
 | `evaluate.py` | The evaluator: one candidate → one table + `~/LuminaEvidence/grademodel/<date>/<candidate>.json` |
 | `compare.py` | The adopt rule written out: incumbent vs candidate, every delta, a verdict |

@@ -84,8 +84,18 @@ video.
 ## Trevor's zips
 
 `/Volumes/T7/Lumina/datasets/hdrvs-trevor/` holds two Dropbox zips from the dataset's author (see the README there).
-`20240629.zip` (26.3 GB) contains 8 Atomos ProRes RAW HQ clips: 4128 × 2192 Bayer, 59.94p, about 8 to 17 s each.
-It has no labels, no stills and no mapping to the annotated `choice*.tif` stills, so it cannot be scored against the
-annotator yet. `20240805.zip` (39.1 GB) was still downloading when this report was written. If either zip, or the
-author, maps clips to stills, ⇧E can be measured on the source frames in scene-linear instead of on display-referred
-thumbnails.
+They hold the source clips, but under camera take names (`SHGCNCT_S001_S001_Tnnn.MOV`, Atomos ProRes RAW HQ,
+4128 × 2192 Bayer, 59.94p) and with no labels or mapping. `match_clips.py` finds the mapping: it decodes three
+frames per clip with ffmpeg, z-scores their log luminance, correlates them with every label thumbnail and takes
+the best shot. It reads clips straight out of the stored zip through sparse local copies, about 20 s for
+`20240629.zip`:
+
+```bash
+~/LuminaEvidence/venv-parity/bin/python -I Tools/exposeval/match_clips.py --pkl …/trainDemo8b.pkl.UNTRUSTED-do-not-unpickle \
+  --zip /Volumes/T7/Lumina/datasets/hdrvs-trevor/20240629.zip --out ~/LuminaEvidence/exposeval/clip-map-20240629.json
+```
+
+`20240629.zip`: all 8 clips map to annotated shots (stills choice87612 … 87728). Seven are clear (r 0.93 to 0.99,
+next-best shot ≤ 0.75). T084 → 87668 is weaker (0.72 vs 0.62), but the take order supports it. Eight shots are too
+few to score. If `20240805.zip` (39.1 GB) brings many more, the next run measures ⇧E on the source frames in
+scene-linear (black level off, white balanced) instead of on the display-referred thumbnails.

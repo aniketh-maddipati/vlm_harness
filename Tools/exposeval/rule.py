@@ -1,6 +1,8 @@
 """Skim's ⇧E (per-clip auto exposure) in numpy, line for line with the page.
 
-Source: design/handoff/lumina-skim/Lumina Skim v3.dc.html (LOCAL-CHANGES 322):
+Source: design/handoff/lumina-skim/Lumina Skim v3.dc.html (LOCAL-CHANGES 322), as scored in report/2026-11-08.md.
+Since LOCAL-CHANGES 325 the page's `sceneSl` returns the log-mean instead of the upper median (`scene_sl_logmean`
+below; Tools/grademodel round G1); `scene_sl` keeps the 322 form so the 2026-11-08 report reproduces.
   - `sceneSl(img, c)`: a frame's light as shot. Each 8-bit RGBA frame (Skim measures 320 × 180) is read
     every 8th pixel (`i += 32` over RGBA bytes); each level goes to scene-linear through a 256-entry table
     (S-Log3 decoded after the engine's calibration, else sRGB's curve undone); luminance is Rec.709's
@@ -67,6 +69,16 @@ def scene_sl(frame, table):
     lin = table[px[:, 0]] * 0.2126 + table[px[:, 1]] * 0.7152 + table[px[:, 2]] * 0.0722
     return upper_median(lin)
 
+
+
+def scene_sl_logmean(frame, table):
+    """`sceneSl` since LOCAL-CHANGES 325: exp(mean(log(Y + 1e-4))) over the same sampled pixels."""
+    f = np.asarray(frame)
+    if f.dtype != np.uint8 or f.ndim != 3 or f.shape[2] not in (3, 4):
+        raise ValueError("frames are 8-bit (H, W, 3|4), as the canvas gives them")
+    px = f.reshape(-1, f.shape[2])[::8]
+    lin = table[px[:, 0]] * 0.2126 + table[px[:, 1]] * 0.7152 + table[px[:, 2]] * 0.0722
+    return float(np.exp(np.mean(np.log(lin + 1e-4)))) if lin.size else 0.0
 
 def clip_value(frame_values):
     """A clip's light: the upper median of its frames' `sl`, zeros left out (`x > 0`)."""

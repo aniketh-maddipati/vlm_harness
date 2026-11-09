@@ -12,6 +12,19 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+def pooled_shots(inc, crit):
+    """(set, shot) for every held shot of the pooled sets (amended 2026-11-09 by the owner)."""
+    S = crit['splits']
+    return [(n, s) for n in crit['adopt']['pooled_look']['sets'] for s in S[n]['held'] if s in inc['per_shot'][n]]
+
+
+def pooled_delta(inc, cand, crit):
+    """Median over the pooled held shots of (candidate − incumbent) per-shot median ΔE."""
+    import statistics
+    d = [cand['per_shot'][n][s]['de'][0] - inc['per_shot'][n][s]['de'][0] for n, s in pooled_shots(inc, crit)]
+    return statistics.median(d)
+
+
 def check(inc, cand, crit):
     A = crit['adopt']
     tol = A['held_tolerance']
@@ -26,8 +39,22 @@ def check(inc, cand, crit):
     improves = (better_exp and d_look <= tol['de_median']) or (better_look and d_exp <= tol['stops_median'])
     lines.append(f'dev improves: {"yes" if improves else "no"}')
     ok &= improves
+    pooled = A.get('pooled_look')
     for row in A['held_rows']:
         r = f'{row}.held'
+        if row == 'pooled_look':
+            d = pooled_delta(inc, cand, crit)
+            good = d <= tol['de_median']
+            lines.append(f'{r:24s} median per-shot Δ over {len(pooled_shots(inc, crit))} held shots {d:+.3f} {"ok" if good else "FAIL"}')
+            ok &= good
+            continue
+        if pooled and row in pooled['sets']:
+            d = C[r]['p95'] - I[r]['p95']
+            good = d <= tol['de_p95']
+            lines.append(f'{r:24s} p95    {I[r]["p95"]:.3f} → {C[r]["p95"]:.3f} ({d:+.3f}) {"ok" if good else "FAIL"}'
+                         f'   (median {I[r]["median"]:.3f} → {C[r]["median"]:.3f}, info)')
+            ok &= good
+            continue
         if row == 'exposure_adacg':
             d = C[r]['median'] - I[r]['median']
             good = d <= tol['stops_median']
