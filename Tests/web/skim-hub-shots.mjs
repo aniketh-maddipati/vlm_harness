@@ -1,4 +1,4 @@
-// The Color hub (LOCAL-CHANGES 326) in headless Chromium: screenshots of the rail on each of its five targets with a look
+// The Color hub (LOCAL-CHANGES 327) in headless Chromium: screenshots of the rail on each of its five targets with a look
 // set through the hub itself, and with More open. Evidence only (no gate); used by the colour-hub review rounds.
 //   node Tests/web/skim-hub-shots.mjs <out-dir>        # needs ffmpeg and Playwright's Chromium
 import fs from 'node:fs';

@@ -1,6 +1,6 @@
 // Color in the Skim Viewer: the web preview build in headless Chromium over clips made here with ffmpeg.
 // Bounded (LUMINA_WEB_LIMIT, 180 s).
-//   1. The Viewer has the Color hub (326: Light · Color · Shadows · Mids · Highs); dragging up on Light's pad grades the real
+//   1. The Viewer has the Color hub (327: Light · Color · Shadows · Mids · Highs); dragging up on Light's pad grades the real
 //      picture (a WebGL canvas over the video, brighter than the clip as shot), one undo step per drag.
 //   2. ⌘C on one clip and ⌘V on the next gives it the same look; ⌘Z takes the paste back.
 //   3. The keys: 1–5 switch the hub and give it the arrows, ⌫ resets, held E moves Light's dot.

@@ -209,7 +209,7 @@ body:has([data-view=phone]){background:#111}
 }
 /* Color: half the screen tall, the rows sharing what is left (owner, 2026-10-29). */
 [data-lumina=look]{min-height:50vh;box-sizing:border-box}
-/* Color's hub (326): a quiet ring while it has the keys, a bright one when the keys brought it there. */
+/* Color's hub (327): a quiet ring while it has the keys, a bright one when the keys brought it there. */
 [data-lumina=look-more-body] [data-lkp],[data-lumina=look-more-body] [data-lkhue],[data-lumina=look-wheel]{scroll-margin-top:calc(var(--lk-blk, 420px) + 8px);scroll-margin-bottom:12px}
 @media (max-height:760px){[data-lumina=look-hub-block]{position:static!important}[data-lumina=look-more-body] [data-lkp],[data-lumina=look-more-body] [data-lkhue],[data-lumina=look-wheel]{scroll-margin-top:8px}}
 [data-lumina=look-hub]:focus,[data-lumina=look-strip]:focus{outline:1.5px solid rgba(255,210,122,0.45)!important;outline-offset:3px}
@@ -3099,7 +3099,7 @@ class Component extends DCLogic {
       else if (st.step === 'import' && k === 'Enter' && !meta && !e.shiftKey && !e.altKey && !e.repeat && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); return this.hasShoot() ? this.setStep('skim') : this.pickFolder(); }
       return;
     }
-    // the focused hub or strip (326) takes the arrows, ⌫ and esc before the page does
+    // the focused hub or strip (327) takes the arrows, ⌫ and esc before the page does
     if (!meta && t && t.getAttribute && t.getAttribute('data-lkhub-t') && !st.evHeld && this.lkHubKey(e, t)) return;
     if (!meta && t && t.getAttribute && t.getAttribute('data-lkhub') && (k === 'ArrowLeft' || k === 'ArrowRight') && this.lkTabPtr !== t.getAttribute('data-lkhub')) { e.preventDefault(); const H = Component.LK_HUB, i = H.findIndex(h => h[0] === t.getAttribute('data-lkhub')), n = H[(i + (k === 'ArrowRight' ? 1 : -1) + H.length) % H.length][0]; this.lkTabPtr = null; this.setState({lkHub:n}, () => { const b = document.querySelector('[data-lkhub="' + n + '"]'); if (b) b.focus({preventScroll:true}); }); return; }
     if (k === 'Escape') { e.preventDefault(); return this.esc(); }
@@ -3109,7 +3109,7 @@ class Component extends DCLogic {
     if (meta && (kl === 'c' || kl === 'v') && !e.shiftKey && !e.altKey && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) && !String((window.getSelection && window.getSelection()) || '')) { e.preventDefault(); return kl === 'c' ? this.lkCopy() : this.lkPaste(); }
     if (meta && (k === 'Backspace' || k === 'Delete') && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); if (!e.repeat) this.removeClips(this.removeIds()); return; }
     if (meta) return;
-    // 1–5: the Color hub's targets (Light, Color, Shadows, Mids, Highs) while the Viewer shows Color (326); the hub takes the focus,
+    // 1–5: the Color hub's targets (Light, Color, Shadows, Mids, Highs) while the Viewer shows Color (327); the hub takes the focus,
     // so the arrows move its dot until esc.
     if (/^[1-5]$/.test(k) && !e.altKey && !e.shiftKey && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) && st.lv >= 2 && !st.ol && !st.held && !st.evHeld) { const h = Component.LK_HUB[+k - 1]; if (h) { e.preventDefault(); this.lkHubKeyEnd(); this.setState({lkHub:h[0]}, () => { const el = document.querySelector('[data-lumina="look-hub"]'); if (el) el.focus({preventScroll:true}); }); return; } }
     if (t && t.tagName === 'INPUT' && k.startsWith('Arrow')) return;
@@ -5934,7 +5934,7 @@ class Component extends DCLogic {
     color:[['temp', 'Temp', 100], ['tint', 'Tint', 100], ['vib', 'Vibrance', 100], ['sat', 'Saturation', 100]]};
   static LK_HUES = [['red', 'Red', 0], ['orange', 'Orange', 30], ['yellow', 'Yellow', 60], ['green', 'Green', 120], ['aqua', 'Aqua', 180], ['blue', 'Blue', 220], ['purple', 'Purple', 270], ['magenta', 'Magenta', 320]];
   static LK_ZONES = [['sh', 'Shadows'], ['mid', 'Midtones'], ['hi', 'Highlights'], ['all', 'Global']];
-  // The hub (LOCAL-CHANGES 326): one control, five targets. Light and Color are pads (x, y: two of the look's numbers),
+  // The hub (LOCAL-CHANGES 327): one control, five targets. Light and Color are pads (x, y: two of the look's numbers),
   // Shadows / Mids / Highs the grade's wheels (angle = hue, distance from the middle = strength) with a strip for luminance.
   static LK_HUB = [['light', 'Light', '1'], ['color', 'Color', '2'], ['sh', 'Shadows', '3'], ['mid', 'Mids', '4'], ['hi', 'Highs', '5']];
   // ps: what the pad moves; strip: the number on the strip beside it (Color: Saturation, the zones: their luminance).
@@ -6285,7 +6285,7 @@ void main() {
     window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
   };
   lkDbl = e => { const c = this.byId && this.byId[this.state.cur], p = e.currentTarget.getAttribute('data-lkp'); if (!c || !p) return; this.lkBegin([c.id]); this.lkSet(c.id, p, Component.lkDef(p)); this.lkEnd(Component.lkName(p) + ' reset on ' + c.name); };
-  // The hub (326). A press jumps the dot there and it follows; ⇧ held moves it a quarter as far from where it was. A double-click
+  // The hub (327). A press jumps the dot there and it follows; ⇧ held moves it a quarter as far from where it was. A double-click
   // or ⌥-click puts the whole target back (pad and strip); on the strip, the strip alone. One undo step per gesture (lkBegin …
   // lkEnd); a double-click's first press is folded into its reset, so one ⌘Z goes back to before both.
   lkHubWhat(t, strip) { if (strip) return Component.lkName(Component.lkHubAx(t).strip); return t === 'light' ? 'exposure and contrast' : t === 'color' ? 'temp and tint' : t === 'all' ? 'global tint' : Component.lkName('grade.' + t + '.s'); }
