@@ -23,8 +23,10 @@ To start one: open a session in this repo with "Run `docs/editing/prompts/<file>
 |---|---|---|
 | 0 | `00` parity baseline · `00b` Lightroom sweeps | numbers to start from; one owner Lightroom session covers every fit |
 | 1 (no sweep needed) | **`00c` hand kit first** (puck, detents + haptics, gestures, carry preview, fan, task rail) · `07` WB pad · `09` NR (needs the ISO ladder) · `10` lens · `13` grain · `14` masks panel · `19` presets/LUTs · `20` compare/clipping · `21` export | independent native areas |
+| 1b (after 00c) | `24` slider precision: continuous values, ⇧⌥ ladder, velocity-aware fine drags | the feel of every slider |
 | 2 (after the sweeps return) | `01` highlights · `02` clarity/texture/vibrance · `03` dehaze · `04` HSL/B&W · `06` curves · `08` sharpening · `12` vignette corners | fits |
 | 3 | `05` colour grading (after 04) · `11` transform (after 10) · `15` drawn masks · `16` range/depth (after 14) · `22` repeat edits (after 14) | build on wave 1–2 |
+| 2b (needs the owner's call on the held-out cap) | `25` RapidRAW vs Lightroom: measure, adopt its formula (clean-room) where it wins | parity from a second source |
 | 4 | `05b` grading agent · `17` locals in masks · `18` heal/clone/remove · `23` learned looks | build on wave 3 |
 
 The owner's main goal is repeating edits accurately (`22`), plus hands-on control. `14` → `22` is the
