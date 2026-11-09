@@ -52,12 +52,16 @@ class ShiftE(unittest.TestCase):
 
 
 class Rule(unittest.TestCase):
-    def summary(self, exp, look, held_de=5.0, held_exp=0.6):
+    def summary(self, exp, look, held_de=5.0, held_exp=0.6, shot_de=None):
+        """shot_de: {(set, shot): per-shot median} overrides for the pooled row (default held_de)."""
         s = {'exposure_adacg.dev': {'median': exp}, 'look_composite.dev': {'median': look},
              'exposure_adacg.held': {'median': held_exp}}
         for n in ('uday', 'sparks', 'tos', 'pst50', 'pst50_transfer'):
             s[n + '.held'] = {'median': held_de, 'p95': held_de * 2}
-        return {'summary': s}
+        S = self.crit()['splits']
+        ps = {n: {k: {'de': [(shot_de or {}).get((n, k), held_de), held_de * 2]} for k in S[n]['held']}
+              for n in ('uday', 'sparks', 'tos')}
+        return {'summary': s, 'per_shot': ps}
 
     def crit(self):
         return json.load(open(os.path.join(HERE, 'criteria.json')))
@@ -76,6 +80,19 @@ class Rule(unittest.TestCase):
 
     def test_exposure_gain_must_not_cost_the_look(self):
         ok, _ = compare.check(self.summary(0.6, 5.0), self.summary(0.5, 5.2), self.crit())
+        self.assertFalse(ok)
+
+    def test_pooled_row_tolerates_a_few_worse_shots(self):
+        # amended 2026-11-09: 21 held shots; 6 shots +1.0 worse, the rest 0.3 better → median change −0.3: passes
+        S = self.crit()['splits']
+        shots = [(n, k) for n in ('uday', 'sparks', 'tos') for k in S[n]['held']]
+        self.assertEqual(len(shots), 21)
+        cand = {sh: (6.0 if i < 6 else 4.7) for i, sh in enumerate(shots)}
+        ok, _ = compare.check(self.summary(0.6, 5.0), self.summary(0.6, 4.9, shot_de=cand), self.crit())
+        self.assertTrue(ok)
+        # 11 of 21 worse by 0.1 → median change +0.1: fails
+        cand = {sh: (5.1 if i < 11 else 4.0) for i, sh in enumerate(shots)}
+        ok, _ = compare.check(self.summary(0.6, 5.0), self.summary(0.6, 4.9, shot_de=cand), self.crit())
         self.assertFalse(ok)
 
 
