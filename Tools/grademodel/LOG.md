@@ -110,3 +110,13 @@ For the owner (criteria are yours; nothing changed here):
 2. Log-mean ⇧E (r1) is the one to re-test under any revised rule: −0.019 / −0.026 stops on adaCG dev / held, ToS
    −0.51 held, every held p95 down; its failures are two shots (Uday 7, Sparks 2024-2455).
 3. Not run (the stop rule came first): white balance (shoot-median chroma), highlight cap, and look regularisation.
+
+---
+
+# Criteria amended 2026-11-09 (owner approved: "Yes, all three")
+
+The Uday / Sparks / ToS held-median rows are replaced by one pooled row: over their 21 held shots, each shot's
+change in median ΔE (candidate − incumbent); the median of those changes must be ≤ +0.05. Their per-set held p95
+rows stay (≤ +0.10). Splits, tolerances, the dev rule and the exposure / PST50 rows are unchanged. The loop is
+rerun from the baseline under this gate (same limits: 8 rounds, or 3 rejected in a row); rounds are numbered
+anew (G1, G2, …).
