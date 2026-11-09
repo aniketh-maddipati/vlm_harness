@@ -15,6 +15,9 @@
 #
 # The mask lab (Tools/masklab/README.md):
 #   make masklab-test      its scoring tests (synthetic data, Linux too)
+#
+# The exposure eval (Tools/exposeval/README.md): Skim's ⇧E against the adaCG annotator
+#   make exposeval-test    its tests (synthetic data, Linux too)
 
 PARITY   := Tools/parity
 RENDER   := $(PARITY)/lumina-render/.build/release/lumina-render
@@ -98,3 +101,7 @@ culleval-app:
 .PHONY: masklab-test
 masklab-test:
 	$(PY) -m unittest discover -s Tools/masklab/tests
+
+.PHONY: exposeval-test
+exposeval-test:
+	$(PY) -m unittest discover -s Tools/exposeval/tests
