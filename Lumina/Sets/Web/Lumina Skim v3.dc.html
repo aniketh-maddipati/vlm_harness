@@ -55,6 +55,7 @@ html:not([data-full]) [data-lumina=info-head] > div:first-child{flex-wrap:wrap;r
 html:not([data-full]) [data-lumina=info-when]{order:3;flex-basis:100%;font-size:12px;font-weight:600;color:#9A958D!important}
 html:not([data-full]) [data-lumina=look]{background:transparent!important;box-shadow:none!important;padding:0!important;gap:14px!important}
 html:not([data-full]) [data-lumina=look-head]{order:9;margin-top:6px}
+html:not([data-full]) [data-lumina=look-hub-block]{background:#1E1D1B!important}
 html:not([data-full]) [data-lumina=look-head] button{background:transparent!important;padding:0 8px 0 0!important;color:#9A958D!important;font-weight:700}
 html:not([data-full]) [data-lumina=look-head] button:hover{color:#EFECE6!important}
 html:not([data-full]) [data-lumina=look-head] [data-lumina=look-say]{order:2;margin-left:auto;font-size:12px}
@@ -67,7 +68,7 @@ html:not([data-full]) [data-lumina=furled-takes]{order:2;border-bottom:0!importa
 html:not([data-full]) [data-screen-label=Clip]{order:1}
 html:not([data-full]) [data-lumina=info]{display:flex!important;flex-direction:column;align-self:stretch!important;min-height:100%}
 html:not([data-full]) [data-lumina=info] > *{align-self:stretch!important}
-html:not([data-full]) [data-lumina=info] > [data-lumina=look]{flex:1 1 auto}
+html:not([data-full]) [data-lumina=info] > [data-lumina=look]{flex:1 0 auto}
 /* The wireframe's time axis: small labels on the rod. */
 html:not([data-full]) [data-lumina=time-at]{font-size:15px!important;line-height:20px!important}
 html:not([data-full]) [data-lumina=time-date]{font-size:11px!important;line-height:16px!important}
@@ -208,7 +209,11 @@ body:has([data-view=phone]){background:#111}
 }
 /* Color: half the screen tall, the rows sharing what is left (owner, 2026-10-29). */
 [data-lumina=look]{min-height:50vh;box-sizing:border-box}
-[data-lumina=look]>[data-lkp]{flex:1 1 auto;min-height:40px;align-content:center}
+/* Color's hub (325): a quiet ring while it has the keys, a bright one when the keys brought it there. */
+[data-lumina=look-more-body] [data-lkp],[data-lumina=look-more-body] [data-lkhue],[data-lumina=look-wheel]{scroll-margin-top:calc(var(--lk-blk, 420px) + 8px);scroll-margin-bottom:12px}
+@media (max-height:760px){[data-lumina=look-hub-block]{position:static!important}[data-lumina=look-more-body] [data-lkp],[data-lumina=look-more-body] [data-lkhue],[data-lumina=look-wheel]{scroll-margin-top:8px}}
+[data-lumina=look-hub]:focus,[data-lumina=look-strip]:focus{outline:1.5px solid rgba(255,210,122,0.45)!important;outline-offset:3px}
+[data-lumina=look-hub]:focus-visible,[data-lumina=look-strip]:focus-visible,[data-lkhub]:focus-visible,[data-lumina=look-more]:focus-visible{outline:2px solid #FFD27A!important;outline-offset:3px}
 /* A press on every button without a spring of its own; reduced motion stays still. */
 @media (prefers-reduced-motion:no-preference){button:not([data-press]):not([aria-disabled=true]):active{transform:scale(0.97);transition:transform 80ms ease-out}}
 /* Import as the wireframe: the drives along the top, one big Drop, AirDrop under it, Included at the foot */
@@ -906,12 +911,32 @@ html:not([data-full]) [data-lumina=steps] [role=tab][aria-selected=true] { text-
                 <sc-if value="{{ lk.pasteOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="look-paste" title="{{ lk.pasteTip }}" onClick="{{ lkPaste }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;background:rgba(239,236,230,0.08);color:#EFECE6">Paste</button></sc-if>
                 <sc-if value="{{ lk.resetOn }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="look-reset" title="Back to the clip as shot · ⌘Z puts it back" onClick="{{ lkReset }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;color:#9A958D">Reset all</button></sc-if>
               </span></div>
-            <div data-lumina="look-secs" role="tablist" aria-label="Color" style="display:flex;padding:2px;border-radius:7px;background:rgba(239,236,230,0.06)"><sc-for list="{{ lk.secs }}" as="ls" hint-placeholder-count="4"><button type="button" role="tab" aria-selected="{{ ls.on }}" data-lksec="{{ ls.k }}" onClick="{{ lkSec }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1;height:28px;border-radius:5px;text-align:center;background:{{ ls.bg }};color:{{ ls.fg }};box-shadow:{{ ls.sh }}">{{ ls.t }}</button></sc-for></div>
-            <sc-if value="{{ lk.mixOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="look-hues" style="display:flex;justify-content:space-between;gap:4px"><sc-for list="{{ lk.hues }}" as="lh" hint-placeholder-count="8"><button type="button" data-lkhue="{{ lh.k }}" title="{{ lh.t }}" aria-label="{{ lh.t }}" aria-pressed="{{ lh.on }}" onClick="{{ lkHue }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:relative;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;box-shadow:{{ lh.ring }}"><span style="width:16px;height:16px;border-radius:50%;background:{{ lh.dot }}"></span><sc-if value="{{ lh.ed }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:0;bottom:0;width:6px;height:6px;border-radius:50%;background:#EFECE6;box-shadow:0 0 0 1.5px #161514"></span></sc-if></button></sc-for></div><div style="color:#9A958D">{{ lk.hueSay }}</div></sc-if>
-            <sc-if value="{{ lk.gradeOn }}" hint-placeholder-val="{{ false }}"><div data-lumina="look-zones" style="display:flex;gap:4px"><sc-for list="{{ lk.zones }}" as="lz" hint-placeholder-count="4"><button type="button" data-lkzone="{{ lz.k }}" aria-pressed="{{ lz.on }}" onClick="{{ lkZone }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;flex:1;height:28px;border-radius:6px;text-align:center;background:{{ lz.bg }};color:{{ lz.fg }}">{{ lz.t }}</button></sc-for></div>
-              <div style="display:flex;align-items:center;gap:14px"><div data-lumina="look-wheel" title="Drag to tint · ⌥ for fine · 2×click resets" onPointerDown="{{ lkWheelDown }}" onDoubleClick="{{ lkWheelDbl }}" style="position:relative;flex:none;width:132px;height:132px;border-radius:50%;cursor:crosshair;touch-action:none;background:radial-gradient(circle,#2A2826 0 30%,transparent 72%),conic-gradient(from 0deg,hsl(0,55%,45%),hsl(60,55%,45%),hsl(120,55%,45%),hsl(180,55%,45%),hsl(240,55%,45%),hsl(300,55%,45%),hsl(360,55%,45%));box-shadow:inset 0 0 0 1px rgba(239,236,230,0.18)"><div style="position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:rgba(239,236,230,0.5)"></div><div data-lumina="look-puck" style="position:absolute;left:{{ lk.wx }};top:{{ lk.wy }};width:14px;height:14px;margin:-7px;border-radius:50%;background:#EFECE6;box-shadow:0 0 0 2px #161514,0 1px 3px rgba(0,0,0,0.5);pointer-events:none"></div></div>
-              <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="color:#EFECE6">{{ lk.zoneT }}</span><span data-lumina="look-wheel-say" style="color:#9A958D;font-variant-numeric:tabular-nums">{{ lk.wSay }}</span></div></div></sc-if>
-            <sc-for list="{{ lk.rows }}" as="lr" hint-placeholder-count="6"><div data-lkp="{{ lr.p }}" role="slider" aria-label="{{ lr.l }}" aria-valuetext="{{ lr.v }}" title="Drag the row · ⌥ for fine · 2×click resets" onPointerDown="{{ lkDown }}" onDoubleClick="{{ lkDbl }}" style="display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 12px;row-gap:5px;align-items:center;min-height:42px;align-content:center;margin:0 -6px;padding:0 6px;border-radius:7px;cursor:ew-resize;touch-action:none;background:{{ lr.bg }}"><span style="color:#EFECE6">{{ lr.l }}</span><span style="color:{{ lr.vc }};font-variant-numeric:tabular-nums;min-width:44px;text-align:right">{{ lr.v }}</span><div style="grid-column:1 / -1;position:relative;height:12px"><div style="position:absolute;left:0;right:0;top:5px;height:2px;border-radius:1px;background:rgba(239,236,230,0.14)"></div><div style="position:absolute;left:{{ lr.d }};top:2px;width:1px;height:8px;background:rgba(239,236,230,0.3)"></div><div style="position:absolute;left:{{ lr.fl }};width:{{ lr.fw }};top:5px;height:2px;border-radius:1px;background:#EFECE6"></div><div style="position:absolute;left:{{ lr.kx }};top:0;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#1E1D1B;box-shadow:inset 0 0 0 2px #EFECE6"></div></div></div></sc-for>
+            <div data-lumina="look-hub-block" style="position:sticky;top:0;z-index:2;display:flex;flex-direction:column;gap:10px;padding-bottom:4px;background:#161514">
+            <div data-lumina="look-tabs" role="tablist" aria-label="Color target" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px"><sc-for list="{{ lk.tabs }}" as="lt" hint-placeholder-count="5"><button type="button" role="tab" id="{{ lt.id }}" aria-selected="{{ lt.on }}" aria-controls="lumina-look-panel" aria-label="{{ lt.aria }}" data-lkhub="{{ lt.k }}" tabindex="{{ lt.ti }}" title="{{ lt.tip }}" onPointerDown="{{ lkTabDown }}" onClick="{{ lkHubGo }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px 0 6px;border-radius:8px;min-width:0;background:{{ lt.bg }};box-shadow:{{ lt.ring }};color:#EFECE6;font-size:11.5px;letter-spacing:-0.01em;font-weight:{{ lt.fw }}"><span aria-hidden="true" style="position:relative;width:26px;height:26px;border-radius:{{ lt.rad }};background:{{ lt.face }};box-shadow:inset 0 0 0 1px rgba(239,236,230,0.18)"><span style="position:absolute;left:{{ lt.x }};top:{{ lt.y }};width:7px;height:7px;margin:-3.5px;border-radius:50%;background:{{ lt.dot }};box-shadow:{{ lt.dotRing }}"></span></span><span style="display:flex;flex-direction:column;align-items:center;line-height:1.15;max-width:100%"><span style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ lt.t }}</span><span data-lumina="tab-sub" style="font-size:10px;font-weight:500;color:#9A958D;white-space:nowrap">{{ lt.sub }}</span></span><span data-kbd="1" aria-hidden="true" style="position:absolute;top:3px;right:5px;font-size:10px;font-weight:600;color:#6F6B65">{{ lt.key }}</span></button></sc-for></div>
+            <div id="lumina-look-panel" role="tabpanel" aria-labelledby="{{ lk.hubTabId }}" data-lumina="look-hub-wrap" style="display:grid;grid-template-columns:minmax(0,1fr) 22px;column-gap:10px;align-items:stretch;justify-items:center;padding-right:6px">
+              <div data-lumina="look-hub" data-lkhub-t="{{ lk.hubT }}" tabindex="0" role="group" aria-roledescription="colour pad" aria-label="{{ lk.hubAria }}" aria-describedby="lumina-look-hub-keys" title="Drag the dot · ⇧ fine · 2×click or ⌥-click resets · 1–5 then arrows" onPointerDown="{{ lkHubDown }}" onFocus="{{ lkHubFocus }}" onBlur="{{ lkHubBlur }}" style="position:relative;width:100%;max-width:min(300px, max(220px, calc(100vh - 500px)));min-width:220px;aspect-ratio:1;border-radius:{{ lk.hubRad }};background:{{ lk.hubFace }};box-shadow:inset 0 0 0 1px rgba(239,236,230,0.18);cursor:crosshair;touch-action:none;outline:none">
+                <sc-for list="{{ lk.axes }}" as="ax" hint-placeholder-count="2"><span role="slider" aria-label="{{ ax.l }}" aria-valuenow="{{ ax.now }}" aria-valuemin="{{ ax.min }}" aria-valuemax="{{ ax.max }}" aria-valuetext="{{ ax.txt }}" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap"></span></sc-for>
+                <sc-if value="{{ lk.hubPad }}" hint-placeholder-val="{{ true }}"><div aria-hidden="true" style="position:absolute;left:50%;top:6%;bottom:6%;width:1px;background:rgba(239,236,230,0.12)"></div><div aria-hidden="true" style="position:absolute;top:50%;left:6%;right:6%;height:1px;background:rgba(239,236,230,0.12)"></div>
+                  <span data-lumina="hub-edge" aria-hidden="true" style="position:absolute;top:7px;left:0;right:0;text-align:center;font-size:11px;color:#9A958D;pointer-events:none">{{ lk.eT }}</span><span data-lumina="hub-edge" aria-hidden="true" style="position:absolute;bottom:7px;left:0;right:0;text-align:center;font-size:11px;color:#9A958D;pointer-events:none">{{ lk.eB }}</span><span data-lumina="hub-edge" aria-hidden="true" style="position:absolute;left:8px;top:50%;margin-top:6px;font-size:11px;color:#9A958D;pointer-events:none">{{ lk.eL }}</span><span data-lumina="hub-edge" aria-hidden="true" style="position:absolute;right:8px;top:50%;margin-top:6px;font-size:11px;color:#9A958D;pointer-events:none">{{ lk.eR }}</span></sc-if>
+                <sc-if value="{{ lk.hubWheel }}" hint-placeholder-val="{{ false }}"><div aria-hidden="true" style="position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(239,236,230,0.5)"></div></sc-if>
+                <div data-lumina="hub-dot" aria-hidden="true" style="position:absolute;left:{{ lk.dx }};top:{{ lk.dy }};width:20px;height:20px;margin:-10px;border-radius:50%;background:#EFECE6;box-shadow:0 0 0 2.5px #161514,0 1px 4px rgba(0,0,0,0.6);pointer-events:none">
+                  <sc-if value="{{ lk.live }}" hint-placeholder-val="{{ false }}"><span data-lumina="hub-tip" style="position:absolute;left:10px;top:{{ lk.tipY }};transform:translateX({{ lk.tipX }});padding:3px 7px;border-radius:6px;background:rgba(22,21,20,0.92);box-shadow:0 0 0 1px rgba(255,210,122,0.5);color:#FFD27A;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap">{{ lk.hubShort }}</span></sc-if></div>
+              </div>
+              <sc-if value="{{ lk.lOn }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;align-self:stretch"><div data-lumina="look-strip" data-lkhub-t="{{ lk.hubT }}" data-lkstrip="1" tabindex="0" role="slider" aria-orientation="vertical" aria-label="{{ lk.hubName }} {{ lk.sName }}" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="{{ lk.sNow }}" aria-valuetext="{{ lk.sAria }}" title="{{ lk.sName }} · drag · ⇧ fine · 2×click resets" onPointerDown="{{ lkStripDown }}" onFocus="{{ lkHubFocus }}" onBlur="{{ lkHubBlur }}" style="position:relative;width:22px;flex:1 1 auto;border-radius:11px;background:{{ lk.sFace }};box-shadow:inset 0 0 0 1px rgba(239,236,230,0.18);cursor:ns-resize;touch-action:none;outline:none"><div aria-hidden="true" style="position:absolute;left:5px;right:5px;top:50%;height:1px;background:rgba(239,236,230,0.35)"></div><div aria-hidden="true" style="position:absolute;left:9px;width:4px;top:{{ lk.lFill }};height:{{ lk.lFillH }};border-radius:2px;background:#EFECE6"></div><div aria-hidden="true" style="position:absolute;left:50%;top:{{ lk.lY }};width:20px;height:8px;margin:-4px 0 0 -10px;border-radius:4px;background:#EFECE6;box-shadow:0 0 0 2px #161514;pointer-events:none"></div>
+                <sc-if value="{{ lk.sLive }}" hint-placeholder-val="{{ false }}"><span data-lumina="strip-tip" aria-hidden="true" style="position:absolute;right:28px;top:{{ lk.sTipY }};margin-top:-12px;padding:3px 7px;border-radius:6px;background:rgba(22,21,20,0.92);box-shadow:0 0 0 1px rgba(255,210,122,0.5);color:#FFD27A;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none">{{ lk.stripText }}</span></sc-if></div><span data-lumina="strip-label" aria-hidden="true" style="font-size:10px;line-height:12px;font-weight:600;color:#9A958D">{{ lk.sShort }}</span></div></sc-if>
+            </div>
+            <div data-lumina="look-hub-say" style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:8px;min-height:40px"><div style="display:flex;flex-direction:column;gap:1px;min-width:0"><span data-lumina="look-hub-text" style="color:#EFECE6;font-variant-numeric:tabular-nums;white-space:nowrap">{{ lk.hubText }}</span><span data-lumina="look-strip-text" style="color:#9A958D;font-variant-numeric:tabular-nums">{{ lk.stripText }}</span></div><sc-if value="{{ lk.hubMoved }}" hint-placeholder-val="{{ false }}"><button type="button" data-lumina="look-hub-reset" title="Put {{ lk.hubName }} back · ⌥-click or 2×click the pad" onClick="{{ lkHubResetGo }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;height:28px;padding:0 9px;border-radius:6px;color:#9A958D;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.16);font-size:12px;flex:none" aria-label="Reset {{ lk.hubName }}">Reset</button></sc-if></div>
+            <div id="lumina-look-hub-keys" data-lumina="look-hub-keys" data-kbd="1" style="margin-top:-6px;min-height:16px;font-size:11px;line-height:16px;color:#FFD27A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><sc-if value="{{ lk.foc }}" hint-placeholder-val="{{ false }}">{{ lk.focSay }}</sc-if><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">1 to 5 choose the target.</span></div>
+            <div data-lumina="look-hub-live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">{{ lk.liveSay }}</div>
+            </div>
+            <button type="button" data-lumina="look-more" aria-expanded="{{ lk.moreOn }}" aria-controls="lumina-look-more" onClick="{{ lkMoreGo }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;display:flex;align-items:center;gap:8px;height:34px;padding:0 2px;border-top:1px solid rgba(239,236,230,0.10);color:#EFECE6;font-weight:700;text-align:left"><span aria-hidden="true" style="display:inline-block;width:10px;color:#9A958D">{{ lk.moreArrow }}</span>{{ lk.moreT }}<span style="margin-left:auto;font-weight:500;color:#9A958D;font-size:12px">Tone · Mix · Global</span></button>
+            <sc-if value="{{ lk.moreOn }}" hint-placeholder-val="{{ false }}"><div id="lumina-look-more" data-lumina="look-more-body" style="display:flex;flex-direction:column;gap:6px;padding-bottom:8px"><sc-for list="{{ lk.more }}" as="m" hint-placeholder-count="8">
+              <sc-if value="{{ m.hd }}" hint-placeholder-val="{{ false }}"><div data-lumina="look-more-hd" style="display:flex;align-items:baseline;gap:8px;margin-top:8px;font-size:12px;font-weight:700;color:#9A958D"><span>{{ m.t }}</span><span style="margin-left:auto;font-weight:600;color:#FFD27A">{{ m.n }}</span></div></sc-if>
+              <sc-if value="{{ m.row }}" hint-placeholder-val="{{ false }}"><div data-lkp="{{ m.p }}" role="slider" aria-label="{{ m.l }}" aria-valuetext="{{ m.v }}" title="Drag the row · ⇧ for fine · 2×click resets" onPointerDown="{{ lkDown }}" onDoubleClick="{{ lkDbl }}" style="display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 12px;row-gap:5px;align-items:center;min-height:40px;align-content:center;margin:0 -6px;padding:0 6px;border-radius:7px;cursor:ew-resize;touch-action:none;background:{{ m.bg }}"><span style="color:#EFECE6">{{ m.l }}</span><span style="color:{{ m.vc }};font-variant-numeric:tabular-nums;min-width:44px;text-align:right">{{ m.v }}</span><div style="grid-column:1 / -1;position:relative;height:12px"><div style="position:absolute;left:0;right:0;top:5px;height:2px;border-radius:1px;background:rgba(239,236,230,0.14)"></div><div style="position:absolute;left:{{ m.d }};top:2px;width:1px;height:8px;background:rgba(239,236,230,0.3)"></div><div style="position:absolute;left:{{ m.fl }};width:{{ m.fw }};top:5px;height:2px;border-radius:1px;background:#EFECE6"></div><div style="position:absolute;left:{{ m.kx }};top:0;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#1E1D1B;box-shadow:inset 0 0 0 2px #EFECE6"></div></div></div></sc-if>
+              <sc-if value="{{ m.hues }}" hint-placeholder-val="{{ false }}"><div data-lumina="look-hues" style="display:flex;justify-content:space-between;gap:4px"><sc-for list="{{ m.list }}" as="lh" hint-placeholder-count="8"><button type="button" data-lkhue="{{ lh.k }}" title="{{ lh.t }}" aria-label="{{ lh.t }}" aria-pressed="{{ lh.on }}" onClick="{{ lkHue }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;position:relative;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;box-shadow:{{ lh.ring }}"><span style="width:16px;height:16px;border-radius:50%;background:{{ lh.dot }}"></span><sc-if value="{{ lh.ed }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:0;bottom:0;width:6px;height:6px;border-radius:50%;background:#EFECE6;box-shadow:0 0 0 1.5px #161514"></span></sc-if></button></sc-for></div></sc-if>
+              <sc-if value="{{ m.wheel }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:14px"><div data-lumina="look-wheel" data-lkhub-t="all" role="slider" aria-label="Global tint" aria-valuetext="{{ m.wSay }}" title="Drag to tint · ⇧ fine · 2×click resets" onPointerDown="{{ lkHubDown }}" style="position:relative;flex:none;width:112px;height:112px;border-radius:50%;cursor:crosshair;touch-action:none;background:radial-gradient(circle,#2A2826 0 30%,transparent 72%),conic-gradient(from 0deg,hsl(0,55%,45%),hsl(60,55%,45%),hsl(120,55%,45%),hsl(180,55%,45%),hsl(240,55%,45%),hsl(300,55%,45%),hsl(360,55%,45%));box-shadow:inset 0 0 0 1px rgba(239,236,230,0.18)"><div style="position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;background:rgba(239,236,230,0.5)"></div><div data-lumina="look-puck" style="position:absolute;left:{{ m.wx }};top:{{ m.wy }};width:14px;height:14px;margin:-7px;border-radius:50%;background:#EFECE6;box-shadow:0 0 0 2px #161514,0 1px 3px rgba(0,0,0,0.5);pointer-events:none"></div></div>
+                <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="color:#EFECE6">Global tint</span><span data-lumina="look-wheel-say" style="color:#9A958D;font-variant-numeric:tabular-nums">{{ m.wSay }}</span></div></div></sc-if>
+            </sc-for></div></sc-if>
           </div></sc-if>
 <button type="button" data-lumina="rail-keep" data-well="keep" aria-pressed="{{ cv.keepOn }}" title="K · on / off" onClick="{{ wClick }}" style="box-sizing:border-box;padding:0;background:transparent;border:0;margin:0;font:inherit;-webkit-appearance:none;appearance:none;order:9;flex:none;margin-top:auto;height:46px;border-radius:10px;text-align:center;font-size:14px;font-weight:700;background:{{ cv.keepBg }};color:{{ cv.keepFg }};box-shadow:inset 0 0 0 1px {{ cv.keepRing }}">{{ cv.keepT }}</button>
           <sc-for list="{{ cv.groups }}" as="gr" hint-placeholder-count="3"><div data-facts="{{ gr.key }}" style="order:{{ gr.order }};grid-column:{{ gr.span }};align-self:start;display:flex;flex-direction:column;gap:3px;line-height:1.45;padding:10px 12px;border-radius:9px;background:{{ gr.bg }};box-shadow:inset 0 0 0 1px {{ gr.line }}">
@@ -1345,7 +1370,7 @@ class Component extends DCLogic {
   componentDidMount() {
     if (/[?&]full=1\b/.test(location.search)) document.documentElement.setAttribute('data-full', '');
     this.load();
-    this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => { this.panS = null; this.evUp(); this.setState({held:null}); };
+    this._kd = e => this.kd(e); this._ku = e => this.ku(e); this._mm = e => this.mm(e); this._mu = e => this.mu(e); this._wh = e => this.wheel(e); this._bl = () => { this.panS = null; this.evUp(); this.lkHubKeyEnd(); if (this.lkDragUp) this.lkDragUp(); this.setState({held:null}); };
     window.addEventListener('keydown', this._kd); window.addEventListener('keyup', this._ku);
     window.addEventListener('mousemove', this._mm); window.addEventListener('mouseup', this._mu); this._ck = e => this.clickAway(e); window.addEventListener('click', this._ck);
     this._md = e => { this.tabFocus = false; const st = this.state; if (!st.sel.length && !st.box) return; const t = e.target; if (this.sc && this.sc.contains(t)) return; if (t.closest && t.closest('[data-well],[data-lumina="memory"],[data-lumina="progress"]')) return; this.setState({sel:[], box:null}); }; window.addEventListener('mousedown', this._md);
@@ -1480,6 +1505,7 @@ class Component extends DCLogic {
     if (this.d && (L.m !== s0.marks || L.d !== s0.dis || L.c !== s0.cuts)) { const first = !this._ls; this._ls = {m:s0.marks, d:s0.dis, c:s0.cuts}; if (!first) this.save(); }
     if (this.wantScroll) { let w = this.wantScroll; this.wantScroll = null; if (w[0] === '@top') { if (this.sc) { this.sc.scrollTop = w[1]; this.setState({scTop:this.sc.scrollTop}); } } else { if (w[0] === '@cur') w = ['[data-gi="' + ((this.gOfAll && this.gOfAll[s0.cur]) ?? 0) + '"]', w[1]]; this.scrollTo(w[0], w[1]); } }
     const zk = this._zk || {}; this._zk = {cur:s0.cur, lv:s0.lv, step:s0.step};
+    if (zk.cur !== s0.cur && this.lkHubK) this.lkHubKeyEnd();
     if (zk.cur !== s0.cur && this.d) this.refill();
     if ((s0.lv === 1 || (s0.cv && s0.lv === 0)) && this.sc && (zk.lv !== s0.lv || this.sc.clientHeight !== s0.scH)) this.scScroll();
     if (zk.cur !== s0.cur || zk.lv !== s0.lv || zk.step !== s0.step) { const ps = zk, r = {}; if (s0.zc !== 1 && (ps.cur !== s0.cur || s0.lv < 2 || s0.step !== 'skim')) r.zc = 1; if (s0.noKeep && (s0.lv < 2 || s0.step !== 'skim')) r.noKeep = false; if (Object.keys(r).length) this.setState(r); }
@@ -1580,8 +1606,8 @@ class Component extends DCLogic {
   // look step (lkBegin … lkEnd), as a drag on the Exposure row is; the row moves with it.
   evIds() { const st = this.state; if (st.sel.length) return st.sel; if (st.lv >= 2) return st.cur ? [st.cur] : []; return this.targets(); }
   evDown() {
-    const st = this.state; if (st.evHeld || st.held || this.lkPrev || !this.d || !this.d.clips.length) return; const ids = this.evIds().filter(id => this.byId && this.byId[id]); if (!ids.length) return;
-    this.lkBegin(ids); this.evS = {ids, raw:Object.fromEntries(ids.map(id => [id, this.evOf(this.byId[id])]))}; clearTimeout(this.evT); this.setState(st.lv >= 2 ? {evHeld:true, evHot:ids, lkOn:'ev', lkSec:'light'} : {evHeld:true, evHot:ids, lkOn:'ev'});   // in the Viewer the rail shows Light, where the Exposure row moves
+    this.lkHubKeyEnd(); const st = this.state; if (st.evHeld || st.held || this.lkPrev || !this.d || !this.d.clips.length) return; const ids = this.evIds().filter(id => this.byId && this.byId[id]); if (!ids.length) return;
+    this.lkBegin(ids); this.evS = {ids, raw:Object.fromEntries(ids.map(id => [id, this.evOf(this.byId[id])]))}; clearTimeout(this.evT); this.setState(st.lv >= 2 ? {evHeld:true, evHot:ids, lkOn:'ev', lkHub:'light'} : {evHeld:true, evHot:ids, lkOn:'ev'});   // in the Viewer the hub turns to Light, where its dot moves
   }
   // by d stops: an arrow lands on the nearest third, a scroll moves freely (kept unrounded here, the look holds 1/100)
   evBy(d, free) {
@@ -3073,13 +3099,19 @@ class Component extends DCLogic {
       else if (st.step === 'import' && k === 'Enter' && !meta && !e.shiftKey && !e.altKey && !e.repeat && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); return this.hasShoot() ? this.setStep('skim') : this.pickFolder(); }
       return;
     }
+    // the focused hub or strip (325) takes the arrows, ⌫ and esc before the page does
+    if (!meta && t && t.getAttribute && t.getAttribute('data-lkhub-t') && !st.evHeld && this.lkHubKey(e, t)) return;
+    if (!meta && t && t.getAttribute && t.getAttribute('data-lkhub') && (k === 'ArrowLeft' || k === 'ArrowRight') && this.lkTabPtr !== t.getAttribute('data-lkhub')) { e.preventDefault(); const H = Component.LK_HUB, i = H.findIndex(h => h[0] === t.getAttribute('data-lkhub')), n = H[(i + (k === 'ArrowRight' ? 1 : -1) + H.length) % H.length][0]; this.lkTabPtr = null; this.setState({lkHub:n}, () => { const b = document.querySelector('[data-lkhub="' + n + '"]'); if (b) b.focus({preventScroll:true}); }); return; }
     if (k === 'Escape') { e.preventDefault(); return this.esc(); }
     if (st.noKeep && k === 'Enter' && !meta) { e.preventDefault(); return this.noKeepBack(); }
     if (meta && (k === 'Enter' || kl === 'e')) { e.preventDefault(); return this.setStep('export'); }
-    if (meta && kl === 'z') { e.preventDefault(); return e.shiftKey ? this.redo() : this.undo(); }
+    if (meta && kl === 'z') { e.preventDefault(); this.lkHubKeyEnd(); return e.shiftKey ? this.redo() : this.undo(); }
     if (meta && (kl === 'c' || kl === 'v') && !e.shiftKey && !e.altKey && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) && !String((window.getSelection && window.getSelection()) || '')) { e.preventDefault(); return kl === 'c' ? this.lkCopy() : this.lkPaste(); }
     if (meta && (k === 'Backspace' || k === 'Delete') && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); if (!e.repeat) this.removeClips(this.removeIds()); return; }
     if (meta) return;
+    // 1–5: the Color hub's targets (Light, Color, Shadows, Mids, Highs) while the Viewer shows Color (325); the hub takes the focus,
+    // so the arrows move its dot until esc.
+    if (/^[1-5]$/.test(k) && !e.altKey && !e.shiftKey && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) && st.lv >= 2 && !st.ol && !st.held && !st.evHeld) { const h = Component.LK_HUB[+k - 1]; if (h) { e.preventDefault(); this.lkHubKeyEnd(); this.setState({lkHub:h[0]}, () => { const el = document.querySelector('[data-lumina="look-hub"]'); if (el) el.focus({preventScroll:true}); }); return; } }
     if (t && t.tagName === 'INPUT' && k.startsWith('Arrow')) return;
     // Tab is the next clip and ⇧Tab the one before, as → and ← are (scenes on Scenes, frames' clips in the Viewer);
     // a text field keeps its own Tab.
@@ -3137,6 +3169,7 @@ class Component extends DCLogic {
   ku(e) {
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, st = this.state;
     if (k === 'Shift' || k === 'Meta' || k === 'Alt' || k === 'Control') return;
+    if (this.lkHubK && /^Arrow/.test(k)) this.lkHubKeyEnd();
     if (k === 'o' && this.oDown) { const d = this.oDown; this.oDown = null; const held = Date.now() - d.t > 300; if ((held ? d.was : !d.was) !== !!st.ol) this.olToggle(); return; }
     // A button a click left focused would take the Space on its release (a click); the preview has it instead.
     if (k === ' ') { if (!(this.isCtl(e.target) && this.tabFocus)) e.preventDefault(); return this.spaceUp(e); }
@@ -3194,6 +3227,7 @@ class Component extends DCLogic {
   wheel(e) {
     const st = this.state; if (st.ready && st.step === 'export') return this.wsWheel(e);
     if (!st.ready || st.step !== 'skim' || !this.d.clips.length) return;
+    { const hb = !this.evS && e.target && e.target.closest && e.target.closest('[data-lumina="look-hub"],[data-lumina="look-strip"]'); if (hb) return this.lkHubWheel(e, hb); }
     // E held: two fingers up or right brighten (macOS's natural scrolling), 300 px a stop
     if (this.evS) { e.preventDefault(); if (e.ctrlKey) return; const u = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1, dy = e.deltaY * u, dx = -e.deltaX * u; return this.evBy((Math.abs(dy) >= Math.abs(dx) ? dy : dx) / 300, true); }
     if (e.ctrlKey) { e.preventDefault(); return this.zoomBy(-e.deltaY * 0.01, e); }
@@ -3570,7 +3604,7 @@ class Component extends DCLogic {
       lv0:sk && !empty && !st.cv && st.lv === 0, lv1:sk && !empty && !st.cv && st.lv === 1, lv2:sk && !empty && st.lv === 2 && !!curC,
       scRef:this.scRef, scScroll:this.scScroll, scrubRef:this.scrubRef, panRef:this.panRef, gridDown:this.gridDown,
       tEnter:this.tEnter, tClick:this.tClick, tDbl:this.tDbl, gEnter:this.gEnter, gClick:this.gClick, gDbl:this.gDbl, sClick:this.sClick, tsGo:this.tsGo, tsBack:false, tsFwd:false, backClick:this.backClick, tPos:'', tPosW:0, nbOn:false, nbrs:[], skimBarD:'flex', infoPos:'static', lv2Rows:'auto', topCol:'1', picRow:'2', infoCol:'1', infoRow:'3',
-      wClick:this.wClick, gdCvRef:this.gdCvRef, lk:{on:false, secs:[], hues:[], zones:[], rows:[]}, lkSec:this.lkSec, lkHue:this.lkHue, lkZone:this.lkZone, lkDown:this.lkDown, lkDbl:this.lkDbl, lkWheelDown:this.lkWheelDown, lkWheelDbl:this.lkWheelDbl, lkCopy:this.lkCopy, lkPaste:this.lkPaste, lkReset:this.lkReset,
+      wClick:this.wClick, gdCvRef:this.gdCvRef, lk:{on:false, tabs:[], more:[], axes:[]}, lkHue:this.lkHue, lkHubGo:this.lkHubGo, lkTabDown:this.lkTabDown, lkMoreGo:this.lkMoreGo, lkDown:this.lkDown, lkDbl:this.lkDbl, lkHubDown:this.lkHubDown, lkHubResetGo:this.lkHubResetGo, lkStripDown:this.lkStripDown, lkHubFocus:this.lkHubFocus, lkHubBlur:this.lkHubBlur, lkCopy:this.lkCopy, lkPaste:this.lkPaste, lkReset:this.lkReset,
       scrubMove:this.scrubMove, viewTap:this.viewTap, viewDbl:this.viewDbl, gridDbl:this.gridDbl, picMove:this.picMove, picDown:this.picDown, picLeave:this.picLeave, picClick:this.picClick, vidRef:this.vidRef, fgCvRef:this.fgCvRef, fgClick:this.fgClick, playGo:this.playGo, pvCvRef:this.pvCvRef, olCvRef:this.olCvRef, olChip:this.olChip, olClick:this.olClick, folGo:this.folGo, folStop:this.folStop, folMatte:this.folMatte, folDrop:this.folDrop, folFix:this.folFix, folSeg:this.folSeg, folRemove:this.folRemove,
       grid42:true,
       boxOn:!!st.box && (st.box.w + st.box.h > 6), box:st.box || base.box,
@@ -5900,6 +5934,38 @@ class Component extends DCLogic {
     color:[['temp', 'Temp', 100], ['tint', 'Tint', 100], ['vib', 'Vibrance', 100], ['sat', 'Saturation', 100]]};
   static LK_HUES = [['red', 'Red', 0], ['orange', 'Orange', 30], ['yellow', 'Yellow', 60], ['green', 'Green', 120], ['aqua', 'Aqua', 180], ['blue', 'Blue', 220], ['purple', 'Purple', 270], ['magenta', 'Magenta', 320]];
   static LK_ZONES = [['sh', 'Shadows'], ['mid', 'Midtones'], ['hi', 'Highlights'], ['all', 'Global']];
+  // The hub (LOCAL-CHANGES 325): one control, five targets. Light and Color are pads (x, y: two of the look's numbers),
+  // Shadows / Mids / Highs the grade's wheels (angle = hue, distance from the middle = strength) with a strip for luminance.
+  static LK_HUB = [['light', 'Light', '1'], ['color', 'Color', '2'], ['sh', 'Shadows', '3'], ['mid', 'Mids', '4'], ['hi', 'Highs', '5']];
+  // ps: what the pad moves; strip: the number on the strip beside it (Color: Saturation, the zones: their luminance).
+  static lkHubAx(t) { return t === 'light' ? {pad:true, x:'con', y:'ev', ps:['ev', 'con'], strip:'hl'} : t === 'color' ? {pad:true, x:'temp', y:'tint', ps:['temp', 'tint'], strip:'sat'}
+    : {pad:false, ps:['grade.' + t + '.h', 'grade.' + t + '.s'], strip:t === 'all' ? null : 'grade.' + t + '.l'}; }
+  // Where the dot sits: fractions of the hub from its top left. Pads: x left → right, y top = the high end.
+  static lkHubXY(L, t) {
+    const a = Component.lkHubAx(t), G = p => Component.lkGet(L, p);
+    if (a.pad) { const [xa, xb] = Component.lkRange(a.x), [ya, yb] = Component.lkRange(a.y); return [(G(a.x) - xa) / (xb - xa), 1 - (G(a.y) - ya) / (yb - ya)]; }
+    const h = G('grade.' + t + '.h') * Math.PI / 180, s = G('grade.' + t + '.s') / 100; return [0.5 + Math.sin(h) * s / 2, 0.5 - Math.cos(h) * s / 2];
+  }
+  // A point on the hub (fractions) to the look's numbers, [[param, value], …], unrounded (lkSet cleans them).
+  // A wheel's middle (under 2 of 100) is no tint.
+  static lkHubAt(t, fx, fy) {
+    const a = Component.lkHubAx(t), cl = f => Math.max(0, Math.min(1, f));
+    if (a.pad) { const [xa, xb] = Component.lkRange(a.x), [ya, yb] = Component.lkRange(a.y); return [[a.x, xa + cl(fx) * (xb - xa)], [a.y, ya + (1 - cl(fy)) * (yb - ya)]]; }
+    const x = fx - 0.5, y = fy - 0.5, s = Math.min(100, Math.hypot(x, y) * 200), h = (Math.atan2(x, -y) * 180 / Math.PI + 360) % 360;
+    return s < 2 ? [['grade.' + t + '.h', 0], ['grade.' + t + '.s', 0]] : [['grade.' + t + '.h', h], ['grade.' + t + '.s', s]];
+  }
+  // What the pad holds, in words: long under the hub, short by the dot. The strip says its own.
+  static lkHubSay(L, t, short) {
+    const G = p => Component.lkGet(L, p), F = p => Component.lkFmt(p, G(p));
+    if (t === 'light') return short ? F('ev') + ' EV · ' + F('con') : 'Exposure ' + F('ev') + ' · Contrast ' + F('con');
+    if (t === 'color') return short ? F('temp') + ' · ' + F('tint') : 'Temp ' + F('temp') + ' · Tint ' + F('tint');
+    const s = G('grade.' + t + '.s'), h = G('grade.' + t + '.h');
+    return short ? (s ? h + '° · ' + s : 'no tint') : s ? 'Tint ' + h + '° · Strength ' + s : 'No tint';
+  }
+  static lkHubStripName(p) { return p === 'sat' ? 'Saturation' : p === 'hl' ? 'Highlights' : 'Luminance'; }
+  static lkHubStripSay(L, t) { const p = Component.lkHubAx(t).strip; return p ? Component.lkHubStripName(p) + ' ' + Component.lkFmt(p, Component.lkGet(L, p)) : ''; }
+  // A target moved off rest (its tab says so)
+  static lkHubMoved(L, t) { const a = Component.lkHubAx(t); return [...a.ps, ...(a.strip ? [a.strip] : [])].some(p => p !== 'grade.' + t + '.h' && Component.lkGet(L, p) !== Component.lkDef(p)); }
   static lkDef(p) { return p === 'grade.blend' ? 50 : 0; }
   static lkRange(p) { if (p === 'ev') return [-4, 4]; if (p === 'grade.blend' || /\.s$/.test(p) && p.indexOf('grade.') === 0) return [0, 100]; if (/^grade\.\w+\.h$/.test(p)) return [0, 360]; return [-100, 100]; }
   static lkGet(L, p) { const v = L && L[p]; return typeof v === 'number' && isFinite(v) ? v : Component.lkDef(p); }
@@ -6150,7 +6216,7 @@ void main() {
   lkEnd(say) {
     const b = this.lkPrev; this.lkPrev = null; if (!b) return; const m = this.looks(), next = Object.fromEntries(b.ids.map(id => [id, m[id] ? {...m[id]} : null]));
     if (b.ids.every(id => JSON.stringify(b.prev[id]) === JSON.stringify(next[id]))) return;
-    this.pushStep({k:'look', ids:b.ids, prev:b.prev, next, say}); this.evMoved(b.ids, b.prev, next);
+    const step = {k:'look', ids:b.ids, prev:b.prev, next, say}; this.pushStep(step); this.evMoved(b.ids, b.prev, next); return step;
   }
   lkSet(id, p, v) {
     const m = {...this.looks()}, L = {...(m[id] || {})}; v = Component.lkClean(p, v);
@@ -6159,51 +6225,155 @@ void main() {
     this.looksPut(m);
   }
   lkVals(c) {
-    const st = this.state, L = this.lookOf(c.id) || {}, sec = st.lkSec || 'light', G = p => Component.lkGet(L, p), hue = st.lkHue || 'blue', zone = st.lkZone || 'mid';
+    const st = this.state, L = this.lookOf(c.id) || {}, G = p => Component.lkGet(L, p), hue = st.lkHue || 'blue', t = st.lkHub || 'light', ax = Component.lkHubAx(t);
     const row = (p, l) => { const [a, b] = Component.lkRange(p), v = G(p), d = Component.lkDef(p), f = (v - a) / (b - a), f0 = (d - a) / (b - a), set = v !== d;
       return {p, l, v:Component.lkFmt(p, v), vc:set ? '#EFECE6' : '#9A958D', bg:st.lkOn === p ? 'rgba(239,236,230,0.06)' : 'transparent', d:(f0 * 100).toFixed(2) + '%', fl:(Math.min(f, f0) * 100).toFixed(2) + '%', fw:(Math.abs(f - f0) * 100).toFixed(2) + '%', kx:(f * 100).toFixed(2) + '%'}; };
-    const rows = sec === 'mix' ? [['h', 'Hue'], ['s', 'Saturation'], ['l', 'Luminance']].map(([k, l]) => row('mix.' + hue + '.' + k, l))
-      : sec === 'grade' ? [row('grade.' + zone + '.l', 'Luminance'), row('grade.blend', 'Blending'), row('grade.bal', 'Balance')]
-      : Component.LK_ROWS[sec].map(([p, l]) => row(p, l));
-    const wh = G('grade.' + zone + '.h'), ws = G('grade.' + zone + '.s'), rad = wh * Math.PI / 180;
-    const hName = (Component.LK_HUES.find(h => h[0] === hue) || [, 'Blue'])[1];
     const olA = !!this.olApi(), olOn = !!st.ol, tab = (on) => ({bg:on ? 'rgba(239,236,230,0.12)' : 'transparent', fg:on ? '#EFECE6' : '#9A958D'});
-    const tc = tab(!olOn), to = tab(olOn);
+    const tc = tab(!olOn), to = tab(olOn), pc = xy => ({x:(xy[0] * 100).toFixed(2) + '%', y:(xy[1] * 100).toFixed(2) + '%'});
+    // the hub's faces: Light a dim-to-bright pad, Color a faint blue → amber by green → magenta pad, the zones the hue wheel
+    const face = k => k === 'light' ? 'linear-gradient(to bottom,rgba(239,236,230,0.20),rgba(239,236,230,0.02) 55%,rgba(0,0,0,0.35)),linear-gradient(to right,rgba(239,236,230,0.05),rgba(239,236,230,0) 50%,rgba(239,236,230,0.05)),#242220'
+      : k === 'color' ? 'linear-gradient(to right,rgba(90,150,255,0.34),rgba(90,150,255,0) 50%,rgba(255,176,70,0),rgba(255,176,70,0.34)),linear-gradient(to bottom,rgba(225,95,215,0.24),rgba(225,95,215,0) 50%,rgba(95,215,125,0),rgba(95,215,125,0.24)),#242220'
+      : 'radial-gradient(circle,#2A2826 0 22%,rgba(42,40,38,0) 70%),conic-gradient(from 0deg,hsl(0,55%,45%),hsl(60,55%,45%),hsl(120,55%,45%),hsl(180,55%,45%),hsl(240,55%,45%),hsl(300,55%,45%),hsl(360,55%,45%))';
+    const live = st.lkHubOn === t || (t === 'light' && st.evHeld && st.lkOn === 'ev'), xy = Component.lkHubXY(L, t), d = pc(xy), name = (Component.LK_HUB.find(h => h[0] === t) || [, ''])[1];
+    const edge = ax.pad ? (t === 'light' ? ['Brighter', 'Darker', 'Less contrast', 'More contrast'] : ['Magenta', 'Green', 'Cooler', 'Warmer']) : ['', '', '', ''];
+    const sp = ax.strip, sv = sp ? G(sp) : 0, aria = (p, l) => { const [a, b] = Component.lkRange(p); return {l, now:String(G(p)), min:String(a), max:String(b), txt:l + ' ' + Component.lkFmt(p, G(p))}; };
+    const axes = ax.pad ? [aria(ax.y, Component.lkName(ax.y)), aria(ax.x, Component.lkName(ax.x))] : [aria('grade.' + t + '.h', name + ' tint hue'), aria('grade.' + t + '.s', name + ' tint strength')];
+    // More: what the hub doesn't hold, in today's rows
+    const hd = (tt, n) => ({hd:true, t:tt, n:n ? n + ' moved' : '', row:false, hues:false, wheel:false}), r = (p, l) => ({hd:false, row:true, hues:false, wheel:false, ...row(p, l)});
+    const nmv = ps => ps.filter(p => G(p) !== Component.lkDef(p)).length, mixPs = Component.LK_HUES.flatMap(h => ['h', 's', 'l'].map(k => 'mix.' + h[0] + '.' + k));
+    const tonePs = ['sh', 'wh', 'bl'], gPs = ['grade.all.s', 'grade.all.l', 'grade.blend', 'grade.bal'], moreN = nmv([...tonePs, 'vib', ...mixPs, ...gPs]);
+    const gh = G('grade.all.h'), gs = G('grade.all.s'), grad = gh * Math.PI / 180, hName = (Component.LK_HUES.find(h => h[0] === hue) || [, 'Blue'])[1];
+    const more = !st.lkMore ? [] : [hd('Tone', nmv(tonePs)), ...[['sh', 'Shadows'], ['wh', 'Whites'], ['bl', 'Blacks']].map(([p, l]) => r(p, l)),
+      hd('Color', nmv(['vib'])), r('vib', 'Vibrance'),
+      hd('Mix · ' + hName + (hue === 'blue' || hue === 'aqua' ? ' · sky and water sit here' : ''), nmv(mixPs)),
+      {hd:false, row:false, wheel:false, hues:true, list:Component.LK_HUES.map(([k, tt, h]) => ({k, t:tt, on:k === hue, dot:'hsl(' + h + ',62%,56%)', ring:k === hue ? '0 0 0 2px #EFECE6' : 'none', ed:['h', 's', 'l'].some(x => G('mix.' + k + '.' + x) !== 0)}))},
+      ...[['h', 'Hue'], ['s', 'Saturation'], ['l', 'Luminance']].map(([k, l]) => r('mix.' + hue + '.' + k, l)),
+      hd('Global grade', nmv(gPs)),
+      {hd:false, row:false, hues:false, wheel:true, wx:(50 + Math.sin(grad) * gs / 2).toFixed(2) + '%', wy:(50 - Math.cos(grad) * gs / 2).toFixed(2) + '%', wSay:gs ? 'Tint ' + gh + '° · ' + gs : 'No tint'},
+      r('grade.all.l', 'Luminance'), r('grade.blend', 'Blending'), r('grade.bal', 'Balance')];
     return {on:true, colorOn:!olOn, colorBg:tc.bg, colorFg:tc.fg, colorGo:() => { if (this.state.ol) this.olClick(); }, olTab:olA, olOn, olBg:to.bg, olFg:to.fg, olGo:() => { if (!this.state.ol) this.olClick(); }, say:Component.lkWords(L), resetOn:!Component.lkFlat(L), pasteOn:!!this.lkClip, pasteTip:this.lkClip ? 'Paste ' + this.lkClip.from + "'s look · ⌘V · " + Component.lkWords(this.lkClip.L) : '',
-      secs:Component.LK_SECS.map(([k, t]) => ({k, t, on:k === sec, bg:k === sec ? '#5B5854' : 'transparent', fg:k === sec ? '#EFECE6' : '#9A958D', sh:k === sec ? '0 0.5px 1px rgba(0,0,0,.4)' : 'none'})),
-      mixOn:sec === 'mix', hueSay:hName + (hue === 'blue' || hue === 'aqua' ? ' · sky and water sit here' : ''),
-      hues:Component.LK_HUES.map(([k, t, h]) => ({k, t, on:k === hue, dot:'hsl(' + h + ',62%,56%)', ring:k === hue ? '0 0 0 2px #EFECE6' : 'none', ed:['h', 's', 'l'].some(x => G('mix.' + k + '.' + x) !== 0)})),
-      gradeOn:sec === 'grade', zoneT:(Component.LK_ZONES.find(z => z[0] === zone) || [, ''])[1],
-      zones:Component.LK_ZONES.map(([k, t]) => ({k, t, on:k === zone, bg:k === zone ? 'rgba(239,236,230,0.14)' : 'rgba(239,236,230,0.04)', fg:k === zone ? '#EFECE6' : '#9A958D'})),
-      wx:(50 + Math.sin(rad) * ws / 2).toFixed(2) + '%', wy:(50 - Math.cos(rad) * ws / 2).toFixed(2) + '%', wSay:ws ? 'hue ' + wh + '° · ' + ws : 'no tint', rows};
+      tabs:Component.LK_HUB.map(([k, tt, key]) => { const on = k === t, mv = Component.lkHubMoved(L, k), q = pc(Component.lkHubXY(L, k)), pad = Component.lkHubAx(k).pad, sw = Component.lkHubSay(L, k) + (Component.lkHubAx(k).strip ? ' · ' + Component.lkHubStripSay(L, k) : '');
+        return {k, t:tt, key, on, ti:on ? '0' : '-1', sub:k === 'light' ? 'exp · con' : k === 'color' ? 'temp · tint' : 'tint', id:'lumina-lkhub-' + k, aria:tt + (pad ? '' : ' tint') + ', key ' + key + ': ' + (mv ? sw : 'as shot'), tip:tt + ' · ' + key + ' · ' + (mv ? sw : 'as shot'), face:face(k), rad:pad ? '4px' : '50%', x:q.x, y:q.y, dot:mv ? '#FFD27A' : '#EFECE6', dotRing:mv ? '0 0 0 1.5px #161514,0 0 4px rgba(255,210,122,0.8)' : '0 0 0 1.5px #161514',
+          bg:on ? 'rgba(239,236,230,0.10)' : 'transparent', ring:on ? 'inset 0 0 0 1px rgba(239,236,230,0.30)' : 'none', fw:on ? '700' : '500'}; }),
+      hubT:t, hubTabId:'lumina-lkhub-' + t, hubPad:ax.pad, hubWheel:!ax.pad, hubFace:face(t), hubRad:ax.pad ? '10px' : '50%', hubAria:ax.pad ? name + ' pad: ' + Component.lkName(ax.y) + ' up and down, ' + Component.lkName(ax.x).toLowerCase() + ' left and right' : name + ' tint wheel: the angle is the hue, the distance from the middle the strength',
+      axes, hubText:Component.lkHubSay(L, t), hubShort:Component.lkHubSay(L, t, true), stripText:Component.lkHubStripSay(L, t),
+      dx:d.x, dy:d.y, live, tipY:xy[1] < 0.2 ? '22px' : '-30px', tipX:xy[0] < 0.2 ? '0%' : xy[0] > 0.8 ? '-100%' : '-50%',
+      eT:edge[0], eB:edge[1], eL:edge[2], eR:edge[3], hubMoved:Component.lkHubMoved(L, t), hubName:name,
+      foc:!!st.lkHubFoc, focSay:'Arrows · ⇧ fine · ⌥↑↓ ' + Component.lkHubStripName(sp).toLowerCase() + ' · ⌫ reset · esc', liveSay:st.lkHubFoc && !st.lkHubOn ? Component.lkHubSay(L, t) + ' · ' + Component.lkHubStripSay(L, t) : '', sShort:sp === 'sat' ? 'sat' : sp === 'hl' ? 'hl' : 'lum',
+      lOn:!!sp, sName:Component.lkHubStripName(sp), sNow:String(sv), sAria:Component.lkHubStripSay(L, t), lY:(50 - sv / 2).toFixed(2) + '%', lFill:(Math.min(50, 50 - sv / 2)).toFixed(2) + '%', lFillH:(Math.abs(sv) / 2).toFixed(2) + '%',
+      sFace:sp === 'sat' ? 'linear-gradient(to bottom,hsl(30,70%,55%),hsl(30,25%,40%) 50%,hsl(30,0%,32%))' : sp === 'hl' ? 'linear-gradient(to bottom,rgba(239,236,230,0.55),rgba(239,236,230,0.16) 50%,rgba(239,236,230,0.02))' : 'linear-gradient(to bottom,rgba(239,236,230,0.42),rgba(239,236,230,0.04) 50%,rgba(0,0,0,0.45))',
+      sLive:st.lkHubOn === t + '.s', sTipY:(50 - sv / 2).toFixed(2) + '%',
+      moreOn:!!st.lkMore, moreArrow:st.lkMore ? '▾' : '▸', moreT:'More' + (moreN ? ' · ' + moreN + ' moved' : ''), more};
   }
-  lkSec = e => this.setState({lkSec:e.currentTarget.getAttribute('data-lksec')});
   lkHue = e => this.setState({lkHue:e.currentTarget.getAttribute('data-lkhue')});
-  lkZone = e => this.setState({lkZone:e.currentTarget.getAttribute('data-lkzone')});
-  // A row: drag anywhere on it (Exposure a stop per 120 px, the others a step per 2 px; ⌥ a quarter of that).
+  // a tab focused by a press keeps ← → for the clips; one reached by keys (a screen reader) moves along the tabs
+  lkTabDown = e => { this.lkTabPtr = e.currentTarget.getAttribute('data-lkhub'); };
+  lkHubGo = e => { this.lkHubKeyEnd(); this.setState({lkHub:e.currentTarget.getAttribute('data-lkhub')}); };
+  lkMoreGo = () => this.setState(s => ({lkMore:!s.lkMore}), () => { if (!this.state.lkMore) return; const mb = document.querySelector('[data-lumina="look-more"]'), blk = document.querySelector('[data-lumina="look-hub-block"]'), sc = mb && mb.closest('[data-lumina="info"]');
+    // the rail scrolls until More's header sits under the hub, which stays (sticky)
+    if (mb && blk && sc) { const sticky = getComputedStyle(blk).position === 'sticky'; sc.style.setProperty('--lk-blk', (sticky ? blk.offsetHeight : 0) + 'px');
+      const d = mb.getBoundingClientRect().top - (sticky ? blk.getBoundingClientRect().bottom : sc.getBoundingClientRect().top) - 2; if (d > 0) sc.scrollBy({top:d, behavior:'smooth'}); } });
+  lkHubFocus = () => this.setState({lkHubFoc:true});
+  lkHubBlur = () => { this.lkHubKeyEnd(); this.setState({lkHubFoc:false}); };
+  // A row: drag anywhere on it (Exposure a stop per 120 px, the others a step per 2 px; ⇧ or ⌥ a quarter of that).
   lkDown = e => {
     if (e.button !== 0) return; const c = this.byId && this.byId[this.state.cur], el = e.currentTarget, p = el.getAttribute('data-lkp'); if (!c || !p) return;
     e.preventDefault(); const x0 = e.clientX, v0 = Component.lkGet(this.lookOf(c.id), p); let on = false;
     const mv = ev => { const dx = ev.clientX - x0; if (!on) { if (Math.abs(dx) < 3) return; on = true; this.lkBegin([c.id]); this.setState({lkOn:p}); }
-      const sp = ev.altKey ? 0.25 : 1; this.lkSet(c.id, p, v0 + (p === 'ev' ? dx / 120 : dx / 2) * sp); };
+      const sp = ev.shiftKey || ev.altKey ? 0.25 : 1; this.lkSet(c.id, p, v0 + (p === 'ev' ? dx / 120 : dx / 2) * sp); };
     const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); if (on) { this.setState({lkOn:null}); this.lkEnd(Component.lkName(p) + ' on ' + c.name); } };
     window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
   };
   lkDbl = e => { const c = this.byId && this.byId[this.state.cur], p = e.currentTarget.getAttribute('data-lkp'); if (!c || !p) return; this.lkBegin([c.id]); this.lkSet(c.id, p, Component.lkDef(p)); this.lkEnd(Component.lkName(p) + ' reset on ' + c.name); };
-  // The wheel: the angle is the hue, the distance from the middle the strength. ⌥ moves a quarter as far.
-  lkWheelDown = e => {
-    if (e.button !== 0) return; const c = this.byId && this.byId[this.state.cur], el = e.currentTarget; if (!c) return; e.preventDefault();
-    const zone = this.state.lkZone || 'mid', r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, R = r.width / 2;
-    const L0 = this.lookOf(c.id), h0 = Component.lkGet(L0, 'grade.' + zone + '.h'), s0 = Component.lkGet(L0, 'grade.' + zone + '.s');
-    const p0 = [Math.sin(h0 * Math.PI / 180) * s0 / 100 * R, -Math.cos(h0 * Math.PI / 180) * s0 / 100 * R], start = [e.clientX, e.clientY];
-    const at = ev => { const fine = ev.altKey ? 0.25 : 1, x = fine < 1 ? p0[0] + (ev.clientX - start[0]) * fine : ev.clientX - cx, y = fine < 1 ? p0[1] + (ev.clientY - start[1]) * fine : ev.clientY - cy;
-      const s = Math.min(100, Math.hypot(x, y) / R * 100), h = (Math.atan2(x, -y) * 180 / Math.PI + 360) % 360;
-      this.lkSet(c.id, 'grade.' + zone + '.h', h); this.lkSet(c.id, 'grade.' + zone + '.s', s < 2 ? 0 : s); };
-    this.lkBegin([c.id]); if (!e.altKey) at(e);
-    const up = () => { window.removeEventListener('pointermove', at); window.removeEventListener('pointerup', up); this.lkEnd(zone === 'all' ? 'global tint on ' + c.name : Component.lkName('grade.' + zone + '.s') + ' on ' + c.name); };
-    window.addEventListener('pointermove', at); window.addEventListener('pointerup', up);
-  };
-  lkWheelDbl = () => { const c = this.byId && this.byId[this.state.cur], zone = this.state.lkZone || 'mid'; if (!c) return; this.lkBegin([c.id]); this.lkSet(c.id, 'grade.' + zone + '.s', 0); this.lkSet(c.id, 'grade.' + zone + '.h', 0); this.lkEnd('tint reset on ' + c.name); };
+  // The hub (325). A press jumps the dot there and it follows; ⇧ held moves it a quarter as far from where it was. A double-click
+  // or ⌥-click puts the whole target back (pad and strip); on the strip, the strip alone. One undo step per gesture (lkBegin …
+  // lkEnd); a double-click's first press is folded into its reset, so one ⌘Z goes back to before both.
+  lkHubWhat(t, strip) { if (strip) return Component.lkName(Component.lkHubAx(t).strip); return t === 'light' ? 'exposure and contrast' : t === 'color' ? 'temp and tint' : t === 'all' ? 'global tint' : Component.lkName('grade.' + t + '.s'); }
+  lkHubPs(t, strip) { const a = Component.lkHubAx(t); return strip ? [a.strip] : [...a.ps, ...(a.strip ? [a.strip] : [])]; }
+  lkDrag(el, e, at, end) {
+    // pointer capture, and every way a drag can end (up, cancel, lost capture, the window going away) ends it once
+    try { el.setPointerCapture(e.pointerId); } catch (x) {}
+    const up = () => { if (this.lkDragUp !== up) return; this.lkDragUp = null; window.removeEventListener('pointermove', at); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); el.removeEventListener('lostpointercapture', up); end(); };
+    if (this.lkDragUp) this.lkDragUp(); this.lkDragUp = up;
+    window.addEventListener('pointermove', at); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+  }
+  lkHubDown = e => this.lkHubPress(e, false);
+  lkStripDown = e => this.lkHubPress(e, true);
+  lkHubPress(e, strip) {
+    if (e.button !== 0) return; const c = this.byId && this.byId[this.state.cur], el = e.currentTarget, t = el.getAttribute('data-lkhub-t'); if (!c || !t) return;
+    e.preventDefault(); this.lkHubKeyEnd();
+    // a second press within 450 ms and 8 px of the first is a double-click (a pointer event carries no click count in every engine)
+    const now = Date.now(); if (now - (this.lkHubQuiet || 0) < 450) return;
+    const f = this.lkHubFirst, dbl = !!(f && f.t === t && f.strip === strip && f.id === c.id && now - f.at < 450 && Math.hypot(e.clientX - f.x, e.clientY - f.y) < 8);
+    this.lkHubFirst = {t, strip, id:c.id, x:e.clientX, y:e.clientY, at:now, step:null};
+    if (dbl || e.altKey) { this.lkHubFirst = null; if (dbl) { this.lkUnstep(f.step); this.lkHubQuiet = now; } return this.lkHubReset(t, strip); }
+    const r = el.getBoundingClientRect(), pad = Component.lkHubAx(t).pad, p = strip ? Component.lkHubAx(t).strip : null; let anc = null;
+    const at = ev => {
+      if (strip) { let v;
+        if (ev.shiftKey || anc) { if (!anc || anc.fine !== ev.shiftKey) anc = {v:Component.lkGet(this.lookOf(c.id), p), cy:ev.clientY, fine:ev.shiftKey}; v = anc.v - (ev.clientY - anc.cy) / r.height * 200 * (anc.fine ? 0.25 : 1); }
+        else { const fy = (ev.clientY - r.top) / r.height; v = Math.abs(fy - 0.5) * r.height < 4 ? 0 : (0.5 - fy) * 200; }
+        return this.lkSet(c.id, p, v); }
+      let fx, fy;
+      if (ev.shiftKey || anc) { if (!anc || anc.fine !== ev.shiftKey) { const q = Component.lkHubXY(this.lookOf(c.id), t); anc = {x:q[0], y:q[1], cx:ev.clientX, cy:ev.clientY, fine:ev.shiftKey}; }
+        const k = anc.fine ? 0.25 : 1; fx = anc.x + (ev.clientX - anc.cx) / r.width * k; fy = anc.y + (ev.clientY - anc.cy) / r.height * k; }
+      else { fx = (ev.clientX - r.left) / r.width; fy = (ev.clientY - r.top) / r.height; if (pad) { if (Math.abs(fx - 0.5) * r.width < 4) fx = 0.5; if (Math.abs(fy - 0.5) * r.height < 4) fy = 0.5; } }
+      Component.lkHubAt(t, fx, fy).forEach(([q, v]) => this.lkSet(c.id, q, v)); };
+    this.lkBegin([c.id]); this.setState({lkHubOn:strip ? t + '.s' : t}); at(e);
+    this.lkDrag(el, e, at, () => { this.setState({lkHubOn:null}); const step = this.lkEnd(this.lkHubWhat(t, strip) + ' on ' + c.name); const f1 = this.lkHubFirst; if (f1 && f1.at === now) f1.step = step; });
+  }
+  // a look step taken back without a trace (the first press of a double-click)
+  lkUnstep(step) {
+    if (!step) return; const u = this.state.undo; if (u[u.length - 1] !== step) return;
+    const m = {...this.looks()}; step.ids.forEach(id => { const L = step.prev[id]; if (L && !Component.lkFlat(L)) m[id] = L; else delete m[id]; }); this.looksPut(m);
+    this.setState(s => ({undo:s.undo[s.undo.length - 1] === step ? s.undo.slice(0, -1) : s.undo}));
+  }
+  lkHubReset(t, strip) {
+    const c = this.byId && this.byId[this.state.cur]; if (!c) return;
+    this.lkBegin([c.id]); this.lkHubPs(t, strip).forEach(p => this.lkSet(c.id, p, Component.lkDef(p))); this.lkEnd(this.lkHubWhat(t, strip) + ' reset on ' + c.name);
+  }
+  lkHubResetGo = () => this.lkHubReset(this.state.lkHub || 'light', false);
+  // Keys on the focused hub or strip: arrows move the dot (Exposure a third of a stop, landing on thirds as E does, the others 5;
+  // ⇧ fine: 0.05 / 1); on a wheel ↑ ↓ are the strength and ← → turn the hue; ⌥↑ ⌥↓ the strip; ⌫ resets; esc lets go of the
+  // focus (← → are the clips again). A held arrow is one undo step, ended on key up.
+  lkHubKey(e, el) {
+    const k = e.key, c = this.byId && this.byId[this.state.cur], t = el.getAttribute('data-lkhub-t'); let strip = el.getAttribute('data-lkstrip') === '1'; if (!c || !t) return false;
+    if (k === 'Escape') { e.preventDefault(); this.lkHubKeyEnd(); el.blur(); return true; }
+    if (k === 'Backspace' || k === 'Delete') { e.preventDefault(); this.lkHubKeyEnd(); this.lkHubReset(t, strip); return true; }
+    const dir = {ArrowLeft:[-1, 0], ArrowRight:[1, 0], ArrowUp:[0, 1], ArrowDown:[0, -1]}[k]; if (!dir) return false;
+    const a = Component.lkHubAx(t); if (e.altKey && a.strip) strip = true; if (strip && !dir[1]) return false;
+    e.preventDefault(); const fine = e.shiftKey, L = this.lookOf(c.id), sets = [];
+    if (strip) sets.push([a.strip, Component.lkGet(L, a.strip) + dir[1] * (fine ? 1 : 5)]);
+    else if (a.pad) {
+      const step = (p, d) => { const v = Component.lkGet(L, p); if (p !== 'ev') return v + d * (fine ? 1 : 5); return fine ? v + d * 0.05 : Math.round((v + d / 3) * 3) / 3; };
+      if (dir[0]) sets.push([a.x, step(a.x, dir[0])]); if (dir[1]) sets.push([a.y, step(a.y, dir[1])]); }
+    else { const n = fine ? 1 : 5, hp = 'grade.' + t + '.h', spp = 'grade.' + t + '.s'; sets.push(dir[1] ? [spp, Component.lkGet(L, spp) + dir[1] * n] : [hp, Component.lkGet(L, hp) + dir[0] * n]); }
+    const h = this.lkHubStart(c, t, strip), L2 = {...(L || {})};
+    sets.forEach(([p, v]) => { this.lkSet(c.id, p, v); L2[p] = Component.lkClean(p, v); });
+    // a scroll in the same step goes on from where the keys left the dot
+    const q = Component.lkHubXY(L2, t); h.fx = q[0]; h.fy = q[1]; h.v = a.strip ? Component.lkGet(L2, a.strip) : 0;
+    return true;
+  }
+  // one undo step for a run of keys or a scroll; a different clip, target or strip starts a new one
+  lkHubStart(c, t, strip) {
+    const h = this.lkHubK; if (h && (h.id !== c.id || h.t !== t || h.strip !== strip)) this.lkHubKeyEnd();
+    if (!this.lkHubK) { this.lkBegin([c.id]); const L = this.lookOf(c.id), q = Component.lkHubXY(L, t), a = Component.lkHubAx(t);
+      this.lkHubK = {t, id:c.id, strip, fx:q[0], fy:q[1], v:strip ? Component.lkGet(L, a.strip) : 0}; this.setState({lkHubOn:strip ? t + '.s' : t}); }
+    clearTimeout(this.lkHubKT); this.lkHubKT = setTimeout(() => this.lkHubKeyEnd(), 900);
+    return this.lkHubK;
+  }
+  lkHubKeyEnd() { clearTimeout(this.lkHubKT); const h = this.lkHubK; if (!h) return; this.lkHubK = null; this.setState({lkHubOn:null}); const c = this.byId && this.byId[h.id]; this.lkEnd(this.lkHubWhat(h.t, h.strip) + ' on ' + (c ? c.name : 'the clip')); }
+  // Two fingers over the hub move its dot as the fingers go (macOS's natural scrolling; ⇧ a quarter as far); a pause ends the
+  // step. The position is kept unrounded through the scroll, so slow fingers still move whole-number values.
+  lkHubWheel(e, el) {
+    const c = this.byId && this.byId[this.state.cur], t = el.getAttribute('data-lkhub-t'), strip = el.getAttribute('data-lkstrip') === '1'; if (!c || !t) return;
+    e.preventDefault(); if (e.ctrlKey) return; const u = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1, r = el.getBoundingClientRect(), k = e.shiftKey ? 0.25 : 1;
+    const h = this.lkHubStart(c, t, strip); clearTimeout(this.lkHubKT); this.lkHubKT = setTimeout(() => this.lkHubKeyEnd(), 400);
+    const dx = -e.deltaX * u * k, dy = e.deltaY * u * k;
+    if (strip) { h.v = Math.max(-100, Math.min(100, h.v + dy / r.height * 200)); return this.lkSet(c.id, Component.lkHubAx(t).strip, h.v); }
+    h.fx = Math.max(0, Math.min(1, h.fx + dx / r.width)); h.fy = Math.max(0, Math.min(1, h.fy - dy / r.height));
+    if (!Component.lkHubAx(t).pad) { const x = h.fx - 0.5, y = h.fy - 0.5, d = Math.hypot(x, y); if (d > 0.5) { h.fx = 0.5 + x / d * 0.5; h.fy = 0.5 + y / d * 0.5; } }
+    Component.lkHubAt(t, h.fx, h.fy).forEach(([p, v]) => this.lkSet(c.id, p, v));
+  }
   lkReset = () => { const c = this.byId && this.byId[this.state.cur]; if (!c) return; this.lkBegin([c.id]); const m = {...this.looks()}; delete m[c.id]; this.looksPut(m); this.lkEnd('look reset on ' + c.name); };
   // Copy a clip's look and paste it on others, shot to shot: in the Viewer onto the clip on show, in the grid onto the selection.
   lkCopy = () => {
