@@ -1,9 +1,10 @@
 // Color in the Skim Viewer: the web preview build in headless Chromium over clips made here with ffmpeg.
 // Bounded (LUMINA_WEB_LIMIT, 180 s).
-//   1. The Viewer has the Color card (Light · Color · Mix · Grade); dragging Exposure grades the real picture
+//   1. The Viewer has the Color card, its hub on five targets (Light · Color · Shadows · Mids · Highs, LOCAL-CHANGES 325);
+//      dragging the Light pad up (Exposure) grades the real picture
 //      (a WebGL canvas over the video, brighter than the clip as shot).
 //   2. ⌘C on one clip and ⌘V on the next gives it the same look; ⌘Z takes the paste back.
-//   3. Mix opens on Blue; a move there marks the chip. Grade's wheel tints. Looks outlast a reload.
+//   3. More ▸ Mix opens on Blue; a move there marks the chip. The Shadows wheel tints. Looks outlast a reload.
 //
 //   node Tests/web/skim-look-browser.mjs        # needs ffmpeg and Playwright's Chromium
 import fs from 'node:fs';
@@ -43,25 +44,37 @@ const mean = async () => {
   return p.evaluate(async b64 => { const im = new Image(); im.src = 'data:image/png;base64,' + b64; await im.decode(); const c = document.createElement('canvas'); c.width = 64; c.height = 36;
     const x = c.getContext('2d'); x.drawImage(im, 0, 0, 64, 36); const d = x.getImageData(0, 0, 64, 36).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return s / (d.length / 4) / 3; }, png);
 };
-const drag = async (sel, dx) => { const r = await (await p.$(sel)).boundingBox(); const y = r.y + r.height / 2, x = r.x + 30;
+const drag = async (sel, dx) => { await (await p.$(sel)).scrollIntoViewIfNeeded(); const r = await (await p.$(sel)).boundingBox(); const y = r.y + r.height / 2, x = r.x + 30;
   await p.mouse.move(x, y); await p.mouse.down(); for (let i = 1; i <= 6; i++) await p.mouse.move(x + dx * i / 6, y); await p.mouse.up(); await p.waitForTimeout(250); };
 
 ok(!!(await p.$('[data-lumina="look"]')), 'the Viewer has the Color card');
-ok((await p.$$eval('[data-lksec]', b => b.map(x => x.innerText.trim()))).join(' ') === 'Light Color Mix Grade', 'Light · Color · Mix · Grade');
+ok((await p.$$eval('[data-lkt]', b => b.map(x => x.innerText.trim()))).join(' ') === 'Light Color Shadows Mids Highs', 'Light · Color · Shadows · Mids · Highs');
 ok(await say() === 'as shot', 'a clip starts as shot: ' + JSON.stringify(await say()));
 ok(await lookOp() === '0', 'no grade canvas while the clip is as shot');
 const m0 = await mean();
-await drag('[data-lkp="ev"]', 180);
+{ const h = await (await p.$('[data-lumina="look-hub"]')).boundingBox(); ok(h.width >= 220, 'the hub is large: ' + Math.round(h.width) + ' px');
+  await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await p.mouse.down(); await p.mouse.move(h.x + h.width / 2, h.y + h.height * 0.28, {steps:6}); await p.mouse.up(); await p.waitForTimeout(250); }
 const s1 = await say();
-ok(/^Exposure \+1\.\d\d$/.test(s1), 'dragging Exposure 180 px: about +1.5: ' + JSON.stringify(s1));
+ok(/^Exposure \+1\.\d\d$/.test(s1), 'the Light pad up from the middle: Exposure about +1.8, Contrast left alone: ' + JSON.stringify(s1));
 await p.waitForTimeout(400);
 ok(await lookOp() === '1', 'the grade canvas is on the picture: ' + await p.evaluate(() => document.querySelector('[data-lumina="viewer-look"]')?.dataset.look));
 const m1 = await mean();
 ok(m1 > m0 + 12, 'the picture is brighter: ' + m0.toFixed(1) + ' → ' + m1.toFixed(1));
-await p.dblclick('[data-lkp="ev"]'); await p.waitForTimeout(250);
-ok(await say() === 'as shot', 'double-click resets the row');
+await p.dblclick('[data-lumina="look-hub"]'); await p.waitForTimeout(250);
+ok(await say() === 'as shot', 'double-click resets Light');
 await p.keyboard.press('Meta+z'); await p.waitForTimeout(250);
 ok(await say() === s1, '⌘Z brings the exposure back');
+
+// keys (326): 2 picks Color and gives the hub the keys; arrows step it, the burst is one ⌘Z; esc gives the keys back
+await p.keyboard.press('2'); await p.waitForTimeout(200);
+ok(await p.$eval('[data-lkt="color"]', b => b.getAttribute('aria-selected')) === 'true' && await p.evaluate(() => document.activeElement?.getAttribute('data-lumina')) === 'look-hub', '2: Color, the hub has the keys');
+for (let i = 0; i < 3; i++) await p.keyboard.press('ArrowRight'); await p.waitForTimeout(150);
+ok(/^Temp \+15 · Tint 0$/.test(await p.$eval('[data-lumina="look-hub-say"]', e => e.innerText)), 'three → warm it 15: ' + await p.$eval('[data-lumina="look-hub-say"]', e => e.innerText));
+await p.waitForTimeout(600); await p.keyboard.press('Meta+z'); await p.waitForTimeout(250);
+ok(await say() === s1, 'the arrows were one ⌘Z step: ' + JSON.stringify(await say()));
+await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+ok(await p.evaluate(() => document.activeElement?.getAttribute('data-lumina')) !== 'look-hub' && !!(await p.$('[data-lumina="viewer-top"]')), 'esc gives the keys back and stays in the Viewer');
+await p.keyboard.press('1'); await p.waitForTimeout(150); await p.keyboard.press('Escape'); await p.waitForTimeout(150);
 
 // copy here, paste on the next clip
 await p.keyboard.press('Meta+c'); await p.waitForTimeout(200);
@@ -76,7 +89,8 @@ await p.keyboard.press('Meta+z'); await p.waitForTimeout(250);
 ok(await say() === 'as shot', '⌘Z takes the paste back');
 await p.keyboard.press('Meta+Shift+z'); await p.waitForTimeout(250);
 
-// Mix: blue first
+// More ▸ Mix: blue first
+await p.click('[data-lumina="look-more"]'); await p.waitForTimeout(150);
 await p.click('[data-lksec="mix"]'); await p.waitForTimeout(200);
 ok(await p.$eval('[data-lkhue="blue"]', b => b.getAttribute('aria-pressed')) === 'true', 'Mix opens on Blue');
 ok((await p.$$eval('[data-lkp]', r => r.map(x => x.getAttribute('data-lkp')))).join(' ') === 'mix.blue.h mix.blue.s mix.blue.l', 'hue · saturation · luminance of blue');
@@ -84,12 +98,11 @@ await drag('[data-lkp="mix.blue.s"]', -80);
 ok(/Blue saturation -\d+/.test(await say()), 'blue saturation down: ' + JSON.stringify(await say()));
 ok(await p.$eval('[data-lkhue="blue"]', b => b.children.length > 1), 'the Blue chip shows it is moved');
 
-// Grade: the wheel tints the shadows
-await p.click('[data-lksec="grade"]'); await p.waitForTimeout(200);
-await p.click('[data-lkzone="sh"]'); await p.waitForTimeout(150);
-const w = await (await p.$('[data-lumina="look-wheel"]')).boundingBox();
+// the Shadows wheel tints the shadows
+await p.click('[data-lkt="sh"]'); await p.waitForTimeout(200);
+const w = await (await p.$('[data-lumina="look-hub"]')).boundingBox();
 await p.mouse.move(w.x + w.width * 0.5, w.y + w.height * 0.5); await p.mouse.down(); await p.mouse.move(w.x + w.width * 0.2, w.y + w.height * 0.8, {steps:5}); await p.mouse.up(); await p.waitForTimeout(250);
-ok(/^hue 2\d\d° · \d+$/.test(await p.$eval('[data-lumina="look-wheel-say"]', e => e.innerText)), 'the wheel reads a hue and a strength: ' + await p.$eval('[data-lumina="look-wheel-say"]', e => e.innerText));
+ok(/^Hue 2\d\d° · strength \d+$/.test(await p.$eval('[data-lumina="look-hub-say"]', e => e.innerText)), 'the wheel reads a hue and a strength: ' + await p.$eval('[data-lumina="look-hub-say"]', e => e.innerText));
 
 // looks are kept per shoot (and outlast a reload)
 await p.waitForTimeout(500);
