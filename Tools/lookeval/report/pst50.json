@@ -1,0 +1,985 @@
+{
+ "n_pairs": 50,
+ "models": {
+  "technical Rec.709 (content_709 as is)": {
+   "median": 9.2,
+   "p95": 13.08,
+   "lt1": 0,
+   "lt2": 0,
+   "lt3": 1
+  },
+  "A \u00b7 global sliders (Light + Color, 10)": {
+   "median": 2.01,
+   "p95": 5.05,
+   "lt1": 9,
+   "lt2": 25,
+   "lt3": 34
+  },
+  "A \u00b7 global + Mix (34)": {
+   "median": 1.06,
+   "p95": 2.91,
+   "lt1": 21,
+   "lt2": 38,
+   "lt3": 44
+  },
+  "A \u00b7 global + Grade (24)": {
+   "median": 0.75,
+   "p95": 1.9,
+   "lt1": 31,
+   "lt2": 46,
+   "lt3": 50
+  },
+  "A \u00b7 every slider (48)": {
+   "median": 0.6,
+   "p95": 1.45,
+   "lt1": 46,
+   "lt2": 50,
+   "lt3": 50
+  },
+  "B \u00b7 global sliders, log read as S-Log3": {
+   "median": 2.4,
+   "p95": 5.5,
+   "lt1": 1,
+   "lt2": 19,
+   "lt3": 35
+  },
+  "B \u00b7 every slider, log read as S-Log3": {
+   "median": 0.7,
+   "p95": 1.8,
+   "lt1": 43,
+   "lt2": 50,
+   "lt3": 50
+  },
+  "B \u00b7 rest (S-Log3 table alone)": {
+   "median": 14.91,
+   "p95": 18.87,
+   "lt1": 0,
+   "lt2": 0,
+   "lt3": 0
+  },
+  "curves + 3\u00d73, log \u2192 GT (PST50 note)": {
+   "median": 0.55,
+   "p95": 1.4,
+   "lt1": 48,
+   "lt2": 50,
+   "lt3": 50
+  },
+  "33\u00b3 LUT, log \u2192 GT (the floor)": {
+   "median": 0.42,
+   "p95": 1.1,
+   "lt1": 50,
+   "lt2": 50,
+   "lt3": 50
+  }
+ },
+ "groups": {
+  "ev": {
+   "drop_delta": -0.01,
+   "zero_delta": 2.01,
+   "only": 7.61
+  },
+  "tone": {
+   "drop_delta": 0.05,
+   "zero_delta": 2.68,
+   "only": 5.88
+  },
+  "wb": {
+   "drop_delta": -0.01,
+   "zero_delta": 3.84,
+   "only": 5.99
+  },
+  "sat": {
+   "drop_delta": -0.01,
+   "zero_delta": 1.03,
+   "only": 8.85
+  },
+  "mix": {
+   "drop_delta": 0.1,
+   "zero_delta": 0.72,
+   "only": 5.18
+  },
+  "grade": {
+   "drop_delta": 0.48,
+   "zero_delta": 3.79,
+   "only": 1.6
+  }
+ },
+ "pinned": {
+  "con": [
+   0.12,
+   0.06
+  ],
+  "hl": [
+   0.34,
+   0.08
+  ],
+  "sh": [
+   0.32,
+   0.12
+  ],
+  "wh": [
+   0.46,
+   0.24
+  ],
+  "bl": [
+   0.26,
+   0.16
+  ],
+  "temp": [
+   0.34,
+   0.14
+  ],
+  "tint": [
+   0.18,
+   0.12
+  ],
+  "vib": [
+   0.26,
+   0.04
+  ],
+  "grade.sh.s": [
+   0.0,
+   0.08
+  ],
+  "grade.mid.s": [
+   0.0,
+   0.22
+  ],
+  "grade.hi.s": [
+   0.0,
+   0.1
+  ]
+ },
+ "clips": [
+  {
+   "id": 29,
+   "clip_tech709_vs_tar": [
+    6.428,
+    9.252
+   ],
+   "A": {
+    "content_own": {
+     "global": [
+      6.031,
+      8.01
+     ],
+     "full": [
+      0.37,
+      0.942
+     ]
+    },
+    "clip_own": {
+     "global": [
+      6.497,
+      8.578
+     ],
+     "full": [
+      0.787,
+      3.739
+     ]
+    },
+    "content_to_clip": {
+     "global": [
+      5.294,
+      15.745
+     ],
+     "full": [
+      0.831,
+      4.343
+     ]
+    },
+    "clip_to_content": {
+     "global": [
+      7.776,
+      9.183
+     ],
+     "full": [
+      0.774,
+      1.595
+     ]
+    },
+    "clip_look": {
+     "ev": 0.23,
+     "con": 33.0,
+     "hl": 37.0,
+     "sh": -3.0,
+     "wh": -71.0,
+     "bl": 36.0,
+     "temp": 67.0,
+     "tint": -18.0,
+     "vib": -7.0,
+     "sat": -5.0,
+     "mix.red.h": 49.0,
+     "mix.red.s": 11.0,
+     "mix.red.l": -15.0,
+     "mix.orange.h": 2.0,
+     "mix.orange.s": -16.0,
+     "mix.orange.l": 12.0,
+     "mix.yellow.h": -15.0,
+     "mix.yellow.s": -16.0,
+     "mix.yellow.l": 8.0,
+     "mix.green.h": 44.0,
+     "mix.green.s": -34.0,
+     "mix.green.l": -25.0,
+     "mix.aqua.h": 47.0,
+     "mix.aqua.s": -100.0,
+     "mix.aqua.l": -5.0,
+     "mix.blue.h": -80.0,
+     "mix.blue.s": -64.0,
+     "mix.blue.l": -51.0,
+     "mix.purple.h": 14.0,
+     "mix.purple.s": -88.0,
+     "mix.purple.l": -93.0,
+     "mix.magenta.h": 50.0,
+     "mix.magenta.s": 55.0,
+     "mix.magenta.l": 17.0,
+     "grade.sh.l": 27.0,
+     "grade.mid.l": -59.0,
+     "grade.hi.l": 31.0,
+     "grade.all.l": 1.0,
+     "grade.blend": 0.0,
+     "grade.bal": 6.0,
+     "grade.sh.s": 49.0,
+     "grade.sh.h": 183.0,
+     "grade.mid.s": 95.0,
+     "grade.mid.h": 346.0,
+     "grade.hi.s": 59.0,
+     "grade.hi.h": 112.0,
+     "grade.all.s": 34.0,
+     "grade.all.h": 178.0
+    }
+   },
+   "B": {
+    "content_own": {
+     "global": [
+      6.885,
+      8.95
+     ],
+     "full": [
+      0.572,
+      1.731
+     ]
+    },
+    "clip_own": {
+     "global": [
+      6.807,
+      9.179
+     ],
+     "full": [
+      0.918,
+      3.427
+     ]
+    },
+    "content_to_clip": {
+     "global": [
+      6.172,
+      14.72
+     ],
+     "full": [
+      0.991,
+      4.474
+     ]
+    },
+    "clip_to_content": {
+     "global": [
+      8.265,
+      10.038
+     ],
+     "full": [
+      0.917,
+      1.819
+     ]
+    },
+    "clip_look": {
+     "ev": -0.5,
+     "con": 85.0,
+     "hl": 8.0,
+     "sh": 37.0,
+     "wh": -72.0,
+     "bl": 80.0,
+     "temp": 100.0,
+     "tint": 60.0,
+     "vib": -24.0,
+     "sat": -25.0,
+     "mix.red.h": 36.0,
+     "mix.red.s": 34.0,
+     "mix.red.l": -21.0,
+     "mix.orange.h": -18.0,
+     "mix.orange.s": 16.0,
+     "mix.orange.l": -12.0,
+     "mix.yellow.h": -53.0,
+     "mix.yellow.s": 11.0,
+     "mix.yellow.l": -8.0,
+     "mix.green.h": -54.0,
+     "mix.green.s": -57.0,
+     "mix.green.l": -51.0,
+     "mix.aqua.h": -5.0,
+     "mix.aqua.s": 8.0,
+     "mix.aqua.l": 16.0,
+     "mix.purple.h": 4.0,
+     "mix.purple.s": -4.0,
+     "mix.purple.l": -2.0,
+     "mix.magenta.h": 60.0,
+     "mix.magenta.s": -25.0,
+     "mix.magenta.l": 38.0,
+     "grade.sh.l": 17.0,
+     "grade.mid.l": -46.0,
+     "grade.hi.l": 18.0,
+     "grade.all.l": -1.0,
+     "grade.blend": 23.0,
+     "grade.bal": 28.0,
+     "grade.sh.s": 53.0,
+     "grade.sh.h": 184.0,
+     "grade.mid.s": 43.0,
+     "grade.mid.h": 356.0,
+     "grade.hi.s": 55.0,
+     "grade.hi.h": 66.0,
+     "grade.all.s": 31.0,
+     "grade.all.h": 188.0
+    }
+   },
+   "lut709": {
+    "content_to_clip": [
+     0.81,
+     4.159
+    ],
+    "clip_to_content": [
+     0.662,
+     1.769
+    ]
+   }
+  },
+  {
+   "id": 37,
+   "clip_tech709_vs_tar": [
+    9.256,
+    11.071
+   ],
+   "A": {
+    "content_own": {
+     "global": [
+      1.993,
+      3.29
+     ],
+     "full": [
+      0.55,
+      1.182
+     ]
+    },
+    "clip_own": {
+     "global": [
+      3.357,
+      5.933
+     ],
+     "full": [
+      1.329,
+      3.187
+     ]
+    },
+    "content_to_clip": {
+     "global": [
+      4.118,
+      9.49
+     ],
+     "full": [
+      2.29,
+      5.995
+     ]
+    },
+    "clip_to_content": {
+     "global": [
+      2.852,
+      5.48
+     ],
+     "full": [
+      1.695,
+      3.141
+     ]
+    },
+    "clip_look": {
+     "ev": -0.33,
+     "con": -22.0,
+     "hl": 92.0,
+     "sh": -36.0,
+     "wh": -63.0,
+     "bl": -81.0,
+     "temp": 34.0,
+     "tint": -53.0,
+     "sat": 27.0,
+     "vib": -8.0,
+     "mix.red.h": -22.0,
+     "mix.red.s": 19.0,
+     "mix.red.l": 65.0,
+     "mix.orange.h": -41.0,
+     "mix.orange.s": 7.0,
+     "mix.orange.l": 50.0,
+     "mix.yellow.h": 7.0,
+     "mix.yellow.s": -53.0,
+     "mix.yellow.l": -31.0,
+     "mix.green.h": 95.0,
+     "mix.green.s": -70.0,
+     "mix.green.l": -40.0,
+     "mix.aqua.h": 12.0,
+     "mix.aqua.s": 43.0,
+     "mix.aqua.l": -36.0,
+     "mix.blue.h": -54.0,
+     "mix.blue.s": 31.0,
+     "mix.blue.l": -12.0,
+     "mix.purple.h": 11.0,
+     "mix.purple.s": -3.0,
+     "mix.purple.l": 9.0,
+     "mix.magenta.h": -55.0,
+     "mix.magenta.s": 100.0,
+     "mix.magenta.l": 5.0,
+     "grade.sh.l": 10.0,
+     "grade.mid.l": -17.0,
+     "grade.hi.l": 7.0,
+     "grade.all.l": 3.0,
+     "grade.blend": 31.0,
+     "grade.bal": -6.0,
+     "grade.sh.s": 54.0,
+     "grade.sh.h": 174.0,
+     "grade.mid.s": 46.0,
+     "grade.mid.h": 299.0,
+     "grade.hi.s": 63.0,
+     "grade.hi.h": 30.0,
+     "grade.all.s": 11.0,
+     "grade.all.h": 170.0
+    }
+   },
+   "B": {
+    "content_own": {
+     "global": [
+      2.318,
+      4.416
+     ],
+     "full": [
+      0.756,
+      1.75
+     ]
+    },
+    "clip_own": {
+     "global": [
+      3.922,
+      6.468
+     ],
+     "full": [
+      1.07,
+      2.668
+     ]
+    },
+    "content_to_clip": {
+     "global": [
+      5.318,
+      9.445
+     ],
+     "full": [
+      2.29,
+      4.849
+     ]
+    },
+    "clip_to_content": {
+     "global": [
+      3.598,
+      7.04
+     ],
+     "full": [
+      2.249,
+      5.094
+     ]
+    },
+    "clip_look": {
+     "ev": -1.02,
+     "con": -61.0,
+     "hl": 98.0,
+     "sh": -100.0,
+     "wh": -100.0,
+     "bl": -100.0,
+     "temp": -98.0,
+     "tint": 1.0,
+     "vib": -34.0,
+     "sat": -34.0,
+     "mix.red.h": -1.0,
+     "mix.red.s": 78.0,
+     "mix.red.l": 54.0,
+     "mix.orange.h": -93.0,
+     "mix.orange.s": 39.0,
+     "mix.orange.l": 50.0,
+     "mix.yellow.h": 2.0,
+     "mix.yellow.s": -83.0,
+     "mix.yellow.l": 33.0,
+     "mix.green.h": 100.0,
+     "mix.green.s": -25.0,
+     "mix.green.l": -61.0,
+     "mix.aqua.h": 18.0,
+     "mix.aqua.s": 84.0,
+     "mix.aqua.l": -16.0,
+     "mix.blue.h": -80.0,
+     "mix.blue.s": 49.0,
+     "mix.blue.l": -10.0,
+     "mix.purple.h": 29.0,
+     "mix.purple.s": -50.0,
+     "mix.purple.l": 20.0,
+     "mix.magenta.h": -2.0,
+     "mix.magenta.s": 100.0,
+     "mix.magenta.l": 99.0,
+     "grade.sh.l": 25.0,
+     "grade.mid.l": 30.0,
+     "grade.hi.l": -46.0,
+     "grade.all.l": -1.0,
+     "grade.blend": 17.0,
+     "grade.bal": -73.0,
+     "grade.sh.s": 98.0,
+     "grade.sh.h": 217.0,
+     "grade.mid.s": 100.0,
+     "grade.mid.h": 342.0,
+     "grade.hi.s": 100.0,
+     "grade.hi.h": 120.0,
+     "grade.all.s": 70.0,
+     "grade.all.h": 60.0
+    }
+   },
+   "lut709": {
+    "content_to_clip": [
+     2.258,
+     5.939
+    ],
+    "clip_to_content": [
+     2.559,
+     4.001
+    ]
+   }
+  },
+  {
+   "id": 46,
+   "clip_tech709_vs_tar": [
+    46.591,
+    88.597
+   ],
+   "A": {
+    "content_own": {
+     "global": [
+      1.048,
+      2.178
+     ],
+     "full": [
+      0.554,
+      1.386
+     ]
+    },
+    "clip_own": {
+     "global": [
+      22.004,
+      51.906
+     ],
+     "full": [
+      10.695,
+      21.645
+     ]
+    },
+    "content_to_clip": {
+     "global": [
+      38.098,
+      88.431
+     ],
+     "full": [
+      38.118,
+      87.857
+     ]
+    },
+    "clip_to_content": {
+     "global": [
+      15.813,
+      28.928
+     ],
+     "full": [
+      32.237,
+      57.963
+     ]
+    },
+    "clip_look": {
+     "ev": 1.03,
+     "con": -99.0,
+     "hl": 100.0,
+     "sh": 100.0,
+     "wh": -100.0,
+     "bl": 100.0,
+     "temp": -6.0,
+     "tint": -5.0,
+     "vib": 100.0,
+     "sat": 100.0,
+     "mix.red.h": -3.0,
+     "mix.red.s": 18.0,
+     "mix.red.l": -100.0,
+     "mix.orange.h": -22.0,
+     "mix.orange.s": 99.0,
+     "mix.orange.l": -100.0,
+     "mix.yellow.h": 40.0,
+     "mix.yellow.s": 100.0,
+     "mix.yellow.l": -100.0,
+     "mix.green.h": -81.0,
+     "mix.green.s": -54.0,
+     "mix.green.l": -100.0,
+     "mix.aqua.h": -100.0,
+     "mix.aqua.s": -100.0,
+     "mix.aqua.l": 100.0,
+     "mix.blue.h": 26.0,
+     "mix.blue.s": 75.0,
+     "mix.blue.l": 100.0,
+     "mix.purple.h": 74.0,
+     "mix.purple.s": 100.0,
+     "mix.purple.l": -100.0,
+     "mix.magenta.h": 21.0,
+     "mix.magenta.s": 100.0,
+     "mix.magenta.l": -100.0,
+     "grade.sh.l": 100.0,
+     "grade.mid.l": 100.0,
+     "grade.hi.l": -100.0,
+     "grade.all.l": 100.0,
+     "grade.blend": 51.0,
+     "grade.bal": -85.0,
+     "grade.sh.s": 54.0,
+     "grade.sh.h": 201.0,
+     "grade.mid.s": 48.0,
+     "grade.mid.h": 43.0,
+     "grade.hi.s": 50.0,
+     "grade.hi.h": 232.0,
+     "grade.all.s": 17.0,
+     "grade.all.h": 51.0
+    }
+   },
+   "B": {
+    "content_own": {
+     "global": [
+      1.923,
+      4.398
+     ],
+     "full": [
+      0.627,
+      1.906
+     ]
+    },
+    "clip_own": {
+     "global": [
+      2.61,
+      6.09
+     ],
+     "full": [
+      1.111,
+      5.452
+     ]
+    },
+    "content_to_clip": {
+     "global": [
+      2.926,
+      9.877
+     ],
+     "full": [
+      5.526,
+      9.206
+     ]
+    },
+    "clip_to_content": {
+     "global": [
+      5.139,
+      7.911
+     ],
+     "full": [
+      5.64,
+      10.797
+     ]
+    },
+    "clip_look": {
+     "ev": -0.56,
+     "con": 75.0,
+     "hl": 11.0,
+     "sh": 100.0,
+     "wh": -100.0,
+     "bl": -100.0,
+     "temp": -100.0,
+     "tint": 96.0,
+     "vib": -6.0,
+     "sat": -9.0,
+     "mix.red.h": 6.0,
+     "mix.red.s": 16.0,
+     "mix.red.l": -3.0,
+     "mix.orange.h": -39.0,
+     "mix.orange.s": -1.0,
+     "mix.orange.l": -7.0,
+     "mix.yellow.h": -9.0,
+     "mix.yellow.s": 3.0,
+     "mix.yellow.l": -9.0,
+     "mix.green.h": -41.0,
+     "mix.green.s": -6.0,
+     "mix.green.l": 9.0,
+     "mix.aqua.h": 100.0,
+     "mix.aqua.s": -58.0,
+     "mix.aqua.l": -5.0,
+     "mix.blue.h": -47.0,
+     "mix.blue.s": -1.0,
+     "mix.blue.l": 26.0,
+     "mix.purple.h": -20.0,
+     "mix.purple.s": 1.0,
+     "mix.purple.l": 19.0,
+     "mix.magenta.h": 3.0,
+     "mix.magenta.s": -13.0,
+     "mix.magenta.l": -18.0,
+     "grade.sh.l": -60.0,
+     "grade.mid.l": 61.0,
+     "grade.hi.l": -13.0,
+     "grade.all.l": 13.0,
+     "grade.blend": 0.0,
+     "grade.bal": 48.0,
+     "grade.sh.s": 100.0,
+     "grade.sh.h": 240.0,
+     "grade.mid.s": 100.0,
+     "grade.mid.h": 60.0,
+     "grade.hi.s": 57.0,
+     "grade.hi.h": 197.0,
+     "grade.all.s": 43.0,
+     "grade.all.h": 26.0
+    }
+   },
+   "lut709": {
+    "content_to_clip": [
+     37.998,
+     88.695
+    ],
+    "clip_to_content": [
+     18.168,
+     79.773
+    ]
+   }
+  }
+ ],
+ "clusters": [
+  {
+   "from": 2,
+   "to": 21,
+   "tech709": [
+    6.755,
+    9.558
+   ],
+   "global": [
+    3.166,
+    4.944
+   ],
+   "global_own": [
+    2.98,
+    5.19
+   ],
+   "full": [
+    1.607,
+    3.312
+   ],
+   "full_own": [
+    0.601,
+    1.472
+   ],
+   "lut709": [
+    1.539,
+    2.768
+   ]
+  },
+  {
+   "from": 21,
+   "to": 2,
+   "tech709": [
+    9.186,
+    11.506
+   ],
+   "global": [
+    1.592,
+    5.149
+   ],
+   "global_own": [
+    1.26,
+    2.523
+   ],
+   "full": [
+    1.809,
+    5.102
+   ],
+   "full_own": [
+    0.488,
+    1.49
+   ],
+   "lut709": [
+    1.879,
+    7.649
+   ]
+  },
+  {
+   "from": 44,
+   "to": 46,
+   "tech709": [
+    8.746,
+    12.672
+   ],
+   "global": [
+    2.659,
+    4.92
+   ],
+   "global_own": [
+    1.048,
+    2.178
+   ],
+   "full": [
+    2.316,
+    4.329
+   ],
+   "full_own": [
+    0.554,
+    1.386
+   ],
+   "lut709": [
+    2.527,
+    4.105
+   ]
+  },
+  {
+   "from": 46,
+   "to": 44,
+   "tech709": [
+    3.572,
+    7.354
+   ],
+   "global": [
+    2.671,
+    3.316
+   ],
+   "global_own": [
+    1.078,
+    2.337
+   ],
+   "full": [
+    1.187,
+    2.908
+   ],
+   "full_own": [
+    0.47,
+    1.273
+   ],
+   "lut709": [
+    1.837,
+    2.891
+   ]
+  },
+  {
+   "from": 4,
+   "to": 39,
+   "tech709": [
+    9.114,
+    12.533
+   ],
+   "global": [
+    6.347,
+    8.679
+   ],
+   "global_own": [
+    2.908,
+    5.221
+   ],
+   "full": [
+    5.481,
+    11.049
+   ],
+   "full_own": [
+    0.845,
+    2.08
+   ],
+   "lut709": [
+    3.506,
+    6.169
+   ]
+  },
+  {
+   "from": 39,
+   "to": 4,
+   "tech709": [
+    12.593,
+    14.815
+   ],
+   "global": [
+    9.04,
+    12.621
+   ],
+   "global_own": [
+    3.149,
+    4.915
+   ],
+   "full": [
+    6.398,
+    8.714
+   ],
+   "full_own": [
+    0.706,
+    1.86
+   ],
+   "lut709": [
+    4.226,
+    72.589
+   ]
+  },
+  {
+   "from": 30,
+   "to": 36,
+   "tech709": [
+    8.209,
+    19.892
+   ],
+   "global": [
+    4.999,
+    14.667
+   ],
+   "global_own": [
+    2.802,
+    10.683
+   ],
+   "full": [
+    5.251,
+    17.393
+   ],
+   "full_own": [
+    0.804,
+    1.971
+   ],
+   "lut709": [
+    4.988,
+    10.614
+   ]
+  },
+  {
+   "from": 36,
+   "to": 30,
+   "tech709": [
+    7.965,
+    9.857
+   ],
+   "global": [
+    3.361,
+    10.29
+   ],
+   "global_own": [
+    1.952,
+    6.427
+   ],
+   "full": [
+    2.497,
+    7.502
+   ],
+   "full_own": [
+    0.674,
+    1.739
+   ],
+   "lut709": [
+    2.455,
+    6.667
+   ]
+  }
+ ],
+ "cross": {
+  "global": 10.88,
+  "full": 11.64
+ }
+}
