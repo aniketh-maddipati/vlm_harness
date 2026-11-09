@@ -65,7 +65,7 @@ ok(await say() === 'as shot', 'double-click resets Light');
 await p.keyboard.press('Meta+z'); await p.waitForTimeout(250);
 ok(await say() === s1, '⌘Z brings the exposure back');
 
-// keys (325): 2 picks Color and gives the hub the keys; arrows step it, the burst is one ⌘Z; esc gives the keys back
+// keys (326): 2 picks Color and gives the hub the keys; arrows step it, the burst is one ⌘Z; esc gives the keys back
 await p.keyboard.press('2'); await p.waitForTimeout(200);
 ok(await p.$eval('[data-lkt="color"]', b => b.getAttribute('aria-selected')) === 'true' && await p.evaluate(() => document.activeElement?.getAttribute('data-lumina')) === 'look-hub', '2: Color, the hub has the keys');
 for (let i = 0; i < 3; i++) await p.keyboard.press('ArrowRight'); await p.waitForTimeout(150);

@@ -209,5 +209,26 @@ class EndToEnd(unittest.TestCase):
             self.assertNotIn("nan", md)
 
 
+class MatchClips(unittest.TestCase):
+    def test_feature_ignores_gain_and_black(self):
+        import match_clips
+        rng = np.random.default_rng(3)
+        img = rng.uniform(0.01, 1.0, (54, 102, 3))
+        f1 = match_clips.feature(img)
+        f2 = match_clips.feature(img * 4.0 + 0.1, black=0.1)  # brighter, with a black offset taken off
+        self.assertAlmostEqual(float(f1 @ f2 / len(f1)), 1.0, places=2)
+
+    def test_match_pools_the_two_stills(self):
+        import match_clips
+        rng = np.random.default_rng(4)
+        imgs = [rng.uniform(0.01, 1.0, (54, 102, 3)) for _ in range(6)]
+        names = ["choice%05d.tif" % i for i in range(6)]
+        F = np.array([match_clips.feature(i) for i in imgs])
+        ranked = match_clips.match([match_clips.feature(imgs[3] * 2.0)], names, F)
+        self.assertEqual(ranked[0][0], "choice00003.tif")
+        self.assertEqual(len(ranked), 3)  # one entry per shot
+        self.assertAlmostEqual(ranked[0][1], 1.0, places=2)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -10,7 +10,7 @@
 <helmet>
 <script src="./lumina-video-data-mvp.js"></script>
 <style>
-/* The Color hub (LOCAL-CHANGES 325): a ring when it has the keys. */
+/* The Color hub (LOCAL-CHANGES 326): a ring when it has the keys. */
 [data-lumina=look-hub]:focus,[data-lumina=look-hub-l]:focus{outline:1px solid rgba(239,236,230,0.35);outline-offset:3px}
 [data-lumina=look-hub]:focus-visible,[data-lumina=look-hub-l]:focus-visible{outline:2px solid #FFD27A;outline-offset:3px}
 /* Minimal (2026-10-29, the keep-sort wireframes): keep only, the frame first, no chrome that isn't used. What is cut
@@ -1576,9 +1576,9 @@ class Component extends DCLogic {
     const p = this.prof(c), sl = !!p && p.g === 'S-Log3', cal = this.cal, D = img.data, lin = new Float32Array(256), v = [];
     for (let i = 0; i < 256; i++) { if (sl) { const x = (cal ? cal[i] : i / 255) * 1023; lin[i] = Math.max(0, x >= 171.2102946929 ? Math.pow(10, (x - 420) / 261.5) * 0.19 - 0.01 : (x - 95) * 0.01125 / (171.2102946929 - 95)); } else { const s = i / 255; lin[i] = s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); } }
     for (let i = 0; i < D.length; i += 32) v.push(0.2126 * lin[D[i]] + 0.7152 * lin[D[i + 1]] + 0.0722 * lin[D[i + 2]]);
-    if (!v.length) return 0; v.sort((a, b) => a - b); return v[v.length >> 1];
+    if (!v.length) return 0; let s = 0; for (const y of v) s += Math.log(y + 1e-4); return Math.exp(s / v.length); // log-mean (325)
   }
-  // ⇧E: each clip's median scene light (as shot) matched to the shoot's median, at most a stop either way.
+  // ⇧E: each clip's scene light (as shot; per frame the log-mean, 325) matched to the shoot's median, at most a stop either way.
   evAutoMap() {
     const C = this.d ? this.d.clips : [], key = (this.state.tick || 0) + ':' + C.length; if (this.evAM && this.evAM.key === key) return this.evAM.m;
     const med = a => { a = a.slice().sort((x, y) => x - y); return a.length ? a[a.length >> 1] : 0; }, per = {}, m = {};
@@ -3083,7 +3083,7 @@ class Component extends DCLogic {
       else if (st.step === 'import' && k === 'Enter' && !meta && !e.shiftKey && !e.altKey && !e.repeat && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'))) { e.preventDefault(); return this.hasShoot() ? this.setStep('skim') : this.pickFolder(); }
       return;
     }
-    if (k === 'Escape' && t && t.closest && t.closest('[data-lumina="look-hub"],[data-lumina="look-hub-l"]')) { e.preventDefault(); this.lkBurstEnd(); return t.blur(); }   // the hub gives the keys back first (325)
+    if (k === 'Escape' && t && t.closest && t.closest('[data-lumina="look-hub"],[data-lumina="look-hub-l"]')) { e.preventDefault(); this.lkBurstEnd(); return t.blur(); }   // the hub gives the keys back first (326)
     if (k === 'Escape') { e.preventDefault(); return this.esc(); }
     if (st.noKeep && k === 'Enter' && !meta) { e.preventDefault(); return this.noKeepBack(); }
     if (meta && (k === 'Enter' || kl === 'e')) { e.preventDefault(); return this.setStep('export'); }
@@ -3105,7 +3105,7 @@ class Component extends DCLogic {
     // Without E the arrows are as ever.
     if ((e.code === 'KeyE' || kl === 'e') && !st.held && !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable))) { e.preventDefault(); if (e.repeat) return; if (e.altKey) return this.evReset(); if (e.shiftKey) return this.evAuto(); return this.evDown(); }
     if (st.evHeld && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); return this.evBy((k === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 1 : 1 / 3)); }
-    if (!st.evHeld && !st.held && this.lkKey(e)) return;   // the Color hub (325): 1–5, arrows on the hub
+    if (!st.evHeld && !st.held && this.lkKey(e)) return;   // the Color hub (326): 1–5, arrows on the hub
     if (this.dockKey(e)) return;
     if (this.mk[kl] && !e.altKey) { e.preventDefault(); if (e.repeat) return; this.heldAt = e.timeStamp; this.heldTapped = false; return this.setState({held:this.mk[kl]}); }
     if (k === ' ' && !st.held && !(this.isCtl(t) && this.tabFocus)) { e.preventDefault(); if (!e.repeat) this.spaceDown(e); return; }
@@ -3208,7 +3208,7 @@ class Component extends DCLogic {
     if (!st.ready || st.step !== 'skim' || !this.d.clips.length) return;
     // E held: two fingers up or right brighten (macOS's natural scrolling), 300 px a stop
     if (this.evS) { e.preventDefault(); if (e.ctrlKey) return; const u = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1, dy = e.deltaY * u, dx = -e.deltaX * u; return this.evBy((Math.abs(dy) >= Math.abs(dx) ? dy : dx) / 300, true); }
-    // over the Color hub or its strip: two fingers move the dot (325)
+    // over the Color hub or its strip: two fingers move the dot (326)
     if (!e.ctrlKey && e.target && e.target.closest) { const hb = e.target.closest('[data-lumina="look-hub"],[data-lumina="look-hub-l"]'); if (hb) { e.preventDefault(); return this.lkHubWheelBy(e, hb.getAttribute('data-lumina') === 'look-hub-l'); } }
     if (e.ctrlKey) { e.preventDefault(); return this.zoomBy(-e.deltaY * 0.01, e); }
     // Over the strip above the Viewer a scroll or a swipe either way moves the strip a frame at a time (tsGo's paging, finer).
@@ -6172,7 +6172,7 @@ void main() {
     if (Component.lkFlat(L)) delete m[id]; else m[id] = L;
     this.looksPut(m);
   }
-  // The hub (LOCAL-CHANGES 325): one large control, five targets. Light and Color are pads (two sliders at once),
+  // The hub (LOCAL-CHANGES 326): one large control, five targets. Light and Color are pads (two sliders at once),
   // Shadows · Mids · Highs a wheel each (the angle the hue, the distance the strength) with a strip for luminance.
   static LK_TGTS = [['light', 'Light'], ['color', 'Color'], ['sh', 'Shadows'], ['mid', 'Mids'], ['hi', 'Highs']];
   static LK_MORE = [['tone', 'Tone'], ['mix', 'Mix'], ['global', 'Global']];

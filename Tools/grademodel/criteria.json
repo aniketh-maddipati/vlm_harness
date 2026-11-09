@@ -28,6 +28,7 @@
   },
   "held_rows": [
    "exposure_adacg",
+   "pooled_look",
    "uday",
    "sparks",
    "tos",
@@ -45,7 +46,16 @@
    "stops": 0.005,
    "de": 0.01
   },
-  "held_rows_note": "exposure_adacg: median only (|stops|); the ΔE rows: median and p95 each"
+  "held_rows_note": "exposure_adacg: median only (|stops|). pooled_look: over the 21 held shots of uday + sparks + tos, each shot's change in median ΔE (candidate − incumbent); the median of those changes ≤ de_median. uday, sparks, tos: p95 only (median over the set's held shots of each shot's p95) ≤ de_p95. pst50, pst50_transfer: median ≤ de_median and p95 ≤ de_p95.",
+  "pooled_look": {
+   "sets": [
+    "uday",
+    "sparks",
+    "tos"
+   ],
+   "statistic": "median over held shots of (candidate − incumbent) per-shot median ΔE",
+   "tolerance": "de_median"
+  }
  },
  "stop": "8 rounds, or 3 rejected in a row",
  "judge": "a subagent that did not write the candidate reads both tables and compare.py's check, and decides adopt / reject",
@@ -532,5 +542,8 @@
     ]
    ]
   }
+ },
+ "amended": {
+  "2026-11-09": "Owner approved (\"Yes, all three\"): the uday / sparks / tos held-median rows replaced by one pooled paired per-shot row over their 21 held shots; their per-set p95 rows kept. Splits, tolerances and the dev rule unchanged."
  }
 }

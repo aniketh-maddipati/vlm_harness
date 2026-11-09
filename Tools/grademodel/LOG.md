@@ -110,3 +110,102 @@ For the owner (criteria are yours; nothing changed here):
 2. Log-mean ⇧E (r1) is the one to re-test under any revised rule: −0.019 / −0.026 stops on adaCG dev / held, ToS
    −0.51 held, every held p95 down; its failures are two shots (Uday 7, Sparks 2024-2455).
 3. Not run (the stop rule came first): white balance (shoot-median chroma), highlight cap, and look regularisation.
+
+---
+
+# Criteria amended 2026-11-09 (owner approved: "Yes, all three")
+
+The Uday / Sparks / ToS held-median rows are replaced by one pooled row: over their 21 held shots, each shot's
+change in median ΔE (candidate − incumbent); the median of those changes must be ≤ +0.05. Their per-set held p95
+rows stay (≤ +0.10). Splits, tolerances, the dev rule and the exposure / PST50 rows are unchanged. The loop is
+rerun from the baseline under this gate (same limits: 8 rounds, or 3 rejected in a row); rounds are numbered
+anew (G1, G2, …).
+
+Evidence for this loop: `~/LuminaEvidence/grademodel/pooled/`. Incumbent at start: baseline (Round 0 numbers, unchanged).
+
+## G1: ⇧E on log-mean luminance (`r1_logmean`, re-scored): ADOPT
+
+| metric | dev median | dev p95/p90 | held median | held p95/p90 |
+|---|---|---|---|---|
+| exposure_adacg (stops) | 0.513 | 1.493 | 0.629 | 1.622 |
+| uday | 7.525 | 17.267 | 6.148 | 16.147 |
+| sparks | 6.290 | 16.217 | 6.466 | 12.095 |
+| tos | 6.086 | 12.441 | 7.629 | 12.606 |
+| pst50 / transfer | unchanged | | | |
+| look_composite | 4.383 | | 5.165 | |
+
+Dev exposure −0.019, look −0.201. Held: exposure −0.026; pooled per-shot Δ −0.456 (15 of 21 shots better; worst
+ToS 03_2d +2.49, ToS 05_4h +1.79, Sparks 2024-2455 +1.51, Uday 7 +1.04; best Sparks 5764-6024 −4.72); p95 Uday
+−0.73, Sparks −4.06, ToS −1.46.
+
+## G2: white balance half way to the shoot's median chroma, ±0.3 (`g2_wb_shootchroma`): REJECT
+
+| metric | dev median | dev p95/p90 | held median | held p95/p90 |
+|---|---|---|---|---|
+| exposure_adacg (stops) | 0.513 | 1.493 | 0.629 | 1.622 |
+| uday | 7.340 | 17.129 | 6.338 | 15.969 |
+| sparks | 7.400 | 16.273 | 6.333 | 11.678 |
+| tos | 6.648 | 11.717 | 6.913 | **14.062** (+1.456) |
+| look_composite | 4.681 | | 5.033 | |
+
+Dev look +0.298 (no dev gain); pooled Δ **+0.281** (11 of 21 worse); ToS p95 +1.46. Judge: pulling each clip
+toward the shoot's median colour erases colour that differs on purpose between scenes (ToS 03_2d +3.10, 04_4c
+p95 +3.06).
+
+## G3: log-mean ⇧E at strength 0.75, clamp ±1.2 (`g3_logmean_k075`; k and clamp fitted on the 25 dev shots of Uday / Sparks / ToS): REJECT
+
+| metric | dev median | dev p95/p90 | held median | held p95/p90 |
+|---|---|---|---|---|
+| exposure_adacg (stops) | 0.522 | 1.390 | 0.596 | 1.578 |
+| uday | 7.624 | 18.891 | 5.761 | **16.302** (+0.155) |
+| sparks | 7.581 | 16.427 | 6.069 | 11.021 |
+| tos | 6.248 | 12.178 | 6.889 | 11.612 |
+| look_composite | 4.694 | | 4.860 | |
+
+Neither dev score improves (exposure +0.009, look +0.310); Uday p95 +0.16. Held otherwise better: exposure
+−0.033, pooled Δ −0.323, Sparks p95 −1.07, ToS p95 −0.99, adaCG p90 1.62 → 1.58.
+
+## G4: a smoother shared look across shots, LUT smoothness 0.5 → 2.0 for multi-shot fits (`g4_smooth_look`): REJECT
+
+| metric | dev median | dev p95/p90 | held median | held p95/p90 |
+|---|---|---|---|---|
+| exposure_adacg (stops) | 0.513 | 1.493 | 0.629 | 1.622 |
+| uday | 7.523 | 17.218 | 7.003 | **16.352** (+0.205) |
+| sparks | 7.218 | 16.428 | 6.200 | **12.332** (+0.237) |
+| tos | 7.358 | 11.634 | 8.251 | **13.243** (+0.637) |
+| pst50 / transfer | unchanged | | | |
+| look_composite | 4.823 | | 5.407 | |
+
+Dev look +0.440; pooled Δ **+0.197**; every p95 row fails. Chosen by the judge over equal shot weighting and a 9³
+LUT, on the reading that look re-fit noise sets the score; a smoother look instead lost detail the grade has.
+
+**Stop: 3 rejected in a row (G2, G3, G4).** Adopted: G1 only.
+
+## Summary under the pooled gate (baseline → adopted G1)
+
+| row | dev baseline → G1 | held baseline → G1 |
+|---|---|---|
+| exposure vs adaCG, median / p90 (stops) | 0.532 / 1.513 → 0.513 / 1.493 | 0.655 / 1.634 → 0.629 / 1.622 |
+| Uday ΔE median / p95 | 7.93 / 19.49 → 7.53 / 17.27 | 5.77 / 16.88 → 6.15 / 16.15 |
+| Sparks | 5.03 / 13.99 → 6.29 / 16.22 | 6.07 / 16.15 → 6.47 / 12.10 |
+| ToS | 7.94 / 13.09 → 6.09 / 12.44 | 8.14 / 14.07 → 7.63 / 12.61 |
+| PST50 / PST50 transfer | 0.35 / 1.67 (unchanged) | 0.41 / 5.18 (unchanged) |
+| look composite | 4.584 → 4.383 | 5.110 → 5.165 |
+| pooled per-shot Δ (21 held shots) | | −0.456 (15 better, 6 worse) |
+
+Not adopted but best held seen: G3 (strength 0.75, ±1.2) held exposure 0.596, pooled −0.32 vs G1, ToS held p95
+11.61, Sparks 11.02, but its dev scores rose, so the rule rejects it.
+
+Judge on G4: smoothing hurt the shots that need a strong look (Sparks 5764-6024 +2.00, Uday 4 +1.32, ToS 05_4h
++1.19; ToS 04_4c p95 +4.15): the look's flexibility helps; re-fit noise was not the limit.
+
+## Into the Skim page? (the owner decides; nothing drafted)
+
+G1 is one line in the page's `sceneSl` (`Lumina Skim v3.dc.html`): return exp(mean(log(Y + 1e-4))) over the same
+sampled pixels instead of the upper median; `evAutoMap`, the shoot median and the ±1 clamp stay. The page's
+luminance is on the eval's scale (scene-linear reflectance after S-Log3, 0..1 after sRGB's curve), so the 1e-4
+floor carries over. Judge's risks from the per-shot losses:
+- the log-mean sinks on large dark areas, so low-key shots get lifted too far (Sparks 30-511: +0.05 → +1.0 stop
+  where the grader wanted −0.8);
+- dark mid-tones against bright areas can move the wrong way (Sparks 11198-11570: +0.5 → −0.03, wanted +0.7;
+  ToS 05_4h to −1.0, wanted +0.3).
