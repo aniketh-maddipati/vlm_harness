@@ -15,6 +15,11 @@
 #
 # The mask lab (Tools/masklab/README.md):
 #   make masklab-test      its scoring tests (synthetic data, Linux too)
+#
+# The exposure eval (Tools/exposeval/README.md): Skim's ⇧E against the adaCG annotator
+#   make exposeval-test    its tests (synthetic data, Linux too)
+# The look eval (Tools/lookeval/README.md): Skim's look sliders against graded frames
+#   make lookeval-test     its tests (synthetic data; the numpy port against the page in node)
 
 PARITY   := Tools/parity
 RENDER   := $(PARITY)/lumina-render/.build/release/lumina-render
@@ -98,3 +103,12 @@ culleval-app:
 .PHONY: masklab-test
 masklab-test:
 	$(PY) -m unittest discover -s Tools/masklab/tests
+
+.PHONY: exposeval-test
+exposeval-test:
+	$(PY) -m unittest discover -s Tools/exposeval/tests
+
+# The look eval (Tools/lookeval/README.md). The run itself: Tools/lookeval/pst50.py (Mac, the T7).
+.PHONY: lookeval-test
+lookeval-test:
+	$(PY) -m unittest discover -s Tools/lookeval -p 'test_*.py'
