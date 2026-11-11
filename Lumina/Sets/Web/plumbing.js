@@ -928,7 +928,8 @@
     // takes no input with nothing on screen to close. Opacity 0 with no animation is hidden. Opacity
     // 0 while `rise` is running is the card on its first frame: treat it as showing, and look once
     // more on the next frame in case the animation was not registered yet.
-    for (const d of document.querySelectorAll('[role="dialog"]')) {
+    // Edit's right-click menu is fixed over the photo too, outside the canvas element: the same rule.
+    for (const d of document.querySelectorAll('[role="dialog"], [role="menu"]')) {
       if (out.length >= MAX_HOLES) break;
       if (root.contains(d)) continue;
       const cs = getComputedStyle(d);
