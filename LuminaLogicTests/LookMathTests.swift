@@ -606,6 +606,36 @@ final class LookMathTests: XCTestCase {
         XCTAssertLessThan(luma(run(Look.single("Exposure", -2, asShot: asShot)!, 0.4)), 0.4)
     }
 
+    /// Exposure below 0 on the sensor data (`LookMath.exposureOnBase`, 2026-11-11): the base undone
+    /// through the base match and Apple's measured tone curve, gained, then Lightroom's measured
+    /// curve. At and above 0 it is today's form exactly; it fades in from 0, so the slider has no
+    /// step; the inverses give the pixel back.
+    func testExposureBelowZeroRunsOnTheSensorData() throws {
+        let raw = try XCTUnwrap(LookMath.RawExposure(rules), "the shipped rules carry the boost / lr knots")
+        let w = LookMath.exposureWhite(rules)
+        let colours: [LookMath.RGB] = [.gray(0.18), LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), LookMath.RGB(r: 0.05, g: 0.15, b: 0.6), LookMath.RGB(r: 0.9, g: 0.92, b: 0.95)]
+        for c in colours {
+            for ev in [0.0, 0.3, 1.0, 2.0] {
+                let g = LookMath.exposureGain(ev, rules)
+                let toned = LookMath.RGB(r: LookMath.exposure(c.r, gain: g, white: w), g: LookMath.exposure(c.g, gain: g, white: w), b: LookMath.exposure(c.b, gain: g, white: w))
+                XCTAssertEqual(LookMath.exposureOnBase(c, ev: ev, rules), toned, "ev \(ev) is today's form")
+            }
+            let back = LookMath.baseMatchInverse(LookMath.baseMatch(c, raw.base, rules), raw.base, rules)
+            XCTAssertEqual(back.r, c.r, accuracy: 1e-6); XCTAssertEqual(back.g, c.g, accuracy: 1e-6); XCTAssertEqual(back.b, c.b, accuracy: 1e-6)
+            // Continuous at 0: a hair below 0 is a hair from the base.
+            let near = LookMath.exposureOnBase(c, ev: -0.001, rules)
+            XCTAssertEqual(near.r, c.r, accuracy: 2e-3); XCTAssertEqual(near.g, c.g, accuracy: 2e-3); XCTAssertEqual(near.b, c.b, accuracy: 2e-3)
+            XCTAssertLessThan(luma(LookMath.exposureOnBase(c, ev: -1, rules)), luma(c), "darker below 0")
+        }
+        XCTAssertEqual(raw.weight(0), 0); XCTAssertEqual(raw.weight(1), 0)
+        XCTAssertEqual(raw.weight(-raw.blendEv / 2), 0.5, accuracy: 1e-12); XCTAssertEqual(raw.weight(-3), 1)
+        for x in [1e-5, 0.003, 0.05, 0.18, 0.7, 1.0, 1.3, 2.5] {
+            XCTAssertEqual(LookMath.RawExposure.inverse(LookMath.RawExposure.curve(x, raw.boost), raw.boost), x, accuracy: x * 1e-6, "boost round trip at \(x)")
+        }
+        for (i, y) in raw.boost.enumerated().dropFirst() { XCTAssertGreaterThanOrEqual(y, raw.boost[i - 1]) }
+        for (i, y) in raw.lr.enumerated().dropFirst() { XCTAssertGreaterThanOrEqual(y, raw.lr[i - 1]) }
+    }
+
     func testWhiteBalanceSigns() {
         // Higher Kelvin = warmer render (more red than blue); positive tint = magenta (less green).
         let warm = run(Look.single("Temperature", 8000, asShot: asShot)!, 0.5)
