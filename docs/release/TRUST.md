@@ -126,6 +126,7 @@ so the Lumina app's page has no way to reach them.
 | `setPrefs` | — | the page's preferences in the app's defaults |
 | `pageError` | — | — (the page shows an error in place of its screen, or no longer does: the window offers Reload Page, a button over the page and ⌘R) |
 | `switchPage` | — | — (Debug builds only: the window loads the other page, Photos or Video; the open shoot is closed first, saved as always) |
+| `ingestToPick` | folders the user handed to the ingest prototype (its open panel or a drop), listed as Pick's Open does | — (Debug builds, `LUMINA_PAGE=ingest` only: the window goes to Pick and opens that folder, or only the files the page shows under a shoot id of its own that is no recent) |
 | `skimStore` | Skim's saved shoots, `skim/store.json` in the container (Skim only: the Lumina Skim app, or Debug with `LUMINA_PAGE=skim`) | — |
 | `skimSave` | — | one Skim shoot's marks, name and counts in `skim/store.json` in the container (Skim only: the Lumina Skim app, or Debug with `LUMINA_PAGE=skim`) |
 | `skimCoverGet` | Skim's saved covers and first measures for the clips asked for, `skim/covers/` in the container (Skim only: the Lumina Skim app, or Debug with `LUMINA_PAGE=skim`) | — |
