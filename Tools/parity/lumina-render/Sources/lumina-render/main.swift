@@ -248,6 +248,24 @@ do {
             print(json(line))
         }
 
+    case "decode":
+        // The decoder's own output, before the base match: `--boost 0` is the sensor data (linear,
+        // Apple's tone curve off), 1 the curve on. RGBA float32 in extended linear sRGB, row by row,
+        // at `--px` on the long edge (Tools/parity/exposure_fit.py measures the tone curves from it).
+        guard let imagePath = args.first, let out = option("--out") else { fail(usage, code: 2) }
+        guard let raw = CIRAWFilter(imageURL: URL(fileURLWithPath: imagePath)) else { fail("not a RAW Core Image reads: \(imagePath)", code: 1) }
+        let px = Double(option("--px") ?? "1024") ?? 1024
+        raw.scaleFactor = Float(px / Double(max(raw.nativeSize.width, raw.nativeSize.height)))
+        raw.boostAmount = Float(option("--boost") ?? "1") ?? 1
+        guard let img = raw.outputImage else { fail("couldn't decode \(imagePath)", code: 1) }
+        let e = img.extent.integral, w = Int(e.width), h = Int(e.height)
+        let space = CGColorSpace(name: CGColorSpace.extendedLinearSRGB)!
+        let ctx = CIContext(options: [.workingColorSpace: space, .workingFormat: CIFormat.RGBAf.rawValue])
+        var buf = [Float](repeating: 0, count: w * h * 4)
+        ctx.render(img, toBitmap: &buf, rowBytes: w * 16, bounds: e, format: .RGBAf, colorSpace: space)
+        try buf.withUnsafeBufferPointer { Data(buffer: $0) }.write(to: URL(fileURLWithPath: out))
+        print(json(["image": imagePath, "out": out, "width": w, "height": h, "boost": Double(raw.boostAmount)]))
+
     case "info":
         guard let imagePath = args.first else { fail(usage, code: 2) }
         let rules = try loadRules(option("--rules"))
