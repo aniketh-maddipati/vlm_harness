@@ -33,7 +33,7 @@ from parity import expand, lr_to_look  # noqa: E402
 FREE = {
     "exposure": ["stopsPerUnit", "white"],
     "whiteBalance": ["redPerMired", "bluePerMired", "greenPerTint", "redPerTint", "bluePerTint", "white"],
-    "whitesBlacks": ["blacksPerUnit", "blacksPower", "whitesPerUnit", "whitesPower"],
+    "whitesBlacks": ["whitesPerUnit", "whitesPower"],   # Blacks: LightCraft's fitted form (rules-v1.json), not refitted here
     "tone": ["shadowsStopsPerUnit", "shadowsTau", "shadowsAdapt", "shadowsBright", "shadowsSpread",
              "highlightsStopsPerUnit", "highlightsKnee", "highlightsAdapt", "highlightsMean", "highlightsSpread", "white"],
     "contrast": ["midpoint", "slopePerUnit", "lumaMix"],

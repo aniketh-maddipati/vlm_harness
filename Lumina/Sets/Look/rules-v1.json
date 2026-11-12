@@ -28,8 +28,8 @@
     },
     "whitesBlacks": {
       "locked": false,
-      "form": "per channel in perceptual p = x^(1/gamma): p -= (-blacks*blacksPerUnit) * (1-p)^blacksPower; p += whites*whitesPerUnit * p^whitesPower",
-      "coefficients": { "blacksPerUnit": 0.000957, "blacksPower": 1.000079, "whitesPerUnit": 0.001885, "whitesPower": 1.000055 }
+      "form": "Whites: per channel in perceptual p = x^(1/gamma): p += whites*whitesPerUnit * p^whitesPower. Blacks, after: LightCraft Process V4 Blacks (MIT, ArtCraft Team and the LightCraft contributors; numbers from its tools/light_v3_fits/blacks.json, sign-wise tau/q exponentiated, mix weights through the sigmoid): on linear ProPhoto through the sRGB curve, F(v) = max(0, v + a*D(v)), D on knots 0,.02,.05,.09,.14,.2,.28,.38,.5,.65,.82,1 (blacksUp0..10 / blacksDown0..10, D(1) = 0), a = +-((1-exp(-t/tau))/(1-exp(-1/tau)))^q, t = |blacks|/100; per channel and on luminance, blended in linear light by blacksUpPerChannel / blacksDownPerChannel",
+      "coefficients": {"whitesPerUnit": 0.001885, "whitesPower": 1.000055, "blacksUp0": 0.00167487, "blacksUp1": 0.03212663, "blacksUp2": 0.07188513, "blacksUp3": 0.09530584, "blacksUp4": 0.12925288, "blacksUp5": 0.12680973, "blacksUp6": 0.10913227, "blacksUp7": 0.10024857, "blacksUp8": 0.08351985, "blacksUp9": 0.05136152, "blacksUp10": 0.02045048, "blacksDown0": 0.00011845, "blacksDown1": 0.27066232, "blacksDown2": 0.42355931, "blacksDown3": 0.37893059, "blacksDown4": 0.22045052, "blacksDown5": 0.20955478, "blacksDown6": 0.2107909, "blacksDown7": 0.16685612, "blacksDown8": 0.13055497, "blacksDown9": 0.08667136, "blacksDown10": 0.03499726, "blacksUpTau": 1000.0, "blacksUpQ": 1.127494, "blacksDownTau": 924.998327, "blacksDownQ": 1.814141, "blacksUpPerChannel": 0.645839, "blacksDownPerChannel": 1.0}
     },
     "tone": {
       "locked": false,

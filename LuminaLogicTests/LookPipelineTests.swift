@@ -297,8 +297,10 @@ final class LookPipelineTests: XCTestCase {
         var img = dev.image
         func pass(_ name: String, _ args: [Any]) throws { img = try XCTUnwrap(pipe.kernels.apply(name, extent: extent, [img] + args)) }
         try pass("lookExposure", [CIVector(x: LookMath.exposureGain(look.ev, r), y: LookMath.exposureWhite(r))])
-        try pass("lookPre", [CIVector(x: 1, y: 1, z: 1, w: 1), CIVector(x: look.whites * r.k("whitesBlacks", "whitesPerUnit", 0.003), y: -look.blacks * r.k("whitesBlacks", "blacksPerUnit", 0.002),
-                                                                    z: r.k("whitesBlacks", "whitesPower", 2), w: r.k("whitesBlacks", "blacksPower", 2)), gam])
+        // Blacks since 2026-11-11: LightCraft's form in its own kernel, after Whites.
+        try pass("lookPre", [CIVector(x: 1, y: 1, z: 1, w: 1), CIVector(x: look.whites * r.k("whitesBlacks", "whitesPerUnit", 0.003), y: 0,
+                                                                    z: r.k("whitesBlacks", "whitesPower", 2), w: 1), gam])
+        try pass("lookBlacks", LookPipeline.blacksArgs(try XCTUnwrap(LookMath.blacksCurve(look.blacks, r))))
         try pass("lookContrast", [CIVector(x: min(0.95, max(0.05, r.k("contrast", "midpoint", 0.46))), y: exp2(look.contrast * r.k("contrast", "slopePerUnit", 0.006)), z: min(1, max(0, r.k("contrast", "lumaMix", 0.5))), w: 0), gam, lum])
         try pass("lookColour", [CIVector(x: max(0, 1 + look.saturation * r.k("colour", "saturationPerUnit", 0.01)), y: look.vibrance * r.k("colour", "vibrancePerUnit", 0.01),
                                          z: max(1e-6, r.k("colour", "vibranceChromaMax", 0.25)), w: 1 - min(1, max(0, r.k("colour", "vibranceFloor", 0)))),

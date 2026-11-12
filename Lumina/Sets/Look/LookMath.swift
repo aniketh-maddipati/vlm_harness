@@ -151,13 +151,80 @@ nonisolated enum LookMath {
 
     // MARK: whitesBlacks (perceptual, per channel)
 
-    static func whitesBlacks(_ p: Double, whites: Double, blacks: Double, _ rules: LookRules) -> Double {
-        let bAmt = -blacks * rules.k("whitesBlacks", "blacksPerUnit", 0.002)
+    /// Whites only; Blacks is `blacks(_:_:)` below.
+    static func whitesBlacks(_ p: Double, whites: Double, _ rules: LookRules) -> Double {
         let wAmt = whites * rules.k("whitesBlacks", "whitesPerUnit", 0.003)
         let pc = min(1, max(0, p))
-        var q = p - bAmt * pow(1 - pc, rules.k("whitesBlacks", "blacksPower", 2))
-        q += wAmt * pow(pc, rules.k("whitesBlacks", "whitesPower", 2))
-        return max(0, q)
+        return max(0, p + wAmt * pow(pc, rules.k("whitesBlacks", "whitesPower", 2)))
+    }
+
+    // MARK: blacks (LightCraft's fitted form)
+
+    /// Blacks after Whites, the form of LightCraft's Process V4 Blacks (MIT, © 2026 ArtCraft Team and the
+    /// LightCraft contributors; `docs/light-v3.md`, `tools/light_v3_fits/blacks.json`): on linear ProPhoto
+    /// RGB through the sRGB transfer curve, F(v) = max(0, v + a·D(v)) with D piecewise linear on
+    /// `blacksKnots` (D(1) = 0) and a = ±s(|blacks| / 100), s(t) = ((1 − e^(−t/τ)) / (1 − e^(−1/τ)))^q, one
+    /// shape, τ and q per sign. Applied per channel and on luminance (the pixel scaled by F(Y) / Y), blended
+    /// in linear light by `blacksUpPerChannel` / `blacksDownPerChannel`. Coefficients in `whitesBlacks`.
+    static let blacksKnots: [Double] = [0, 0.02, 0.05, 0.09, 0.14, 0.2, 0.28, 0.38, 0.5, 0.65, 0.82, 1]
+    /// Linear sRGB (D65) → linear ProPhoto (D50, Bradford), rows summed to 1 so a grey stays grey.
+    static let toProPhoto: [[Double]] = [[0.529345908, 0.330072837, 0.140581255], [0.098374379, 0.873460924, 0.028164697],
+                                         [0.016883188, 0.117672476, 0.865444335]]
+    static let fromProPhoto: [[Double]] = [[2.034076081, -0.727334443, -0.306741639], [-0.22881345, 1.231730369, -0.002916919],
+                                           [-0.008569752, -0.153286622, 1.161856374]]
+    static let proPhotoY: [Double] = [0.2880402, 0.7118741, 0.0000857]
+
+    struct BlacksCurve: Equatable, Sendable {
+        /// D at the 12 knots (the last is 0).
+        var d: [Double]
+        /// ±s: positive lifts, negative pulls down.
+        var a: Double
+        /// The per-channel share (the rest is on luminance).
+        var perChannel: Double
+    }
+
+    static func blacksCurve(_ blacks: Double, _ rules: LookRules) -> BlacksCurve? {
+        guard blacks.isFinite, blacks != 0 else { return nil }
+        let up = blacks > 0, side = up ? "blacksUp" : "blacksDown"
+        let d = (0..<11).map { rules.k("whitesBlacks", "\(side)\($0)", 0) } + [0]
+        let tau = min(max(rules.k("whitesBlacks", "\(side)Tau", 1), 1e-3), 1e3), q = rules.k("whitesBlacks", "\(side)Q", 1)
+        let t = min(abs(blacks) / 100, 1)
+        let s = pow((1 - exp(-t / tau)) / (1 - exp(-1 / tau)), q)
+        return BlacksCurve(d: d, a: up ? s : -s, perChannel: min(1, max(0, rules.k("whitesBlacks", "\(side)PerChannel", 1))))
+    }
+
+    static func srgbEncode(_ l: Double) -> Double { l <= 0.0031308 ? 12.92 * max(0, l) : 1.055 * pow(l, 1 / 2.4) - 0.055 }
+    static func srgbDecode(_ e: Double) -> Double { e <= 0.04045 ? e / 12.92 : pow((e + 0.055) / 1.055, 2.4) }
+
+    /// F on an encoded value: D clamps to its end values outside 0…1, so a value above 1 passes unchanged.
+    static func blacksF(_ v: Double, _ k: BlacksCurve) -> Double {
+        let x = blacksKnots
+        var dv = k.d[0]
+        if v >= 1 { dv = 0 } else if v > 0 {
+            var i = 1
+            while i < x.count - 1 && v > x[i] { i += 1 }
+            let f = (v - x[i - 1]) / (x[i] - x[i - 1])
+            dv = k.d[i - 1] + (k.d[i] - k.d[i - 1]) * f
+        }
+        return max(0, v + k.a * dv)
+    }
+
+    /// One linear channel through F: below 0 it keeps its distance below the image of 0.
+    static func blacksChannel(_ l: Double, _ k: BlacksCurve) -> Double {
+        l < 0 ? l + srgbDecode(blacksF(0, k)) : srgbDecode(blacksF(srgbEncode(l), k))
+    }
+
+    static func blacks(_ c: RGB, _ k: BlacksCurve) -> RGB {
+        let m = toProPhoto, n = fromProPhoto, py = proPhotoY
+        let p = [m[0][0] * c.r + m[0][1] * c.g + m[0][2] * c.b,
+                 m[1][0] * c.r + m[1][1] * c.g + m[1][2] * c.b,
+                 m[2][0] * c.r + m[2][1] * c.g + m[2][2] * c.b]
+        let y = py[0] * p[0] + py[1] * p[1] + py[2] * p[2]
+        let ratio = y > 1e-6 && y <= 1 ? blacksChannel(y, k) / y : 1
+        let o = (0..<3).map { k.perChannel * blacksChannel(p[$0], k) + (1 - k.perChannel) * p[$0] * ratio }
+        return RGB(r: n[0][0] * o[0] + n[0][1] * o[1] + n[0][2] * o[2],
+                   g: n[1][0] * o[0] + n[1][1] * o[1] + n[1][2] * o[2],
+                   b: n[2][0] * o[0] + n[2][1] * o[1] + n[2][2] * o[2])
     }
 
     // MARK: tone (highlights / shadows on a base)
@@ -788,9 +855,12 @@ nonisolated enum LookMath {
                 c = RGB(r: exposure(c.r, gain: g.r, white: w), g: exposure(c.g, gain: g.g, white: w), b: exposure(c.b, gain: g.b, white: w))
             case "whitesBlacks":
                 guard look.whites != 0 || look.blacks != 0 else { continue }
-                c = RGB(r: linear(whitesBlacks(perceptual(c.r, rules), whites: look.whites, blacks: look.blacks, rules), rules),
-                        g: linear(whitesBlacks(perceptual(c.g, rules), whites: look.whites, blacks: look.blacks, rules), rules),
-                        b: linear(whitesBlacks(perceptual(c.b, rules), whites: look.whites, blacks: look.blacks, rules), rules))
+                if look.whites != 0 {
+                    c = RGB(r: linear(whitesBlacks(perceptual(c.r, rules), whites: look.whites, rules), rules),
+                            g: linear(whitesBlacks(perceptual(c.g, rules), whites: look.whites, rules), rules),
+                            b: linear(whitesBlacks(perceptual(c.b, rules), whites: look.whites, rules), rules))
+                }
+                if let k = blacksCurve(look.blacks, rules) { c = blacks(c, k) }
             case "tone":
                 guard look.highlights != 0 || look.shadows != 0 else { continue }
                 let y = luma(c, rules)
