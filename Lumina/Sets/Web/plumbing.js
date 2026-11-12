@@ -937,6 +937,15 @@
       if (+cs.opacity === 0 && !fadingIn(d)) { if (!dialogRetried.has(d)) { dialogRetried.add(d); dialogPending = true; } continue; }
       armDialog(d);
       const b = d.getBoundingClientRect(); if (b.width < 1 || b.height < 1) continue;
+      // One that names its shadow (`data-lumina-shadow="dy blur alpha"`, Edit's right-click menu)
+      // is a soft hole: its rounded box, with the photo fading under the shadow, so the page's
+      // corners and shadow show over the photo instead of a black rect around them.
+      const sh = (d.getAttribute('data-lumina-shadow') || '').trim().split(/\s+/).map(Number);
+      if (sh.length === 3 && sh.every(Number.isFinite)) {
+        if (b.right > rect.x && b.left < rect.x + rect.w && b.bottom > rect.y && b.top < rect.y + rect.h)
+          out.push({ x: b.left, y: b.top, w: b.width, h: b.height, r: parseFloat(cs.borderTopLeftRadius) || 0, sh: { dy: sh[0], blur: sh[1], a: sh[2] } });
+        continue;
+      }
       const x0 = Math.max(rect.x, Math.floor(b.left) - 1), y0 = Math.max(rect.y, Math.floor(b.top) - 1);
       const x1 = Math.min(rect.x + rect.w, Math.ceil(b.right) + 1), y1 = Math.min(rect.y + rect.h, Math.ceil(b.bottom) + 1);
       if (x1 > x0 && y1 > y0) out.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });

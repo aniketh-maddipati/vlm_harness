@@ -946,6 +946,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
       ok(!!(m1 && new RegExp(file + '\\.xmp · ★★\\n').test(m1.text) || m1 && /Nothing is written/.test(m1.text)), 'edit menu: it says where the pick goes (the .xmp, the rating from prefs)', m1 && m1.text);
       const lm = bridge.canvas.layouts.slice(nM).filter(x => x.visible).pop();
       ok(!!(m1 && lm && lm.holes.some(h => covers(h, m1, lm))), 'edit menu: it is a hole in the native canvas', { m1, holes: lm && lm.holes });
+      ok(!!(m1 && lm && lm.holes.some(h => covers(h, m1, lm) && h.r >= 12 && h.sh && h.sh.blur > 0 && h.sh.a > 0)), 'edit menu: its hole is soft (rounded, with the shadow the canvas fades under)', lm && lm.holes);
       if (process.env.LUMINA_SHOT) await page.screenshot({ path: process.env.LUMINA_SHOT + '/edit-menu-canvas.png' });
       const wasKept = !!(m1 && /Remove from picks/.test(m1.text));
       await page.evaluate(() => { const it = [...document.querySelectorAll('[data-lumina="photo-menu"] [role="menuitem"]')].find(e => /picks/.test(e.textContent)); it && it.click(); });
