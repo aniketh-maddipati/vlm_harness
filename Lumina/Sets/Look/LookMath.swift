@@ -104,6 +104,139 @@ nonisolated enum LookMath {
         return RGB(r: ym + (mixed.r - ym) * keep, g: ym + (mixed.g - ym) * keep, b: ym + (mixed.b - ym) * keep)
     }
 
+    // MARK: the camera profile
+
+    /// The camera profile (`profile` in the rules): the decoder's linear output brought to
+    /// Lightroom's Adobe Color in the form of an Adobe DCP (DNG SDK: HueSatMap and RGBTone), with
+    /// Lumina's own fitted numbers (Tools/parity/profile_fit.py). Exposure, a 3×3 mix whose rows sum
+    /// to 1, a hue/sat table read in linear ProPhoto HSV (hue 0…6, trilinear, the hue wrapping, the
+    /// value axis by v^(1/γ); the sat-0 row's valScale is 1, so a grey stays grey), then a monotone
+    /// tone curve through RGBTone: the largest and smallest channel go through the curve, the middle
+    /// keeps its place between them. Python copy: Tools/parity/profile_math.py.
+    struct Profile: Equatable, Sendable {
+        var exposure = 0.0
+        var rg = 0.0, rb = 0.0, gr = 0.0, gb = 0.0, br = 0.0, bg = 0.0
+        var hue = 30, sat = 8, val = 1, nodes = 33
+        /// (val, hue, sat) outer to inner, 3 numbers each: hueShift (degrees), satScale, valScale.
+        var hsm: [Double]
+        /// `nodes` values of the curve at p = i / (nodes − 1), perceptual in and out.
+        var curve: [Double]
+
+        /// Nil when the rules have no profile stage.
+        init?(_ rules: LookRules) {
+            guard let st = rules.stages["profile"] else { return nil }
+            let k = { (n: String, d: Double) in st.coefficients[n] ?? d }
+            let h = max(1, Int(k("hueDivisions", 30))), s = max(1, Int(k("satDivisions", 8))), v = max(1, Int(k("valDivisions", 1))), n = max(2, Int(k("curveNodes", 33)))
+            let straight = (0..<n).map { Double($0) / Double(n - 1) }
+            var table = st.tables?["hsm"] ?? Self.identityHSM(hue: h, sat: s, val: v)
+            if table.count != h * s * v * 3 { table = Self.identityHSM(hue: h, sat: s, val: v) }
+            var c = st.tables?["curve"] ?? straight
+            if c.count != n { c = straight }
+            exposure = k("exposure", 0); rg = k("rg", 0); rb = k("rb", 0); gr = k("gr", 0); gb = k("gb", 0); br = k("br", 0); bg = k("bg", 0)
+            hue = h; sat = s; val = v; nodes = n
+            hsm = table; curve = c
+        }
+
+        static func identityHSM(hue: Int, sat: Int, val: Int) -> [Double] {
+            var t = [Double](repeating: 0, count: hue * sat * val * 3)
+            for i in stride(from: 0, to: t.count, by: 3) { t[i + 1] = 1; t[i + 2] = 1 }
+            return t
+        }
+
+        var isIdentity: Bool {
+            exposure == 0 && rg == 0 && rb == 0 && gr == 0 && gb == 0 && br == 0 && bg == 0
+                && hsm == Self.identityHSM(hue: hue, sat: sat, val: val) && curve == (0..<nodes).map { Double($0) / Double(nodes - 1) }
+        }
+
+        var rows: [[Double]] { [[1 - rg - rb, rg, rb], [gr, 1 - gr - gb, gb], [br, bg, 1 - br - bg]] }
+
+        /// linear sRGB (D65) → linear ProPhoto (D50), Bradford; and back. The same constants in
+        /// LookKernels and profile_math.py.
+        static let srgbToProPhoto: [[Double]] = [[0.5293458759317613, 0.330072797941936, 0.14058131638228086],
+                                                 [0.0983743638449671, 0.8734610679819278, 0.0281646251213536],
+                                                 [0.01688317839798025, 0.1176724654297775, 0.8654443236645497]]
+        static let proPhotoToSRGB: [[Double]] = [[2.0340761471876716, -0.7273342302651498, -0.30674186565349915],
+                                                 [-0.2288133847303624, 1.2317301146832054, -0.0029168024220968514],
+                                                 [-0.008569742917820058, -0.15328658603088974, 1.1618563753638784]]
+
+        /// The table at (h in 0…6, s in 0…1, vEncoded in 0…1): trilinear, hue wrapping, sat and value clamped.
+        func sample(h: Double, s: Double, v: Double) -> (hueShift: Double, satScale: Double, valScale: Double) {
+            let hf = (h - 6 * (h / 6).rounded(.down)) * Double(hue) / 6
+            var h0 = Int(hf.rounded(.down)); let hw = hf - Double(h0)
+            h0 = ((h0 % hue) + hue) % hue
+            let h1 = (h0 + 1) % hue
+            var s0 = 0, s1 = 0, sw = 0.0
+            if sat > 1 {
+                let sf = min(1, max(0, s)) * Double(sat - 1)
+                s0 = min(Int(sf.rounded(.down)), sat - 2); sw = sf - Double(s0); s1 = min(s0 + 1, sat - 1)
+            }
+            var v0 = 0, v1 = 0, vw = 0.0
+            if val > 1 {
+                let vf = min(1, max(0, v)) * Double(val - 1)
+                v0 = min(Int(vf.rounded(.down)), val - 2); vw = vf - Double(v0); v1 = v0 + 1
+            }
+            func at(_ vi: Int, _ hi: Int, _ si: Int, _ f: Int) -> Double { hsm[((vi * hue + hi) * sat + si) * 3 + f] }
+            func field(_ f: Int) -> Double {
+                let c00 = at(v0, h0, s0, f) * (1 - hw) + at(v0, h1, s0, f) * hw
+                let c01 = at(v0, h0, s1, f) * (1 - hw) + at(v0, h1, s1, f) * hw
+                let c0 = c00 * (1 - sw) + c01 * sw
+                guard val > 1 else { return c0 }
+                let c10 = at(v1, h0, s0, f) * (1 - hw) + at(v1, h1, s0, f) * hw
+                let c11 = at(v1, h0, s1, f) * (1 - hw) + at(v1, h1, s1, f) * hw
+                let c1 = c10 * (1 - sw) + c11 * sw
+                return c0 * (1 - vw) + c1 * vw
+            }
+            return (field(0), field(1), field(2))
+        }
+
+        /// The curve at perceptual p: linear between nodes, slope 1 above 1 and below 0.
+        func curveValue(_ p: Double) -> Double {
+            let x = min(1, max(0, p)) * Double(nodes - 1)
+            let i = min(Int(x.rounded(.down)), nodes - 2), f = x - Double(i)
+            return curve[i] * (1 - f) + curve[i + 1] * f + max(0, p - 1) + min(0, p)
+        }
+    }
+
+    static func profile(_ c: RGB, _ p: Profile, _ rules: LookRules) -> RGB {
+        let gamma = rules.perceptualGamma
+        let g = exp2(p.exposure)
+        let t = RGB(r: c.r * g, g: c.g * g, b: c.b * g), w = p.rows
+        var x = [w[0][0] * t.r + w[0][1] * t.g + w[0][2] * t.b, w[1][0] * t.r + w[1][1] * t.g + w[1][2] * t.b, w[2][0] * t.r + w[2][1] * t.g + w[2][2] * t.b]
+        // the hue/sat map in linear ProPhoto HSV
+        let m = Profile.srgbToProPhoto
+        var pp = (0..<3).map { max(0, m[$0][0] * x[0] + m[$0][1] * x[1] + m[$0][2] * x[2]) }
+        let v = max(pp[0], pp[1], pp[2]), mn = min(pp[0], pp[1], pp[2]), d = v - mn
+        let s = v > 0 ? d / max(v, 1e-12) : 0
+        var h = 0.0
+        if d > 0 {
+            if v == pp[0] { h = (pp[1] - pp[2]) / d } else if v == pp[1] { h = 2 + (pp[2] - pp[0]) / d } else { h = 4 + (pp[0] - pp[1]) / d }
+            if h < 0 { h += 6 }
+        }
+        let e = p.sample(h: h, s: s, v: pow(min(1, max(0, v)), 1 / gamma))
+        let h2 = h + e.hueShift * (6.0 / 360.0), s2 = min(s * e.satScale, 1), v2 = v * e.valScale
+        var hh = h2 - 6 * (h2 / 6).rounded(.down)
+        if hh < 0 { hh += 6 }
+        let i = Int(hh.rounded(.down)) % 6, f = hh - Double(Int(hh.rounded(.down)))
+        let pq = v2 * (1 - s2), q = v2 * (1 - s2 * f), tt = v2 * (1 - s2 * (1 - f))
+        switch i {
+        case 0: pp = [v2, tt, pq]
+        case 1: pp = [q, v2, pq]
+        case 2: pp = [pq, v2, tt]
+        case 3: pp = [pq, q, v2]
+        case 4: pp = [tt, pq, v2]
+        default: pp = [v2, pq, q]
+        }
+        let mi = Profile.proPhotoToSRGB
+        x = (0..<3).map { mi[$0][0] * pp[0] + mi[$0][1] * pp[1] + mi[$0][2] * pp[2] }
+        // the tone curve, RGBTone, in perceptual space (signed: a negative stays on its own side)
+        let per = x.map { $0 < 0 ? -pow(-$0, 1 / gamma) : pow($0, 1 / gamma) }
+        let mx = max(per[0], per[1], per[2]), lo = min(per[0], per[1], per[2]), span = mx - lo
+        let tmx = p.curveValue(mx), tlo = p.curveValue(lo)
+        let out = per.map { span > 1e-9 ? tlo + (tmx - tlo) * (($0 - lo) / span) : tmx }
+        let lin = out.map { $0 < 0 ? -pow(-$0, gamma) : pow($0, gamma) }
+        return RGB(r: lin[0], g: lin[1], b: lin[2])
+    }
+
     // MARK: exposure
 
     /// Lightroom's Exposure is a gain on the scene, before its film-like tone curve; this stage
