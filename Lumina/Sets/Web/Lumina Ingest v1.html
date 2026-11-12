@@ -251,7 +251,7 @@ async function ingest(groups) {
   const jobs = plan(groups);
   if (!jobs.length && !S.items.size) say('Nothing to read there');
   S.total += jobs.length; S.reading = true; if (!S.t0) S.t0 = performance.now();
-  document.body.classList.add('has');
+  document.body.classList.add('has'); if (document.activeElement && document.activeElement.id === 'dropbox') document.activeElement.blur();
   pending = pending.concat(jobs);
   const worker = async () => {
     while (pending.length) {
@@ -571,7 +571,7 @@ addEventListener('keydown', (e) => {
   if (e.target === q || e.target.id === 'trip') return;
   if (e.key === '/') { if (S.items.size) { e.preventDefault(); q.focus(); q.select(); } }
   else if ((e.key === 'o' || e.key === 'O') && !e.metaKey) $('#pick').click();
-  else if (e.key === 'Enter' && !e.metaKey && (document.activeElement === document.body || !document.activeElement)) { e.preventDefault(); openInPick(); }
+  else if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); openInPick(); }
   else if (e.key === 'Escape') { if (!$('#notes').classList.contains('off')) { $('#notes').classList.add('off'); drawFoot(); } else if (q.value) { q.value = ''; apply(); } }
   else if (e.key === '=' || e.key === '+') { e.preventDefault(); size(1.25); }
   else if (e.key === '-') { e.preventDefault(); size(0.8); }
