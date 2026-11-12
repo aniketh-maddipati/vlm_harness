@@ -352,6 +352,27 @@ final class LookCanvasTests: XCTestCase {
         XCTAssertTrue(LookRawPolicy.tiles(covering: roi, width: 0, height: 0).isEmpty)
     }
 
+    /// Sharp at rest: the develop scale for a zoomed view's region is the smallest that still
+    /// gives the zoom's detail, and smaller while its tiles would crowd the tile cache.
+    func testDetailScaleIsTheSmallestThatGivesTheZoomsDetail() {
+        func pick(_ needed: Double, _ roi: LookCanvasSchedule.ROI, cap: Int = LookRawPolicy.tileCacheBytes) -> [Double]? {
+            LookRawPolicy.detailScale(needed: needed, roi: roi, width: 6000, height: 4000, cap: cap).map { [$0.scale, Double($0.margin)] }
+        }
+        let quarter = LookCanvasSchedule.ROI(x: 0.4, y: 0.4, w: 0.25, h: 0.25)
+        XCTAssertEqual(pick(1.9, quarter), [1, 1], "past 100 %: never more than the RAW, with the pan margin")
+        // 2× on a 24 MP frame: 9 × 7 tiles with the margin (126 MB) is over 80 % of 150 MB; 7 × 5 without fits.
+        let half = LookCanvasSchedule.ROI(x: 0.25, y: 0.25, w: 0.5, h: 0.5)
+        XCTAssertEqual(pick(0.59, half), [1, 0])
+        XCTAssertEqual(pick(0.45, half), [0.5, 1])
+        XCTAssertEqual(pick(0.2, half), [0.25, 1])
+        // Nearly the whole frame at 100 %: 12 × 8 tiles either way, 192 MB, so ½.
+        let most = LookCanvasSchedule.ROI(x: 0.05, y: 0.05, w: 0.9, h: 0.9)
+        XCTAssertEqual(pick(0.8, most), [0.5, 1])
+        XCTAssertEqual(LookRawPolicy.tiles(covering: half, width: 6000, height: 4000, margin: 0).count, 35)
+        XCTAssertNil(LookRawPolicy.detailScale(needed: 0.8, roi: most, width: 6000, height: 4000, cap: 1 << 20), "nothing fits a 1 MB cache")
+        XCTAssertNil(LookRawPolicy.detailScale(needed: 0, roi: half, width: 6000, height: 4000))
+    }
+
     /// `Look.rot`: the loupe's region is named in the turned picture, the tiles live in the frame as shot.
     func testRegionOfATurnedPictureMapsBackToTheFrame() {
         typealias ROI = LookCanvasSchedule.ROI

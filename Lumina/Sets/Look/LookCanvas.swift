@@ -132,6 +132,17 @@ final class LookCanvasController: NSObject {
         var zoomLatencyMs: [Double] = []
         var zoomMissed = 0
         var zoomBusy = 0
+        /// Sharp at rest: the zoom's rest → its first frame with the detail the zoom needs (the
+        /// region at the zoom's resolution, or `base` when that is already enough), ms; and how
+        /// many such frames there have been. The region's develop scale, regions asked for, zoom
+        /// frames drawn with the detail texture over the settled look, its last build.
+        var lastSharpMs = 0.0
+        var sharpCount = 0
+        var detailScale = 0.0
+        var detailRequests = 0
+        var detailFrames = 0
+        var detailMs = 0.0
+        var detailBytes = 0
     }
 
     /// What the last `layout` placed: the same again, holes aside, changes nothing.
@@ -157,6 +168,18 @@ final class LookCanvasController: NSObject {
     /// `id` names the base, the look and the masks it was made from; nil while none matches.
     private var settled: (id: String, image: CIImage, texture: MTLTexture)?
     private var settledBuilding: String?
+    /// Sharp at rest: the look on the zoomed region's tiles (`region`), rendered once into a
+    /// texture at the zoom's detail (at most the region's own), so the pan and pinch frames at
+    /// that zoom resample it over the settled look instead of upscaling `base`. `toRegion` maps
+    /// the texture's pixels to the region's; `id` names the region, the base, the look and masks.
+    private var detail: (id: String, image: CIImage, texture: MTLTexture, toRegion: CGAffineTransform)?
+    private var detailBuilding: String?
+    private var detailTimer: Timer?
+    /// When the zoom last came to rest (ms, `now()`), until its first sharp frame; and whether
+    /// that frame needs the region (false: `base` is already enough at this zoom).
+    private var restAt: Double?
+    private var restNeedsRegion = false
+    private var nativeSizes: [String: CGSize] = [:]
     private let statsQueue = DispatchQueue(label: "lumina.look.reststats", qos: .utility)
     private var neighbours: [(key: LookBases.Key, url: URL, look: Look, preview: LookBases.PreviewFallback?)] = []
     private var prefetchIssued = false
@@ -342,7 +365,7 @@ final class LookCanvasController: NSObject {
         let key = LookBases.Key(rel: rel, decoder: decoder, look: parsed, canvas: size)
         let same = current?.rel == rel
         if !same { schedule.reset(); region = nil; supersedeRegion(); stats.region = false; asShotTold = nil; developTries = 0; developRetrying = false; cannotDevelop = nil; drawFails = 0; baseSeen = false; draftSource = nil
-                   photoMasks = nil; preparing = []; shownMask = nil; maskOverlay = nil; settled = nil }
+                   photoMasks = nil; preparing = []; shownMask = nil; maskOverlay = nil; settled = nil; detail = nil; restAt = nil; detailTimer?.invalidate() }
         current = (rel, url, key, parsed, bases.entry(key), preview, decoder, regionDecoder, same ? current?.standIn : nil)
         stats.rel = rel
         bases.pin(key)
@@ -435,6 +458,7 @@ final class LookCanvasController: NSObject {
         bases.pin(nil)
         warmTarget = nil
         settled = nil
+        detail = nil; restAt = nil; detailTimer?.invalidate(); detailTimer = nil
         view?.isHidden = true
         stats.visible = false
         placement = nil
@@ -579,7 +603,15 @@ final class LookCanvasController: NSObject {
         cropDraft = next
         if next.active { ensureDraftSource() } else { draftSource = nil }
         guard current != nil else { zoomEnd(); return }
+        // Back at fit: the zoomed region and its texture are not needed (the loupe keeps its own).
+        if moved, !loupe.on, roi.map({ $0.isWhole }) ?? true {
+            if region != nil { region = nil; stats.region = false; setFacts() }
+            if regionBusy { supersedeRegion(); refiningTimer?.invalidate(); stats.refining = false }
+            detail = nil
+        }
         if moved {
+            restAt = nil
+            detailTimer?.invalidate(); detailTimer = nil
             if !zooming {
                 zooming = true
                 // A look still owed its rest render keeps its histogram.
@@ -617,7 +649,12 @@ final class LookCanvasController: NSObject {
         guard zooming else { return }
         zooming = false
         LookTrace.mark("zoomEnd")
+        restAt = now()
+        ensureDetail()
         if !dragging { schedule.dragEnd(at: now()) }
+        // The rest is drawn even when a pause in the zoom already drew this look from `base`:
+        // the region now covering the view (or `base`) is what the zoom settles on.
+        kickRest()
         updatePrefetch()
         kick()
     }
@@ -687,7 +724,7 @@ final class LookCanvasController: NSObject {
         loupeStillTimer?.invalidate(); loupeStillTimer = nil
         stats.regionFailed = false; stats.regionError = ""
         guard on, let roi, let c = current else {
-            if !on { region = nil; supersedeRegion(); stats.region = false; stats.refining = false; setFacts(); kickRest(); updatePrefetch() }
+            if !on { region = nil; supersedeRegion(); stats.region = false; stats.refining = false; setFacts(); kickRest(); updatePrefetch(); ensureDetail() }
             return
         }
         // No RAW decoder for this file (the embedded JPEG stands in, or the body offers none): nothing to refine.
@@ -709,8 +746,10 @@ final class LookCanvasController: NSObject {
         }
     }
 
-    private func refine(rel: String, url: URL, decoder: Int, roi: LookCanvasSchedule.ROI) {
-        guard loupe.on, current?.rel == rel else { return }
+    /// `detail`: the zoomed canvas at rest asked for it (`ensureDetail`), at the develop `scale`;
+    /// otherwise it is the loupe's, at 100 %.
+    private func refine(rel: String, url: URL, decoder: Int, roi: LookCanvasSchedule.ROI, scale: Double = 1, margin: Int = 1, detail: Bool = false) {
+        guard loupe.on || detail, current?.rel == rel else { return }
         let version = fallbackVersions[rel] ?? decoder
         supersedeRegion()
         let seq = regionSeq
@@ -720,7 +759,7 @@ final class LookCanvasController: NSObject {
         refiningTimer = Timer.scheduledTimer(withTimeInterval: LookRawPolicy.refiningAfterMs / 1000, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated { guard let self, self.regionSeq == seq else { return }; self.stats.refining = true; self.setFacts() }
         }
-        tiles.region(rel: rel, url: url, decoder: version, nr: current?.look.nr, dust: current?.look.dust ?? false, roi: roi, rot: current?.look.rot ?? 0, seq: seq, first: { [weak self] ms in
+        tiles.region(rel: rel, url: url, decoder: version, nr: current?.look.nr, dust: current?.look.dust ?? false, roi: roi, rot: current?.look.rot ?? 0, scale: scale, margin: margin, seq: seq, first: { [weak self] ms in
             guard let self, self.regionSeq == seq else { return }
             if ms <= LookRawPolicy.refiningAfterMs { self.refiningTimer?.invalidate() }
         }, done: { [weak self] r in
@@ -734,9 +773,11 @@ final class LookCanvasController: NSObject {
                 self.region = region
                 self.stats.region = true
                 self.stats.regionDecoder = region.decoder
+                self.stats.detailScale = region.scale
                 self.setFacts()
                 self.onStats?(["facts": ["sharpness": region.facts.sharpness, "clipHi": region.facts.clipHi, "clipLo": region.facts.clipLo, "source": region.facts.source], "rel": rel, "decoder": region.decoder])
                 self.kickRest()
+                self.updateDetail()
             case .failure(is LookRegionTiles.Cancelled):
                 break
             case .failure(let e):
@@ -747,7 +788,7 @@ final class LookCanvasController: NSObject {
                     self.stats.decoderFallbacks.append("\(rel): \(version) → \(prev) (\(e))")
                     LuminaLog.canvas.error("RAW decoder \(version, privacy: .public) failed for \(rel, privacy: .private) (\(String(describing: e), privacy: .private)); using \(prev, privacy: .public)")
                     self.onDecoderFallback?(rel, version, prev)
-                    self.refine(rel: rel, url: url, decoder: prev, roi: roi)
+                    self.refine(rel: rel, url: url, decoder: prev, roi: roi, scale: scale, margin: margin, detail: detail)
                 } else {
                     self.stats.region = false
                     self.stats.regionFailed = true
@@ -1091,7 +1132,8 @@ final class LookCanvasController: NSObject {
     /// outline is drawn with it (`withMaskOutline`), and the look's masks are placed on each
     /// source image the same way, so both stay on the picture.
     /// `settled`: the look already applied to `base` and mapped for output (`settled`), placed as it is.
-    private func compose(_ look: Look, tier: LookCanvasSchedule.Tier, roi: LookCanvasSchedule.ROI?, entry: LookBases.Entry, size: CGSize, settled: CIImage? = nil) -> (placed: CIImage, image: CIImage, region: LookRegionTiles.Region?, photo: CGAffineTransform) {
+    /// `place`: `base`'s pixels → the drawable's (without Crop's draft turn).
+    private func compose(_ look: Look, tier: LookCanvasSchedule.Tier, roi: LookCanvasSchedule.ROI?, entry: LookBases.Entry, size: CGSize, settled: CIImage? = nil) -> (placed: CIImage, image: CIImage, region: LookRegionTiles.Region?, photo: CGAffineTransform, place: CGAffineTransform) {
         // The draft angle is the crop's straighten, absolute. It turns the full frame once.
         // The on-screen base already contains the applied crop, so turning that as well stacks
         // a second rotated copy. Until the full frame is ready, that base is shown unturned.
@@ -1124,14 +1166,18 @@ final class LookCanvasController: NSObject {
         // The loupe's RAW 9 region, when it covers the visible part, replaces the base there.
         // Not during a draft crop: that region is the upright window, and the page is showing the
         // full photo turned.
+        // The zoomed canvas at rest draws it the same way (`ensureDetail`). It is used wherever it
+        // covers the visible part at no less detail than `base`; the stages see the whole picture
+        // (`frame`), so its blurs and vignette are those of the same place in `base` and the export.
         var region: LookRegionTiles.Region?
-        if tier == .base, settled == nil, !cropDraft.active, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z, reg.rot == look.rot {
+        if tier == .base, settled == nil, !cropDraft.active, let reg = self.region, reg.rel == current?.rel, reg.rot == look.rot, let z = zoom, !z.isFit,
+           let at = regionPlacement(reg, entry: source, visible: visible) {
             region = reg
             photo = reg.photo
-            let regionImage = pipeline.apply(look, to: LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, masks: masks?.placed(photo: photo), style: reg.style), crop: false)
-            let vis = CGRect(x: z.x * reg.photoSize.width, y: (1 - z.y - z.h) * reg.photoSize.height, width: z.w * reg.photoSize.width, height: z.h * reg.photoSize.height)
-            image = regionImage.cropped(to: vis.intersection(reg.rect))
-            visible = vis
+            var dev = LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, masks: masks?.placed(photo: photo), style: reg.style)
+            dev.frame = at.frame
+            image = pipeline.apply(look, to: dev, crop: false).cropped(to: at.visible.intersection(reg.rect))
+            visible = at.visible
         }
         let s = min(dw / max(1, visible.width), dh / max(1, visible.height))
         let fit = CGAffineTransform(translationX: -visible.minX, y: -visible.minY).concatenating(CGAffineTransform(scaleX: s, y: s))
@@ -1146,7 +1192,149 @@ final class LookCanvasController: NSObject {
             placed = draftPlaced(placed, photo: box, size: size)
             if let turn = Self.draftTurn(photo: box, angle: cropDraft.angle, cover: cropDraft.cover) { photo = photo.concatenating(turn) }
         }
-        return (placed, image, region, photo)
+        return (placed, image, region, photo, fit.concatenating(CGAffineTransform(translationX: ox, y: oy)))
+    }
+
+    // MARK: Sharp at rest (the zoomed region)
+
+    /// The region's pixels → `base`'s (both y up), through the photo's fractions; nil unless the
+    /// two are only scaled and moved (a straightened crop turns `base`: no region there).
+    private func regionToBase(_ reg: LookRegionTiles.Region, entry: LookBases.Entry) -> CGAffineTransform? {
+        let m = reg.photo.inverted().concatenating(entry.toPhoto(small: false))
+        guard abs(m.b) + abs(m.c) <= 1e-4 * (abs(m.a) + abs(m.d)), m.a > 0, m.d > 0 else { return nil }
+        return m
+    }
+
+    /// Where `visible` (a rect of `base`) lies in the region, and the whole picture there, when
+    /// the region covers the part of it that is photo, at least as finely as `base`.
+    private func regionPlacement(_ reg: LookRegionTiles.Region, entry: LookBases.Entry, visible: CGRect) -> (visible: CGRect, frame: CGRect)? {
+        guard let m = regionToBase(reg, entry: entry), m.a <= 1.001 else { return nil }
+        let inv = m.inverted()
+        let frame = CGRect(origin: .zero, size: entry.baseSize).applying(inv)
+        let vis = visible.applying(inv)
+        let need = vis.intersection(frame)
+        guard !need.isNull, reg.rect.insetBy(dx: -1, dy: -1).contains(need) else { return nil }
+        return (vis, frame)
+    }
+
+    /// The zoom came to rest (or the loupe let go of a zoomed view): when `base` would be
+    /// magnified past `LookRawPolicy.detailUpscale`, the visible part (plus the tiles' margin) is
+    /// developed again at the zoom's own resolution as region tiles, at the smallest develop
+    /// scale that gives it (`LookRawPolicy.detailScale`), with the version the region tier
+    /// uses (the pin: RAW 9 when present). Deferred like the loupe when the Mac is hot or on Low
+    /// Power, held like it during a drag or a zoom, and superseded by the next zoom. A region
+    /// that already covers the view at that detail is used as it is (a pan inside its margin).
+    private func ensureDetail() {
+        detailTimer?.invalidate(); detailTimer = nil
+        restNeedsRegion = false
+        guard path == .native, !loupe.on, !zooming, !dragging, !cropDraft.active, let c = current, let e = c.entry, e.source == "raw",
+              let z = zoom, !z.isWhole, let size = view?.drawableSize, size.width > 1, size.height > 1 else { return }
+        let bw = e.baseSize.width, bh = e.baseSize.height
+        let vis = CGRect(x: z.x * bw, y: (1 - z.y - z.h) * bh, width: z.w * bw, height: z.h * bh)
+        let up = min(size.width / max(1, vis.width), size.height / max(1, vis.height))
+        guard up > LookRawPolicy.detailUpscale else { return }
+        let toPhoto = e.toPhoto(small: false)
+        guard abs(toPhoto.b) + abs(toPhoto.c) <= 1e-4 * (abs(toPhoto.a) + abs(toPhoto.d)) else { return }
+        let native: CGSize
+        if let n = nativeSizes[c.rel] { native = n } else {
+            guard let n = LookPipeline.nativeSize(url: c.url) else { return }
+            nativeSizes[c.rel] = n; native = n
+        }
+        // The visible photo in fractions of the frame as shot (y from the top), and as the turned picture.
+        let shown = vis.intersection(CGRect(origin: .zero, size: e.baseSize))
+        guard !shown.isNull, shown.width > 0, shown.height > 0 else { return }
+        let f = shown.applying(toPhoto.inverted()).intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+        guard !f.isNull, f.width > 0, f.height > 0 else { return }
+        let asShot = LookCanvasSchedule.ROI(x: f.minX, y: f.minY, w: f.width, h: f.height)
+        let rot = ((c.look.rot % 360) + 360) % 360
+        let roi = LookRawPolicy.unturned(asShot, rot: (360 - rot) % 360)
+        // Drawable px per full-size px: the magnification over `base` times `base`'s share of the RAW.
+        let needed = up * hypot(toPhoto.a, toPhoto.b) / max(1, native.width)
+        let baseShare = hypot(toPhoto.a, toPhoto.b) / max(1, native.width)
+        // Only a region finer than `base` is drawn (a scale the tile cache forced below it is not).
+        guard let (scale, margin) = LookRawPolicy.detailScale(needed: needed, roi: asShot, width: Int(native.width), height: Int(native.height)), scale > baseShare * 1.001 else { return }
+        restNeedsRegion = true
+        if let reg = region, reg.rel == c.rel, reg.rot == c.look.rot, reg.scale >= scale - 0.001, regionPlacement(reg, entry: e, visible: vis) != nil { updateDetail(); return }
+        guard let decoder = c.regionDecoder ?? c.decoder ?? LookPipeline.supportedDecoderVersions(url: c.url).max() else { restNeedsRegion = false; return }
+        let delay = LookRawPolicy.regionDelayMs(thermalState: LookDecoderProbe.thermalLevel(ProcessInfo.processInfo.thermalState), lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
+        stats.slowed = delay > 0
+        stats.detailRequests += 1
+        let rel = c.rel, url = c.url
+        LookTrace.mark(String(format: "detail ×%.2f over base, %.2f of full size → scale %.2f margin %d", up, needed, scale, margin))
+        if delay > 0 {
+            detailTimer = Timer.scheduledTimer(withTimeInterval: delay / 1000, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refine(rel: rel, url: url, decoder: decoder, roi: roi, scale: scale, margin: margin, detail: true) }
+            }
+        } else {
+            refine(rel: rel, url: url, decoder: decoder, roi: roi, scale: scale, margin: margin, detail: true)
+        }
+    }
+
+    private func detailID(_ look: String, entry: LookBases.Entry, region reg: LookRegionTiles.Region) -> String {
+        "\(ObjectIdentifier(reg.image).hashValue)|\(settledID(look, entry: entry))"
+    }
+
+    /// The look on the region, mapped for output, once into a texture at the zoom's detail (warm
+    /// queue and context, like `settled`), for the frames of the next pan or pinch at this zoom.
+    private func updateDetail() {
+        guard path == .native, !dragging, !zooming, !cropDraft.active, let device, let c = current, let entry = c.entry, let reg = region, reg.rel == c.rel, reg.rot == c.look.rot,
+              let m = regionToBase(reg, entry: entry), let z = zoom, !z.isWhole, let size = view?.drawableSize, size.width > 1, size.height > 1,
+              let text = schedule.latest?.look ?? schedule.presentedLook, let look = try? Look.parse(text) else { return }
+        let id = detailID(text, entry: entry, region: reg)
+        guard detail?.id != id, detailBuilding != id else { return }
+        let vis = CGSize(width: z.w * entry.baseSize.width, height: z.h * entry.baseSize.height)
+        let toDrawable = min(size.width / max(1, vis.width), size.height / max(1, vis.height)) * m.a     // drawable px per region px
+        let ds = min(1, toDrawable)
+        let rect = reg.rect
+        let w = Int((rect.width * ds).rounded(.down)), h = Int((rect.height * ds).rounded(.down))
+        guard w > 1, h > 1, w * h * 8 <= LookRawPolicy.tileCacheBytes else { return }
+        let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float, width: w, height: h, mipmapped: false)
+        desc.usage = [.shaderRead, .shaderWrite, .renderTarget]
+        desc.storageMode = .private
+        guard let tex = device.makeTexture(descriptor: desc) else { return }
+        var dev = LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, masks: placedMasks(look)?.placed(photo: reg.photo), style: reg.style)
+        dev.frame = CGRect(origin: .zero, size: entry.baseSize).applying(m.inverted())
+        var image = LookPipeline.atOrigin(pipeline.output(pipeline.apply(look, to: dev, crop: false)).cropped(to: rect))
+        if ds < 0.999 { image = LookPipeline.atOrigin(image.applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: ds, kCIInputAspectRatioKey: 1])) }
+        let out = CGRect(x: 0, y: 0, width: w, height: h)
+        image = image.cropped(to: out)
+        let toRegion = CGAffineTransform(scaleX: 1 / ds, y: 1 / ds).concatenating(CGAffineTransform(translationX: rect.minX, y: rect.minY))
+        detailBuilding = id
+        let context = warm.context, space = pipeline.workingSpace, bases = self.bases
+        warmQueue.async { [weak self] in
+            let t0 = LookTrace.now()
+            let dest = CIRenderDestination(mtlTexture: tex, commandBuffer: nil)
+            dest.colorSpace = space
+            dest.alphaMode = .unpremultiplied
+            let ok = (try? context.startTask(toRender: image, from: out, to: dest, at: .zero).waitUntilCompleted()) != nil
+            var img = ok ? CIImage(mtlTexture: tex, options: [.colorSpace: space]) : nil
+            if let o = img, (try? bases.readbackFlips(device: device)) == true { img = o.oriented(.downMirrored) }
+            let ms = LookTrace.now() - t0
+            LookTrace.mark("detail \(w)x\(h)", ms: ms, at: t0)
+            let wrapped = img.map { LookPipeline.atOrigin($0) }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, self.detailBuilding == id else { return }
+                    self.detailBuilding = nil
+                    if let wrapped, let c = self.current, let e = c.entry, let reg = self.region, self.detailID(text, entry: e, region: reg) == id {
+                        self.detail = (id, wrapped, tex, toRegion)
+                        self.stats.detailMs = (ms * 100).rounded() / 100
+                        self.stats.detailBytes = w * h * 8
+                    }
+                    self.updateDetail()
+                }
+            }
+        }
+    }
+
+    /// A zoom frame's detail: the texture over the settled look where it reaches, placed in the
+    /// drawable through `place` (`base` → drawable). Nil when it is not this look's, or would be
+    /// shrunk more than twofold (the settled look is as good there, without the shimmer).
+    private func detailPlaced(_ look: String, entry: LookBases.Entry, place: CGAffineTransform, size: CGSize) -> CIImage? {
+        guard let d = detail, let reg = region, d.id == detailID(look, entry: entry, region: reg), let m = regionToBase(reg, entry: entry) else { return nil }
+        let t = d.toRegion.concatenating(m).concatenating(place)
+        guard t.a >= 0.5 else { return nil }
+        return d.image.transformed(by: t).cropped(to: CGRect(origin: .zero, size: size))
     }
 
     /// The crop frame in drawable pixels (y up), from the viewport CSS rect the page sent.
@@ -1253,7 +1441,12 @@ final class LookCanvasController: NSObject {
         let fromSettled = r.tier == .small && zooming && !dragging && !cropDraft.active ? settledImage(r.look, entry: entry) : nil
         if fromSettled != nil { stats.settledFrames += 1 }
         let composed = compose(look, tier: fromSettled == nil ? r.tier : .base, roi: r.roi, entry: entry, size: CGSize(width: dw, height: dh), settled: fromSettled)
-        let outlined = shownMask == nil ? composed.placed : withMaskOutline(composed.placed, toDrawable: composed.photo, size: CGSize(width: dw, height: dh))
+        var shown = composed.placed
+        if fromSettled != nil, let d = detailPlaced(r.look, entry: entry, place: composed.place, size: CGSize(width: dw, height: dh)) {
+            shown = d.composited(over: shown)
+            stats.detailFrames += 1
+        }
+        let outlined = shownMask == nil ? shown : withMaskOutline(shown, toDrawable: composed.photo, size: CGSize(width: dw, height: dh))
         let placed = cropDraft.guides.isEmpty ? outlined : withGuides(outlined, size: CGSize(width: dw, height: dh))
         let image = composed.image, region = composed.region
         guard let cb = queue.makeCommandBuffer() else { schedule.failed(r); rendering = false; drawAgain(); return }
@@ -1289,6 +1482,12 @@ final class LookCanvasController: NSObject {
             self.stats.lastRestTier = r.tier.rawValue
             _ = self.schedule.finished(r)
             self.frameShown(r, at: end, dragEnd: wasDragEnd, presented: false, standIn: standIn)
+            if let t = self.restAt, r.tier == .base, fromSettled == nil, !standIn, region != nil || !self.restNeedsRegion {
+                self.stats.lastSharpMs = ((self.now() - t) * 10).rounded() / 10
+                self.stats.sharpCount += 1
+                self.restAt = nil
+                LookTrace.mark(region != nil ? "sharp (region ×\(region!.scale))" : "sharp (base)")
+            }
             if r.stats, r.lookSeq != self.placeOnly || region != nil { self.restStats(image, region: region, seq: r.pageSeq) }
         }
         let done = gpuDone
@@ -1393,6 +1592,7 @@ final class LookCanvasController: NSObject {
         }
         updateWarm(hold: hold)
         updateSettled()
+        updateDetail()
     }
 
     // MARK: The settled look (zoom frames)
@@ -1551,6 +1751,9 @@ final class LookCanvasController: NSObject {
                 // Region tiles first, then the neighbours' bases, never the current photo's (§5).
                 let t = self.tiles.drop(), b = self.bases.dropPrefetched()
                 if !self.zooming { self.settled = nil }
+                // The zoomed region holds its tiles' textures: it goes too (the loupe's stays).
+                self.detail = nil
+                if !self.loupe.on, self.region != nil { self.region = nil; self.stats.region = false; self.setFacts() }
                 LuminaLog.canvas.notice("memory pressure: dropped \(t, privacy: .public) region tiles and \(b, privacy: .public) prefetched bases")
             }
         }

@@ -23,8 +23,9 @@ enum ZoomSteps {
         let cx = s["cx"] as? Double ?? 0.45, cy = s["cy"] as? Double ?? 0.42
         let pa = entry.baseSize.width / max(1, entry.baseSize.height), ca = size.width / max(1, size.height)
         let w0 = max(1, ca / pa), h0 = max(1, pa / ca)
-        func roi(_ f: Double) -> LookCanvasSchedule.ROI {
+        func roi(_ f: Double, dx: Double = 0) -> LookCanvasSchedule.ROI {
             let w = w0 / f, h = h0 / f
+            let cx = cx + dx * w
             let x = w < 1 ? min(max(0, cx - w / 2), 1 - w) : 0.5 - w / 2
             let y = h < 1 ? min(max(0, cy - h / 2), 1 - h) : 0.5 - h / 2
             return LookCanvasSchedule.ROI(x: x, y: y, w: w, h: h)
@@ -107,14 +108,55 @@ enum ZoomSteps {
                             "detailScale": after["detailScale"] ?? 0, "regionTiles": (after["tiles"] as? [String: Any])?["resident"] ?? 0, "tilesMB": Double((after["tiles"] as? [String: Any])?["bytes"] as? Int ?? 0) / 1_048_576])
             lines.append(String(format: "×%.0f (%.2f drawable px per export px): pinch %d placements, frames %d, latency p50 %.1f p95 %.1f max %.1f ms, missed %d busy %d (settled frames %d) · sharp %@ · Laplacian var canvas %.5f export %.5f ratio %.2f · ΔE median %.2f p95 %.2f",
                                 z, fullScale, n, lat.count, q(0.5), q(0.95), lat.last ?? 0, missed, busy, settledFrames, sharpMs.map { String(format: "%.0f ms", $0) } ?? (supportsSharp ? "never" : "n/a"), a, b, ratio, de.median, de.p95))
-            guard EditSteps.gate else { continue }
             if let cap = s["p95Ms"] as? Double, q(0.95) > cap { o.failures.append(String(format: "editZoom ×%.0f: pinch frame latency p95 %.1f ms > %.0f", z, q(0.95), cap)) }
             if let cap = s["maxMissed"] as? Int, missed > cap { o.failures.append("editZoom ×\(z): \(missed) refreshes missed during the pinch (allowed \(cap))") }
             if lat.isEmpty { o.failures.append("editZoom ×\(z): no pinch frames were measured") }
             if let min = s["minSharpRatio"] as? Double, ratio < min { o.failures.append(String(format: "editZoom ×%.0f: sharpness %.2f of the export's < %.2f", z, ratio, min)) }
             if let cap = s["maxSharpMs"] as? Double, (sharpMs ?? .infinity) > cap { o.failures.append("editZoom ×\(z): sharp after \(sharpMs.map { String(format: "%.0f ms", $0) } ?? "never") > \(Int(cap)) ms") }
+
+            // A pan at this zoom: a fifth of the view sideways over `panMs`, then rest again.
+            let panMs = s["panMs"] as? Double ?? 300
+            canvas.resetMeasures()
+            let pb = canvas.snapshot()
+            let framesBefore = pb["detailFrames"] as? Int ?? 0, sharpN = pb["sharpCount"] as? Int ?? 0
+            let q0 = Date()
+            var pn = 0
+            while true {
+                let f = min(1, Date().timeIntervalSince(q0) * 1000 / panMs)
+                canvas.zoom(to: roi(z, dx: 0.2 * f))
+                pn += 1
+                if f >= 1 { break }
+                try await Task.sleep(nanoseconds: UInt64(1e9 / hz))
+            }
+            try await Task.sleep(nanoseconds: UInt64(restAfter * 1e6))
+            let ps = canvas.snapshot()
+            let pl = (ps["zoomLatencyMs"] as? [Double] ?? []).sorted()
+            let pq = { (p: Double) -> Double in pl.isEmpty ? 0 : pl[min(pl.count - 1, Int(Double(pl.count) * p))] }
+            let pMissed = ps["zoomMissed"] as? Int ?? 0
+            let detailFrames = (ps["detailFrames"] as? Int ?? 0) - framesBefore
+            let pr0 = Date()
+            canvas.zoom(to: roi(z, dx: 0.2), rest: true)
+            var panSharp: Double?
+            if supportsSharp {
+                while Date().timeIntervalSince(pr0) * 1000 < sharpWait {
+                    try await Task.sleep(nanoseconds: 10_000_000)
+                    let snap = canvas.snapshot()
+                    if (snap["sharpCount"] as? Int ?? 0) > sharpN, let ms = snap["lastSharpMs"] as? Double { panSharp = ms; break }
+                }
+            }
+            results[results.count - 1]["panLatencyP95"] = pq(0.95)
+            results[results.count - 1]["panMissed"] = pMissed
+            results[results.count - 1]["panDetailFrames"] = detailFrames
+            results[results.count - 1]["panSharpMs"] = panSharp ?? -1
+            lines.append(String(format: "   pan ×%.0f: %d placements, latency p50 %.1f p95 %.1f max %.1f ms, missed %d · %d of %d frames with detail over the settled look · sharp %@ after rest",
+                                z, pn, pq(0.5), pq(0.95), pl.last ?? 0, pMissed, detailFrames, pl.count, panSharp.map { String(format: "%.0f ms", $0) } ?? (supportsSharp ? "never" : "n/a")))
+            if let cap = s["p95Ms"] as? Double, pq(0.95) > cap { o.failures.append(String(format: "editZoom ×%.0f: pan frame latency p95 %.1f ms > %.0f", z, pq(0.95), cap)) }
+            if let cap = s["maxMissed"] as? Int, pMissed > cap { o.failures.append("editZoom ×\(z): \(pMissed) refreshes missed during the pan (allowed \(cap))") }
+            if let cap = s["maxSharpMs"] as? Double, (panSharp ?? .infinity) > cap { o.failures.append("editZoom ×\(z): sharp after the pan \(panSharp.map { String(format: "%.0f ms", $0) } ?? "never") > \(Int(cap)) ms") }
         }
         canvas.zoom(to: nil, rest: true)
+        // LUMINA_EDIT_GATE=0: the numbers only (what failed is still in the note).
+        if !EditSteps.gate { o.failures = o.failures.filter { $0.contains("rendered nothing") || $0.contains("render failed") } }
         report["zooms"] = results
         try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(to: outDir.appendingPathComponent("zoom.json"))
         for r in results {

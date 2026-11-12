@@ -141,6 +141,7 @@ LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh edit           # Edi
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh edit-cold      # the first launch after a kernel change (LUMINA_KERNEL_SALT, new per run): first drags on stages the canvas has not rendered, gated like edit + first render of a new set of stages ≤ 8 ms on the main thread; LUMINA_CANVAS_WARM=0 = no warm-up (fails, the "before" measure)
 LUMINA_READ_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh readspeed       # read speed: Open → first rows, first thumbnail, 100 / 500 / 1000 / 2000 photos, done; photos per second (reported, not gated)
 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh raw9           # RAW 9: decoder map, first tile / full region, export time + memory per version, forced fallback, tiles vs export ΔE
+LUMINA_EDIT_DIR=/Volumes/T7/Lumina/fixtures/lumina-fixtures/card-clean-200 bash Scripts/probe.sh zoom   # Edit pinch to 2× / 4× and a pan: frame latency (p95 ≤ 16 ms, 0 missed), rest → sharp (≤ 2.5 s), Laplacian variance vs the export (≥ 0.8)
 LUMINA_LONG=1 LUMINA_EDIT_DIR=~/Pictures/shoot-3000 bash Scripts/probe.sh consistency    # canvas vs full-size export per stage of the look on 12 distinct ARWs: median ΔE ≤ 1.0 for every photo and look (p95 reported); also a canvas one decoder behind the export, and the drag preview
 LUMINA_REMOTE=user@m1.local bash Scripts/probe_remote.sh edit               # the same on the M1 8 GB over ssh (p95 ≤ 33 ms), evidence pulled back
 ```
@@ -450,7 +451,16 @@ never where the user is waiting. The rules live in `LookRawPolicy` (tiers, gatin
   frame. Loupe (100 % with G held): the pinned version (RAW 9 when present) on the visible region
   only, as 512 × 512 tiles covering the region plus one tile of margin, cached per (rel, region,
   look-independent) so panning reuses them; `raw 9 · region` in the facts line, `refining…` only if
-  the first tile takes more than 150 ms. Export: the pinned version at full size, `cacheIntermediates`
+  the first tile takes more than 150 ms. Zoomed canvas at rest (sharp at rest, `ensureDetail`): once a
+  pinch or pan rests where `base` would be magnified past 1.1×, the visible part is developed again
+  as region tiles with the pinned version at the smallest develop scale that gives the zoom's detail
+  (100 %, ½ or ¼, `LookRawPolicy.detailScale`; the pan margin dropped, then the scale, when the tiles
+  would take over 80 % of the tile cache), deferred and held like the loupe and superseded by the
+  next zoom. The rest render draws it wherever it covers the view; the stages see the whole
+  picture (`Developed.frame`), so its blurs and vignette match `base` and the export. The frames of
+  the next pinch or pan resample the look on it, rendered once into a texture (`detail`), over the
+  settled look. `stats()`: `lastSharpMs`, `detailScale`, `detailFrames`; `probe.sh zoom` measures it.
+  Export: the pinned version at full size, `cacheIntermediates`
   off, a 512 MB memory target on 8 GB, serial; the result block names the decoder used.
 - **Fallback per file, not per shoot.** A RAW 9 error, or more than 8 s at export size, re-renders
   that file once with the previous version, silently, and logs it (`SetsLookExport.Outcome`,

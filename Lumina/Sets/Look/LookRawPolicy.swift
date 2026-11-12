@@ -123,15 +123,45 @@ nonisolated enum LookRawPolicy {
     /// The tile grid covering `roi` (fractions of a `w` × `h` photo) plus one tile of margin,
     /// clamped to the photo, as tile indices (column, row) from the top-left. Panning reuses
     /// tiles already cached; the region is one full tile larger on every side.
-    static func tiles(covering roi: LookCanvasSchedule.ROI, width w: Int, height h: Int, tile: Int = tileSize) -> [(col: Int, row: Int)] {
+    /// `margin`: tiles added on every side (1, the loupe's; 0 when the zoomed canvas's region at
+    /// rest would not fit the cache with it).
+    static func tiles(covering roi: LookCanvasSchedule.ROI, width w: Int, height h: Int, tile: Int = tileSize, margin: Int = 1) -> [(col: Int, row: Int)] {
         guard w > 0, h > 0, tile > 0 else { return [] }
         let cols = (w + tile - 1) / tile, rows = (h + tile - 1) / tile
-        let x0 = max(0, Int((roi.x * Double(w)).rounded(.down)) / tile - 1), x1 = min(cols - 1, Int(((roi.x + roi.w) * Double(w)).rounded(.up)) / tile + 1)
-        let y0 = max(0, Int((roi.y * Double(h)).rounded(.down)) / tile - 1), y1 = min(rows - 1, Int(((roi.y + roi.h) * Double(h)).rounded(.up)) / tile + 1)
+        let x0 = max(0, Int((roi.x * Double(w)).rounded(.down)) / tile - margin), x1 = min(cols - 1, Int(((roi.x + roi.w) * Double(w)).rounded(.up)) / tile + margin)
+        let y0 = max(0, Int((roi.y * Double(h)).rounded(.down)) / tile - margin), y1 = min(rows - 1, Int(((roi.y + roi.h) * Double(h)).rounded(.up)) / tile + margin)
         guard x1 >= x0, y1 >= y0 else { return [] }
         var out: [(col: Int, row: Int)] = []
         for r in y0...y1 { for c in x0...x1 { out.append((col: c, row: r)) } }
         return out
+    }
+
+    /// The zoomed canvas at rest is drawn from region tiles once `base` would be magnified by
+    /// more than this (drawable px per base px); below it `base` already has the detail.
+    static let detailUpscale = 1.1
+    /// Develop scales region tiles come in, largest first.
+    static let detailScales: [Double] = [1, 0.5, 0.25]
+    /// The share of the tile cache one region at rest may take.
+    static let detailCacheShare = 0.8
+
+    /// The develop scale for the region a zoomed canvas shows at rest, and the tiles' margin: the
+    /// smallest of `detailScales` that still gives `needed` (drawable px per full-size px) or
+    /// more, with one tile of margin for panning when the tiles covering `roi` (of a `width` ×
+    /// `height` photo at full size) fit in `detailCacheShare` of `cap`, without it when only
+    /// that fits, else the next scale down. Nil when nothing fits.
+    static func detailScale(needed: Double, roi: LookCanvasSchedule.ROI, width: Int, height: Int, tile: Int = tileSize, cap: Int = tileCacheBytes) -> (scale: Double, margin: Int)? {
+        guard needed > 0, width > 0, height > 0 else { return nil }
+        let fits = detailScales.filter { $0 >= needed * 0.999 }
+        var i = fits.isEmpty ? 0 : detailScales.firstIndex(of: fits.last!)!
+        while i < detailScales.count {
+            let s = detailScales[i]
+            for margin in [1, 0] {
+                let n = tiles(covering: roi, width: Int((Double(width) * s).rounded()), height: Int((Double(height) * s).rounded()), tile: tile, margin: margin).count
+                if n > 0, Double(n * tile * tile * 8) <= detailCacheShare * Double(cap) { return (s, margin) }
+            }
+            i += 1
+        }
+        return nil
     }
 
     /// A region of the turned picture (`Look.rot`, clockwise quarter turns; fractions from the
