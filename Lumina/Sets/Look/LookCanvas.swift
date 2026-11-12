@@ -121,6 +121,11 @@ final class LookCanvasController: NSObject {
         var trace: [LookTrace.Event] = []
         /// The page chrome the canvas leaves see-through (`LookCanvasHoles`).
         var holes = 0
+        /// Zoom frames drawn from the settled look (`settled`): resampled, no look render.
+        var settledFrames = 0
+        /// The last settled build's time on the warm queue (ms), and its bytes.
+        var settledMs = 0.0
+        var settledBytes = 0
     }
 
     /// What the last `layout` placed: the same again, holes aside, changes nothing.
@@ -140,6 +145,12 @@ final class LookCanvasController: NSObject {
     private var warmRunning = false
     private var warmTarget: MTLTexture?
     private let warmQueue = DispatchQueue(label: "lumina.look.warm", qos: .utility)
+    /// The look at rest on `base`, rendered once into a texture: a zoom or pan that leaves the
+    /// look alone resamples it (one texture read per drawable pixel) instead of rendering the
+    /// stages again from `small`, which upscaled a quarter-size picture while the fingers moved.
+    /// `id` names the base, the look and the masks it was made from; nil while none matches.
+    private var settled: (id: String, image: CIImage, texture: MTLTexture)?
+    private var settledBuilding: String?
     private let statsQueue = DispatchQueue(label: "lumina.look.reststats", qos: .utility)
     private var neighbours: [(key: LookBases.Key, url: URL, look: Look, preview: LookBases.PreviewFallback?)] = []
     private var prefetchIssued = false
@@ -325,7 +336,7 @@ final class LookCanvasController: NSObject {
         let key = LookBases.Key(rel: rel, decoder: decoder, look: parsed, canvas: size)
         let same = current?.rel == rel
         if !same { schedule.reset(); region = nil; supersedeRegion(); stats.region = false; asShotTold = nil; developTries = 0; developRetrying = false; cannotDevelop = nil; drawFails = 0; baseSeen = false; draftSource = nil
-                   photoMasks = nil; preparing = []; shownMask = nil; maskOverlay = nil }
+                   photoMasks = nil; preparing = []; shownMask = nil; maskOverlay = nil; settled = nil }
         current = (rel, url, key, parsed, bases.entry(key), preview, decoder, regionDecoder, same ? current?.standIn : nil)
         stats.rel = rel
         bases.pin(key)
@@ -417,6 +428,7 @@ final class LookCanvasController: NSObject {
         zooming = false
         bases.pin(nil)
         warmTarget = nil
+        settled = nil
         view?.isHidden = true
         stats.visible = false
         placement = nil
@@ -570,6 +582,7 @@ final class LookCanvasController: NSObject {
                 if regionBusy { supersedeRegion(); refiningTimer?.invalidate(); stats.refining = false }
                 LookTrace.mark("zoomStart")
                 updatePrefetch()
+                updateSettled()
                 if !dragging { schedule.dragStart(at: now()) }
             }
             var seq = 0
@@ -1049,7 +1062,8 @@ final class LookCanvasController: NSObject {
     /// `photo` is where the photo's fractions land in the drawable (y up): the shown mask's
     /// outline is drawn with it (`withMaskOutline`), and the look's masks are placed on each
     /// source image the same way, so both stay on the picture.
-    private func compose(_ look: Look, tier: LookCanvasSchedule.Tier, roi: LookCanvasSchedule.ROI?, entry: LookBases.Entry, size: CGSize) -> (placed: CIImage, image: CIImage, region: LookRegionTiles.Region?, photo: CGAffineTransform) {
+    /// `settled`: the look already applied to `base` and mapped for output (`settled`), placed as it is.
+    private func compose(_ look: Look, tier: LookCanvasSchedule.Tier, roi: LookCanvasSchedule.ROI?, entry: LookBases.Entry, size: CGSize, settled: CIImage? = nil) -> (placed: CIImage, image: CIImage, region: LookRegionTiles.Region?, photo: CGAffineTransform) {
         // The draft angle is the crop's straighten, absolute. It turns the full frame once.
         // The on-screen base already contains the applied crop, so turning that as well stacks
         // a second rotated copy. Until the full frame is ready, that base is shown unturned.
@@ -1069,7 +1083,7 @@ final class LookCanvasController: NSObject {
         if tier == .small { src = source.small; srcSize = source.smallSize } else { src = source.base; srcSize = source.baseSize }
         let masks = placedMasks(look)
         var photo = source.toPhoto(small: tier == .small)
-        var image = pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: source.asShot, anchor: source.anchor, masks: masks?.placed(photo: photo), style: source.style, linear: source.linear), crop: false)
+        var image = settled ?? pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: source.asShot, anchor: source.anchor, masks: masks?.placed(photo: photo), style: source.style, linear: source.linear), crop: false)
         // Where the photo goes: fit the canvas (contain), or the zoomed region filling it.
         let dw = size.width, dh = size.height
         var visible = CGRect(origin: .zero, size: srcSize)
@@ -1077,13 +1091,13 @@ final class LookCanvasController: NSObject {
             visible = CGRect(x: z.x * srcSize.width, y: (1 - z.y - z.h) * srcSize.height, width: z.w * srcSize.width, height: z.h * srcSize.height)
             // A draft straighten needs the whole photo: cropping to the upright window first would
             // cut off the corners the rotation and cover scale bring into the frame.
-            if tier == .small, let roi, !roi.isWhole, !cropDraft.active { image = image.cropped(to: visible) }
+            if tier == .small || settled != nil, let roi, !roi.isWhole, !cropDraft.active { image = image.cropped(to: visible) }
         }
         // The loupe's RAW 9 region, when it covers the visible part, replaces the base there.
         // Not during a draft crop: that region is the upright window, and the page is showing the
         // full photo turned.
         var region: LookRegionTiles.Region?
-        if tier == .base, !cropDraft.active, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z, reg.rot == look.rot {
+        if tier == .base, settled == nil, !cropDraft.active, let reg = self.region, reg.rel == current?.rel, let z = zoom, reg.roi == z, reg.rot == look.rot {
             region = reg
             photo = reg.photo
             let regionImage = pipeline.apply(look, to: LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, masks: masks?.placed(photo: photo), style: reg.style, linear: reg.linear), crop: false)
@@ -1095,7 +1109,7 @@ final class LookCanvasController: NSObject {
         let fit = CGAffineTransform(translationX: -visible.minX, y: -visible.minY).concatenating(CGAffineTransform(scaleX: s, y: s))
         let out = image.transformed(by: fit)
         let ox = ((dw - visible.width * s) / 2).rounded(), oy = ((dh - visible.height * s) / 2).rounded()
-        var placed = pipeline.output(out).transformed(by: CGAffineTransform(translationX: ox, y: oy))
+        var placed = (settled == nil ? pipeline.output(out) : out).transformed(by: CGAffineTransform(translationX: ox, y: oy))
         photo = photo.concatenating(fit).concatenating(CGAffineTransform(translationX: ox, y: oy))
         if applyDraft {
             // The page's photo box, in the drawable (y up): the full frame fills it, then rotates
@@ -1207,7 +1221,10 @@ final class LookCanvasController: NSObject {
         flightSeq = r.seq
         let t0 = CACurrentMediaTime()
         let dw = CGFloat(drawable.texture.width), dh = CGFloat(drawable.texture.height)
-        let composed = compose(look, tier: r.tier, roi: r.roi, entry: entry, size: CGSize(width: dw, height: dh))
+        // A zoom or pan with the look unchanged: the settled look, resampled at `base`'s detail.
+        let fromSettled = r.tier == .small && zooming && !dragging && !cropDraft.active ? settledImage(r.look, entry: entry) : nil
+        if fromSettled != nil { stats.settledFrames += 1 }
+        let composed = compose(look, tier: fromSettled == nil ? r.tier : .base, roi: r.roi, entry: entry, size: CGSize(width: dw, height: dh), settled: fromSettled)
         let outlined = shownMask == nil ? composed.placed : withMaskOutline(composed.placed, toDrawable: composed.photo, size: CGSize(width: dw, height: dh))
         let placed = cropDraft.guides.isEmpty ? outlined : withGuides(outlined, size: CGSize(width: dw, height: dh))
         let image = composed.image, region = composed.region
@@ -1342,6 +1359,68 @@ final class LookCanvasController: NSObject {
             bases.prefetch(neighbours)
         }
         updateWarm(hold: hold)
+        updateSettled()
+    }
+
+    // MARK: The settled look (zoom frames)
+
+    /// What a settled picture of `look` on `entry` depends on: the base itself, the look, the
+    /// masks it blends through.
+    private func settledID(_ look: String, entry: LookBases.Entry) -> String {
+        let m = photoMasks.map { "\($0.masks != nil)|\($0.ready.sorted().joined(separator: ","))" } ?? "-"
+        return "\(ObjectIdentifier(entry.base).hashValue)|\(m)|\(look)"
+    }
+
+    private func settledImage(_ look: String, entry: LookBases.Entry) -> CIImage? {
+        guard let s = settled, s.id == settledID(look, entry: entry) else { return nil }
+        return s.image
+    }
+
+    /// Renders the look on the canvas, on `base`, once into a texture (warm queue and context, so
+    /// never on the drawable's). Only for a RAW base on screen, no slider moving, no crop draft.
+    /// Zoom frames that come before it lands render from `small` as before.
+    private func updateSettled() {
+        guard path == .native, !dragging, !cropDraft.active, basePresented, let device, let c = current, let entry = c.entry,
+              let text = schedule.latest?.look ?? schedule.presentedLook, let look = try? Look.parse(text) else { return }
+        let id = settledID(text, entry: entry)
+        guard settled?.id != id, settledBuilding != id else { return }
+        let rect = CGRect(origin: .zero, size: entry.baseSize)
+        let w = Int(rect.width), h = Int(rect.height)
+        guard w > 1, h > 1 else { return }
+        let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba16Float, width: w, height: h, mipmapped: false)
+        desc.usage = [.shaderRead, .shaderWrite, .renderTarget]
+        desc.storageMode = .private
+        guard let tex = device.makeTexture(descriptor: desc) else { return }
+        let photo = entry.toPhoto(small: false)
+        let applied = pipeline.apply(look, to: LookPipeline.Developed(image: entry.base, asShot: entry.asShot, anchor: entry.anchor, masks: placedMasks(look)?.placed(photo: photo), style: entry.style, linear: entry.linear), crop: false)
+        let image = pipeline.output(applied).cropped(to: rect)
+        settledBuilding = id
+        let context = warm.context, space = pipeline.workingSpace, bases = self.bases
+        warmQueue.async { [weak self] in
+            let t0 = LookTrace.now()
+            let dest = CIRenderDestination(mtlTexture: tex, commandBuffer: nil)
+            dest.colorSpace = space
+            dest.alphaMode = .unpremultiplied
+            let ok = (try? context.startTask(toRender: image, from: rect, to: dest, at: .zero).waitUntilCompleted()) != nil
+            var out = ok ? CIImage(mtlTexture: tex, options: [.colorSpace: space]) : nil
+            if let o = out, (try? bases.readbackFlips(device: device)) == true { out = o.oriented(.downMirrored) }
+            let ms = LookTrace.now() - t0
+            LookTrace.mark("settled \(w)x\(h)", ms: ms, at: t0)
+            let wrapped = out.map { LookPipeline.atOrigin($0) }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, self.settledBuilding == id else { return }
+                    self.settledBuilding = nil
+                    if let wrapped, let c = self.current, let e = c.entry, self.settledID(text, entry: e) == id {
+                        self.settled = (id, wrapped, tex)
+                        self.stats.settledMs = (ms * 100).rounded() / 100
+                        self.stats.settledBytes = w * h * 8
+                    }
+                    // The look moved on while this rendered: the newest one next.
+                    self.updateSettled()
+                }
+            }
+        }
     }
 
     // MARK: Warm-up (LookWarmPlan)
@@ -1438,6 +1517,7 @@ final class LookCanvasController: NSObject {
                 guard let self else { return }
                 // Region tiles first, then the neighbours' bases, never the current photo's (§5).
                 let t = self.tiles.drop(), b = self.bases.dropPrefetched()
+                if !self.zooming { self.settled = nil }
                 LuminaLog.canvas.notice("memory pressure: dropped \(t, privacy: .public) region tiles and \(b, privacy: .public) prefetched bases")
             }
         }
