@@ -269,14 +269,68 @@ def white_balance_gains(target, as_shot, rules):
     return g
 
 
-def whites_blacks(p, whites, blacks, rules):
-    """Perceptual, per channel."""
-    b_amt = -blacks * k(rules, "whitesBlacks", "blacksPerUnit", 0.002)
+def whites_blacks(p, whites, rules):
+    """Whites: perceptual, per channel. Blacks is `blacks` below."""
     w_amt = whites * k(rules, "whitesBlacks", "whitesPerUnit", 0.003)
     pc = np.clip(p, 0.0, 1.0)
-    q = p - b_amt * np.power(1.0 - pc, k(rules, "whitesBlacks", "blacksPower", 2.0))
-    q = q + w_amt * np.power(pc, k(rules, "whitesBlacks", "whitesPower", 2.0))
-    return np.maximum(0.0, q)
+    return np.maximum(0.0, p + w_amt * np.power(pc, k(rules, "whitesBlacks", "whitesPower", 2.0)))
+
+
+# Blacks: LightCraft's Process V4 form (MIT, ArtCraft Team and the LightCraft contributors), LookMath.blacks.
+BLACKS_KNOTS = np.array([0.0, 0.02, 0.05, 0.09, 0.14, 0.2, 0.28, 0.38, 0.5, 0.65, 0.82, 1.0])
+TO_PROPHOTO = np.array([[0.529345908, 0.330072837, 0.140581255], [0.098374379, 0.873460924, 0.028164697],
+                        [0.016883188, 0.117672476, 0.865444335]])
+FROM_PROPHOTO = np.array([[2.034076081, -0.727334443, -0.306741639], [-0.22881345, 1.231730369, -0.002916919],
+                          [-0.008569752, -0.153286622, 1.161856374]])
+PROPHOTO_Y = np.array([0.2880402, 0.7118741, 0.0000857])
+
+
+def blacks_curve(blacks, rules):
+    """(D at the knots, a, perChannel) or None, as LookMath.blacksCurve."""
+    if not np.isfinite(blacks) or blacks == 0:
+        return None
+    side = "blacksUp" if blacks > 0 else "blacksDown"
+    d = np.array([k(rules, "whitesBlacks", f"{side}{i}", 0.0) for i in range(11)] + [0.0])
+    tau = min(max(k(rules, "whitesBlacks", side + "Tau", 1.0), 1e-3), 1e3)
+    q = k(rules, "whitesBlacks", side + "Q", 1.0)
+    t = min(abs(blacks) / 100.0, 1.0)
+    s = ((1 - np.exp(-t / tau)) / (1 - np.exp(-1 / tau))) ** q
+    w = min(1.0, max(0.0, k(rules, "whitesBlacks", side + "PerChannel", 1.0)))
+    return d, (s if blacks > 0 else -s), w
+
+
+def srgb_encode(l):
+    l = np.asarray(l, dtype=np.float64)
+    return np.where(l <= 0.0031308, 12.92 * np.maximum(0.0, l), 1.055 * np.power(np.maximum(l, 0.0031308), 1 / 2.4) - 0.055)
+
+
+def srgb_decode(e):
+    e = np.asarray(e, dtype=np.float64)
+    return np.where(e <= 0.04045, e / 12.92, np.power((np.maximum(e, 0.04045) + 0.055) / 1.055, 2.4))
+
+
+def blacks_f(v, curve):
+    d, a, _ = curve
+    dv = np.interp(np.clip(v, 0.0, 1.0), BLACKS_KNOTS, d)
+    dv = np.where(np.asarray(v) >= 1.0, 0.0, dv)
+    return np.maximum(0.0, v + a * dv)
+
+
+def blacks_channel(l, curve):
+    l = np.asarray(l, dtype=np.float64)
+    f0 = float(srgb_decode(blacks_f(0.0, curve)))
+    return np.where(l < 0, l + f0, srgb_decode(blacks_f(srgb_encode(l), curve)))
+
+
+def blacks(c, curve):
+    """(..., 3) linear working RGB → the same after Blacks."""
+    p = np.asarray(c, dtype=np.float64) @ TO_PROPHOTO.T
+    y = p @ PROPHOTO_Y
+    ok = (y > 1e-6) & (y <= 1.0)
+    ratio = np.where(ok, blacks_channel(y, curve) / np.where(ok, y, 1.0), 1.0)
+    w = curve[2]
+    o = w * blacks_channel(p, curve) + (1 - w) * p * ratio[..., None]
+    return o @ FROM_PROPHOTO.T
 
 
 TONE_REFERENCE = 0.18
@@ -711,8 +765,11 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5):
                 # scene gains through the tone curve, per channel (LookMath.flat)
                 c = through_curve(c, white_balance_gains(look["wb"], as_shot, rules), max(0.05, k(rules, "whiteBalance", "white", 1.0)))
         elif stage == "whitesBlacks":
-            if look["wh"] != 0 or look["bl"] != 0:
-                c = linear(whites_blacks(perceptual(c, rules), look["wh"], look["bl"], rules), rules)
+            if look["wh"] != 0:
+                c = linear(whites_blacks(perceptual(c, rules), look["wh"], rules), rules)
+            bc = blacks_curve(look["bl"], rules)
+            if bc is not None:
+                c = blacks(c, bc)
         elif stage == "tone":
             if look["hl"] != 0 or look["sh"] != 0:
                 y = luma(c, rules)
