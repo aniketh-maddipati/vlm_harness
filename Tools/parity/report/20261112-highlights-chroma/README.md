@@ -71,10 +71,30 @@ Held-out mehendi (109 edits, forced renders, the same machine and binary build f
 
 | set | before | after |
 |---|---|---|
-| all 109 | 2.18 / 7.97 | **2.18 / 7.95** |
+| all 109 | 2.18 / 7.97 (run twice, identical) | **2.18 / 7.95** |
 | basic-only 76 | 2.26 / 7.54 | 2.25 / 7.51 |
 
 **Adopted.** The dev sets improve, the unseen DV half improves, and held-out mehendi is flat to slightly better.
+
+## Against the LLF session's Oklab form (`claude/highlights-llf-proto-d2f69d` `03d9d6c9`, `compare.py`)
+
+That form is (a, b) ·= 2^(s·κ±·smoothstep(0.75, 1, Oklab L of base)), with κ− = −0.354 and κ+ = −0.819: 2 numbers, fitted on the
+same dev half. Both are scored with the same scorer on Lightroom's base. Columns are p95 on all pixels, and on pixels whose base
+has no channel ≥ 0.97:
+
+| position | set | today | this form | Oklab form |
+|---|---|---|---|---|
+| −100 | unseen | 4.71 · 4.02 | **4.31** · 3.94 | 4.48 · 3.95 |
+| | sweep | 9.52 · 8.35 | **8.38** · 8.33 | 8.97 · 8.37 |
+| −50 | unseen | 2.35 · 2.06 | **2.18** · 2.01 | 2.23 · 2.01 |
+| | sweep | 4.82 · 4.42 | **4.35** · 4.38 | 4.56 · 4.39 |
+| +50 | unseen | 2.38 · 2.20 | **2.06** · 2.02 | 2.10 · 2.04 |
+| | sweep | 4.16 · 4.02 | 3.93 · 3.95 | **3.80** · 3.83 |
+
+- On unclipped pixels the two forms tie. This form's extra gain at −100 on Lightroom's base comes from pixels the base JPEG clips.
+  That base is a stand-in. The app develops from the RAW, and there this form still wins on real renders (DV unseen −100 p95 4.82 → 3.93).
+- The steep +side ramp (k −10.2) is not fitted to clipping: +50 improves just as much on unclipped pixels (2.20 → 2.02).
+- This form is kept. It is better or equal everywhere except sweep +50, where the Oklab form is 0.13 better.
 
 ## Checks
 
