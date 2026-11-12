@@ -95,10 +95,11 @@
     },
     "exposure": {
       "locked": false,
-      "form": "above 0: a scene gain through a sigmoid tone curve, per channel: G·y / (1 + (G − 1)·y/white) with G = 2^(ev * stopsPerUnit); tangent continuation above white and below 0. Below 0, on the base (no camera profile, not inside a mask), blended in over rawBlendEv (LookMath.exposureOnBase): the base match undone to the decoder output, Apple's tone curve (boost0…31: its output at x = 2^(−12 … 0.5), 32 knots, measured from boostAmount 0 vs 1 decodes of the sweep) undone to the sensor data, a gain of 2^ev, Lightroom's tone curve (lr0…31, same grid, measured from its Exposure sweep: −2 … +2 exports against the linear decodes), the base's colour mix and fades again. Fitted 2026-11-11 on sweep 1 (5 photos)",
-      "coefficients": { "stopsPerUnit": 1.622202, "white": 1.095133, "rawBlendEv": 0.5,
-        "boost0": 0.000176, "boost1": 0.000233, "boost2": 0.000314, "boost3": 0.000416, "boost4": 0.00055, "boost5": 0.000727, "boost6": 0.000968, "boost7": 0.001292, "boost8": 0.001731, "boost9": 0.002324, "boost10": 0.00314, "boost11": 0.004262, "boost12": 0.005839, "boost13": 0.008069, "boost14": 0.011325, "boost15": 0.0161, "boost16": 0.02315, "boost17": 0.033335, "boost18": 0.04865, "boost19": 0.072433, "boost20": 0.108661, "boost21": 0.16128, "boost22": 0.231746, "boost23": 0.322477, "boost24": 0.428405, "boost25": 0.543962, "boost26": 0.663602, "boost27": 0.775041, "boost28": 0.879402, "boost29": 0.960926, "boost30": 1.022382, "boost31": 1.096381,
-        "lr0": 0.000866, "lr1": 0.000866, "lr2": 0.000866, "lr3": 0.000866, "lr4": 0.000931, "lr5": 0.001102, "lr6": 0.001303, "lr7": 0.001568, "lr8": 0.001981, "lr9": 0.002376, "lr10": 0.002761, "lr11": 0.003193, "lr12": 0.003848, "lr13": 0.005075, "lr14": 0.007507, "lr15": 0.011902, "lr16": 0.019108, "lr17": 0.030529, "lr18": 0.047497, "lr19": 0.072384, "lr20": 0.107922, "lr21": 0.158304, "lr22": 0.230535, "lr23": 0.327883, "lr24": 0.445898, "lr25": 0.574795, "lr26": 0.698363, "lr27": 0.808954, "lr28": 0.894026, "lr29": 0.946913, "lr30": 0.968798, "lr31": 0.979536 }
+      "form": "a scene gain through a sigmoid tone curve, per channel: G·y / (1 + (G − 1)·y/white) with G = 2^(ev * stopsPerUnit); tangent continuation above white and below 0",
+      "coefficients": {
+        "stopsPerUnit": 1.622202,
+        "white": 1.095133
+      }
     },
     "whiteBalance": {
       "locked": false,

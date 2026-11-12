@@ -27,15 +27,6 @@ nonisolated final class LookKernels: @unchecked Sendable {
         float t = x / w;
         return w * g * t / (1.0f + (g - 1.0f) * t);
     }
-    static float lk_lut(coreimage::sampler lut, float p, float n, float top, int ch) {
-        float x = max(p, 0.0f) / top * n;
-        float i = min(floor(x), n - 1.0f);
-        float f = x - i;
-        float4 a = lut.sample(lut.transform(float2(i + 0.5f, 0.5f)));
-        float4 b = lut.sample(lut.transform(float2(i + 1.5f, 0.5f)));
-        float lo = ch == 0 ? a.r : a.g, hi = ch == 0 ? b.r : b.g;
-        return lo + (hi - lo) * f;
-    }
     static float lk_cbrt(float x) { return x < 0.0f ? -pow(-x, 1.0f / 3.0f) : pow(x, 1.0f / 3.0f); }
     static float lk_curve(float p, float m, float a) {
         if (p <= 0.0f) return 0.0f;
@@ -52,41 +43,6 @@ nonisolated final class LookKernels: @unchecked Sendable {
 
     // rawDevelop's base match (LookMath.baseMatch): a midtone curve on luma, then a colour mix.
     // r0, r1, r2 = the mix's rows; k = (lift, s, invGamma, gamma); d = (hiDesat, hiFrom, loDesat, loBelow)
-    // exposure on the base (LookMath.exposureOnBase): the toned form, blended (k.z) with the sensor-data form:
-    // the base match undone (fades, mix i0…i2, luma curve through lut.g), each channel through lut.r
-    // (LookMath.rawChannel for this ev), the mix r0…r2 and fades again. lut = nodes × 1 px over perceptual
-    // 0 … q.z, read at texel centres; above it the last segment's slope goes on. k = (gain, white, weight,
-    // nodes − 1), q = (invGamma, gamma, top, 0), d = the fades. One program for every ev: below 0 only k.z moves.
-    [[ stitchable ]] float4 lookExposureBase(coreimage::sampler src, coreimage::sampler lut, float4 k, float4 r0, float4 r1, float4 r2,
-                                             float4 i0, float4 i1, float4 i2, float4 lum, float4 d, float4 q) {
-        float4 s = src.sample(src.coord());
-        float3 toned = float3(lk_exposure(s.r, k.x, k.y), lk_exposure(s.g, k.x, k.y), lk_exposure(s.b, k.x, k.y));
-        if (k.z <= 0.0f) return float4(toned, s.a);
-        float3 c = s.rgb;
-        if (d.x != 0.0f || d.z != 0.0f) {
-            float ym = dot(c, lum.rgb);
-            float pc = clamp(lk_perc(ym, q.x), 0.0f, 1.0f);
-            float hi = clamp((pc - d.y) / max(1e-3f, 1.0f - d.y), 0.0f, 1.0f);
-            float lo = clamp((d.w - pc) / max(1e-3f, d.w), 0.0f, 1.0f);
-            float keep = max(1e-3f, clamp(1.0f - d.x * hi * hi - d.z * lo * lo, 0.0f, 1.0f));
-            c = float3(ym) + (c - float3(ym)) / keep;
-        }
-        float3 t = float3(dot(c, i0.rgb), dot(c, i1.rgb), dot(c, i2.rgb));
-        float y2 = dot(t, lum.rgb);
-        if (y2 > 1e-6f) t *= lk_lin(lk_lut(lut, lk_perc(y2, q.x), k.w, q.z, 1), q.y) / y2;
-        float3 u = max(t, float3(0.0f));
-        float3 l = float3(lk_lut(lut, lk_perc(u.r, q.x), k.w, q.z, 0), lk_lut(lut, lk_perc(u.g, q.x), k.w, q.z, 0), lk_lut(lut, lk_perc(u.b, q.x), k.w, q.z, 0));
-        float3 m = float3(dot(l, r0.rgb), dot(l, r1.rgb), dot(l, r2.rgb));
-        if (d.x != 0.0f || d.z != 0.0f) {
-            float ym = dot(m, lum.rgb);
-            float pc = clamp(lk_perc(ym, q.x), 0.0f, 1.0f);
-            float hi = clamp((pc - d.y) / max(1e-3f, 1.0f - d.y), 0.0f, 1.0f);
-            float lo = clamp((d.w - pc) / max(1e-3f, d.w), 0.0f, 1.0f);
-            float keep = clamp(1.0f - d.x * hi * hi - d.z * lo * lo, 0.0f, 1.0f);
-            m = float3(ym) + (m - float3(ym)) * keep;
-        }
-        return float4(mix(toned, m, k.z), s.a);
-    }
     [[ stitchable ]] float4 lookBase(coreimage::sample_t s, float4 r0, float4 r1, float4 r2, float4 k, float4 lum, float4 d) {
         float y = dot(s.rgb, lum.rgb);
         float g = 1.0f;
@@ -455,7 +411,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
 
     /// The stage kernels, compiled when the pipeline is made. `lookDisplay` (the sigmoid mapper) is
     /// not one of them: it compiles on first use, so with the default mapper nothing new is built.
-    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookExposureBase", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen",
+    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen",
                              "lookVignette", "lookCurve", "lookMixer", "lookProfile"]
 
     private let header: String

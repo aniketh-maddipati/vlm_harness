@@ -255,112 +255,6 @@ def through_curve(x, g, w):
     return np.where(x <= 0, x * g, np.where(x >= w, w + (x - w) / g, mid))
 
 
-# ---- exposure below 0 on the sensor data (LookMath.RawExposure) -------------------------------
-
-RAW_KNOTS, RAW_LO, RAW_HI = 32, -12.0, 0.5     # the knots' grid: log2 of the linear value
-
-
-def raw_knots(rules, name):
-    """The `exposure` stage's knots `<name>0` … `<name>31`, or None when the rules have none."""
-    c = rules["stages"].get("exposure", {}).get("coefficients", {})
-    if f"{name}0" not in c:
-        return None
-    return np.array([float(c[f"{name}{i}"]) for i in range(RAW_KNOTS)])
-
-
-def _raw_grid():
-    return np.linspace(RAW_LO, RAW_HI, RAW_KNOTS)
-
-
-def raw_curve(x, ys):
-    """A curve given at the knots (y at x = 2^grid): linear in log2 x between them, through 0 in
-    proportion below the first, along the last segment's slope (in x) above the last."""
-    g = _raw_grid()
-    x = np.asarray(x, dtype=np.float64)
-    lx = np.log2(np.maximum(x, 2.0 ** RAW_LO))
-    mid = np.interp(lx, g, ys)
-    x0, x1 = 2.0 ** g[-2], 2.0 ** g[-1]
-    top = ys[-1] + (x - x1) * (ys[-1] - ys[-2]) / (x1 - x0)
-    low = x * ys[0] / 2.0 ** g[0]
-    return np.where(x <= 2.0 ** g[0], low, np.where(x >= x1, top, mid))
-
-
-def raw_curve_inverse(y, ys):
-    """raw_curve's inverse (ys non-decreasing): x for y."""
-    g = _raw_grid()
-    y = np.asarray(y, dtype=np.float64)
-    mid = 2.0 ** np.interp(y, ys, g)
-    x0, x1 = 2.0 ** g[-2], 2.0 ** g[-1]
-    top = x1 + (y - ys[-1]) * (x1 - x0) / max(1e-12, ys[-1] - ys[-2])
-    low = y * 2.0 ** g[0] / max(1e-12, ys[0])
-    return np.where(y <= ys[0], low, np.where(y >= ys[-1], top, mid))
-
-
-def base_curve_inverse(y2, m, rules):
-    """The inverse of base_match's luma curve (monotone in p): linear in, linear out."""
-    P = np.linspace(0.0, 1.5, 3001)
-    Pc = np.clip(P, 0.0, 1.0)
-    F = P + m["lift"] * P * (1 - Pc) + m["s"] * P * (1 - Pc) * (Pc - 0.5)
-    return linear(np.interp(perceptual(y2, rules), F, P), rules)
-
-
-def base_match_inverse(out, m, rules):
-    """base_match undone: the fades (luma is kept by them), the mix, the luma curve."""
-    m = {**BASE_RESET, **m}
-    c = np.asarray(out, dtype=np.float64)
-    if m["hiDesat"] != 0 or m["loDesat"] != 0:
-        ym = luma(c, rules)
-        q = np.clip(perceptual(ym, rules), 0.0, 1.0)
-        hi = np.clip((q - m["hiFrom"]) / max(1e-3, 1 - m["hiFrom"]), 0.0, 1.0)
-        lo = np.clip((m["loBelow"] - q) / max(1e-3, m["loBelow"]), 0.0, 1.0)
-        keep = np.clip(1 - m["hiDesat"] * hi * hi - m["loDesat"] * lo * lo, 1e-3, 1.0)
-        c = ym[..., None] + (c - ym[..., None]) / keep[..., None]
-    rows = np.array([[1 - m["rg"] - m["rb"], m["rg"], m["rb"]],
-                     [m["gr"], 1 - m["gr"] - m["gb"], m["gb"]],
-                     [m["br"], m["bg"], 1 - m["br"] - m["bg"]]])
-    t = c @ np.linalg.inv(rows).T
-    y2 = luma(t, rules)
-    y = base_curve_inverse(np.maximum(y2, 0.0), m, rules)
-    return t * np.where(y2 > 1e-6, y / np.maximum(y2, 1e-6), 1.0)[..., None]
-
-
-def raw_base_match(rules):
-    c = rules["stages"].get("rawDevelop", {}).get("coefficients", {})
-    keys = {"lift": "baseLift", "s": "baseS", "rg": "baseRG", "rb": "baseRB", "gr": "baseGR", "gb": "baseGB",
-            "br": "baseBR", "bg": "baseBG", "hiDesat": "baseHiDesat", "hiFrom": "baseHiFrom", "loDesat": "baseLoDesat", "loBelow": "baseLoBelow"}
-    return {k: float(c.get(v, BASE_RESET[k])) for k, v in keys.items()}
-
-
-def raw_weight(ev, rules):
-    """How much of the sensor-data form an Exposure below 0 takes: 0 at 0, all of it from −rawBlendEv."""
-    if ev >= 0 or raw_knots(rules, "lr") is None or "profile" in rules.get("stages", {}):
-        return 0.0
-    return min(1.0, -ev / max(1e-6, k(rules, "exposure", "rawBlendEv", 0.5)))
-
-
-def exposure_raw(c, ev, rules):
-    """Exposure on the developed base, the way Lightroom does it below 0 (LookMath.exposureOnBase):
-    the base undone to the decoder's output, Apple's tone curve (`boost` knots) undone to the sensor
-    data, a gain of 2^ev there, Lightroom's own tone curve (`lr` knots, measured from its Exposure
-    sweep), the base's colour mix and fades again; blended with the toned form (`exposure`) by
-    raw_weight, so 0 is untouched and the slider is continuous. Above 0: `exposure` alone."""
-    c = np.asarray(c, dtype=np.float64)
-    toned = exposure(c, ev, rules)
-    w = raw_weight(ev, rules)
-    if w == 0:
-        return toned
-    m = raw_base_match(rules)
-    u = base_match_inverse(c, m, rules)
-    x = raw_curve_inverse(np.maximum(u, 0.0), raw_knots(rules, "boost")) * 2.0 ** ev
-    raw = base_match(raw_curve(x, raw_knots(rules, "lr")), {**m, "lift": 0.0, "s": 0.0}, rules)
-    return (1 - w) * toned + w * raw
-
-
-def exposure_grey(y, ev, rules):
-    """A grey of luma y through exposure_raw, read back as luma: what the anchor moves by."""
-    return float(luma(exposure_raw(np.array([y, y, y], dtype=np.float64), ev, rules), rules))
-
-
 def white_balance_gains(target, as_shot, rules):
     """Per-channel gains (3,) taking as_shot=(kelvin, tint) to target. Identity for None."""
     if target is None:
@@ -808,10 +702,10 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5):
     for stage in order:
         if stage == "exposure":
             if look["ev"] != 0:
-                c = exposure_raw(c, look["ev"], rules)
-                anchor["mean"] = exposure_grey(anchor["mean"], look["ev"], rules)
+                c = exposure(c, look["ev"], rules)
+                anchor["mean"] = float(exposure(anchor["mean"], look["ev"], rules))
                 if anchor.get("high") is not None:
-                    anchor["high"] = exposure_grey(anchor["high"], look["ev"], rules)
+                    anchor["high"] = float(exposure(anchor["high"], look["ev"], rules))
         elif stage == "whiteBalance":
             if look["wb"] is not None:
                 # scene gains through the tone curve, per channel (LookMath.flat)
@@ -858,8 +752,8 @@ def apply_image(img, look, as_shot, rules, sigma_scale=None):
                    "perceptualGamma": gamma(rules), "luma": list(luma_weights(rules))}
             c = flat(c, one, as_shot, sub)
             if stage == "exposure" and look["ev"] != 0:
-                anchor["mean"] = exposure_grey(anchor["mean"], look["ev"], rules)
-                anchor["high"] = exposure_grey(anchor["high"], look["ev"], rules)
+                anchor["mean"] = float(exposure(anchor["mean"], look["ev"], rules))
+                anchor["high"] = float(exposure(anchor["high"], look["ev"], rules))
         elif stage == "tone" and (look["hl"] != 0 or look["sh"] != 0):
             y = luma(c, rules)
             base = gaussian_filter(y, k(rules, "tone", "radiusFraction", 0.03) * long_edge, mode="nearest")

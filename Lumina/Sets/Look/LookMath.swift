@@ -260,123 +260,6 @@ nonisolated enum LookMath {
 
     static func exposureWhite(_ rules: LookRules) -> Double { max(0.05, rules.k("exposure", "white", 1)) }
 
-    /// Exposure below 0 the way Lightroom does it: on the sensor data, before the tone curve. The
-    /// base (Apple's decoder with its tone curve, `boostAmount` 1, then the base match) is undone
-    /// to the sensor data, gained by 2^ev, and put through Lightroom's own tone curve. Both curves
-    /// were measured, not guessed (2026-11-11): Apple's from `boostAmount` 0 vs 1 decodes of the
-    /// sweep (one curve per channel, the same on every photo within about 1 %), Lightroom's from
-    /// its Exposure −2 … +2 exports against those linear decodes, at 1 stop per unit. Above 0 a
-    /// plain gain through one curve does not explain Lightroom (it lifts the shadows more than the
-    /// stops), so `exposure` keeps that side. Only for the base itself: not after the camera
-    /// profile, not inside a mask (`flat`'s `onBase`, `LookPipeline.stages`).
-    struct RawExposure: Equatable, Sendable {
-        static let knots = 32, lo = -12.0, hi = 0.5
-        let boost: [Double], lr: [Double], blendEv: Double
-        let base: BaseMatch
-
-        /// Nil when the rules have no knots (older rules): exposure is `exposure` on both sides.
-        init?(_ rules: LookRules) {
-            let c = rules.stages["exposure"]?.coefficients ?? [:]
-            // A profile base (rawDevelop at boostAmount 0 + the `profile` stage) has neither Apple's
-            // curve nor the base match to undo.
-            guard c["lr0"] != nil, c["boost0"] != nil, rules.stages["profile"] == nil else { return nil }
-            boost = (0..<Self.knots).map { c["boost\($0)"] ?? 0 }
-            lr = (0..<Self.knots).map { c["lr\($0)"] ?? 0 }
-            blendEv = max(1e-6, c["rawBlendEv"] ?? 0.5)
-            base = BaseMatch(rules)
-        }
-
-        static func knotX(_ i: Int) -> Double { lo + (hi - lo) * Double(i) / Double(knots - 1) }
-
-        /// The curve at `x` (linear): linear in log2 x between the knots, through 0 in proportion
-        /// below the first, along the last segment's slope above the last.
-        static func curve(_ x: Double, _ ys: [Double]) -> Double {
-            let x0 = exp2(lo), xn = exp2(hi)
-            if x <= x0 { return x * ys[0] / x0 }
-            if x >= xn { let xp = exp2(knotX(knots - 2)); return ys[knots - 1] + (x - xn) * (ys[knots - 1] - ys[knots - 2]) / (xn - xp) }
-            let t = (log2(x) - lo) / (hi - lo) * Double(knots - 1)
-            let i = min(knots - 2, Int(t)), f = t - Double(i)
-            return ys[i] + (ys[i + 1] - ys[i]) * f
-        }
-
-        /// `curve`'s inverse for non-decreasing knots.
-        static func inverse(_ y: Double, _ ys: [Double]) -> Double {
-            let x0 = exp2(lo), xn = exp2(hi)
-            if y <= ys[0] { return y * x0 / max(1e-12, ys[0]) }
-            if y >= ys[knots - 1] { let xp = exp2(knotX(knots - 2)); return xn + (y - ys[knots - 1]) * (xn - xp) / max(1e-12, ys[knots - 1] - ys[knots - 2]) }
-            var i = 0
-            while i < knots - 2 && ys[i + 1] < y { i += 1 }
-            let span = ys[i + 1] - ys[i], f = span > 0 ? (y - ys[i]) / span : 0
-            return exp2(knotX(i) + f * (knotX(i + 1) - knotX(i)))
-        }
-
-        /// How much of this form an Exposure takes: 0 at and above 0, all of it from −`blendEv`.
-        func weight(_ ev: Double) -> Double { ev >= 0 ? 0 : min(1, -ev / blendEv) }
-    }
-
-    /// The base curve's inverse (`baseCurve`, monotone in p): linear in, linear out.
-    static func baseCurveInverse(_ y: Double, _ m: BaseMatch, _ rules: LookRules) -> Double {
-        let target = perceptual(y, rules)
-        let f = { (p: Double) -> Double in let pc = min(1, max(0, p)); return p + m.lift * p * (1 - pc) + m.s * p * (1 - pc) * (pc - 0.5) }
-        var a = 0.0, b = max(1.5, target * 2)
-        for _ in 0..<60 { let mid = (a + b) / 2; if f(mid) < target { a = mid } else { b = mid } }
-        return linear((a + b) / 2, rules)
-    }
-
-    /// `baseMatch` undone: the fades (they keep luma), the mix, the luma curve.
-    static func baseMatchInverse(_ c: RGB, _ m: BaseMatch, _ rules: LookRules) -> RGB {
-        var c = c
-        if m.hiDesat != 0 || m.loDesat != 0 {
-            let ym = luma(c, rules)
-            let keep = max(1e-3, m.chromaKept(perceptual(ym, rules)))
-            c = RGB(r: ym + (c.r - ym) / keep, g: ym + (c.g - ym) / keep, b: ym + (c.b - ym) / keep)
-        }
-        let inv = invert3(m.rows)
-        let t = RGB(r: inv[0][0] * c.r + inv[0][1] * c.g + inv[0][2] * c.b,
-                    g: inv[1][0] * c.r + inv[1][1] * c.g + inv[1][2] * c.b,
-                    b: inv[2][0] * c.r + inv[2][1] * c.g + inv[2][2] * c.b)
-        let y2 = luma(t, rules)
-        guard y2 > 1e-6 else { return t }
-        let g = baseCurveInverse(y2, m, rules) / y2
-        return RGB(r: t.r * g, g: t.g * g, b: t.b * g)
-    }
-
-    static func invert3(_ a: [[Double]]) -> [[Double]] {
-        let d = a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0]) + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0])
-        let s = abs(d) > 1e-12 ? 1 / d : 0
-        return [[(a[1][1] * a[2][2] - a[1][2] * a[2][1]) * s, (a[0][2] * a[2][1] - a[0][1] * a[2][2]) * s, (a[0][1] * a[1][2] - a[0][2] * a[1][1]) * s],
-                [(a[1][2] * a[2][0] - a[1][0] * a[2][2]) * s, (a[0][0] * a[2][2] - a[0][2] * a[2][0]) * s, (a[0][2] * a[1][0] - a[0][0] * a[1][2]) * s],
-                [(a[1][0] * a[2][1] - a[1][1] * a[2][0]) * s, (a[0][1] * a[2][0] - a[0][0] * a[2][1]) * s, (a[0][0] * a[1][1] - a[0][1] * a[1][0]) * s]]
-    }
-
-    /// The per-channel middle of `exposureOnBase`: a channel of the decoder's output (Apple's
-    /// curve applied) to Lightroom's curve after a gain of 2^ev on the sensor data. What the
-    /// kernel's lookup table holds.
-    static func rawChannel(_ u: Double, ev: Double, _ raw: RawExposure) -> Double {
-        RawExposure.curve(RawExposure.inverse(max(0, u), raw.boost) * exp2(ev), raw.lr)
-    }
-
-    /// Exposure on the developed base (`RawExposure`): the toned form blended with the sensor-data
-    /// form by `weight`. Identical to `exposure` per channel at and above 0, and without knots.
-    static func exposureOnBase(_ c: RGB, ev: Double, _ rules: LookRules) -> RGB {
-        let g = exposureGain(ev, rules), w = exposureWhite(rules)
-        let toned = RGB(r: exposure(c.r, gain: g, white: w), g: exposure(c.g, gain: g, white: w), b: exposure(c.b, gain: g, white: w))
-        guard let raw = RawExposure(rules) else { return toned }
-        let k = raw.weight(ev)
-        guard k > 0 else { return toned }
-        let u = baseMatchInverse(c, raw.base, rules)
-        let l = RGB(r: rawChannel(u.r, ev: ev, raw), g: rawChannel(u.g, ev: ev, raw), b: rawChannel(u.b, ev: ev, raw))
-        var mixOnly = raw.base
-        mixOnly.lift = 0; mixOnly.s = 0
-        let out = baseMatch(l, mixOnly, rules)
-        return RGB(r: toned.r + (out.r - toned.r) * k, g: toned.g + (out.g - toned.g) * k, b: toned.b + (out.b - toned.b) * k)
-    }
-
-    /// A grey of luma `y` through `exposureOnBase`, read back as luma: how far the anchor moves.
-    static func exposureOnBaseGrey(_ y: Double, ev: Double, _ rules: LookRules) -> Double {
-        luma(exposureOnBase(RGB(r: y, g: y, b: y), ev: ev, rules), rules)
-    }
-
     // MARK: whiteBalance
 
     /// Per-channel multipliers taking the as-shot balance to `target`. Identity when `target` is
@@ -1019,25 +902,17 @@ nonisolated enum LookMath {
                      style: String? = nil) -> RGB {
         var c = input
         var anchor = anchor
-        var onBase = true                       // nothing has changed the base yet (`exposureOnBase`)
         for stage in rules.lookStages {
             switch stage {
             case "camera":
                 guard look.camera, style != nil, let m = BaseMatch(camera: style, rules) else { continue }
                 c = baseMatch(c, m, rules)
-                onBase = false
             case "exposure":
                 guard look.ev != 0 else { continue }
                 let g = exposureGain(look.ev, rules), w = exposureWhite(rules)
-                if onBase {
-                    anchor.mean = exposureOnBaseGrey(anchor.mean, ev: look.ev, rules)   // the photo is that much brighter for the tone masks
-                    anchor.high = anchor.high.map { exposureOnBaseGrey($0, ev: look.ev, rules) }
-                    c = exposureOnBase(c, ev: look.ev, rules)
-                } else {
-                    anchor.mean = exposure(anchor.mean, gain: g, white: w)
-                    anchor.high = anchor.high.map { exposure($0, gain: g, white: w) }
-                    c = RGB(r: exposure(c.r, gain: g, white: w), g: exposure(c.g, gain: g, white: w), b: exposure(c.b, gain: g, white: w))
-                }
+                anchor.mean = exposure(anchor.mean, gain: g, white: w)          // the photo is that much brighter for the tone masks
+                anchor.high = anchor.high.map { exposure($0, gain: g, white: w) }
+                c = RGB(r: exposure(c.r, gain: g, white: w), g: exposure(c.g, gain: g, white: w), b: exposure(c.b, gain: g, white: w))
             case "whiteBalance":
                 guard look.wb != nil else { continue }
                 // Like exposure, the gains are on the scene: each channel goes through the tone curve,

@@ -119,7 +119,6 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// keep the defaults. `device` pins the context to one Metal device (the canvas shares it
     /// with its textures); nil takes the system default.
     init(rules: LookRules, cacheIntermediates: Bool = true, memoryLimitMB: Int = 0, softwareRenderer: Bool = false, device: MTLDevice? = nil) throws {
-        rawExposure = LookMath.RawExposure(rules)
         try rules.validate()
         self.rules = rules
         guard let ws = Self.colorSpace(named: rules.workingSpace) else { throw Failure("unknown working space \(rules.workingSpace)") }
@@ -443,7 +442,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             masks = masks?.placed(g.transform)
         }
         var anchor = dev.anchor
-        img = stages(look, on: img, asShot: dev.asShot, style: dev.style, anchor: &anchor, onBase: true)
+        img = stages(look, on: img, asShot: dev.asShot, style: dev.style, anchor: &anchor)
         guard !look.locals.isEmpty, let masks else { return img }
         let extent = img.extent
         for local in look.locals {
@@ -458,7 +457,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             }
             // The mask's own exposure moves its own copy of the anchor, as the global one does.
             var a = anchor
-            let adjusted = stages(local.look, on: img, asShot: dev.asShot, style: dev.style, anchor: &a, onBase: false)
+            let adjusted = stages(local.look, on: img, asShot: dev.asShot, style: dev.style, anchor: &a)
             img = adjusted.applyingFilter("CIBlendWithRedMask", parameters: [kCIInputBackgroundImageKey: img, kCIInputMaskImageKey: mask]).cropped(to: extent)
         }
         return img
@@ -467,12 +466,8 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// The look's stages on `input` (its extent is the frame the stages see: the blurs' radii and
     /// the vignette follow it), in the rules' order, the ones at reset left out. `anchor` comes
     /// back moved by the exposure stage. The global look and each mask's run through here.
-    /// `onBase`: `input` is the developed base itself (the global look), so Exposure below 0 can
-    /// undo it to the sensor data (`LookMath.exposureOnBase`); a mask's look runs on an edited
-    /// picture and keeps the toned form, as does everything after the camera profile.
-    private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, style: String?, anchor: inout LookMath.ToneAnchor, onBase: Bool) -> CIImage {
+    private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, style: String?, anchor: inout LookMath.ToneAnchor) -> CIImage {
         var img = input
-        var onBase = onBase
         let extent = img.extent
         let longEdge = max(extent.width, extent.height)
         let gam = CIVector(x: 1 / rules.perceptualGamma, y: rules.perceptualGamma)
@@ -498,26 +493,11 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 // style's numbers. Nothing without a style: an embedded JPEG already is the camera's look.
                 guard style != nil, let m = LookMath.BaseMatch(camera: style, r), !m.isIdentity else { continue }
                 pass("lookBase", Self.baseArgs(img, m, r))
-                onBase = false
             case "exposure":
                 let g = LookMath.exposureGain(look.ev, r), w = LookMath.exposureWhite(r)
-                if onBase, let raw = rawExposure {
-                    // One program for every ev (the weight is 0 at and above 0), so a drag across 0 compiles nothing.
-                    let lut = exposureTable(look.ev, raw)
-                    let rows = raw.base.rows, inv = LookMath.invert3(rows)
-                    let v = { (a: [Double]) in CIVector(x: a[0], y: a[1], z: a[2], w: 0) }
-                    let args: [Any] = [img, lut, CIVector(x: g, y: w, z: raw.weight(look.ev), w: Double(Self.exposureNodes - 1)),
-                                       v(rows[0]), v(rows[1]), v(rows[2]), v(inv[0]), v(inv[1]), v(inv[2]), lum,
-                                       CIVector(x: raw.base.hiDesat, y: raw.base.hiFrom, z: raw.base.loDesat, w: raw.base.loBelow),
-                                       CIVector(x: 1 / r.perceptualGamma, y: r.perceptualGamma, z: Self.exposureTop, w: 0)]
-                    if let out = kernels.apply("lookExposureBase", extent: extent, table: lut, args) { img = out }
-                    anchor.mean = LookMath.exposureOnBaseGrey(anchor.mean, ev: look.ev, r)
-                    anchor.high = anchor.high.map { LookMath.exposureOnBaseGrey($0, ev: look.ev, r) }
-                } else {
-                    pass("lookExposure", [img, CIVector(x: g, y: w)])
-                    anchor.mean = LookMath.exposure(anchor.mean, gain: g, white: w)
-                    anchor.high = anchor.high.map { LookMath.exposure($0, gain: g, white: w) }
-                }
+                pass("lookExposure", [img, CIVector(x: g, y: w)])
+                anchor.mean = LookMath.exposure(anchor.mean, gain: g, white: w)
+                anchor.high = anchor.high.map { LookMath.exposure($0, gain: g, white: w) }
             case "whiteBalance":
                 let g = LookMath.whiteBalanceGains(look.wb, asShot: asShot, r)
                 pass("lookWhiteBalance", [img, CIVector(x: g.r, y: g.g, z: g.b, w: 1), CIVector(x: LookMath.whiteBalanceWhite(r), y: 0)])
@@ -594,42 +574,6 @@ nonisolated final class LookPipeline: @unchecked Sendable {
 
     private let curveLock = NSLock()
     private var lastCurve: (curve: Look.ToneCurve, table: CIImage)?
-
-    // MARK: exposure on the base (`LookMath.exposureOnBase`)
-
-    static let exposureNodes = 1024
-    /// The table's top, in perceptual units: decoder output up to 1.25^2.2 ≈ 1.63.
-    static let exposureTop = 1.25
-    private let rawExposure: LookMath.RawExposure?
-    private var baseInverseColumn: [Float]?
-    private var lastExposure: (ev: Double, table: CIImage)?
-
-    /// `lookExposureBase`'s table for `ev`: r = `LookMath.rawChannel` (this ev), g = the base curve's
-    /// inverse (the same for every ev), both at perceptual p = top · i / (nodes − 1). At and above 0
-    /// the kernel reads none of it, so those evs share one table.
-    func exposureTable(_ ev: Double, _ raw: LookMath.RawExposure) -> CIImage {
-        let key = min(0, ev)
-        if let hit = curveLock.withLock({ lastExposure?.ev == key ? lastExposure?.table : nil }) { return hit }
-        let n = Self.exposureNodes, r = rules
-        let inverse: [Float] = curveLock.withLock { baseInverseColumn } ?? {
-            let col = (0..<n).map { i -> Float in
-                let p = Self.exposureTop * Double(i) / Double(n - 1)
-                return Float(LookMath.perceptual(LookMath.baseCurveInverse(LookMath.linear(p, r), raw.base, r), r))
-            }
-            curveLock.withLock { baseInverseColumn = col }
-            return col
-        }()
-        var px = [Float](repeating: 1, count: 4 * n)
-        for i in 0..<n {
-            let u = LookMath.linear(Self.exposureTop * Double(i) / Double(n - 1), r)
-            px[4 * i] = Float(key < 0 ? LookMath.rawChannel(u, ev: key, raw) : u)
-            px[4 * i + 1] = inverse[i]
-        }
-        let img = CIImage(bitmapData: px.withUnsafeBufferPointer { Data(buffer: $0) }, bytesPerRow: 16 * n, size: CGSize(width: n, height: 1), format: .RGBAf, colorSpace: nil)
-            .samplingNearest()
-        curveLock.withLock { lastExposure = (key, img) }
-        return img
-    }
 
     /// `LookMath.curveTables` as an image the `lookCurve` kernel reads: `curveNodes` × 1 px, the
     /// three channels' tables in r, g, b, raw floats (no colour space, read at texel centres).
