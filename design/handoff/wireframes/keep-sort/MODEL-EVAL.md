@@ -54,5 +54,6 @@ Canonical method notes: `design/handoff/lumina-skim/REC709.md`.
 
 ## Wireframe lock-ins (do not re-litigate)
 
-- Import = sensed designation cards up top (funnel onto Drop) + hero Drop — **no Cards & volumes / `sd*` chip strip under Drop**.
-- Files not Phone; Kept dock always present; progressive Ready N/M; no Match; no vague Memory footer; Rec.709 default for Log.
+- Import = sensed designation cards up top (click to enable) + hero Drop + **Input dock** — **no Cards & volumes / `sd*` chip strip under Drop**.
+- AirDrop / Android / OS drops land in the Input dock; Sort opens a **union chron axis** for every docked input.
+- Files not Phone; Kept dock always present; progressive Ready N/M (not a gate); no Match; no vague Memory footer; Rec.709 default for Log.

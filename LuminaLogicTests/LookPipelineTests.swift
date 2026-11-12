@@ -22,7 +22,7 @@ final class LookPipelineTests: XCTestCase {
     /// The twelve sliders (the sweep's names) at a spread of positions.
     private var sweep: [(String, Double)] {
         var out: [(String, Double)] = []
-        for s in ["Contrast", "Highlights", "Shadows", "Whites", "Blacks", "Vibrance", "Saturation", "Clarity"] {
+        for s in ["Contrast", "Highlights", "Shadows", "Whites", "Blacks", "Vibrance", "Saturation", "Clarity", "Dehaze"] {
             for v in [-100.0, -40, 40, 100] { out.append((s, v)) }
         }
         for v in [-3.0, -0.5, 0.5, 3] { out.append(("Exposure", v)) }

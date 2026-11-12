@@ -43,9 +43,9 @@ import lookmath  # noqa: E402
 BUCKETS = ["as-shot", "basic-only", "unsupported-features"]
 BRIGHTNESS_MATCHED = 2.0  # |mean ΔL*| below which a frame counts as brightness-matched for the ablation column
 # look keys an ablation removes, with the value that switches the stage off
-ABLATE = {"ev": 0.0, "wb": None, "con": 0.0, "hl": 0.0, "sh": 0.0, "wh": 0.0, "bl": 0.0, "vib": 0.0, "sat": 0.0, "clr": 0.0, "shp": 0.0, "vig": 0.0}
+ABLATE = {"ev": 0.0, "wb": None, "con": 0.0, "hl": 0.0, "sh": 0.0, "wh": 0.0, "bl": 0.0, "vib": 0.0, "sat": 0.0, "clr": 0.0, "dhz": 0.0, "shp": 0.0, "vig": 0.0}
 KEY_SLIDER = {"ev": "Exposure", "wb": "WhiteBalance", "con": "Contrast", "hl": "Highlights", "sh": "Shadows", "wh": "Whites", "bl": "Blacks",
-              "vib": "Vibrance", "sat": "Saturation", "clr": "Clarity", "shp": "Sharpness", "vig": "PostCropVignette"}
+              "vib": "Vibrance", "sat": "Saturation", "clr": "Clarity", "dhz": "Dehaze", "shp": "Sharpness", "vig": "PostCropVignette"}
 
 
 def expand(p):
@@ -489,6 +489,8 @@ def run(a):
         refs = refs[: a.limit]
     if a.bucket:
         refs = [r for r in refs if r["bucket"] == a.bucket]
+    if a.exclude:
+        refs = [r for r in refs if r["stem"] not in set(a.exclude)]
 
     # 2. render
     t = time.time()
@@ -625,6 +627,8 @@ def main(argv):
     ap.add_argument("--keep-heatmaps", type=int, default=2, help="reports whose heatmaps are kept (newest first); the numbers always stay")
     ap.add_argument("--bucket", choices=BUCKETS)
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--exclude", action="append", default=[], metavar="STEM",
+                    help="leave this photo out (repeatable): e.g. exports whose crop or masks a Lightroom CC preset kept")
     ap.add_argument("--label")
     return run(ap.parse_args(argv))
 

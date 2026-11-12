@@ -162,7 +162,7 @@ final class LookStringTests: XCTestCase {
         let l = try Look.parse(s)
         XCTAssertEqual(l.format(), s)
         XCTAssertEqual(try Look.parse(s.split(separator: " ").reversed().joined(separator: " ")), l, "any order")
-        XCTAssertEqual(Look.keys, ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "dust", "crop", "rot", "mask"])
+        XCTAssertEqual(Look.keys, ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "dhz", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "dust", "crop", "rot", "mask"])
         let old = "ev:+0.70 wb:5200/+3 con:+12 hl:-40 sh:+25 wh:0 bl:-8 vib:+10 sat:0 clr:+15 shp:30 vig:-20 nr:40 bw:1 crop:0.1000,0.2000,0.5000,0.6000/-1.50"
         XCTAssertEqual(try Look.parse(old).format(), old)
     }
@@ -266,6 +266,27 @@ final class LookStringTests: XCTestCase {
         // The local look is the same stages with those values.
         let local = c.locals[0].look
         XCTAssertEqual(local.ev, 5); XCTAssertEqual(local.contrast, -100); XCTAssertNil(local.wb); XCTAssertEqual(local.sharpen, 0); XCTAssertTrue(local.locals.isEmpty)
+    }
+
+    /// A layer's own settings (Edit's Masks rail, prompt 14): `inv=1`, `amt=0 … 100`, `off=1`,
+    /// written after its sliders, each only off its default; a layer clicked out keeps its sliders.
+    func testMaskLayerSettings() throws {
+        let s = "ev:0.00 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:0 mask:sky/ev=-0.40,inv=1,amt=60,off=1"
+        let l = try Look.parse(s)
+        XCTAssertTrue(l.locals[0].invert); XCTAssertEqual(l.locals[0].amount, 60); XCTAssertTrue(l.locals[0].off)
+        XCTAssertEqual(l.format(), s)
+        XCTAssertFalse(l.locals[0].renders, "a layer clicked out is kept and not rendered")
+        XCTAssertTrue(try Look.parse("mask:sky/ev=-0.4,inv=1").locals[0].renders)
+        XCTAssertFalse(try Look.parse("mask:sky/ev=-0.4,amt=0").locals[0].renders)
+        // Defaults are not written; amt is clamped and whole.
+        XCTAssertEqual(try Look.parse("mask:sky/ev=1,inv=0,amt=100,off=0").format(), try Look.parse("mask:sky/ev=1").format())
+        XCTAssertEqual(try Look.parse("mask:sky/ev=1,amt=140").locals[0].amount, 100)
+        XCTAssertEqual(try Look.parse("mask:sky/ev=1,amt=-3").locals[0].amount, 0)
+        XCTAssertEqual(try Look.parse("mask:sky/ev=1,amt=33.6").locals[0].amount, 34)
+        // Settings alone are no adjustment: the token is dropped, as a mask at reset is.
+        XCTAssertEqual(try Look.parse("ev:+1 mask:sky/inv=1,amt=50"), try Look.parse("ev:+1"))
+        XCTAssertThrowsError(try Look.parse("mask:sky/ev=1,inv=1,inv=0"), "a setting twice")
+        XCTAssertThrowsError(try Look.parse("mask:sky/ev=1,amt=x"))
     }
 
     func testMaskAdjustmentsAreStrict() {

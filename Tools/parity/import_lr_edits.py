@@ -194,6 +194,7 @@ SUPPORTED = [
     ("Vibrance", "Vibrance", 0.0, "vib"),
     ("Saturation", "Saturation", 0.0, "sat"),
     ("Clarity2012", "Clarity", 0.0, "clr"),
+    ("Dehaze", "Dehaze", 0.0, "dhz"),
     ("Sharpness", "Sharpness", 40.0, "shp"),
     ("PostCropVignetteAmount", "PostCropVignette", 0.0, "vig"),
     ("LuminanceSmoothing", "LuminanceNR", 0.0, "nr"),
@@ -254,8 +255,6 @@ def features(crs):
     major, minor = [], []
     if nonzero(crs, "Texture"):
         major.append("texture")
-    if nonzero(crs, "Dehaze"):
-        major.append("dehaze")
     curves = [crs.get(n) for n in ("ToneCurvePV2012", "ToneCurvePV2012Red", "ToneCurvePV2012Green", "ToneCurvePV2012Blue")]
     if any(c is not None and not is_identity_curve(c) for c in curves) or nonzero(crs, *PARAMETRIC):
         major.append("toneCurve")

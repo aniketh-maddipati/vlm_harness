@@ -12,9 +12,9 @@ import Foundation
 /// unsigned), so two equal looks are equal strings and cache keys.
 ///
 /// Adjustments inside a mask follow the global keys, one `mask:` token per mask, any number of
-/// them, in order (`Look.Local`):
+/// them, in order (`Look.Local`), then the layer's own `inv=1`, `amt=<0 … 100>`, `off=1`:
 ///
-///     … rot:90 mask:subject/ev=+0.30,sh=+15 mask:background/ev=-0.50,sat=-20
+///     … rot:90 mask:subject/ev=+0.30,sh=+15 mask:background/ev=-0.50,sat=-20,inv=1,amt=60
 ///
 /// The page (Edit v22, design v0.05) sends the core's `lookString`, which names some of the same
 /// state its own way (`cDark`, `vMid`, `hue_red`, `curve:~[[x,y],…]`, `wb:/+5`); `parse` reads
@@ -32,6 +32,9 @@ nonisolated struct Look: Equatable, Sendable {
     var vibrance: Double = 0
     var saturation: Double = 0
     var clarity: Double = 0
+    /// Dehaze −100 … +100 (`dhz`, the `dehaze` stage): haze taken out toward the photo's airlight,
+    /// or put back below 0. Written only when off its reset, so older looks read as they did.
+    var dehaze: Double = 0
     /// Sharpening amount 0 … 150.
     var sharpen: Double = 0
     /// Post-crop vignette −100 … +100 (negative darkens the corners, as in Lightroom).
@@ -67,6 +70,18 @@ nonisolated struct Look: Equatable, Sendable {
     /// picture the global look made and are blended into it through the mask (`LookPipeline.apply`).
     /// A mask the photo does not have (yet) renders as if its token were not there.
     var locals: [Local] = []
+    /// Sky blue, 0 … 100 (`LookMath.skyBlue`): only ever set inside a mask (`mask:sky/blu=40`), and
+    /// only read while `Look.skyFeatures` is on. Never written globally.
+    var skyBlue: Double = 0
+
+    /// The blue-skies prototype (LookSky: `blu` inside a mask). Off: `blu` is an unknown key, as it
+    /// was before the prototype, so every look renders and parses exactly as before. On in Debug
+    /// builds and the tools with `LUMINA_SKY=1`, and in tests that set it; never in Release.
+    #if DEBUG || LUMINA_TOOLS
+    nonisolated(unsafe) static var skyFeatures = ProcessInfo.processInfo.environment["LUMINA_SKY"] == "1"
+    #else
+    static let skyFeatures = false
+    #endif
 
     /// One mask's sliders: the nine of Light and Colour that make sense in a region. White balance
     /// is left out for now (its stage reads the photo's as-shot pair, and the page has no local
@@ -74,12 +89,23 @@ nonisolated struct Look: Equatable, Sendable {
     struct Local: Equatable, Sendable {
         var mask: String
         var ev = 0.0, contrast = 0.0, highlights = 0.0, shadows = 0.0, whites = 0.0, blacks = 0.0
-        var vibrance = 0.0, saturation = 0.0, clarity = 0.0
+        var vibrance = 0.0, saturation = 0.0, clarity = 0.0, dehaze = 0.0
+        /// Sky blue (`blu`, LookSky), behind `Look.skyFeatures`.
+        var skyBlue = 0.0
+        /// The layer's own settings (Edit's Masks rail, prompt 14), not sliders: `inv=1` adjusts
+        /// outside the mask instead of inside, `amt=0 … 100` is the layer's opacity (100 = as the
+        /// sliders say), `off=1` is a layer clicked out: kept, with its sliders, and not rendered.
+        var invert = false
+        var amount = 100.0
+        var off = false
 
         init(mask: String) { self.mask = mask }
 
-        /// Every slider at reset: the token is written as nothing at all.
+        /// Every slider at reset: the token is written as nothing at all (whatever its layer settings).
         var isNeutral: Bool { Self.keys.allSatisfy { self[keyPath: $0.field] == 0 } }
+
+        /// What the render does with it: nothing when it is neutral, clicked out or at 0 %.
+        var renders: Bool { !isNeutral && !off && amount > 0 }
 
         /// The look whose stages a mask's sliders are: the same stages as the global ones, on the
         /// picture inside the mask.
@@ -87,6 +113,8 @@ nonisolated struct Look: Equatable, Sendable {
             var l = Look()
             l.ev = ev; l.contrast = contrast; l.highlights = highlights; l.shadows = shadows
             l.whites = whites; l.blacks = blacks; l.vibrance = vibrance; l.saturation = saturation; l.clarity = clarity
+            l.dehaze = dehaze
+            l.skyBlue = skyBlue
             return l
         }
 
@@ -94,7 +122,7 @@ nonisolated struct Look: Equatable, Sendable {
         /// Ranges and precision are the global sliders' (`Look.ranges`).
         static let keys: [(key: String, field: WritableKeyPath<Local, Double>)] = [
             ("ev", \.ev), ("con", \.contrast), ("hl", \.highlights), ("sh", \.shadows), ("wh", \.whites),
-            ("bl", \.blacks), ("vib", \.vibrance), ("sat", \.saturation), ("clr", \.clarity),
+            ("bl", \.blacks), ("vib", \.vibrance), ("sat", \.saturation), ("clr", \.clarity), ("dhz", \.dehaze), ("blu", \.skyBlue),
         ]
 
         /// A mask id as `LookMasks` names them: lower-case letters, digits and hyphens, 1 … 64.
@@ -213,6 +241,7 @@ nonisolated struct Look: Equatable, Sendable {
         "bl": Range(min: -100, max: 100, step: 1), "vib": Range(min: -100, max: 100, step: 1),
         "sat": Range(min: -100, max: 100, step: 1), "clr": Range(min: -100, max: 100, step: 1),
         "shp": Range(min: 0, max: 150, step: 1), "vig": Range(min: -100, max: 100, step: 1),
+        "dhz": Range(min: -100, max: 100, step: 1), "blu": Range(min: 0, max: 100, step: 1),
     ]
     static let kelvinRange = Range(min: 2000, max: 50000, step: 1)
     static let tintRange = Range(min: -150, max: 150, step: 1)
@@ -229,18 +258,18 @@ nonisolated struct Look: Equatable, Sendable {
     /// The crop tool's aspect preset: what the crop box was drawn with, not something to render.
     static let pageOnly: Set<String> = ["cropRatio"]
     /// Canonical key order; also the order `format` writes.
-    static let keys = ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "dust", "crop", "rot", "mask"]
+    static let keys = ["ev", "wb", "wbref", "con", "hl", "sh", "wh", "bl", "vib", "sat", "clr", "dhz", "shp", "vig", "vigs", "tc", "crv", "crvr", "crvg", "crvb", "mixh", "mixs", "mixl", "prof", "nr", "bw", "dust", "crop", "rot", "mask"]
     /// The plain numeric sliders, key → field.
     static let sliders: [String: WritableKeyPath<Look, Double>] = [
         "ev": \.ev, "con": \.contrast, "hl": \.highlights, "sh": \.shadows, "wh": \.whites, "bl": \.blacks,
-        "vib": \.vibrance, "sat": \.saturation, "clr": \.clarity, "shp": \.sharpen, "vig": \.vignette,
+        "vib": \.vibrance, "sat": \.saturation, "clr": \.clarity, "dhz": \.dehaze, "shp": \.sharpen, "vig": \.vignette,
     ]
 
     /// True when every slider is at reset: the render is the RAW stage alone (plus crop and the
     /// develop's own noise reduction, `nr`, which lives in the RAW stage).
     var isNeutral: Bool {
         ev == 0 && wb == nil && contrast == 0 && highlights == 0 && shadows == 0 && whites == 0 && blacks == 0
-            && vibrance == 0 && saturation == 0 && clarity == 0 && sharpen == 0 && vignette == 0 && !bw && !camera
+            && vibrance == 0 && saturation == 0 && clarity == 0 && dehaze == 0 && sharpen == 0 && vignette == 0 && !bw && !camera
             && curve.isNeutral && mixer.isNeutral && locals.isEmpty
     }
 
@@ -399,7 +428,17 @@ nonisolated struct Look: Equatable, Sendable {
         for pair in parts[1].split(separator: ",", omittingEmptySubsequences: false) {
             let kv = pair.split(separator: "=", omittingEmptySubsequences: false).map(String.init)
             guard kv.count == 2 else { throw ParseError(description: "mask '\(id)' wants k=v, got '\(pair)'") }
-            guard let field = Local.keys.first(where: { $0.key == kv[0] })?.field else { throw ParseError(description: "mask '\(id)': unknown key '\(kv[0])'") }
+            if kv[0] == "inv" || kv[0] == "off" || kv[0] == "amt" {
+                guard seen.insert(kv[0]).inserted else { throw ParseError(description: "mask '\(id)': '\(kv[0])' given twice") }
+                let v = try number(kv[1], "mask \(id) \(kv[0])")
+                switch kv[0] {
+                case "inv": local.invert = v >= 0.5
+                case "off": local.off = v >= 0.5
+                default: local.amount = min(100, max(0, v.rounded()))
+                }
+                continue
+            }
+            guard kv[0] != "blu" || skyFeatures, let field = Local.keys.first(where: { $0.key == kv[0] })?.field else { throw ParseError(description: "mask '\(id)': unknown key '\(kv[0])'") }
             guard seen.insert(kv[0]).inserted else { throw ParseError(description: "mask '\(id)': '\(kv[0])' given twice") }
             local[keyPath: field] = clamp(try number(kv[1], "mask \(id) \(kv[0])"), ranges[kv[0]]!)
         }
@@ -424,8 +463,9 @@ nonisolated struct Look: Equatable, Sendable {
         }
         out += ["con:\(signed(contrast, 0))", "hl:\(signed(highlights, 0))", "sh:\(signed(shadows, 0))",
                 "wh:\(signed(whites, 0))", "bl:\(signed(blacks, 0))", "vib:\(signed(vibrance, 0))",
-                "sat:\(signed(saturation, 0))", "clr:\(signed(clarity, 0))", "shp:\(Int(sharpen.rounded()))",
-                "vig:\(signed(vignette, 0))"]
+                "sat:\(signed(saturation, 0))", "clr:\(signed(clarity, 0))"]
+        if dehaze != 0 { out.append("dhz:\(signed(dehaze, 0))") }           // only off reset: older looks format as they did
+        out += ["shp:\(Int(sharpen.rounded()))", "vig:\(signed(vignette, 0))"]
         if !vignetteShape.isDefault {
             let s = vignetteShape
             out.append("vigs:\(Int(s.midpoint.rounded())),\(signed(s.roundness, 0)),\(Int(s.feather.rounded())),\(Int(s.highlights.rounded()))")
@@ -462,7 +502,10 @@ nonisolated struct Look: Equatable, Sendable {
                 let t = signed(local[keyPath: k.field], k.key == "ev" ? 2 : 0)
                 return t == "0" || t == "0.00" ? nil : "\(k.key)=\(t)"
             }
-            if !kv.isEmpty { out.append("mask:\(local.mask)/" + kv.joined(separator: ",")) }
+            guard !kv.isEmpty else { continue }
+            // The layer's settings after its sliders, each only when off its default.
+            let modes = (local.invert ? ["inv=1"] : []) + (local.amount < 100 ? ["amt=\(Int(local.amount))"] : []) + (local.off ? ["off=1"] : [])
+            out.append("mask:\(local.mask)/" + (kv + modes).joined(separator: ","))
         }
         return out.joined(separator: " ")
     }
@@ -484,6 +527,7 @@ nonisolated struct Look: Equatable, Sendable {
         case "Vibrance": l.vibrance = value
         case "Saturation": l.saturation = value
         case "Clarity": l.clarity = value
+        case "Dehaze": l.dehaze = value
         case "Sharpness", "Sharpening": l.sharpen = value
         default: return nil
         }

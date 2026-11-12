@@ -95,6 +95,11 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     var onReady: (() -> Void)?
     /// The page's Photos / Video switch (`window.luminaSwitch.go`, Debug builds): the window loads the other page.
     var onSwitchPage: ((SetsPage) -> Void)?
+    /// Skim's live AirDrop (SkimAirdrop): clips that settled in the watched folder, on the main thread. The window hands
+    /// them to the page as Add clips (`SetsWindowController.skimAirdropArrived`).
+    var onAirdrop: (([URL]) -> Void)?
+    /// The watch stopped by itself (the folder moved, was deleted or can't be read): the new state, for the page.
+    var onAirdropState: (([String: Any]) -> Void)?
     /// The Edit canvas (addendum §2): native pixels over the page's canvas rect, or the image
     /// fallback path when there is no Metal device. Made by `attachCanvas` once the web view is up.
     private(set) var canvas: LookCanvasController?
@@ -111,6 +116,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// ⌘R: Finder, with the file selected. The probe swaps this out so a fuzz run never brings
     /// Finder forward on the desktop of whoever is using the Mac.
     var reveal: (URL) -> Void = { NSWorkspace.shared.activateFileViewerSelecting([$0]) }
+    /// The hand kit's detent tick (Edit's soft stops): a Force Touch trackpad's alignment haptic. The probe and
+    /// the tests swap it out; a Mac without a Force Touch trackpad simply feels nothing.
+    var haptic: () -> Void = { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
     /// Handoff's Show in Finder and Delete in Finder…: Finder, with these selected (swapped out by the probe and the tests too).
     var revealAll: ([URL]) -> Void = { NSWorkspace.shared.activateFileViewerSelecting($0) }
     /// Handoff's Open in Lightroom: hands folders or files to Lightroom Classic (swapped out by the tests).
@@ -434,6 +442,9 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             guard SetsPage.switchable, let side = body["to"] as? String, let page = SetsPage(side: side) else { return (false, nil) }
             onSwitchPage?(page)
             return (true, nil)
+        case "haptic":
+            haptic()
+            return (true, nil)
         case "pageError":
             let text = (body["message"] as? String).map { String($0.prefix(300)) }
             onPageError?(text?.isEmpty == false ? text : nil)
@@ -629,10 +640,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // outline over the photo, a hairline with a faint tint inside, in its own coordinates
             // (crop, turn, zoom). Null or a missing id hides it. An id that is not one LookMasks names
             // (a-z, 0-9, -; at most 64) is refused. False when nothing can draw it (the image path).
+            // `style` (prompt 14): "outline" (the default), "lift" or "overlay"; anything else is the default.
             let id = body["id"] as? String
             if let id, !Look.Local.isID(Substring(id)) { return (false, nil) }
             guard let c = canvas else { return (false, nil) }
-            return (c.showMask(id), nil)
+            let style = (body["style"] as? String).flatMap(LookCanvasController.MaskStyle.init(rawValue:)) ?? .outline
+            return (c.showMask(id, style: style), nil)
         case "canvasStats":
             var out = canvas?.snapshot() ?? ["path": "image"]
             out["facts"] = editFacts()
@@ -834,6 +847,32 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             guard let picked else { return (skimExportPlace(), nil) }
             if let bm = try? picked.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) { skimExports.set(.init(bookmark: bm, path: picked.path)) }
             return (skimExportPlace(), nil)
+        case "skimLutsPlace":
+            // Export's looks: Final Cut's Custom LUTs folder, if Lumina was given access to it (`skim/luts.json`), and where it is.
+            return (skimLutsPlace(), nil)
+        case "skimLutsChoose":
+            // Give access: the folder panel, opened at Final Cut's Custom LUTs folder, after the user's click; only a folder
+            // named "Custom LUTs" is taken (the panel asks again), kept as a security-scoped bookmark in `skim/luts.json`.
+            var refusal: String?, picked: URL?
+            let want = SkimExport.finalCutLUTs(home: SkimDrive.realHome())
+            while picked == nil {
+                guard let p = await chooser.chooseDestination(label: "skim-luts", suggested: skimLutsFolder() ?? want, refusal: refusal) else { return (skimLutsPlace(), nil) }
+                if p.lastPathComponent != "Custom LUTs" { refusal = "That is not Final Cut's Custom LUTs folder. It is in your Library, under Application Support ▸ ProApps."; continue }
+                picked = p
+            }
+            guard let picked else { return (skimLutsPlace(), nil) }
+            if let bm = try? picked.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) { skimLuts.set(.init(bookmark: bm, path: picked.path)) }
+            return (skimLutsPlace(), nil)
+        case "skimLutsInstall":
+            // Each clip's look as a .cube in Final Cut's Custom LUTs folder, under "Lumina Skim/<event>/", as a new file, read
+            // back; a file already there is kept (the same bytes count as installed, other bytes are refused, never replaced).
+            guard let list = body["items"] as? [[String: Any]], list.count <= 2000 else { return ([Any](), nil) }
+            guard let root = skimLutsFolder() else { return (list.map { _ in ["ok": false, "why": "Lumina has no access to Final Cut's Custom LUTs folder."] as [String: Any] }, nil) }
+            let items = list.map { (rel: $0["rel"] as? String ?? "", text: $0["text"] as? String ?? "") }
+            let scoped = root.startAccessingSecurityScopedResource()
+            let out = await Task.detached(priority: .userInitiated) { items.map { SkimExport.installLUT($0.text, rel: $0.rel, into: root).json } }.value
+            if scoped { root.stopAccessingSecurityScopedResource() }
+            return (out, nil)
         case "skimExportAsk":
             // Ask each time: the kept folder is forgotten; each save opens the save panel.
             skimExports.set(nil)
@@ -850,6 +889,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 skimPlaces.add(.init(bookmark: bm, path: picked.path))
             }
             return (await skimPlacesJSON(), nil)
+        case "skimAirdrop":
+            // Live AirDrop: on (the folder panel the first time, opened at Downloads, after the user's click; the folder
+            // picked is kept as a security-scoped bookmark in `skim/airdrop.json`), off (the bookmark stays), or, with
+            // `on: null`, the state. Arrivals are only read, and only ever added as clips (`onAirdrop`).
+            let want = body["on"] as? Bool
+            if want == true, skimAirdropWatch == nil { await skimAirdropOn() }
+            if want == false { skimAirdropOff(keep: true) }
+            return (skimAirdropState(), nil)
         case "skimPlaceRemove":
             // Take a kept folder off the list (the folder itself is not touched).
             guard let path = body["path"] as? String else { return (await skimPlacesJSON(), nil) }
@@ -1069,6 +1116,89 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         }
     }
 
+    // MARK: Skim's live AirDrop (SkimAirdrop)
+
+    /// The bridge, held weakly by the watch's callbacks (they run on the watch's queue).
+    private final class SkimAirdropOwner: @unchecked Sendable {
+        weak var bridge: SetsBridge?
+        init(_ b: SetsBridge) { bridge = b }
+    }
+
+    private var skimAirdropStore: SkimAirdropStore { SkimAirdropStore(file: supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("airdrop.json")) }
+    private var skimAirdropWatch: SkimAirdropWatch?
+    /// The watched folder, its security scope open while it is watched.
+    private var skimAirdropScoped: URL?
+
+    /// What the page is told: whether the folder is watched now, and the folder kept (watched or not; null when none).
+    func skimAirdropState() -> [String: Any] {
+        ["on": skimAirdropWatch != nil, "folder": skimAirdropWatch?.folder.path ?? skimAirdropStore.read()?.path ?? NSNull()]
+    }
+
+    /// At launch (Skim only): the watch comes back when the switch was left on.
+    func skimAirdropResume() {
+        guard skimAirdropWatch == nil, let saved = skimAirdropStore.read(), saved.on else { return }
+        guard let url = skimAirdropResolve(saved), skimAirdropStart(url) else {
+            LuminaLog.app.error("skim airdrop: the watched folder can't be read; the switch is off")
+            var off = saved; off.on = false; skimAirdropStore.write(off)
+            return
+        }
+    }
+
+    private func skimAirdropOn() async {
+        if let saved = skimAirdropStore.read(), let url = skimAirdropResolve(saved), skimAirdropStart(url) {
+            var on = saved; on.on = true; on.path = url.path; skimAirdropStore.write(on)
+            return
+        }
+        // No folder kept, or it can't be found any more: the panel, at the real Downloads folder.
+        let downloads = SkimDrive.realHome().appendingPathComponent("Downloads", isDirectory: true)
+        guard let picked = await chooser.chooseDestination(label: "skim-airdrop", suggested: downloads, refusal: nil),
+              let bm = try? picked.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) else { return }
+        // The panel's URL is open for this run already; the bookmark is what brings it back after a relaunch.
+        guard skimAirdropStart(picked) else { LuminaLog.app.error("skim airdrop: the folder picked can't be read"); return }
+        skimAirdropStore.write(.init(bookmark: bm, path: picked.path, on: true))
+    }
+
+    /// Stops watching; `keep` keeps the bookmark (and writes the switch off).
+    private func skimAirdropOff(keep: Bool) {
+        skimAirdropWatch?.stop(); skimAirdropWatch = nil
+        skimAirdropScoped?.stopAccessingSecurityScopedResource(); skimAirdropScoped = nil
+        if keep, var saved = skimAirdropStore.read(), saved.on { saved.on = false; skimAirdropStore.write(saved) }
+    }
+
+    private func skimAirdropResolve(_ saved: SkimAirdropStore.Saved) -> URL? {
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: saved.bookmark, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+        if url.startAccessingSecurityScopedResource() { skimAirdropScoped = url }
+        if stale, let bm = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
+            skimAirdropStore.write(.init(bookmark: bm, path: url.path, on: saved.on))
+        }
+        return url
+    }
+
+    private func skimAirdropStart(_ folder: URL) -> Bool {
+        let me = SkimAirdropOwner(self)
+        let watch = SkimAirdropWatch(folder: folder, onBatch: { urls in
+            Task { @MainActor in
+                guard let self = me.bridge, self.skimAirdropWatch?.folder == folder else { return }
+                LuminaLog.app.notice("skim airdrop: \(urls.count, privacy: .public) clips arrived")
+                self.onAirdrop?(urls)
+            }
+        }, onGone: {
+            Task { @MainActor in
+                guard let self = me.bridge, self.skimAirdropWatch?.folder == folder else { return }
+                LuminaLog.app.error("skim airdrop: the watched folder went away; the switch is off")
+                self.skimAirdropOff(keep: true)
+                self.onAirdropState?(self.skimAirdropState())
+            }
+        })
+        guard watch.start() else {
+            skimAirdropScoped?.stopAccessingSecurityScopedResource(); skimAirdropScoped = nil
+            return false
+        }
+        skimAirdropWatch = watch
+        return true
+    }
+
     /// The workshop's kept folders (`skim/places.json`, SkimPlaces).
     private var skimPlaces: SkimPlaces { SkimPlaces(file: supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("places.json")) }
 
@@ -1134,6 +1264,21 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     private var pickSaveToResolved: (bookmark: Data, url: URL)?
     /// The files Handoff moved to the Trash in this run, by where they went: the only ones Put Back takes.
     private var pickTrashed: [String: String] = [:]
+
+    /// Final Cut's Custom LUTs folder, once the user gave Lumina access to it (`skim/luts.json`, the same kind of bookmark as Save to).
+    private var skimLuts: SkimExport { SkimExport(file: supportDir.appendingPathComponent("skim", isDirectory: true).appendingPathComponent("luts.json")) }
+    private func skimLutsFolder() -> URL? {
+        guard let p = skimLuts.place() else { return nil }
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: p.bookmark, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+        if stale, let bm = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) { skimLuts.set(.init(bookmark: bm, path: url.path)) }
+        return url
+    }
+    private func skimLutsPlace() -> [String: Any] {
+        let want = SkimExport.finalCutLUTs(home: SkimDrive.realHome()).path
+        if let u = skimLutsFolder() { return ["path": u.path, "want": want] }
+        return ["path": NSNull(), "want": want]
+    }
 
     /// What Export shows under Save to, and where the open shoot was read from.
     private func skimExportPlace() -> [String: Any] {

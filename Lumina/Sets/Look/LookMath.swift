@@ -383,6 +383,41 @@ nonisolated enum LookMath {
         return pow(max(1e-6, y) / max(1e-6, base), d - 1)
     }
 
+    // MARK: dehaze (the atmospheric model)
+
+    /// The `dehaze` stage: the atmospheric model J = (I − A) / t + A per channel in linear light (the
+    /// idea in He, Sun & Tang's dark-channel prior and darktable's haze removal; no code). A, the
+    /// airlight, is a grey: `airlightScale` × the photo's anchor `high` (the 95th percentile of
+    /// luma, pushed through exposure), or `airlight` when the anchor has none (synthetic images,
+    /// flat patches). The haze weight is the blurred dark channel against A, and the transmission
+    /// t = 1 − ω·w with ω = dehaze × `omegaPerUnit`. Below 0 ω is negative, t > 1, and the picture
+    /// is pulled toward A: haze put back. A grey stays grey (A is grey and t is one number for the
+    /// three channels); A itself is a fixed point; with `hazePower` ≥ 1 and ω < 1 a grey ramp
+    /// stays monotonic (d/dy ≥ (1 − ω) / t²). The numbers are a starting form until the Dehaze
+    /// sweep fits them.
+    static func dehazeAirlight(anchor: ToneAnchor, _ rules: LookRules) -> Double {
+        let a = anchor.high.map { $0 * rules.k("dehaze", "airlightScale", 1) } ?? rules.k("dehaze", "airlight", 1)
+        return max(0.05, a)
+    }
+    /// ω for an amount, capped at 0.95 so t stays positive.
+    static func dehazeOmega(_ amount: Double, _ rules: LookRules) -> Double { min(0.95, amount * rules.k("dehaze", "omegaPerUnit", 0.006)) }
+    static func dehazePower(_ rules: LookRules) -> Double { max(1, rules.k("dehaze", "hazePower", 1)) }
+    static func dehazeMinTransmission(_ rules: LookRules) -> Double { max(0.02, min(1, rules.k("dehaze", "minTransmission", 0.1))) }
+
+    /// t at a pixel whose (blurred) dark channel is `dark`: 1 − ω·min(1, dark / A)^hazePower, never under `minTransmission`.
+    static func dehazeTransmission(dark: Double, airlight a: Double, omega: Double, _ rules: LookRules) -> Double {
+        let w = pow(min(1, max(0, dark) / a), dehazePower(rules))
+        return max(dehazeMinTransmission(rules), 1 - omega * w)
+    }
+
+    /// The stage on one pixel. On a flat patch `dark` is the pixel's own minimum channel.
+    static func dehaze(_ c: RGB, dark: Double, amount: Double, anchor: ToneAnchor, _ rules: LookRules) -> RGB {
+        guard amount != 0 else { return c }
+        let a = dehazeAirlight(anchor: anchor, rules)
+        let t = dehazeTransmission(dark: dark, airlight: a, omega: dehazeOmega(amount, rules), rules)
+        return RGB(r: (c.r - a) / t + a, g: (c.g - a) / t + a, b: (c.b - a) / t + a)
+    }
+
     // MARK: contrast (perceptual)
 
     static func contrastCurve(_ p: Double, contrast: Double, _ rules: LookRules) -> Double {
@@ -567,6 +602,51 @@ nonisolated enum LookMath {
         if h < 0 { h += 360 }
         let f = chromaFactor(chroma: C, hueDegrees: h, vibrance: vibrance, saturation: saturation, bw: bw, rules)
         let out = fromOklab(lab.L, lab.a * f, lab.b * f)
+        return RGB(r: max(0, out.r), g: max(0, out.g), b: max(0, out.b))
+    }
+
+    // MARK: sky blue (the `blu` key of a mask's adjustments; LookSky)
+
+    /// The `blu` local's numbers. They live here, not in rules-v1.json: the feature is a prototype
+    /// behind `LookSky.enabled` and must not touch the parity rules. Target: the ColorChecker's
+    /// Blue Sky patch (sRGB 98, 122, 157 → Oklab hue 257.7°, a sky blue every reference chart
+    /// agrees on). Chroma cap: `capShare` of the sRGB gamut at that hue, drawn as a triangle
+    /// through its cusp (L 0.60, C 0.219), so a near-white sky gets a pale blue that stays in gamut.
+    enum SkyBlue {
+        static let hue = 257.7, capShare = 0.4, cuspL = 0.60, cuspC = 0.219
+        /// Hues within `turnFull`° of the target turn all the way; past `turnNone`° not at all
+        /// (greens, oranges, skin keep theirs inside a loose sky mask).
+        static let turnFull = 35.0, turnNone = 70.0
+        /// Below chroma `greyFull` a pixel has no hue to keep: it takes the target's.
+        static let greyFull = 0.02, greyNone = 0.05
+
+        static func cap(_ L: Double) -> Double {
+            let l = min(1, max(0, L))
+            return capShare * (l <= cuspL ? cuspC * l / cuspL : cuspC * (1 - l) / (1 - cuspL))
+        }
+    }
+
+    /// Sky blue on one colour (linear working space), `amount` 0 … 100. In Oklab, L held: the hue
+    /// turns toward `SkyBlue.hue` by `amount`% (cyan and violet skies, nothing far from blue),
+    /// then chroma rises toward the cap along the target hue (grey and white skies, nothing that is
+    /// already as blue as the cap). A pixel already at the target with chroma ≥ cap is unchanged.
+    static func skyBlue(_ c: RGB, amount: Double) -> RGB {
+        let s = min(1, max(0, amount / 100))
+        guard s > 0 else { return c }
+        let lab = toOklab(c)
+        var a = lab.a, b = lab.b
+        let C = hypot(a, b)
+        var turn = 0.0
+        if C > 1e-9 {
+            var dh = (SkyBlue.hue - atan2(b, a) * 180 / .pi).truncatingRemainder(dividingBy: 360)
+            if dh > 180 { dh -= 360 } else if dh <= -180 { dh += 360 }
+            turn = 1 - smoothstep(SkyBlue.turnFull, SkyBlue.turnNone, abs(dh))
+            let r = s * turn * dh * .pi / 180
+            (a, b) = (a * cos(r) - b * sin(r), a * sin(r) + b * cos(r))
+        }
+        let add = s * max(turn, 1 - smoothstep(SkyBlue.greyFull, SkyBlue.greyNone, C)) * max(0, SkyBlue.cap(lab.L) - hypot(a, b))
+        let ht = SkyBlue.hue * .pi / 180
+        let out = fromOklab(lab.L, a + add * cos(ht), b + add * sin(ht))
         return RGB(r: max(0, out.r), g: max(0, out.g), b: max(0, out.b))
     }
 
@@ -852,6 +932,9 @@ nonisolated enum LookMath {
                 c = RGB(r: exposure(c.r * d, gain: g, white: w), g: exposure(c.g * d, gain: g, white: w), b: exposure(c.b * d, gain: g, white: w))
             case "contrast":
                 c = contrast(c, contrast: look.contrast, rules)
+            case "dehaze":
+                guard look.dehaze != 0 else { continue }
+                c = dehaze(c, dark: min(c.r, c.g, c.b), amount: look.dehaze, anchor: anchor, rules)
             case "curve":
                 guard !look.curve.isNeutral else { continue }
                 c = curve(c, tables: curveTables(look.curve, rules), rules)
@@ -868,6 +951,7 @@ nonisolated enum LookMath {
                 continue
             }
         }
+        if look.skyBlue != 0 { c = skyBlue(c, amount: look.skyBlue) }   // LookSky's `blu`, after the rules' stages
         return c
     }
 }

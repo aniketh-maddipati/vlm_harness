@@ -446,8 +446,15 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         guard !look.locals.isEmpty, let masks else { return img }
         let extent = img.extent
         for local in look.locals {
-            guard !local.isNeutral, let found = masks.found.first(where: { $0.id == local.mask }),
-                  let mask = maskImage(found, masks, extent: extent) else { continue }
+            guard local.renders, let found = masks.found.first(where: { $0.id == local.mask }),
+                  var mask = maskImage(found, masks, extent: extent) else { continue }
+            // The layer's invert and opacity: m' = s·m, or s·(1 − m) inverted (s = amt / 100).
+            if local.invert || local.amount < 100 {
+                let s = CGFloat(local.amount / 100)
+                mask = mask.applyingFilter("CIColorMatrix", parameters: [
+                    "inputRVector": CIVector(x: local.invert ? -s : s, y: 0, z: 0, w: 0),
+                    "inputBiasVector": CIVector(x: local.invert ? s : 0, y: 0, z: 0, w: 0)]).cropped(to: extent)
+            }
             // The mask's own exposure moves its own copy of the anchor, as the global one does.
             var a = anchor
             let adjusted = stages(local.look, on: img, asShot: dev.asShot, style: dev.style, anchor: &a)
@@ -510,6 +517,12 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                                  y: exp2(look.contrast * r.k("contrast", "slopePerUnit", 0.006)),
                                  z: min(1, max(0, r.k("contrast", "lumaMix", 0.5))), w: 0)
                 pass("lookContrast", [img, k, gam, lum])
+            case "dehaze":
+                let dark = kernels.apply("lookDark", extent: extent, [img]) ?? img
+                let base = blur(dark, sigma: r.k("dehaze", "radiusFraction", 0.02) * longEdge)
+                let k = CIVector(x: LookMath.dehazeOmega(look.dehaze, r), y: LookMath.dehazeAirlight(anchor: anchor, r),
+                                 z: LookMath.dehazeMinTransmission(r), w: LookMath.dehazePower(r))
+                pass("lookDehaze", [img, base, k])
             case "curve":
                 let lut = curveTable(look.curve)
                 let k = CIVector(x: 1 / r.perceptualGamma, y: r.perceptualGamma, z: Double(LookMath.curveNodes - 1), w: 0)
@@ -546,6 +559,13 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             default:
                 continue
             }
+        }
+        // Sky blue (LookSky's `blu`, only inside a mask): after the rules' stages, outside the rules'
+        // order, so rules-v1.json and every look without it are untouched.
+        if look.skyBlue != 0 {
+            typealias S = LookMath.SkyBlue
+            pass("lookSkyBlue", [img, CIVector(x: min(1, max(0, look.skyBlue / 100)), y: S.hue, z: S.capShare, w: 0),
+                                 CIVector(x: S.cuspL, y: S.cuspC, z: S.turnFull, w: S.turnNone), CIVector(x: S.greyFull, y: S.greyNone, z: 0, w: 0)])
         }
         return img
     }

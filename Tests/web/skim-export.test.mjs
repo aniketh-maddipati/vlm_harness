@@ -255,3 +255,80 @@ test('soft frames and a brightness jump become markers at the frame Skim measure
   k.facts.state = 'reading';
   const u = loadBuildX().fn.call(c).text; assert.doesNotMatch(u.slice(0, u.indexOf('<project')), /<marker /, 'only facts that finished');
 });
+
+// ---- Looks: a clip with a look goes with Camera LUT None and Final Cut's Custom LUT effect naming its cube (lkLuts).
+const pageSrc = fs.readFileSync(PAGE, 'utf8');
+const LK = (() => { const a = pageSrc.indexOf('// LOOK-BEGIN'), b = pageSrc.indexOf('// LOOK-END'); return new Function('class Component {\n' + pageSrc.slice(a, b) + '\n}\nreturn Component;')(); })();
+const lkLuts = new Function('Component', 'return function ' + extractMethod(pageSrc, 'lkLuts', 'lkLuts(clips, event) {'))(LK);
+const lkEvs = new Function('Component', 'return function ' + extractMethod(pageSrc, 'lkEvs', 'lkEvs(clips) {'))(LK);
+const withLooks = (over = {}) => {
+  const c = ctxFromFixture(fx, { all: true, ...over });
+  c.d.clips.forEach((k, i) => { k.profile = i < 3 ? { gamma: 'S-Log3', primaries: 'S-Gamut3.Cine' } : null; });
+  const ids = c.d.clips.map(k => k.id), M = { [ids[0]]: { ev: 0.5, temp: 30 }, [ids[3]]: { sat: -40 }, [ids[1]]: { ev: -0.25 } };
+  c.looks = () => M; c.lkLuts = lkLuts; c.lkEvs = lkEvs; return { c, ids };
+};
+test('looks: one Custom LUT effect, a filter on each clip with a look (event and timeline), Camera LUT None for those only', () => {
+  const { c, ids } = withLooks(), x = loadBuildX().fn.call(c);
+  assert.deepEqual(Object.keys(x.luts).sort(), [ids[0], ids[3]].sort());
+  assert.equal((x.text.match(/<effect id="lut1" name="Custom LUT" uid="FxPlug:14B39AEF-607D-42DF-98DD-DB3DD345E925"\/>/g) || []).length, 1);
+  assert.equal((x.text.match(/<filter-video ref="lut1" name="Custom LUT">/g) || []).length, 4, 'two clips, each in the event and in the sorted timeline');
+  assert.equal(attr(x.text, 'asset', 'a1', 'customLUTOverride'), null, 'the log clip with a look: Camera LUT None, its cube converts');
+  assert.equal(attr(x.text, 'asset', 'a2', 'customLUTOverride'), '35 (Sony_SLog3_SGamut3Cine_v2)', 'a log clip without a look keeps today’s conversion');
+  const e = x.luts[ids[0]];
+  assert.match(e.rel, /^Lumina Skim\/[^/]+\/[^/]+ [0-9a-f]{6}\.cube$/); assert.equal(e.mode, 1); assert.equal(x.luts[ids[3]].mode, 0);
+  assert.ok(x.text.includes('value="' + e.param + '"'));
+  assert.equal(e.param, LK.lkLutParam(LK.lkLutHash(e.rel) + ':' + e.name));
+  assert.match(e.text, new RegExp('^TITLE "' + e.name + '"\\nLUT_3D_SIZE 33\\n'));
+});
+test('looks: the file passes the page check and Final Cut’s DTD', t => {
+  const { c } = withLooks(), x = loadBuildX().fn.call(c);
+  const checkX = new Function('return function ' + extractMethod(pageSrc, 'checkX', 'static checkX(text, n, P, kws) {').replace(/^static /, ''))();
+  const r = checkX(x.text, x.n, MiniDOMParser, x.kws); assert.ok(r.ok, r.problems.join('\n'));
+  const v = validateAgainstDTD(x.text, '1.10'); if (v.skipped) return t.skip(v.skipped); assert.ok(v.ok, v.errors);
+});
+test('looks: a changed look is a new cube name; the same look again is the same name; Looks off writes none', () => {
+  const { c, ids } = withLooks(), a = loadBuildX().fn.call(c).luts[ids[0]].name;
+  assert.equal(loadBuildX().fn.call(c).luts[ids[0]].name, a);
+  const M = c.looks(); M[ids[0]] = { ev: 0.6, temp: 30 }; c.bxM = null;
+  assert.equal(loadBuildX().fn.call(c).luts[ids[0]].name, a, 'only the Exposure changed: same cube, the slider moves');
+  M[ids[0]] = { ev: 0.6, temp: 35 }; c.bxM = null;
+  assert.notEqual(loadBuildX().fn.call(c).luts[ids[0]].name, a);
+  c.state.ex.looks = false; c.bxM = null; const off = loadBuildX().fn.call(c);
+  assert.deepEqual(off.luts, {}); assert.doesNotMatch(off.text, /Custom LUT|Color Adjustments/); assert.match(attr(off.text, 'asset', 'a1', 'customLUTOverride'), /Sony_SLog3/);
+});
+test('looks: the page check refuses an effect or a filter it does not write', () => {
+  const { c } = withLooks(), x = loadBuildX().fn.call(c);
+  const checkX = new Function('return function ' + extractMethod(pageSrc, 'checkX', 'static checkX(text, n, P, kws) {').replace(/^static /, ''))();
+  assert.ok(!checkX(x.text.replace('FxPlug:14B39AEF', 'FxPlug:00000000'), x.n, MiniDOMParser, x.kws).ok);
+  assert.ok(!checkX(x.text.replace('<param name="Output"', '<param name="Mix" key="9" value="1"/><param name="Output"'), x.n, MiniDOMParser, x.kws).ok);
+});
+
+// ---- A look's Exposure goes on Final Cut's own Exposure slider (Color Adjustments), after the LUT: 50 per stop, ±100 at most.
+test('exposure: 50 per stop on Final Cut’s slider, rounded to 0.1, ±100 at most, none at 0', () => {
+  assert.equal(LK.lkFcpEv({ ev: 0.5 }), 25); assert.equal(LK.lkFcpEv({ ev: -0.25 }), -12.5); assert.equal(LK.lkFcpEv({ ev: 0.333 }), 16.5);
+  assert.equal(LK.lkFcpEv({ ev: 3 }), 100); assert.equal(LK.lkFcpEv({ ev: -4 }), -100);
+  assert.equal(LK.lkFcpEv({}), 0); assert.equal(LK.lkFcpEv(null), 0); assert.equal(LK.lkFcpEv({ ev: 0.001 }), 0);
+  assert.ok(Object.is(LK.lkFcpEv({ ev: -0.001 }), 0), 'never -0 in the file');
+});
+test('exposure: a Color Adjustments filter after the LUT, the cube without the Exposure, an exposure-only clip keeps the Camera LUT', () => {
+  const { c, ids } = withLooks(), x = loadBuildX().fn.call(c);
+  assert.equal((x.text.match(/<effect id="ca1" name="Color Adjustments" uid="FxPlug:7E2022A5-202B-4EEB-A311-AC2B585D01B0"\/>/g) || []).length, 1);
+  assert.equal((x.text.match(/<filter-video ref="ca1" name="Color Adjustments">\n\s*<param name="Exposure" key="3" value="25"\/>\n\s*<\/filter-video>/g) || []).length, 2, 'ev +0.5: event and timeline');
+  assert.equal((x.text.match(/<param name="Exposure" key="3" value="-12.5"\/>/g) || []).length, 2, 'ev −0.25: event and timeline');
+  assert.ok(x.text.indexOf('name="Custom LUT">') < x.text.indexOf('name="Color Adjustments">'), 'the LUT first, then the Exposure');
+  assert.equal(x.luts[ids[1]], undefined, 'an exposure-only look writes no cube');
+  assert.equal(attr(x.text, 'asset', 'a2', 'customLUTOverride'), '35 (Sony_SLog3_SGamut3Cine_v2)', 'and keeps Final Cut’s S-Log3 conversion');
+  const flat = parseCubeFirst(x.luts[ids[0]].text), ref = parseCubeFirst(lkLuts.call({ looks: () => ({ [ids[0]]: { temp: 30 } }), lkCubes: new Map() }, [c.d.clips[0]], 'e')[ids[0]].text);
+  assert.equal(flat, ref, 'the cube is the look without its Exposure');
+});
+test('exposure: the file passes the page check and Final Cut’s DTD; the check refuses a filter it does not write', t => {
+  const { c } = withLooks(), x = loadBuildX().fn.call(c);
+  const checkX = new Function('return function ' + extractMethod(pageSrc, 'checkX', 'static checkX(text, n, P, kws) {').replace(/^static /, ''))();
+  const r = checkX(x.text, x.n, MiniDOMParser, x.kws); assert.ok(r.ok, r.problems.join('\n'));
+  assert.ok(!checkX(x.text.replace('<param name="Exposure" key="3" value="25"/>', '<param name="Exposure" key="3" value="25"/><param name="Contrast" key="17" value="4"/>'), x.n, MiniDOMParser, x.kws).ok, 'a second parameter');
+  assert.ok(!checkX(x.text.replace('value="25"/>', 'value="140"/>'), x.n, MiniDOMParser, x.kws).ok, 'past Final Cut’s range');
+  const fl = /(\s*<filter-video ref="lut1"[\s\S]*?<\/filter-video>)(\s*<filter-video ref="ca1"[\s\S]*?<\/filter-video>)/;
+  assert.ok(!checkX(x.text.replace(fl, '$2$1'), x.n, MiniDOMParser, x.kws).ok, 'the Exposure before the LUT');
+  const v = validateAgainstDTD(x.text, '1.10'); if (v.skipped) return t.skip(v.skipped); assert.ok(v.ok, v.errors);
+});
+function parseCubeFirst(text){ return text.split('\n').filter(l => /^[\d.]+ [\d.]+ [\d.]+$/.test(l)).join('\n'); }

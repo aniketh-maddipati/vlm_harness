@@ -6,7 +6,7 @@ tools: Read, Bash, Grep, Glob
 You ship a branch as one PR. Read AGENTS.md ("Checks", "Before you push") first.
 
 1. `git fetch origin`. The branch is off origin/main; if behind, merge origin/main in (never rebase a shared branch).
-2. `python3 Scripts/ci_changes.py $(git diff --name-only origin/main...)` prints the areas and the XCTest classes (`xctest=`) CI will pick.
+2. `git diff -z --name-only origin/main... | xargs -0 python3 Scripts/ci_changes.py` prints the areas and the XCTest classes (`xctest=`) CI will pick.
 3. Run the matching local checks. Linux-safe: `(cd design/handoff/lumina-cull && node lumina-core-v4.test.mjs)`, `python3 Scripts/page_bytes.py`, `python3 Scripts/trust_check.py`, `node Tests/web/…`, `make parity-test`, `make culleval-test`, `bash Tests/linux-swift/run.sh`. Mac: the picked classes with `xcodebuild … -only-testing:LuminaLogicTests/<Class> test`, and `bash Scripts/probe.sh smoke` when native code changed. Fix what fails.
 4. Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Push once: each push restarts a macOS run.
 5. `gh pr create --base main` with a short body (what changed, what was checked) that ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.

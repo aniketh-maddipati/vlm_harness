@@ -37,7 +37,7 @@ import delta_e  # noqa: E402
 import lookmath  # noqa: E402
 
 LR_KEYS = {"Exposure": "ev", "Contrast": "con", "Highlights": "hl", "Shadows": "sh", "Whites": "wh", "Blacks": "bl",
-           "Vibrance": "vib", "Saturation": "sat", "Clarity": "clr", "Sharpness": "shp", "Sharpening": "shp"}
+           "Vibrance": "vib", "Saturation": "sat", "Clarity": "clr", "Sharpness": "shp", "Sharpening": "shp", "Dehaze": "dhz"}
 
 
 def expand(p):
