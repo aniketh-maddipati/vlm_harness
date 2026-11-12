@@ -319,7 +319,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         let args: [Any] = [img, t.hsm, t.curve,
                            CIVector(x: w[0][0], y: w[0][1], z: w[0][2], w: 0), CIVector(x: w[1][0], y: w[1][1], z: w[1][2], w: 0), CIVector(x: w[2][0], y: w[2][1], z: w[2][2], w: 0),
                            CIVector(x: exp2(p.exposure), y: 1 / rules.perceptualGamma, z: rules.perceptualGamma, w: Double(p.nodes - 1)),
-                           CIVector(x: Double(p.hue), y: Double(p.sat), z: Double(p.val), w: p.offset)]
+                           CIVector(x: Double(p.hue), y: Double(p.sat), z: Double(p.val), w: p.offset),
+                           CIVector(x: p.lift, y: p.liftCentre, z: p.liftWidth, w: 0),
+                           CIVector(x: rules.luma[0], y: rules.luma[1], z: rules.luma[2], w: 0)]
         guard let out = try LookKernels.shared().apply("lookProfile", extent: img.extent, tables: [t.hsm, t.curve], args) else { throw Failure("profile failed") }
         return out
     }

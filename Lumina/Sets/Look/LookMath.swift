@@ -117,6 +117,9 @@ nonisolated enum LookMath {
         var exposure = 0.0
         /// Added to every channel after the exposure gain (`exposed`): 0 for the base.
         var offset = 0.0
+        /// The shadow lift above 0 (`exposed`): lift · exp(−((log2 y − liftCentre) / liftWidth)²) added to
+        /// every channel, y the pixel's linear luma (at least 2^−14). 0 for the base.
+        var lift = 0.0, liftCentre = -7.5, liftWidth = 3.25
         var rg = 0.0, rb = 0.0, gr = 0.0, gb = 0.0, br = 0.0, bg = 0.0
         var hue = 30, sat = 8, val = 1, nodes = 33
         /// (val, hue, sat) outer to inner, 3 numbers each: hueShift (degrees), satScale, valScale.
@@ -201,7 +204,9 @@ nonisolated enum LookMath {
 
     static func profile(_ c: RGB, _ p: Profile, _ rules: LookRules) -> RGB {
         let gamma = rules.perceptualGamma
-        let g = exp2(p.exposure), o = p.offset
+        let g = exp2(p.exposure)
+        let z = (log2(max(luma(c, rules), exp2(-14))) - p.liftCentre) / max(p.liftWidth, 1e-3)
+        let o = p.offset + p.lift * exp(-z * z)
         let t = RGB(r: c.r * g + o, g: c.g * g + o, b: c.b * g + o), w = p.rows
         var x = [w[0][0] * t.r + w[0][1] * t.g + w[0][2] * t.b, w[1][0] * t.r + w[1][1] * t.g + w[1][2] * t.b, w[2][0] * t.r + w[2][1] * t.g + w[2][2] * t.b]
         // the hue/sat map in linear ProPhoto HSV
@@ -275,14 +280,23 @@ nonisolated enum LookMath {
         return luma(profile(.gray((lo + hi) / 2), exposed(p, ev: ev, rules), rules), rules)
     }
 
-    /// The profile carrying the look's Exposure on the sensor data: the gain on (x + δ), less δ, so
-    /// a black level δ the linear decode sits below Lightroom's (`exposure.blackOffset`, 0.002;
-    /// fitted 2026-11-12 on sweep 1, held out photo by photo: −2 … +2 0.97 / 4.59 → 0.80 / 3.67,
-    /// the night frame at +2 2.73 / 8.11 → 2.09 / 6.57) is lifted as Lightroom lifts it. Through
-    /// the profile's own gain g₀: x·g₀·2^ev + δ·g₀·(2^ev − 1). Exposure 0 is the base exactly.
+    /// The profile carrying the look's Exposure on the sensor data (fitted 2026-11-12 on sweep 1,
+    /// held out photo by photo). Through the profile's own gain g₀:
+    /// - below 0, the gain on (x + δ) less δ, δ the black level the linear decode sits below
+    ///   Lightroom's (`exposure.blackOffset`, 0.002): x·g₀·2^ev + δ·g₀·(2^ev − 1);
+    /// - above 0, Lightroom lifts the shadows beyond the gain and keeps black black, measured as a
+    ///   bump in log2 luma (`liftAmount` 0.00398, `liftCentre` −7.5, `liftWidth` 3.25): x·g₀·2^ev +
+    ///   g₀·(2^ev − 1)·A·exp(−((log2 y − μ)/σ)²). Sweep +2: 1.44 / 5.04 → 1.28 / 4.95; the night frame
+    ///   at +2 2.09 / 6.57 → 1.75 / 6.48, its L* 10–45 from −3 to 0.
+    /// Exposure 0 is the base exactly; brighter stays brighter (checked up to +5).
     static func exposed(_ p: Profile, ev: Double, _ rules: LookRules) -> Profile {
         var q = p
-        q.offset = rules.k("exposure", "blackOffset", 0) * exp2(p.exposure) * (exp2(ev) - 1)
+        let g0 = exp2(p.exposure), s = exp2(ev) - 1
+        if ev < 0 { q.offset = rules.k("exposure", "blackOffset", 0) * g0 * s }
+        else {
+            q.lift = rules.k("exposure", "liftAmount", 0) * g0 * s
+            q.liftCentre = rules.k("exposure", "liftCentre", -7.5); q.liftWidth = rules.k("exposure", "liftWidth", 3.25)
+        }
         q.exposure += ev
         return q
     }

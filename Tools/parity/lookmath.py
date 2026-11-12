@@ -722,8 +722,13 @@ def profile_with_ev(rgb, ev, rules):
 def exposed_profile(rules, ev):
     """LookMath.exposed: the profile stage carrying Exposure on the sensor data, the gain on (x + δ) less δ."""
     stage = json.loads(json.dumps(rules["stages"]["profile"]))
-    e0 = float(stage["coefficients"].get("exposure", 0.0))
-    stage["coefficients"]["offset"] = k(rules, "exposure", "blackOffset", 0.0) * 2.0 ** e0 * (2.0 ** float(ev) - 1.0)
+    e0 = float(stage["coefficients"].get("exposure", 0.0)); g0 = 2.0 ** e0; s = 2.0 ** float(ev) - 1.0
+    if ev < 0:
+        stage["coefficients"]["offset"] = k(rules, "exposure", "blackOffset", 0.0) * g0 * s
+    else:
+        stage["coefficients"]["lift"] = k(rules, "exposure", "liftAmount", 0.0) * g0 * s
+        stage["coefficients"]["liftCentre"] = k(rules, "exposure", "liftCentre", -7.5)
+        stage["coefficients"]["liftWidth"] = k(rules, "exposure", "liftWidth", 3.25)
     stage["coefficients"]["exposure"] = e0 + float(ev)
     return stage
 
