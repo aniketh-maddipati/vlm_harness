@@ -73,7 +73,7 @@ final class IngestHost {
                 var t = tally[src] ?? Tally(); t.sent += 1
                 guard let (file, root) = IngestCopy.resolve(path, roots: roots) else {
                     t.bad += 1; tally[src] = t
-                    unresolved.append(["key": key, "src": src, "ok": false, "why": "not chosen with O"]); continue
+                    unresolved.append(["key": key, "src": src, "ok": false, "why": "not found on disk"]); continue
                 }
                 if t.root == nil { t.root = root; t.card = SetsFileOps.isCard(root) }
                 tally[src] = t
