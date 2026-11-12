@@ -192,7 +192,7 @@ nonisolated final class LookBases: @unchecked Sendable {
             if !previewOnly { why = "\(error)" }
             dev = try LookPipeline.developPreview(url: url, offset: p.offset, length: p.length, orientation: p.orientation, longEdge: nil)
             let c = Self.croppedSize(dev.extent.size, look.crop, rot: look.rot)
-            dev = LookPipeline.Developed(image: LookPipeline.scaled(dev.image, longEdge: Int((max(dev.extent.width, dev.extent.height) * min(canvas.width / max(1, c.width), canvas.height / max(1, c.height))).rounded(.up))), asShot: dev.asShot, anchor: dev.anchor, style: dev.style)
+            dev = LookPipeline.Developed(image: LookPipeline.scaled(dev.image, longEdge: Int((max(dev.extent.width, dev.extent.height) * min(canvas.width / max(1, c.width), canvas.height / max(1, c.height))).rounded(.up))), asShot: dev.asShot, anchor: dev.anchor, style: dev.style, linear: false)   // the embedded JPEG: already the camera's look
         }
         let photoSize = Self.croppedSize(native ?? dev.extent.size, look.crop, rot: look.rot)
         // Crop, straighten and the quarter turn are baked in; the look runs with crop: false on top.
@@ -278,8 +278,8 @@ nonisolated final class LookBases: @unchecked Sendable {
                 // The texture path failed (an odd device state): fall back to bitmaps for this photo.
             }
         }
-        let (b, bb) = try pipeline.rasterised(LookPipeline.Developed(image: img, asShot: Look.WhiteBalance(kelvin: 0, tint: 0), anchor: .reference))
-        let (s, sb) = try pipeline.rasterised(LookPipeline.Developed(image: small, asShot: Look.WhiteBalance(kelvin: 0, tint: 0), anchor: .reference))
+        let (b, bb) = try pipeline.rasterised(LookPipeline.Developed(image: img, asShot: Look.WhiteBalance(kelvin: 0, tint: 0), anchor: .reference, linear: false))
+        let (s, sb) = try pipeline.rasterised(LookPipeline.Developed(image: small, asShot: Look.WhiteBalance(kelvin: 0, tint: 0), anchor: .reference, linear: false))
         return (b.image, s.image, [], bb + sb)
     }
 
