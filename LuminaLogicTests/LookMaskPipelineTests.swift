@@ -28,7 +28,7 @@ final class LookMaskPipelineTests: XCTestCase {
         var data = [Float](repeating: 1, count: w * h * 4)
         for y in 0..<h { for x in 0..<w { let i = 4 * (y * w + x); data[i] = 0.05 + 0.6 * Float(x) / Float(w - 1); data[i + 1] = 0.05 + 0.6 * (1 - Float(y) / Float(h - 1)); data[i + 2] = 0.25 } }
         let img = CIImage(bitmapData: data.withUnsafeBufferPointer { Data(buffer: $0) }, bytesPerRow: w * 16, size: CGSize(width: w, height: h), format: .RGBAf, colorSpace: pipe.workingSpace)
-        return LookPipeline.Developed(image: img, asShot: asShot, anchor: .reference)
+        return LookPipeline.Developed(image: img, asShot: asShot, anchor: .reference, linear: false)
     }
 
     private func luma(_ c: LookMath.RGB) -> Double { 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b }
@@ -129,7 +129,7 @@ final class LookMaskPipelineTests: XCTestCase {
         XCTAssertEqual(tl.x, e.baseSize.width, accuracy: 1.5); XCTAssertEqual(tl.y, e.baseSize.height, accuracy: 1.5)
         for small in [false, true] {
             let src = small ? e.small : e.base, size = small ? e.smallSize : e.baseSize
-            let dev = LookPipeline.Developed(image: src, asShot: e.asShot, anchor: e.anchor, masks: masks.placed(photo: e.toPhoto(small: small)))
+            let dev = LookPipeline.Developed(image: src, asShot: e.asShot, anchor: e.anchor, masks: masks.placed(photo: e.toPhoto(small: small)), linear: e.linear)
             let out = pipe.apply(look, to: dev, crop: false), plain = pipe.apply(bare, to: dev, crop: false)
             func at(_ u: Double, _ v: Double) -> (Double, Double) {
                 let p = CGPoint(x: u, y: v).applying(e.toPhoto(small: small))

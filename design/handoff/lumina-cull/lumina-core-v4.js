@@ -102,8 +102,8 @@ function parseMask(v){ const [id,rest]=v.split('/'); if(!/^[a-z0-9-]{1,64}$/.tes
 function lookString(L){ if(!L) return ''; const o=[], has=k=>L[k]!=null&&L[k]!=='', sg=v=>v>0?'+'+v:String(v), num=v=>Number.isInteger(v)?sg(v):sg(+v.toFixed(3)), r4=v=>String(+(+v).toFixed(4));
   const keys=Object.keys(L).filter(k=>has(k)&&k!=='tint'&&k!=='cropRatio'&&k!=='masks'), rest=keys.filter(k=>!LOOK_ORDER.includes(k)).sort(); if(!has('wb')&&has('tint')) keys.push('wb');
   [...LOOK_ORDER.filter(k=>keys.includes(k)),...rest].forEach(k=>{ const v=L[k];
-    if(k==='ev') o.push('ev:'+(v>0?'+':'')+(+v).toFixed(2));
-    else if(k==='wb') o.push('wb:'+(has('wb')?Math.round(L.wb):'')+'/'+(has('tint')?num(Math.round(L.tint)):''));
+    if(k==='ev'){ const e=+(+v).toFixed(3); o.push('ev:'+(v>0?'+':'')+e.toFixed(Math.abs(e*100-Math.round(e*100))>1e-6?3:2)); }
+    else if(k==='wb') o.push('wb:'+(has('wb')?Math.round(L.wb):'')+'/'+(has('tint')?num(+(+L.tint).toFixed(1)):''));
     else if(k==='shp'||k==='nr') o.push(k+':'+Math.round(v));
     else if(k==='bw'){ if(v) o.push('bw:1'); }
     else if(k==='dust'){ if(v) o.push('dust:1'); }

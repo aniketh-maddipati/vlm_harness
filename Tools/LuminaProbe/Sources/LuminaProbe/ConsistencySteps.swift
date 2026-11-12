@@ -114,7 +114,7 @@ enum ConsistencySteps {
                     // A mask the photo does not have renders as the look without it: measured anyway, labelled.
                     if let masked, look.locals.contains(where: { l in !masked.contains { $0.id == l.mask } }) { o.note += "\(name) · \(lookName): a mask not found · " }
                     func dev(_ img: CIImage) -> LookPipeline.Developed {
-                        let d = LookPipeline.Developed(image: img, asShot: e.asShot, anchor: e.anchor, style: e.style)
+                        let d = LookPipeline.Developed(image: img, asShot: e.asShot, anchor: e.anchor, style: e.style, linear: e.linear)
                         return masked.map { d.withMasks($0, key: LookPipeline.PhotoMasks.key(rel: rel, $0)) } ?? d
                     }
                     guard let shown = cg(pipe.apply(look, to: dev(e.base), crop: false)) else { throw ProbeError("canvas render failed") }
@@ -152,7 +152,7 @@ enum ConsistencySteps {
                     if let older, older != exportDecoder, lookName == "neutral" || lookName.hasPrefix("combo"), let full {
                         let k2 = LookBases.Key(rel: rel, decoder: older, look: look, canvas: size)
                         let e2 = try bases.build(k2, url: url, look: look, preview: nil)
-                        if let behind = cg(pipe.apply(look, to: LookPipeline.Developed(image: e2.base, asShot: e2.asShot, anchor: e2.anchor, style: e2.style), crop: false)), let exp = scaled(full, to: behind) {
+                        if let behind = cg(pipe.apply(look, to: LookPipeline.Developed(image: e2.base, asShot: e2.asShot, anchor: e2.anchor, style: e2.style, linear: e2.linear), crop: false)), let exp = scaled(full, to: behind) {
                             let de = stats(behind, exp, step: step)
                             rows.append(Row(photo: name, look: lookName, pair: "decoder", median: de.median, mean: de.mean, p95: de.p95, max: de.max, pixels: de.pixels))
                         }

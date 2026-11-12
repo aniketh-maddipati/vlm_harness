@@ -88,9 +88,13 @@ nonisolated final class LookKernels: @unchecked Sendable {
     // r = the curve; read at texel centres and mixed here. r0..r2 = the mix's rows; k = (2^exposure, invGamma,
     // gamma, nodes − 1); d = (hue, sat, val, 0).
     [[ stitchable ]] float4 lookProfile(coreimage::sampler src, coreimage::sampler hsm, coreimage::sampler curve,
-                                        float4 r0, float4 r1, float4 r2, float4 k, float4 d) {
+                                        float4 r0, float4 r1, float4 r2, float4 k, float4 d, float4 lf, float4 lum) {
         float4 s0 = src.sample(src.coord());
-        float3 t = s0.rgb * k.x;
+        // d.w: LookMath.Profile.offset (Exposure's black level, below 0); lf = (lift, centre, width, 0): the
+        // shadow lift above 0, a bump in log2 of the pixel's linear luma (LookMath.Profile.lift)
+        float ly = log2(max(dot(s0.rgb, lum.rgb), 6.103515625e-05f));
+        float bz = (ly - lf.y) / max(lf.z, 1e-3f);
+        float3 t = s0.rgb * k.x + d.w + lf.x * exp(-bz * bz);
         float3 x = float3(dot(t, r0.rgb), dot(t, r1.rgb), dot(t, r2.rgb));
         const float3x3 toPP = float3x3(float3(0.5293458759317613f, 0.0983743638449671f, 0.01688317839798025f),
                                        float3(0.330072797941936f, 0.8734610679819278f, 0.1176724654297775f),

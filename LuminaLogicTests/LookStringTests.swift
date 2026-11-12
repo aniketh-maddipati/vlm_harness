@@ -179,6 +179,20 @@ final class LookStringTests: XCTestCase {
     /// Edit v22 sends the core's `lookString` (design v0.05): its own names for the curve
     /// regions, the vignette's shape and the mixer, the curves as `~` + JSON, `wb` with one side
     /// empty, the crop's preset. These strings are the core's output, copied.
+    /// Fine drags (prompt 24): 0.001 EV, 0.1 on the ±100 sliders and Tint survive parse → format →
+    /// parse; values on the old grid format exactly as before.
+    func testFineValuesRoundTrip() throws {
+        let fine = try Look.parse("ev:+0.347 wb:5200/+3.4 con:+12.3 hl:-40.5")
+        XCTAssertEqual(fine.ev, 0.347, accuracy: 1e-12); XCTAssertEqual(fine.wb?.tint ?? 0, 3.4, accuracy: 1e-12)
+        XCTAssertEqual(fine.contrast, 12.3, accuracy: 1e-12); XCTAssertEqual(fine.highlights, -40.5, accuracy: 1e-12)
+        let again = try Look.parse(fine.format())
+        XCTAssertEqual(again.ev, fine.ev, accuracy: 1e-12); XCTAssertEqual(again.contrast, fine.contrast, accuracy: 1e-12)
+        XCTAssertEqual(again.highlights, fine.highlights, accuracy: 1e-12); XCTAssertEqual(again.wb?.tint ?? 0, 3.4, accuracy: 1e-12)
+        let coarse = try Look.parse("ev:+0.70 con:+12")
+        XCTAssertTrue(coarse.format().hasPrefix("ev:+0.70 "), coarse.format())
+        XCTAssertTrue(coarse.format().contains("con:+12 "), coarse.format())
+    }
+
     func testThePagesLookStrings() throws {
         let a = try Look.parse("ev:+0.70 wb:5200/+3 con:+12 shp:40")
         XCTAssertEqual(a.wb, Look.WhiteBalance(kelvin: 5200, tint: 3)); XCTAssertEqual(a.sharpen, 40)
@@ -250,9 +264,10 @@ final class LookStringTests: XCTestCase {
         XCTAssertEqual(l.ev, 0.2, accuracy: 1e-9, "the global sliders are untouched")
         XCTAssertFalse(try Look.parse("mask:subject/ev=+1").isNeutral)
 
-        // Keys in any order inside the token; zeros dropped; ev to 2 places, the others whole.
+        // Keys in any order inside the token; zeros dropped; ev to 2 places and the others whole,
+        // one more place when the value has it (fine drags, prompt 24).
         XCTAssertEqual(try Look.parse("mask:person-1/sat=+3,wh=0,ev=0.5,bl=-2.4,vib=7").format(),
-                       "ev:0.00 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:0 mask:person-1/ev=+0.50,bl=-2,vib=+7,sat=+3")
+                       "ev:0.00 con:0 hl:0 sh:0 wh:0 bl:0 vib:0 sat:0 clr:0 shp:0 vig:0 mask:person-1/ev=+0.50,bl=-2.4,vib=+7,sat=+3")
         // A mask at reset is no mask: the look is the one without it, so the string and its cache key are too.
         XCTAssertEqual(try Look.parse("ev:+1 mask:subject/ev=0,con=0"), try Look.parse("ev:+1"))
         XCTAssertEqual(try Look.parse("mask:subject"), Look())

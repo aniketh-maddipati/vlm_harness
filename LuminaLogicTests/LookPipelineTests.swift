@@ -174,6 +174,37 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertTrue(try LookPipeline.matched(img, rules: plain) === img, "an identity profile: the image itself, no pass")
     }
 
+    /// Exposure on the sensor data (`Developed.linear`, 2026-11-12): on a linear base the graph runs
+    /// the profile first with the look's Exposure added to its own; it equals `LookMath.flat(…,
+    /// linearBase: true)`, Exposure 0 equals the profiled base, and brighter is brighter.
+    func testExposureOnALinearBaseRunsThroughTheProfile() throws {
+        let r = LookMathTests.rulesWithProfile(rules)
+        let p2 = try LookPipeline(rules: r)
+        let colours: [LookMath.RGB] = [.gray(0.02), .gray(0.18), .gray(0.6), LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6)]
+        for c in colours {
+            var dev = p2.flat(c, size: 16)
+            dev.linear = true
+            var last = -1.0
+            for ev in [-2.0, -0.5, 0, 1, 2] {
+                var look = Look(); look.ev = ev
+                let got = p2.pixel(p2.apply(look, to: dev), x: 8, y: 8)
+                let want = LookMath.flat(c, look: look, asShot: asShot, rules: r, linearBase: true)
+                for (g, w) in [(got.r, want.r), (got.g, want.g), (got.b, want.b)] { XCTAssertEqual(g, w, accuracy: max(0.006, 0.02 * abs(w)), "ev \(ev) on \(c): \(got) vs \(want)") }
+                if ev == 0 {
+                    let base = LookMath.profile(c, try XCTUnwrap(LookMath.Profile(r)), r)
+                    XCTAssertEqual(got.g, base.g, accuracy: max(0.006, 0.02 * abs(base.g)), "Exposure 0 is the profiled base")
+                }
+                XCTAssertGreaterThanOrEqual(LookMath.luma(got, r), last - 1e-4, "ev \(ev) on \(c)"); last = LookMath.luma(got, r)
+            }
+        }
+        // A mask's look runs on an edited picture: it keeps the toned exposure stage.
+        var anchor = LookMath.ToneAnchor.reference
+        XCTAssertEqual(LookMath.exposureThroughProfile(anchor.mean, ev: 0, r), anchor.mean)
+        anchor.mean = 0.18
+        XCTAssertGreaterThan(LookMath.exposureThroughProfile(0.18, ev: 1, r), 0.18)
+        XCTAssertLessThan(LookMath.exposureThroughProfile(0.18, ev: -1, r), 0.18)
+    }
+
     func testFlatPatchesMatchLookMath() {
         let colours: [LookMath.RGB] = [.gray(0.02), .gray(0.18), .gray(0.5), .gray(0.9), .gray(1.1),
                                        LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.2, g: 0.5, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6),
@@ -259,7 +290,7 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertEqual(lut.extent, CGRect(x: 0, y: 0, width: LookMath.curveNodes, height: 1))
         XCTAssertTrue(pipe.curveTable(curve) === lut); XCTAssertFalse(pipe.curveTable(try Look.parse("tc:+21,-10,+15").curve) === lut)
         // A large frame (the kernel reads its table whole for every tile of the output).
-        let big = LookPipeline.Developed(image: pipe.flat(.gray(0.18), size: 64).image.clampedToExtent().cropped(to: CGRect(x: 0, y: 0, width: 3000, height: 2000)), asShot: asShot, anchor: .reference)
+        let big = LookPipeline.Developed(image: pipe.flat(.gray(0.18), size: 64).image.clampedToExtent().cropped(to: CGRect(x: 0, y: 0, width: 3000, height: 2000)), asShot: asShot, anchor: .reference, linear: false)
         let out = pipe.apply(try Look.parse("crv:0,0/0.5,0.6/1,1"), to: big), want = LookMath.flat(.gray(0.18), look: try Look.parse("crv:0,0/0.5,0.6/1,1"), asShot: asShot, rules: rules)
         for (x, y) in [(0, 0), (2999, 1999), (1500, 1000), (2990, 5)] { XCTAssertEqual(pipe.pixel(out, x: x, y: y).g, want.g, accuracy: 0.004, "at \(x),\(y)") }
     }
@@ -345,7 +376,7 @@ final class LookPipelineTests: XCTestCase {
     func testVignetteKernelEqualsLookMath() throws {
         let w = 96, h = 64
         for colour in [LookMath.RGB.gray(0.5), .gray(0.95), LookMath.RGB(r: 0.6, g: 0.35, b: 0.25)] {
-            let dev = LookPipeline.Developed(image: pipe.flat(colour, size: w).image.cropped(to: CGRect(x: 0, y: 0, width: w, height: h)), asShot: asShot, anchor: .reference)
+            let dev = LookPipeline.Developed(image: pipe.flat(colour, size: w).image.cropped(to: CGRect(x: 0, y: 0, width: w, height: h)), asShot: asShot, anchor: .reference, linear: false)
             for text in ["vig:-80", "vig:+60", "vig:-80 vigs:30,0,50,0", "vig:-80 vigs:50,-50,50,0", "vig:-100 vigs:60,-100,30,0", "vig:-70 vigs:50,0,50,80", "vig:+60 vigs:40,-25,90,100", "vig:-100 vigs:50,0,0,0", "vig:-90 vigs:20,+60,100,40", "vig:-90 vigs:50,+100,50,0"] {
                 let look = try Look.parse(text)
                 let out = pipe.apply(look, to: dev)
@@ -363,7 +394,7 @@ final class LookPipelineTests: XCTestCase {
         }
         // Roundness 0 follows the frame: in a 3:1 frame the middles of the long and the short edges are darkened alike
         // (a circle would darken the short edges' middles far more), and the corners most.
-        let wide = LookPipeline.Developed(image: pipe.flat(.gray(0.5), size: 192).image.cropped(to: CGRect(x: 0, y: 0, width: 192, height: 64)), asShot: asShot, anchor: .reference)
+        let wide = LookPipeline.Developed(image: pipe.flat(.gray(0.5), size: 192).image.cropped(to: CGRect(x: 0, y: 0, width: 192, height: 64)), asShot: asShot, anchor: .reference, linear: false)
         let oval = pipe.apply(try Look.parse("vig:-100 vigs:0,0,100,0"), to: wide), round = pipe.apply(try Look.parse("vig:-100 vigs:0,+100,100,0"), to: wide)
         XCTAssertEqual(pipe.pixel(oval, x: 191, y: 32).g, pipe.pixel(oval, x: 96, y: 63).g, accuracy: 0.01)
         XCTAssertLessThan(pipe.pixel(oval, x: 0, y: 0).g, pipe.pixel(oval, x: 191, y: 32).g - 0.05)
@@ -380,7 +411,7 @@ final class LookPipelineTests: XCTestCase {
         for text in ["vig:-100", "vig:-100 vigs:0,-50,100,100", "vig:-100 vigs:50,0,50,60"] {
             var last = -1.0
             for i in 0...24 {
-                let dev = LookPipeline.Developed(image: pipe.flat(.gray(Double(i) / 20), size: 64).image, asShot: asShot, anchor: .reference)
+                let dev = LookPipeline.Developed(image: pipe.flat(.gray(Double(i) / 20), size: 64).image, asShot: asShot, anchor: .reference, linear: false)
                 let px = pipe.pixel(pipe.apply(try Look.parse(text), to: dev), x: 63, y: 63)
                 XCTAssertGreaterThanOrEqual(px.g, last - 2e-3, "\(text) grey \(Double(i) / 20)"); last = max(last, px.g)
                 XCTAssertTrue(px.isNeutral(tolerance: 4e-3))
@@ -410,7 +441,7 @@ final class LookPipelineTests: XCTestCase {
         var data = [Float](repeating: 1, count: w * h * 4)
         for y in 0..<h { for x in 0..<w { let i = 4 * (y * w + x); data[i] = Float(x) / Float(w - 1); data[i + 1] = 1 - Float(y) / Float(h - 1); data[i + 2] = 0.25 } }       // bitmap row 0 is the top
         let img = CIImage(bitmapData: data.withUnsafeBufferPointer { Data(buffer: $0) }, bytesPerRow: w * 16, size: CGSize(width: w, height: h), format: .RGBAf, colorSpace: pipe.workingSpace)
-        let dev = LookPipeline.Developed(image: img, asShot: asShot, anchor: .reference)
+        let dev = LookPipeline.Developed(image: img, asShot: asShot, anchor: .reference, linear: false)
         func corners(_ o: CIImage) -> (tl: LookMath.RGB, tr: LookMath.RGB, bl: LookMath.RGB, br: LookMath.RGB) {
             let ew = Int(o.extent.width), eh = Int(o.extent.height)
             return (pipe.pixel(o, x: 0, y: eh - 1), pipe.pixel(o, x: ew - 1, y: eh - 1), pipe.pixel(o, x: 0, y: 0), pipe.pixel(o, x: ew - 1, y: 0))
