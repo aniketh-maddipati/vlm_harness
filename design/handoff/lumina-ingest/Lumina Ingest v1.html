@@ -552,7 +552,6 @@ q.addEventListener('keydown', (e) => {
 $('#clear').onclick = () => { q.value = ''; apply(); };
 
 // ---- Open in Pick: what is shown now becomes one shoot in Pick (the Mac app only) ----------------------
-const host = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lumina;
 const isPhoto = (it) => it.kind !== 'video' && !it.unread;
 function toPick() {
   if (!host || S.reading) return null;
