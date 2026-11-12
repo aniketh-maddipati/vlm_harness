@@ -157,6 +157,12 @@ nonisolated final class IngestLibrary: @unchecked Sendable {
 }
 
 extension IngestCopy {
+    /// Whether `url` is the root of its volume (a whole card chosen, not one of its folders).
+    static func isVolumeRoot(_ url: URL) -> Bool {
+        guard let v = (try? url.resourceValues(forKeys: [.volumeURLKey]))?.volume else { return false }
+        return v.standardizedFileURL.resolvingSymlinksInPath().path == url.standardizedFileURL.resolvingSymlinksInPath().path
+    }
+
     /// Where the page's file is on disk. The page knows a file as its `webkitRelativePath` ("SONY/DCIM/100MSDCF/
     /// DSC01234.ARW": the chosen folder's name first) or, for files chosen on their own, its name. Only inside a
     /// folder or file the owner chose in Ingest's open panel (`roots`); no `..`, no leading `/`.

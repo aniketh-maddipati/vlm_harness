@@ -21,7 +21,8 @@ final class IngestHost {
     private struct Job { var item: IngestCopy.Item; var src: String }
     private var queue: [Job] = []
     private var running = false
-    /// Per source label the page uses: how many were sent, verified, failed; its root and whether it is a card.
+    /// Per source label the page uses: how many were sent, verified, failed; its root and whether it is a whole card
+    /// (a card's root: only then can "safe to format" be said; one folder of a card leaves the rest uncopied).
     private struct Tally { var sent = 0, ok = 0, bad = 0; var root: URL?; var card = false }
     private var tally: [String: Tally] = [:]
 
@@ -63,7 +64,7 @@ final class IngestHost {
                     t.bad += 1; tally[src] = t
                     unresolved.append(["key": key, "src": src, "ok": false, "why": "not found on disk"]); continue
                 }
-                if t.root == nil { t.root = root; t.card = SetsFileOps.isCard(root) }
+                if t.root == nil { t.root = root; t.card = SetsFileOps.isCard(root) && IngestCopy.isVolumeRoot(root) }
                 tally[src] = t
                 queue.append(Job(item: IngestCopy.Item(key: key, source: file, root: root, folder: d["folder"] as? String ?? "No date"), src: src))
                 n += 1
@@ -74,7 +75,7 @@ final class IngestHost {
         case "ingestEject":
             let src = body["src"] as? String ?? ""
             guard let t = tally[src], let root = t.root else { return ["ok": false, "why": "nothing copied from it"] }
-            guard t.card else { return ["ok": false, "why": "not a card"] }
+            guard t.card else { return ["ok": false, "why": "not a whole card"] }
             guard let vol = (try? root.resourceValues(forKeys: [.volumeURLKey]))?.volume else { return ["ok": false, "why": "no volume"] }
             // Every source on that volume: all sent, all verified, none failed, none waiting.
             for (_, o) in tally where o.root.flatMap({ (try? $0.resourceValues(forKeys: [.volumeURLKey]))?.volume?.path }) == vol.path {
