@@ -1867,7 +1867,15 @@ enum SetsWebView {
             throw SetsFileOps.Failure("the offline content rules did not compile")
         }
         ucc.add(list)
-        let wv = WKWebView(frame: frame, configuration: conf)
+        let wv: WKWebView
+        if SetsPage.isIngest, let bridge {
+            // Lumina Ingest: what is dropped is held for its copy, as the open panel's picks are (IngestHost).
+            let dv = IngestDropWebView(frame: frame, configuration: conf)
+            dv.onDrop = { [weak bridge] in bridge?.ingestHost.picked($0) }
+            wv = dv
+        } else {
+            wv = WKWebView(frame: frame, configuration: conf)
+        }
         bridge?.webView = wv
         return (wv, scheme)
     }
