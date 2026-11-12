@@ -98,7 +98,16 @@ final class LookMathTests: XCTestCase {
         XCTAssertTrue(id.isIdentity)
         let c = LookMath.RGB(r: 0.3, g: 0.5, b: 0.2), same = LookMath.profile(c, id, plain)
         XCTAssertEqual(same.r, c.r, accuracy: 1e-9); XCTAssertEqual(same.g, c.g, accuracy: 1e-9); XCTAssertEqual(same.b, c.b, accuracy: 1e-9)
-        XCTAssertNil(LookMath.Profile(rules), "the shipped rules have no profile stage yet")
+        // The shipped rules carry the fitted profile (fit 4, 2026-11-12): grey stays grey and monotone there too.
+        let shipped = try XCTUnwrap(LookMath.Profile(rules), "the shipped rules carry the camera profile")
+        XCTAssertFalse(shipped.isIdentity)
+        last = -1.0
+        for v in ramp {
+            let out = LookMath.profile(.gray(v), shipped, rules)
+            XCTAssertTrue(out.isNeutral(tolerance: 1e-6), "shipped: grey \(v) → \(out)")
+            XCTAssertGreaterThanOrEqual(out.r, last - 1e-9, "shipped: not monotone at \(v)")
+            last = out.r
+        }
     }
 
     func testProfileValidationRefusesABrokenTable() throws {

@@ -130,6 +130,31 @@ The loop is meant to be driven by an agent (or you) reading `report.md` between 
 matching function in `LookMath.swift` and `lookmath.py`) is a code change with the ramp tests as
 the guard.
 
+## The camera profile
+
+The base render is Apple's linear decode (`boostAmount` 0) through the `profile` stage, Lumina's own
+Adobe-DCP-shaped profile (exposure, 3×3 mix, hue/sat/val table in linear ProPhoto HSV, tone curve
+through RGBTone). It is fitted, not derived from Adobe's `.dcp` files (those are measured against,
+never shipped).
+
+1. Linear decodes of the training RAWs: `lumina-render batch` with a rules file whose `rawDevelop`
+   has `boostAmount` 0 and no `profile` stage (the index in `~/LuminaEvidence/profile/index.json`
+   names, per photo, the linear TIFF, Lightroom's base export and the set it belongs to). Render with
+   `lensShading` matching each set's Lightroom export: 1.6 where the export had its lens profile on
+   (the mehendi set), 0 where it did not (Death Valley, portraits, the sweep).
+2. `python3 Tools/parity/profile_fit.py --index … --exclude ~/LuminaEvidence/profile/bad-refs.json
+   --ridge 0.02 --smooth 0.02 --weights dv=1,portraits=4,sweep=2 --out …/candidate.json`: sampled
+   pixels per photo, alternating dense least squares on exposure / mix / curve and a sparse-Jacobian
+   least squares on the table with smoothness and ridge priors, every 5th photo held out. It writes
+   the candidate rules (rawDevelop `boostAmount` 0, `base*` 0, the `profile` stage) and
+   `candidate-numbers.json`.
+3. Measure with `parity_personal.py --rules candidate.json` on the held-out mehendi set and the dev
+   sets (`lensShading` per set as above) and judge by the AGENTS.md "Parity" gate. Adopt by writing
+   the stage into `Lumina/Sets/Look/rules-v1.json`.
+
+Fit 4 (2026-11-12) is what ships; the numbers are in the stage's `fitted` note. A bad label (a base
+export with a custom white balance, a crop) goes into `bad-refs.json`, not into the fit.
+
 ## Files
 
 | File | What |
@@ -137,6 +162,8 @@ the guard.
 | `lumina-render/` | SwiftPM tool around `LookPipeline` (`render`, `batch`, `info`, `ramp`) |
 | `delta_e.py` | ΔE2000 per pair, regions, heatmaps; `--selftest` |
 | `lookmath.py` | numpy mirror of `LookMath.swift`; `--check ramp.json` |
+| `profile_math.py` | numpy mirror of the `profile` stage (`LookMath.profile`, kernel `lookProfile`) |
+| `profile_fit.py` | fit the camera profile: linear decodes → Lightroom base exports (see "The camera profile") |
 | `import_refs.py` | sweep TIFFs → `refs.json` |
 | `parity.py` | the run: looks, renders, measurements, `report.md`, `summary.json` |
 | `fit.py` | fit one stage's coefficients |

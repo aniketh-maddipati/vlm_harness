@@ -61,7 +61,7 @@ def load_pair(ref_path, linear_path, px):
     return delta_e.to_working_linear(ren_s, ren_space or "prophoto"), delta_e.to_lab(ref_s, space)
 
 
-def load_pairs(index, px, per_image, seed, cache_dir):
+def load_pairs(index, px, per_image, seed, cache_dir, weights=None):
     """Sampled pixels per photo: base_lin (n, 3) working-linear, ref_lab (n, 3)."""
     os.makedirs(cache_dir, exist_ok=True)
     rng = np.random.default_rng(seed)
@@ -75,7 +75,7 @@ def load_pairs(index, px, per_image, seed, cache_dir):
             base, lab = load_pair(e["ref"], e["linear"], px)
             np.savez(key, base=base.astype(np.float32), lab=lab.astype(np.float32))
         h, w = lab.shape[:2]
-        n = min(per_image, h * w)
+        n = min(int(per_image * (weights or {}).get(e["set"], 1.0)), h * w)
         idx = rng.choice(h * w, size=n, replace=False)
         out.append({"set": e["set"], "stem": e["stem"], "base": base.reshape(-1, 3)[idx].astype(np.float64),
                     "lab": lab.reshape(-1, 3)[idx].astype(np.float64)})
@@ -202,6 +202,7 @@ def main(argv=None):
     ap.add_argument("--smooth", type=float, default=0.02)
     ap.add_argument("--ridge", type=float, default=0.02, help="pull toward the identity table (0 = none)")
     ap.add_argument("--exclude", help="JSON list of stems to leave out (a label audit's rejects)")
+    ap.add_argument("--weights", help="pixels per image by set, as multipliers of --per-image: dv=1,portraits=4")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--sets", help="comma-separated subset of index sets to fit on (default all)")
     ap.add_argument("--out", default=os.path.expanduser("~/LuminaEvidence/profile/candidate.json"))
@@ -218,7 +219,8 @@ def main(argv=None):
         index = [e for e in index if e["stem"] not in drop]
         print(f"excluded {before - len(index)} of {before} (bad labels)", flush=True)
     t0 = time.time()
-    pairs = load_pairs(index, a.px, a.per_image, a.seed, os.path.join(os.path.dirname(a.out), "pairs"))
+    weights = {k: float(v) for k, v in (w.split("=") for w in a.weights.split(","))} if a.weights else None
+    pairs = load_pairs(index, a.px, a.per_image, a.seed, os.path.join(os.path.dirname(a.out), "pairs"), weights)
     train = [p for i, p in enumerate(pairs) if a.holdout_every <= 0 or i % a.holdout_every != 0]
     held = [p for i, p in enumerate(pairs) if a.holdout_every > 0 and i % a.holdout_every == 0]
     print(f"pairs {len(pairs)} (train {len(train)}, held-out {len(held)}) · {sum(p['base'].shape[0] for p in pairs)} pixels · {time.time() - t0:.1f} s", flush=True)
