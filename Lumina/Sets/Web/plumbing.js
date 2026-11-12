@@ -440,7 +440,7 @@
       const baseP = { lowpv: !!m._lowpv, wbK: m.wbK ?? null, wbTint: m.wbTint ?? null, model: m.model || null, make: m.make || null, fnum: m.fnum || null, w: m.w || null, h: m.h || null, bytes: f.size, lens: m.lens || null, serial: m.serial || null,
         program: m.program ?? null, wb: m.wb ?? null, flash: m.flash ?? null, seqImage: m.seqImage ?? null, seqLength: m.seqLength ?? null, style: m.style || null, releaseMode2: m.releaseMode2 ?? null,
         fileObj: fileRef(rel), xpath, xmp: xo && xo.tx, lrEd: LuminaCore.hasDevelop(xo && xo.tx), name, path: rel, date: m.date || '', exp: m.exp, fl: m.fl, ev: m.ev, iso: m.iso };
-      let me = null, portrait = false, tb = null;
+      let me = null, portrait = false, tb = null, srcPx = null;
       try {
         if (!blob) throw 0;
         const ori = m.orient || 1;
@@ -458,12 +458,16 @@
         portrait = sm.height > sm.width; me = LuminaCore.measure(sm); sm.close();
         // Measures above come from the page's exact 360 px bitmap. The tile shows a sharper picture:
         // the Mac's, else one made in a worker, else the page's own.
-        tb = (nt && await nt) || await gridThumb(blob) || await new Promise(res => me.canvas.toBlob(res, 'image/jpeg', 0.82));
+        // srcPx: the tile width, in device px, the picture covers (SetsIngest.thumbBox, THUMB_W, the page's
+        // 360): a tile shown wider than that takes the embedded preview instead (the page's tile source).
+        tb = nt && await nt; srcPx = 720;
+        if (!tb) { tb = await gridThumb(blob); srcPx = THUMB_W; }
+        if (!tb) { tb = await new Promise(res => me.canvas.toBlob(res, 'image/jpeg', 0.82)); srcPx = 360; }
       } catch (_) { me = null; }
       logic._gold.push({ file: name, size: f.size, parsed: Object.assign(Object.fromEntries(Object.entries(m).filter(([k]) => !/^_/.test(k))), { dhash: me ? me.dhash : null }) });
       if (!me) return Object.assign(baseP, { nopv: true, portrait: false, lum: null, focus: 0, clip: 0, dhash: null, src: '', lg: '' });
       // The large view gets the Mac's upright preview by URL: never held by the page.
-      return Object.assign(baseP, { portrait, dhash: me.dhash, lum: me.lum, focus: me.focus, spot: me.spot, clip: me.clip, src: URL.createObjectURL(tb), lg: pq ? media('preview', pq) : URL.createObjectURL(blob) });
+      return Object.assign(baseP, { portrait, srcPx, dhash: me.dhash, lum: me.lum, focus: me.focus, spot: me.spot, clip: me.clip, src: URL.createObjectURL(tb), lg: pq ? media('preview', pq) : URL.createObjectURL(blob) });
     };
 
     // Grid thumbnails (data, not UI). The page makes them 360 px wide at JPEG 0.82 for its own measure

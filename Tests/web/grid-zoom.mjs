@@ -1,9 +1,10 @@
 // Grid zoom steps: pinching in (⌃-wheel in Chromium) walks the tile sizes up to one photo per row,
 // and one more pinch in opens the photo the grid is on. ⌘= does the same at the last step.
 //   node Tests/web/grid-zoom.mjs
-import { pw, open, LOGIC, deadline } from './lib.mjs';
+import fs from 'fs'; import os from 'os'; import path from 'path';
+import { pw, open, LOGIC, deadline, makeBigJpegs, makeBigShoot, Bridge } from './lib.mjs';
 
-deadline('grid-zoom.mjs', 240);
+deadline('grid-zoom.mjs', 360);
 const fails = [];
 const ok = (c, m, extra) => { console.log((c ? 'ok   ' : 'FAIL ') + m + (extra !== undefined ? '  ' + JSON.stringify(extra) : '')); if (!c) fails.push(m); };
 
@@ -77,6 +78,35 @@ for (const size of [[1440, 900], [1920, 1080], [900, 700]]) {
   await page.evaluate(() => __l().setState({ large: false, zoom: false })); await page.waitForTimeout(100);
   ok(!errors.length, size + ': no page errors', errors);
   await ctx.close();
+}
+// Sharp at every grid step (app mode, Retina): a tile shown wider than its thumbnail covers takes the
+// photo's embedded preview (plumbing's srcPx), so below one per row no tile's picture is magnified.
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lumina-gz-')), dir = path.join(tmp, 'Shoot');
+  makeBigShoot(dir, await makeBigJpegs(browser, 6), 30);
+  for (const size of [[1440, 900], [2560, 1440]]) {
+    const bridge = new Bridge();
+    const { ctx, page, errors } = await open(browser, bridge, { size, scale: 2, prefs: { tsz: 1 } });
+    bridge.pending = dir; await page.evaluate(() => __lumina.openFolder());
+    await page.waitForFunction(() => { const l = __lumina.logic(); return l.real && l.real.length && !l.state.realLoad; }, null, { timeout: 60000 });
+    await page.evaluate(() => __lumina.logic().setView('cull')); await page.waitForTimeout(400);
+    const steps = [];
+    for (let i = 0; i < 30; i++) {
+      const r = await page.evaluate(async () => { const l = __lumina.logic(), L = l.layout();
+        const shown = () => [...document.querySelectorAll('[data-tile] img')].filter(im => { const b = im.getBoundingClientRect(); return b.width > 20 && b.bottom > 0 && b.top < innerHeight; });
+        for (let t = 0; t < 40 && shown().some(im => !im.complete || !im.naturalWidth); t++) await new Promise(r => setTimeout(r, 50));
+        const up = shown().map(im => { const b = im.getBoundingClientRect(); return Math.max(b.width * devicePixelRatio / im.naturalWidth, b.height * devicePixelRatio / im.naturalHeight); });
+        return { tsz: l.state.tsz, TW: L.TW, per: L.per, large: !!l.state.large, up: up.length ? +Math.max(...up).toFixed(2) : null }; });
+      if (r.large) break;
+      if (!steps.length || steps[steps.length - 1].tsz !== r.tsz) steps.push(r);
+      await page.evaluate(() => __lumina.logic().gesture('magnify', { delta: 0.12 })); await page.waitForTimeout(350);
+    }
+    const soft = steps.filter(x => x.per > 1 && !(x.up <= 1.01));
+    ok(steps.length >= 4 && !soft.length, size + ' @2x app: below one per row no tile is magnified', soft.length ? soft : steps.map(x => x.TW + ':' + x.up).join(' '));
+    ok(!errors.length, size + ' @2x app: no page errors', errors);
+    await ctx.close();
+  }
+  fs.rmSync(tmp, { recursive: true, force: true });
 }
 await browser.close();
 console.log(fails.length ? fails.length + ' failed' : 'all ok');
