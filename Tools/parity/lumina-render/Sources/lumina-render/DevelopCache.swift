@@ -25,7 +25,7 @@ struct DevelopCache {
         let attrs = try? FileManager.default.attributesOfItem(atPath: image)
         let size = (attrs?[.size] as? NSNumber)?.int64Value ?? -1
         let mtime = (attrs?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        let raw = (rules.stages["rawDevelop"]?.coefficients ?? [:]).sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+        let raw = (rules.stages["rawDevelop"]?.coefficients ?? [:]).sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",") + "|" + rules.profileSignature
         let text = ["v\(version)", URL(fileURLWithPath: image).standardizedFileURL.path, "\(size)", "\(mtime)", "\(px)", "\(decoder ?? 0)",
                     nr.map { "\($0)" } ?? "-", raw, rules.workingSpace, ProcessInfo.processInfo.operatingSystemVersionString].joined(separator: "|")
         return SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()

@@ -213,7 +213,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         guard var out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite else { throw Failure("couldn't decode \(url.lastPathComponent)") }
         if !spots.isEmpty, turn != .up { out = out.oriented(turn) }
         let asShot = Look.WhiteBalance(kelvin: Double(raw.neutralTemperature), tint: Double(raw.neutralTint))
-        return Developed(image: try baseMatched(Self.atOrigin(out), rules: rules), asShot: asShot, anchor: toneAnchor(raw: url, rules: rules),
+        return Developed(image: try matched(Self.atOrigin(out), rules: rules), asShot: asShot, anchor: toneAnchor(raw: url, rules: rules),
                          style: LookCameraStyle.read(url: url))
     }
 
@@ -232,7 +232,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// canvas, the loupe's tiles and the export all get this one number, whatever their size or
     /// decoder, so Highlights and Shadows render the same in all three.
     static func toneAnchor(raw url: URL, rules: LookRules) -> LookMath.ToneAnchor {
-        let coefficients = (rules.stages["rawDevelop"]?.coefficients ?? [:]).sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+        let coefficients = (rules.stages["rawDevelop"]?.coefficients ?? [:]).sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",") + "|" + rules.profileSignature
         let stamp = (try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])).map { "\($0.contentModificationDate?.timeIntervalSince1970 ?? 0)|\($0.fileSize ?? 0)" } ?? ""
         let key = "raw|\(url.path)|\(stamp)|\(coefficients)|\(rules.workingSpace)"
         if let a = anchorLock.withLock({ anchors[key] }) { return a }
@@ -242,7 +242,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         raw.boostAmount = Float(rules.k("rawDevelop", "boostAmount", 1))
         let shading = rules.k("rawDevelop", "lensShading", 0)
         if shading > 0, let s = LookLensShading.read(url: url), s.corrects { raw.linearSpaceFilter = LookShadingFilter(shading: s, amount: shading) }
-        guard let out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite, let img = try? baseMatched(atOrigin(out), rules: rules) else { return .reference }
+        guard let out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite, let img = try? matched(atOrigin(out), rules: rules) else { return .reference }
         return toneAnchor(of: img, key: key, workingSpace: rules.workingSpace, luma: rules.luma)
     }
 
@@ -265,8 +265,58 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         return a
     }
 
-    /// The decoder's rendering brought to Lightroom's default (`LookMath.baseMatch`), as the last
-    /// step of rawDevelop: every base, tile and export starts from the same matched picture.
+    /// The decoder's rendering brought to Lightroom's default, as the last step of rawDevelop:
+    /// every base, tile and export starts from the same matched picture. The camera profile
+    /// (`LookMath.Profile`, `lookProfile`) when the rules carry one, else the base match.
+    static func matched(_ img: CIImage, rules: LookRules) throws -> CIImage {
+        if let p = LookMath.Profile(rules) { return try profiled(img, p, rules: rules) }
+        return try baseMatched(img, rules: rules)
+    }
+
+    nonisolated(unsafe) private static var profileImages: [String: (hsm: CIImage, curve: CIImage)] = [:]
+    private static let profileLock = NSLock()
+
+    /// The profile's tables as images the `lookProfile` kernel reads, built once per rules: the
+    /// hue/sat table hue px wide and sat × val px high (kernel row y = v × sat + s; bitmap rows run
+    /// top-down, so they are written in reverse), rgb = (hueShift, satScale, valScale); the curve
+    /// nodes × 1 px in r.
+    static func profileTables(_ p: LookMath.Profile, rules: LookRules) -> (hsm: CIImage, curve: CIImage) {
+        let key = rules.profileSignature
+        if let t = profileLock.withLock({ profileImages[key] }) { return t }
+        let w = p.hue, h = p.sat * p.val
+        var px = [Float](repeating: 0, count: w * h * 4)
+        for v in 0..<p.val {
+            for s in 0..<p.sat {
+                let y = v * p.sat + s, row = h - 1 - y
+                for x in 0..<p.hue {
+                    let i = ((v * p.hue + x) * p.sat + s) * 3, o = (row * w + x) * 4
+                    px[o] = Float(p.hsm[i]); px[o + 1] = Float(p.hsm[i + 1]); px[o + 2] = Float(p.hsm[i + 2]); px[o + 3] = 1
+                }
+            }
+        }
+        let hsm = CIImage(bitmapData: px.withUnsafeBufferPointer { Data(buffer: $0) }, bytesPerRow: 16 * w, size: CGSize(width: w, height: h), format: .RGBAf, colorSpace: nil)
+        var cv = [Float](repeating: 1, count: p.nodes * 4)
+        for i in 0..<p.nodes { cv[4 * i] = Float(p.curve[i]); cv[4 * i + 1] = Float(p.curve[i]); cv[4 * i + 2] = Float(p.curve[i]) }
+        let curve = CIImage(bitmapData: cv.withUnsafeBufferPointer { Data(buffer: $0) }, bytesPerRow: 16 * p.nodes, size: CGSize(width: p.nodes, height: 1), format: .RGBAf, colorSpace: nil)
+        let t = (hsm: hsm, curve: curve)
+        profileLock.withLock { if profileImages.count > 8 { profileImages.removeAll() }; profileImages[key] = t }
+        return t
+    }
+
+    /// The camera profile on `img` (`LookMath.profile`): one `lookProfile` pass with the tables.
+    static func profiled(_ img: CIImage, _ p: LookMath.Profile, rules: LookRules) throws -> CIImage {
+        guard !p.isIdentity else { return img }
+        let t = profileTables(p, rules: rules), w = p.rows
+        let args: [Any] = [img, t.hsm, t.curve,
+                           CIVector(x: w[0][0], y: w[0][1], z: w[0][2], w: 0), CIVector(x: w[1][0], y: w[1][1], z: w[1][2], w: 0), CIVector(x: w[2][0], y: w[2][1], z: w[2][2], w: 0),
+                           CIVector(x: exp2(p.exposure), y: 1 / rules.perceptualGamma, z: rules.perceptualGamma, w: Double(p.nodes - 1)),
+                           CIVector(x: Double(p.hue), y: Double(p.sat), z: Double(p.val), w: 0)]
+        guard let out = try LookKernels.shared().apply("lookProfile", extent: img.extent, tables: [t.hsm, t.curve], args) else { throw Failure("profile failed") }
+        return out
+    }
+
+    /// The base match (`LookMath.baseMatch`): rawDevelop's own 3×3 and midtone curve, what the
+    /// rules without a profile use.
     static func baseMatched(_ img: CIImage, rules: LookRules) throws -> CIImage {
         let m = LookMath.BaseMatch(rules)
         guard !m.isIdentity else { return img }
