@@ -64,6 +64,86 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(m, s.a);
     }
 
+    // profile: the camera profile (LookMath.profile). hsm = the hue/sat table as an image hue px wide,
+    // sat × val px high (row = v * sat + s), rgb = (hueShift degrees, satScale, valScale); curve = nodes × 1 px,
+    // r = the curve; read at texel centres and mixed here. r0..r2 = the mix's rows; k = (2^exposure, invGamma,
+    // gamma, nodes − 1); d = (hue, sat, val, 0).
+    [[ stitchable ]] float4 lookProfile(coreimage::sampler src, coreimage::sampler hsm, coreimage::sampler curve,
+                                        float4 r0, float4 r1, float4 r2, float4 k, float4 d) {
+        float4 s0 = src.sample(src.coord());
+        float3 t = s0.rgb * k.x;
+        float3 x = float3(dot(t, r0.rgb), dot(t, r1.rgb), dot(t, r2.rgb));
+        const float3x3 toPP = float3x3(float3(0.5293458759317613f, 0.0983743638449671f, 0.01688317839798025f),
+                                       float3(0.330072797941936f, 0.8734610679819278f, 0.1176724654297775f),
+                                       float3(0.14058131638228086f, 0.0281646251213536f, 0.8654443236645497f));
+        const float3x3 toSRGB = float3x3(float3(2.0340761471876716f, -0.2288133847303624f, -0.008569742917820058f),
+                                         float3(-0.7273342302651498f, 1.2317301146832054f, -0.15328658603088974f),
+                                         float3(-0.30674186565349915f, -0.0029168024220968514f, 1.1618563753638784f));
+        float3 pp = max(toPP * x, float3(0.0f));
+        float v = max(pp.r, max(pp.g, pp.b));
+        float mn = min(pp.r, min(pp.g, pp.b));
+        float dd = v - mn;
+        float sat = v > 0.0f ? dd / max(v, 1e-12f) : 0.0f;
+        float h = 0.0f;
+        if (dd > 0.0f) {
+            if (v == pp.r) h = (pp.g - pp.b) / dd;
+            else if (v == pp.g) h = 2.0f + (pp.b - pp.r) / dd;
+            else h = 4.0f + (pp.r - pp.g) / dd;
+            if (h < 0.0f) h += 6.0f;
+        }
+        // the table: trilinear, hue wrapping, sat and value clamped
+        float nh = d.x, ns = d.y, nv = d.z;
+        float hf = (h - 6.0f * floor(h / 6.0f)) * nh / 6.0f;
+        float h0 = floor(hf);
+        float hw = hf - h0;
+        h0 = fmod(h0 + nh, nh);
+        float h1 = fmod(h0 + 1.0f, nh);
+        float s0i = 0.0f, s1i = 0.0f, sw = 0.0f;
+        if (ns > 1.0f) {
+            float sf = clamp(sat, 0.0f, 1.0f) * (ns - 1.0f);
+            s0i = min(floor(sf), ns - 2.0f); sw = sf - s0i; s1i = min(s0i + 1.0f, ns - 1.0f);
+        }
+        float vEnc = pow(clamp(v, 0.0f, 1.0f), k.y);
+        float v0i = 0.0f, v1i = 0.0f, vw = 0.0f;
+        if (nv > 1.0f) {
+            float vf = clamp(vEnc, 0.0f, 1.0f) * (nv - 1.0f);
+            v0i = min(floor(vf), nv - 2.0f); vw = vf - v0i; v1i = v0i + 1.0f;
+        }
+        float3 c00 = mix(hsm.sample(hsm.transform(float2(h0 + 0.5f, v0i * ns + s0i + 0.5f))).rgb, hsm.sample(hsm.transform(float2(h1 + 0.5f, v0i * ns + s0i + 0.5f))).rgb, hw);
+        float3 c01 = mix(hsm.sample(hsm.transform(float2(h0 + 0.5f, v0i * ns + s1i + 0.5f))).rgb, hsm.sample(hsm.transform(float2(h1 + 0.5f, v0i * ns + s1i + 0.5f))).rgb, hw);
+        float3 e = mix(c00, c01, sw);
+        if (nv > 1.0f) {
+            float3 c10 = mix(hsm.sample(hsm.transform(float2(h0 + 0.5f, v1i * ns + s0i + 0.5f))).rgb, hsm.sample(hsm.transform(float2(h1 + 0.5f, v1i * ns + s0i + 0.5f))).rgb, hw);
+            float3 c11 = mix(hsm.sample(hsm.transform(float2(h0 + 0.5f, v1i * ns + s1i + 0.5f))).rgb, hsm.sample(hsm.transform(float2(h1 + 0.5f, v1i * ns + s1i + 0.5f))).rgb, hw);
+            e = mix(e, mix(c10, c11, sw), vw);
+        }
+        float h2 = h + e.r * (6.0f / 360.0f);
+        float s2 = min(sat * e.g, 1.0f);
+        float v2 = v * e.b;
+        float hh = h2 - 6.0f * floor(h2 / 6.0f);
+        if (hh < 0.0f) hh += 6.0f;
+        float fi = floor(hh);
+        float f = hh - fi;
+        int i = int(fi) % 6;
+        float pq = v2 * (1.0f - s2), q = v2 * (1.0f - s2 * f), tt = v2 * (1.0f - s2 * (1.0f - f));
+        float3 o;
+        if (i == 0) o = float3(v2, tt, pq); else if (i == 1) o = float3(q, v2, pq); else if (i == 2) o = float3(pq, v2, tt);
+        else if (i == 3) o = float3(pq, q, v2); else if (i == 4) o = float3(tt, pq, v2); else o = float3(v2, pq, q);
+        x = toSRGB * o;
+        // the tone curve, RGBTone, in perceptual space (signed)
+        float3 per = sign(x) * pow(abs(x), float3(k.y));
+        float mx = max(per.r, max(per.g, per.b));
+        float lo = min(per.r, min(per.g, per.b));
+        float span = mx - lo;
+        float n1 = k.w;
+        float xm = clamp(mx, 0.0f, 1.0f) * n1, xl = clamp(lo, 0.0f, 1.0f) * n1;
+        float im = min(floor(xm), n1 - 1.0f), il = min(floor(xl), n1 - 1.0f);
+        float tmx = mix(curve.sample(curve.transform(float2(im + 0.5f, 0.5f))).r, curve.sample(curve.transform(float2(im + 1.5f, 0.5f))).r, xm - im) + max(0.0f, mx - 1.0f) + min(0.0f, mx);
+        float tlo = mix(curve.sample(curve.transform(float2(il + 0.5f, 0.5f))).r, curve.sample(curve.transform(float2(il + 1.5f, 0.5f))).r, xl - il) + max(0.0f, lo - 1.0f) + min(0.0f, lo);
+        float3 out = span > 1e-9f ? tlo + (tmx - tlo) * ((per - lo) / span) : float3(tmx);
+        return float4(sign(out) * pow(abs(out), float3(k.z)), s0.a);
+    }
+
     // exposure: a scene gain seen through a sigmoid tone curve (LookMath.exposure). k = (gain G, white w)
     [[ stitchable ]] float4 lookExposure(coreimage::sample_t s, float2 k) {
         return float4(lk_exposure(s.r, k.x, k.y), lk_exposure(s.g, k.x, k.y), lk_exposure(s.b, k.x, k.y), s.a);
@@ -332,7 +412,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     /// The stage kernels, compiled when the pipeline is made. `lookDisplay` (the sigmoid mapper) is
     /// not one of them: it compiles on first use, so with the default mapper nothing new is built.
     static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen",
-                             "lookVignette", "lookCurve", "lookMixer"]
+                             "lookVignette", "lookCurve", "lookMixer", "lookProfile"]
 
     private let header: String
     /// The helpers a `moreSource` kernel compiles with: `header` plus that source's own.
@@ -426,5 +506,12 @@ nonisolated final class LookKernels: @unchecked Sendable {
     func apply(_ name: String, extent: CGRect, table: CIImage, _ args: [Any]) -> CIImage? {
         let whole = table.extent
         return (try? kernel(name))?.apply(extent: extent, roiCallback: { index, r in index == 1 ? whole : r }, arguments: args)
+    }
+
+    /// The same with several tables (`lookProfile`: the hue/sat table, then the curve), in the
+    /// order they follow the picture in the argument list.
+    func apply(_ name: String, extent: CGRect, tables: [CIImage], _ args: [Any]) -> CIImage? {
+        let wholes = tables.map(\.extent)
+        return (try? kernel(name))?.apply(extent: extent, roiCallback: { index, r in index >= 1 && Int(index) <= wholes.count ? wholes[Int(index) - 1] : r }, arguments: args)
     }
 }

@@ -156,6 +156,24 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertTrue(try LookPipeline.baseMatched(img, rules: off) === img, "zero coefficients: the image itself, no pass")
     }
 
+    /// The profile through the real graph (`lookProfile`, two table images) equals `LookMath.profile`
+    /// on the fixture's colours, a value axis of 2 included (the table rows' orientation), and an
+    /// identity profile is no pass at all.
+    func testProfileKernelEqualsLookMath() throws {
+        let r = LookMathTests.rulesWithProfile(rules)
+        let p = try XCTUnwrap(LookMath.Profile(r))
+        for i in LookMathTests.profileFixture.input {
+            let c = LookMath.RGB(r: i[0], g: i[1], b: i[2])
+            let got = pipe.pixel(try LookPipeline.matched(pipe.flat(c, size: 16).image, rules: r), x: 8, y: 8)
+            let want = LookMath.profile(c, p, r)
+            for (g, w) in [(got.r, want.r), (got.g, want.g), (got.b, want.b)] { XCTAssertEqual(g, w, accuracy: max(0.004, 0.012 * abs(w)), "\(c): \(got) vs \(want)") }
+        }
+        var plain = rules!
+        plain.stages["profile"] = LookRules.Stage()
+        let img = pipe.flat(.gray(0.4), size: 16).image
+        XCTAssertTrue(try LookPipeline.matched(img, rules: plain) === img, "an identity profile: the image itself, no pass")
+    }
+
     func testFlatPatchesMatchLookMath() {
         let colours: [LookMath.RGB] = [.gray(0.02), .gray(0.18), .gray(0.5), .gray(0.9), .gray(1.1),
                                        LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.2, g: 0.5, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6),
