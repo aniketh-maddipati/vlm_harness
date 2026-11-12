@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lumina Ingest</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="lumina-core-v4.js"></script>
+<style>
+:root{--bg:#fafaf9;--ink:#1c1c1c;--mute:#6b6b66;--faint:#a3a39d;--tile:#e6e6e2;--card:#fff;--line:#e4e4e0;--shadow:0 2px 16px rgba(0,0,0,.08);--spring:cubic-bezier(.2,.9,.25,1.12)}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--ink:#ececea;--mute:#9a9a94;--faint:#6b6b66;--tile:#262624;--card:#1f1f1e;--line:#2e2e2c;--shadow:0 2px 20px rgba(0,0,0,.5)}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.4 Inter,-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+#bar{position:fixed;left:0;top:0;height:2px;width:0;background:var(--ink);transition:width .25s ease,opacity .6s ease;z-index:9}
+header{position:fixed;left:0;right:0;top:0;display:flex;align-items:baseline;gap:14px;padding:22px 32px 14px;background:linear-gradient(var(--bg) 70%,transparent);z-index:5}
+.mark{font-weight:600;font-size:15px}
+#trip{font-weight:600;font-size:15px;outline:none;border-radius:4px;padding:0 2px}
+#trip:focus{background:var(--card);box-shadow:var(--shadow)}
+#chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 6px 0 11px;border-radius:13px;background:var(--card);box-shadow:0 1px 6px rgba(0,0,0,.07);font-size:13px;animation:pop .35s var(--spring)}
+.chip.unknown{color:var(--faint);font-style:italic}
+.chip.not{text-decoration:line-through}
+.chip b{font-weight:500}
+.chip .x{width:18px;height:18px;border-radius:9px;color:var(--mute);font-size:13px;line-height:18px;text-align:center}
+.chip .x:hover{background:var(--tile)}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+#scroll{position:absolute;inset:0;overflow-y:auto;padding:64px 32px 150px}
+#empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s ease,transform .5s var(--spring)}
+#empty h1{margin:0;font-size:44px;font-weight:600;letter-spacing:-.02em}
+#empty p{margin:0;color:var(--mute);font-size:16px}
+#empty .key{margin-top:10px;color:var(--faint);font-size:13px}
+kbd{font:12px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-radius:4px;padding:1px 5px;background:var(--card)}
+body.has #empty{opacity:0;transform:scale(.96);pointer-events:none}
+.group{margin:0 0 26px}
+.group h2{margin:0 0 10px;font-size:13px;font-weight:600;display:flex;gap:10px;align-items:baseline}
+.group h2 span{color:var(--mute);font-weight:400}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tw,150px),1fr));gap:6px}
+.t{position:relative;aspect-ratio:3/2;border-radius:4px;background:var(--tile);overflow:hidden;will-change:transform}
+.t img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .35s ease}
+.t img.in{opacity:1}
+.t.unread{background:repeating-linear-gradient(135deg,var(--tile) 0 8px,transparent 8px 16px)}
+.t .b{position:absolute;left:6px;bottom:5px;font-size:11px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);opacity:.95}
+.t .r{position:absolute;right:6px;top:5px;font-size:11px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.t.here::after{content:"";position:absolute;inset:0;border-radius:4px;box-shadow:inset 0 0 0 2px var(--ink);opacity:.55}
+.t.enter{animation:tin .45s var(--spring)}
+@keyframes tin{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+#foot{position:fixed;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 32px 26px;pointer-events:none;z-index:6}
+#foot>*{pointer-events:auto}
+#line{display:flex;gap:4px;align-items:baseline;flex-wrap:wrap;justify-content:center;font-size:13px;color:var(--mute);background:var(--bg);padding:6px 12px;border-radius:14px;transition:opacity .3s}
+body:not(.has) #line{opacity:0;pointer-events:none}
+#line .n{color:var(--ink);font-weight:500;border-radius:4px;padding:0 2px}
+#line button.n:hover{background:var(--tile)}
+#line .dot{color:var(--faint)}
+#details{width:min(720px,100%);background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px 20px;display:grid;grid-template-columns:110px 1fr;gap:8px 16px;font-size:13px;transform-origin:bottom center;transition:transform .45s var(--spring),opacity .25s}
+#details.off{transform:translateY(12px) scale(.96);opacity:0;pointer-events:none;position:absolute}
+#details dt{color:var(--mute)}
+#details dd{margin:0;display:flex;flex-wrap:wrap;gap:4px 10px}
+#details dd button{color:var(--ink);border-bottom:1px solid var(--line)}
+#ask{width:min(640px,100%);height:56px;border-radius:28px;background:var(--card);box-shadow:var(--shadow);display:flex;align-items:center;padding:0 22px;gap:10px;transition:transform .45s var(--spring),opacity .25s}
+#ask.off{transform:translateY(90px);opacity:0;pointer-events:none}
+#ask input{flex:1;height:40px;border:0;outline:0;background:transparent;color:var(--ink);font-size:16px}
+#ask input::placeholder{color:var(--faint)}
+#ask .hint{color:var(--faint);font-size:12px;white-space:nowrap}
+#drop{position:fixed;inset:10px;border-radius:18px;border:2px dashed var(--faint);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--mute);background:color-mix(in srgb,var(--bg) 70%,transparent);opacity:0;pointer-events:none;transition:opacity .15s;z-index:20}
+body.dragging #drop{opacity:1}
+#toast{position:fixed;top:56px;left:50%;transform:translate(-50%,-8px);background:var(--card);box-shadow:var(--shadow);border-radius:12px;padding:8px 14px;font-size:13px;opacity:0;transition:opacity .2s,transform .35s var(--spring);z-index:30;pointer-events:none}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<header>
+  <span class="mark">Lumina</span>
+  <span id="trip" spellcheck="false"></span>
+  <span id="chips"></span>
+</header>
+<div id="scroll"><div id="groups"></div></div>
+<div id="empty">
+  <h1>Drop anything.</h1>
+  <p>Cards, folders, drives, a phone export. Lumina works out the rest.</p>
+  <div class="key"><kbd>O</kbd> choose a folder · <kbd>/</kbd> ask</div>
+</div>
+<div id="foot">
+  <dl id="details" class="off"></dl>
+  <div id="line"></div>
+  <div id="ask" class="off"><input id="q" placeholder="clips from day 2 · already here · a7m3 · by camera" autocomplete="off" spellcheck="false"><span class="hint">⏎ keep · esc undo</span></div>
+</div>
+<div id="drop">Drop to add</div>
+<div id="toast"></div>
+<input id="pick" type="file" webkitdirectory multiple hidden>
+<script>
+'use strict';
+const C = window.LuminaCore;
+const $ = (s) => document.querySelector(s);
+const fmt = (n) => n.toLocaleString('en-US');
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// ---- what a file is -------------------------------------------------------------------------
+const EXT = {
+  raw: ['arw','dng','cr2','cr3','nef','raf','orf','rw2','srw','pef'],
+  jpeg: ['jpg','jpeg'], heic: ['heic','heif','hif'], png: ['png'],
+  video: ['mp4','mov','m4v','mts','avi'],
+  side: ['xmp','xml','thm','bim','cpi','mpl','bdm','smi','lrv','aae','srt']
+};
+const kindOf = (name) => { const e = (name.split('.').pop() || '').toLowerCase(); for (const k in EXT) if (EXT[k].includes(e)) return k; return null; };
+const stem = (p) => p.replace(/\.[^./]+$/, '').toLowerCase();
+const junk = (name) => name.startsWith('.') || name === 'Thumbs.db' || name === 'desktop.ini';
+
+// ---- state ---------------------------------------------------------------------------------
+const LIB_KEY = 'lumina.ingest.library';
+let library = new Set();
+try { library = new Set(JSON.parse(localStorage.getItem(LIB_KEY) || '[]')); } catch (_) {}
+const S = {
+  items: new Map(),     // key -> item (one per photo or clip)
+  sources: new Map(),   // label -> {label, files}
+  total: 0, done: 0, t0: 0, reading: false,
+  junk: 0, side: 0, other: 0, paired: 0, proxies: 0,
+  chips: [], group: 'day', tw: 150, tripName: null
+};
+let saved = null; // chips before an ask, for Esc
+
+// ---- walking a drop --------------------------------------------------------------------------
+function readAll(reader) { return new Promise((res) => { const out = []; const more = () => reader.readEntries((b) => { if (!b.length) return res(out); out.push(...b); more(); }, () => res(out)); more(); }); }
+async function walk(entry, path, files) {
+  if (junk(entry.name)) { if (entry.isFile) S.junk++; return; }
+  if (entry.isFile) { const f = await new Promise((r) => entry.file(r, () => r(null))); if (f) files.push({ f, path: path + entry.name }); return; }
+  if (entry.isDirectory) for (const e of await readAll(entry.createReader())) await walk(e, path + entry.name + '/', files);
+}
+async function fromDrop(dt) {
+  const roots = [];
+  for (const it of dt.items) { const e = it.webkitGetAsEntry && it.webkitGetAsEntry(); if (e) roots.push(e); }
+  const groups = [];
+  for (const e of roots) { const files = []; await walk(e, '', files); groups.push({ label: e.isDirectory ? e.name : 'Loose files', files }); }
+  return groups;
+}
+function fromPick(list) {
+  const by = new Map();
+  for (const f of list) {
+    const p = f.webkitRelativePath || f.name, top = p.includes('/') ? p.split('/')[0] : 'Loose files';
+    if (p.split('/').some(junk)) { S.junk++; continue; }
+    if (!by.has(top)) by.set(top, []);
+    by.get(top).push({ f, path: p });
+  }
+  return [...by].map(([label, files]) => ({ label, files }));
+}
+
+// ---- sorting files into items ----------------------------------------------------------------
+function plan(groups) {
+  const jobs = [];
+  for (const g of groups) {
+    let label = g.label, n = 2; while (S.sources.has(label)) label = g.label + ' ' + n++;
+    const src = { label, files: 0 }; S.sources.set(label, src);
+    const byStem = new Map();
+    for (const { f, path } of g.files) {
+      const k = kindOf(f.name);
+      if (!k) { S.other++; continue; }
+      if (k === 'side') { S.side++; continue; }
+      // Sony proxies (C0001S03.MP4 in SUB/) go with their clip and never show as tiles.
+      if (k === 'video' && (/\/SUB\//i.test('/' + path) || /^C\d{4}S\d{2}\.MP4$/i.test(f.name))) { S.proxies++; continue; }
+      const st = stem(path);
+      const prev = byStem.get(st);
+      if (prev && ((prev.kind === 'raw' && k === 'jpeg') || (prev.kind === 'jpeg' && k === 'raw'))) {
+        S.paired++;
+        if (k === 'raw') { prev.jpegFile = prev.f; prev.f = f; prev.kind = 'raw'; prev.path = path; } else prev.jpegFile = f;
+        continue;
+      }
+      const job = { f, path, kind: k, src: label };
+      byStem.set(st, job); jobs.push(job); src.files++;
+    }
+  }
+  return jobs;
+}
+
+// ---- reading one item: identity, date, body, thumbnail -----------------------------------------
+const parseDate = (s) => { const m = /^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/.exec(s || ''); return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() : null; };
+async function thumbFrom(blob, orient) {
+  const b0 = await createImageBitmap(blob, { imageOrientation: 'none' });
+  const sw = orient === 6 || orient === 8, w = sw ? b0.height : b0.width, h = sw ? b0.width : b0.height;
+  const k = Math.min(1, 480 / Math.max(w, h)), c = document.createElement('canvas');
+  c.width = Math.round(w * k); c.height = Math.round(h * k);
+  const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2);
+  if (orient === 6) x.rotate(Math.PI / 2); else if (orient === 8) x.rotate(-Math.PI / 2); else if (orient === 3) x.rotate(Math.PI);
+  const dw = sw ? c.height : c.width, dh = sw ? c.width : c.height;
+  x.drawImage(b0, -dw / 2, -dh / 2, dw, dh); b0.close();
+  const out = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.82));
+  return { url: URL.createObjectURL(out), portrait: c.height > c.width };
+}
+function videoThumb(f) {
+  return new Promise((res) => {
+    const v = document.createElement('video'), url = URL.createObjectURL(f); let done = false;
+    const end = (r) => { if (done) return; done = true; v.removeAttribute('src'); v.load(); URL.revokeObjectURL(url); res(r); };
+    v.muted = true; v.preload = 'metadata'; v.src = url;
+    v.onloadedmetadata = () => { v.currentTime = Math.min(1, (v.duration || 2) / 3); };
+    v.onseeked = () => { try { const k = 480 / Math.max(v.videoWidth, v.videoHeight), c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); c.toBlob((b) => end(b ? { url: URL.createObjectURL(b), dur: v.duration } : { dur: v.duration }), 'image/jpeg', 0.8); } catch (_) { end({ dur: v.duration }); } };
+    v.onerror = () => end(null);
+    setTimeout(() => end(null), 6000);
+  });
+}
+async function readOne(job) {
+  const { f } = job;
+  const head = new Uint8Array(await f.slice(0, Math.min(262144, f.size)).arrayBuffer());
+  // identity = size + the first and last 64 KB: the same file on a card and a T7 copy, never two photos that share a head
+  const tail = f.size > 131072 ? new Uint8Array(await f.slice(f.size - 65536).arrayBuffer()) : new Uint8Array(0);
+  const key = f.size.toString(36) + '-' + C.crc32(head.subarray(0, 65536)).toString(36) + '-' + C.crc32(tail).toString(36);
+  const it = { key, name: f.name, path: job.path, kind: job.kind, src: job.src, size: f.size, date: null, body: null, serial: null, thumb: null, unread: false, copies: [], pair: !!job.jpegFile };
+  try {
+    if (job.kind === 'raw' || job.kind === 'jpeg') {
+      const m = job.kind === 'jpeg' ? (() => { const t = C.jpegTiff(head); return t ? C.parseHead(t, f.size) : null; })() : C.parseHead(head, f.size);
+      if (!m && job.kind === 'raw') throw new Error('unreadable');
+      if (m) { it.date = parseDate(m.date); const ph = C.phoneOf(m); it.body = ph ? ph.short : (m.model || null); it.serial = m.serial || null; }
+      let blob = null;
+      if (job.kind === 'jpeg') blob = f;
+      else for (const [po, pl] of (m.previews && m.previews.length ? m.previews : m.preview ? [m.preview] : [])) {
+        if (po + pl > f.size) continue;
+        const pb = new Uint8Array(po + pl <= head.length ? head.slice(po, po + pl) : await f.slice(po, po + pl).arrayBuffer());
+        if (pb[0] === 0xFF && pb[1] === 0xD8) { blob = new Blob([pb], { type: 'image/jpeg' }); break; }
+      }
+      if (!blob && m && (m.pvParts || m.pvRGB)) try { const ap = await C.assemblePreview(f, m); if (ap && ap.blob) blob = ap.blob; } catch (_) {}
+      if (!blob && job.jpegFile) blob = job.jpegFile;
+      if (blob) { const t = await thumbFrom(blob, (m && m.orient) || 1); it.thumb = t.url; it.portrait = t.portrait; }
+      else if (job.kind === 'raw') throw new Error('no preview');
+    } else if (job.kind === 'heic' || job.kind === 'png') {
+      try { const t = await thumbFrom(f, 1); it.thumb = t.url; } catch (_) { it.thumb = URL.createObjectURL(f); }
+    } else if (job.kind === 'video') {
+      const t = await videoThumb(f);
+      if (t) { it.thumb = t.url || null; it.dur = t.dur; } else it.unread = true;
+    }
+  } catch (_) { it.unread = true; }
+  // a clip or phone file without EXIF dates from its file time; a broken file stays undated ("No date")
+  if (!it.date && !it.unread && job.kind !== 'raw' && job.kind !== 'jpeg') it.date = f.lastModified || null;
+  return it;
+}
+
+// ---- the queue -------------------------------------------------------------------------------
+let pending = [];
+async function ingest(groups) {
+  const before = new Set(library);
+  const jobs = plan(groups);
+  if (!jobs.length && !S.items.size) { toast('Nothing to read there'); }
+  S.total += jobs.length; S.reading = true; if (!S.t0) S.t0 = performance.now();
+  document.body.classList.add('has');
+  pending = pending.concat(jobs);
+  const worker = async () => {
+    while (pending.length) {
+      const job = pending.shift();
+      const it = await readOne(job);
+      const known = S.items.get(it.key);
+      if (known) { known.copies.push(it.src); if (!known.unread) known.state = 'here'; known.v = (known.v || 0) + 1; }
+      else { it.state = it.unread ? 'unread' : before.has(it.key) ? 'here' : 'new'; it.fresh = true; S.items.set(it.key, it); }
+      S.done++; dirty();
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+  if (!pending.length && S.done >= S.total) {
+    S.reading = false;
+    for (const it of S.items.values()) if (!it.unread) library.add(it.key);
+    try { localStorage.setItem(LIB_KEY, JSON.stringify([...library])); } catch (_) {}
+    dirty(true);
+  }
+}
+
+// ---- sets: chips --------------------------------------------------------------------------------
+const day0 = () => { let m = Infinity; for (const it of S.items.values()) if (it.date && it.date < m) m = it.date; if (m === Infinity) return null; const d = new Date(m); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const dayOf = (it, z) => it.date && z != null ? Math.floor((new Date(it.date).setHours(0, 0, 0, 0) - z) / 864e5) + 1 : 0;
+const bodies = () => [...new Set([...S.items.values()].map((i) => i.body).filter(Boolean))];
+const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const CHIP = {
+  kind: { show: (v) => ({ photo: 'photos', video: 'clips', raw: 'RAW', jpeg: 'JPEG', phone: 'phone' })[v], test: (it, v) => v === 'photo' ? it.kind !== 'video' : v === 'phone' ? /iphone|pixel|galaxy|phone/i.test(it.body || '') : it.kind === v },
+  state: { show: (v) => ({ new: 'new', here: 'already here', unread: 'unreadable' })[v], test: (it, v) => it.state === v },
+  day: { show: (v) => 'day ' + v, test: (it, v, z) => dayOf(it, z) === v },
+  body: { show: (v) => v, test: (it, v) => it.body === v },
+  src: { show: (v) => v, test: (it, v) => it.src === v || it.copies.includes(v) },
+  part: { show: (v) => v, test: (it, v) => { if (!it.date) return false; const h = new Date(it.date).getHours(); return v === 'morning' ? h >= 5 && h < 11 : v === 'midday' ? h >= 11 && h < 15 : v === 'afternoon' ? h >= 15 && h < 18 : v === 'evening' ? h >= 18 && h < 21 : h >= 21 || h < 5; } },
+  unknown: { show: (v) => v + '?', test: () => true }
+};
+const chipText = (c) => CHIP[c.t].show(c.v);
+function matches(it, chips, z) {
+  // chips of one type are "or"; different types are "and"; a "not" chip removes
+  const by = {};
+  for (const c of chips) if (c.t !== 'unknown') (by[c.t + (c.not ? '!' : '')] ||= []).push(c);
+  for (const k in by) {
+    const not = k.endsWith('!'), any = by[k].some((c) => CHIP[c.t].test(it, c.v, z));
+    if (not ? any : !any) return false;
+  }
+  return true;
+}
+function toggle(chip) {
+  const i = S.chips.findIndex((c) => c.t === chip.t && c.v === chip.v);
+  if (i >= 0) S.chips.splice(i, 1); else S.chips.push(chip);
+  render(true);
+}
+
+// ---- the ask bar: words -> chips (rules, no model) ---------------------------------------------
+function parse(text) {
+  const chips = []; let group = null;
+  let s = ' ' + text.toLowerCase().replace(/[,;]+/g, ' ') + ' ';
+  const take = (re, fn) => { s = s.replace(re, (...a) => { fn(...a); return ' '; }); };
+  take(/\b(?:split |group |sort )?by (day|camera|body|source|card|nothing)\b/g, (_, w) => { group = { day: 'day', camera: 'body', body: 'body', source: 'src', card: 'src', nothing: 'none' }[w]; });
+  take(/\b(?:one grid|flat)\b/g, () => { group = 'none'; });
+  const words = s.trim().split(/\s+/).filter(Boolean);
+  const stop = new Set(['show','me','only','the','from','on','of','and','or','all','with','in','just','files','that','are','were','is','what','which','everything']);
+  const B = bodies(), SRC = [...S.sources.keys()];
+  for (let i = 0; i < words.length; i++) {
+    let w = words[i], not = false;
+    if (/^(not|no|without|hide|except|minus)$/.test(w) && i + 1 < words.length) { not = true; w = words[++i]; }
+    const push = (t, v) => chips.push({ t, v, not });
+    if (stop.has(w)) continue;
+    if (/^(photos?|stills?|pictures?)$/.test(w)) push('kind', 'photo');
+    else if (/^(clips?|videos?|video|footage)$/.test(w)) push('kind', 'video');
+    else if (w === 'raw' || w === 'raws') push('kind', 'raw');
+    else if (/^(jpe?gs?)$/.test(w)) push('kind', 'jpeg');
+    else if (/^(phone|iphone)$/.test(w)) push('kind', 'phone');
+    else if (w === 'new') push('state', 'new');
+    else if (w === 'already' && words[i + 1] === 'here') { i++; push('state', 'here'); }
+    else if (/^(here|dupes?|duplicates?|copies|imported)$/.test(w)) push('state', 'here');
+    else if (/^(unreadable|broken|corrupt|bad)$/.test(w)) push('state', 'unread');
+    else if (w === 'day' && /^\d+$/.test(words[i + 1] || '')) { push('day', +words[++i]); }
+    else if (/^day\d+$/.test(w)) push('day', +w.slice(3));
+    else if (/^(morning|midday|noon|afternoon|evening|night)$/.test(w)) push('part', w === 'noon' ? 'midday' : w);
+    else {
+      const b = B.find((x) => norm(x).includes(norm(w)) && norm(w).length >= 2);
+      const src = SRC.find((x) => norm(x) === norm(w) || (norm(w).length >= 3 && norm(x).includes(norm(w))));
+      if (b) push('body', b); else if (src) push('src', src); else push('unknown', w);
+    }
+  }
+  return { chips, group };
+}
+
+// ---- drawing -----------------------------------------------------------------------------------
+let raf = 0, flip = false;
+function dirty(withFlip) { flip = flip || !!withFlip; if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(flip); flip = false; }); }
+let lastDraw = 0;
+function render(doFlip) {
+  // while reading, redraw at most twice a second (tiles keep arriving)
+  const now = performance.now();
+  if (S.reading && !doFlip && now - lastDraw < 500) { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(false); }); drawLine(); return; }
+  lastDraw = now;
+  const z = day0(), all = [...S.items.values()].sort((a, b) => (a.date || 0) - (b.date || 0) || a.name.localeCompare(b.name));
+  const shown = all.filter((it) => matches(it, S.chips, z));
+  const before = doFlip ? rects() : null;
+  const groups = new Map();
+  for (const it of shown) {
+    const k = S.group === 'day' ? (it.date ? 'd' + dayOf(it, z) : 'd?') : S.group === 'body' ? (it.body || 'Unknown camera') : S.group === 'src' ? it.src : 'all';
+    if (!groups.has(k)) groups.set(k, []); groups.get(k).push(it);
+  }
+  const root = $('#groups'), keep = new Map();
+  root.querySelectorAll('.t').forEach((el) => keep.set(el.dataset.k, el));
+  const frag = document.createDocumentFragment();
+  for (const [k, list] of groups) {
+    const g = document.createElement('section'); g.className = 'group';
+    if (S.group !== 'none') {
+      const h = document.createElement('h2');
+      if (S.group === 'day' && k !== 'd?') { const d = new Date(list[0].date); h.innerHTML = `Day ${k.slice(1)} <span>${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()} · ${fmt(list.length)}</span>`; }
+      else h.innerHTML = `${esc(k === 'd?' ? 'No date' : k)} <span>${fmt(list.length)}</span>`;
+      g.appendChild(h);
+    }
+    const grid = document.createElement('div'); grid.className = 'grid';
+    for (const it of list) { const el = keep.get(it.key); grid.appendChild(el && el.dataset.v === String(it.v || 0) ? el : tile(it)); }
+    g.appendChild(grid); frag.appendChild(g);
+  }
+  root.replaceChildren(frag);
+  if (before) play(before);
+  drawChips(); drawLine(); drawDetails();
+}
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+function tile(it) {
+  const el = document.createElement('div'); el.className = 't' + (it.unread ? ' unread' : '') + (it.state === 'here' ? ' here' : '') + (it.fresh ? ' enter' : ''); it.fresh = false;
+  el.dataset.k = it.key; el.dataset.v = String(it.v || 0); el.title = it.path + (it.copies.length ? '\nalso in ' + it.copies.join(', ') : '');
+  if (it.thumb) { const im = new Image(); im.decoding = 'async'; im.onload = () => im.classList.add('in'); im.src = it.thumb; el.appendChild(im); }
+  if (it.kind === 'video') { const b = document.createElement('span'); b.className = 'b'; b.textContent = it.dur ? Math.floor(it.dur / 60) + ':' + String(Math.round(it.dur % 60)).padStart(2, '0') : 'clip'; el.appendChild(b); }
+  if (it.copies.length) { const r = document.createElement('span'); r.className = 'r'; r.textContent = (it.copies.length + 1) + '×'; el.appendChild(r); }
+  return el;
+}
+// FLIP: tiles move to their new places with a spring instead of jumping
+function rects() { const m = new Map(); document.querySelectorAll('.t').forEach((el) => { const r = el.getBoundingClientRect(); if (r.bottom > -200 && r.top < innerHeight + 200) m.set(el.dataset.k, r); }); return m; }
+function play(before) {
+  const els = [...document.querySelectorAll('.t')]; if (els.length > 1500) return;
+  for (const el of els) {
+    const a = before.get(el.dataset.k), b = el.getBoundingClientRect();
+    if (b.bottom < -200 || b.top > innerHeight + 200) continue;
+    if (!a) { el.animate([{ transform: 'scale(.85)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, easing: 'cubic-bezier(.2,.9,.25,1.12)' }); continue; }
+    const dx = a.left - b.left, dy = a.top - b.top, s = a.width / b.width;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(s - 1) < .01) continue;
+    el.animate([{ transform: `translate(${dx}px,${dy}px) scale(${s})` }, { transform: 'none' }], { duration: 520, easing: 'cubic-bezier(.2,.9,.25,1.08)' });
+  }
+}
+function drawChips() {
+  const box = $('#chips'); box.replaceChildren();
+  const list = S.chips.slice(); if (S.group !== 'day') list.push({ t: 'group', v: S.group });
+  for (const c of list) {
+    const el = document.createElement('span'); el.className = 'chip' + (c.t === 'unknown' ? ' unknown' : '') + (c.not ? ' not' : '');
+    el.innerHTML = `<b>${esc(c.t === 'group' ? (c.v === 'none' ? 'one grid' : 'by ' + ({ body: 'camera', src: 'source' })[c.v]) : chipText(c))}</b><button class="x" aria-label="Remove">×</button>`;
+    if (c.t === 'unknown') el.title = 'Not understood: left out';
+    el.querySelector('.x').onclick = () => { if (c.t === 'group') S.group = 'day'; else S.chips = S.chips.filter((x) => x !== c); render(true); };
+    box.appendChild(el);
+  }
+}
+function count(fn) { let n = 0; for (const it of S.items.values()) if (fn(it)) n++; return n; }
+function drawLine() {
+  const bar = $('#bar'); bar.style.width = S.total ? (100 * S.done / S.total) + '%' : '0'; bar.style.opacity = S.reading ? 1 : 0;
+  if (!S.tripName) $('#trip').textContent = tripName();
+  const photos = count((i) => i.kind !== 'video' && i.state !== 'unread'), clips = count((i) => i.kind === 'video' && i.state !== 'unread');
+  const nw = count((i) => i.state === 'new'), here = count((i) => i.state === 'here'), bad = count((i) => i.state === 'unread');
+  const parts = [];
+  const n = (v, label, chip) => chip ? `<button class="n" data-c='${JSON.stringify(chip)}'>${fmt(v)}</button> ${label}` : `<span class="n">${fmt(v)}</span> ${label}`;
+  if (photos) parts.push(n(photos, photos === 1 ? 'photo' : 'photos', { t: 'kind', v: 'photo' }));
+  if (clips) parts.push(n(clips, clips === 1 ? 'clip' : 'clips', { t: 'kind', v: 'video' }));
+  if (here && nw) parts.push(n(nw, 'new', { t: 'state', v: 'new' }));
+  if (here) parts.push(n(here, 'already here', { t: 'state', v: 'here' }));
+  if (bad) parts.push(n(bad, 'unreadable', { t: 'state', v: 'unread' }));
+  if (S.reading) { const s = (performance.now() - S.t0) / 1000; parts.push(`reading ${fmt(S.done)} / ${fmt(S.total)}${s > 2 ? ' · ' + Math.round(S.done / s) + '/s' : ''}`); }
+  else if (S.items.size) parts.push('all read');
+  parts.push(`<button class="n" id="more">${$('#details').classList.contains('off') ? 'Details' : 'Hide'}</button>`);
+  $('#line').innerHTML = parts.join(' <span class="dot">·</span> ');
+  $('#line').querySelectorAll('[data-c]').forEach((b) => b.onclick = () => toggle(JSON.parse(b.dataset.c)));
+  $('#more').onclick = () => { $('#details').classList.toggle('off'); drawLine(); drawDetails(); };
+}
+function tripName() {
+  let lo = Infinity, hi = -Infinity; for (const it of S.items.values()) if (it.date) { lo = Math.min(lo, it.date); hi = Math.max(hi, it.date); }
+  if (lo === Infinity) return S.items.size ? 'Untitled' : '';
+  const a = new Date(lo), b = new Date(hi);
+  if (a.toDateString() === b.toDateString()) return `${MON[a.getMonth()]} ${a.getDate()}, ${a.getFullYear()}`;
+  if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) return `${MON[a.getMonth()]} ${a.getDate()} – ${b.getDate()}, ${a.getFullYear()}`;
+  return `${MON[a.getMonth()]} ${a.getDate()} – ${MON[b.getMonth()]} ${b.getDate()}, ${b.getFullYear()}`;
+}
+function drawDetails() {
+  const d = $('#details'); if (d.classList.contains('off')) return;
+  const z = day0(), days = new Map(); for (const it of S.items.values()) { const k = dayOf(it, z); if (k) days.set(k, (days.get(k) || 0) + 1); }
+  const bc = new Map(); for (const it of S.items.values()) if (it.body) bc.set(it.body, (bc.get(it.body) || 0) + 1);
+  const btn = (chip, label) => `<button data-c='${esc(JSON.stringify(chip))}'>${esc(label)}</button>`;
+  const rows = [
+    ['Sources', [...S.sources.values()].map((s) => btn({ t: 'src', v: s.label }, `${s.label} ${fmt(s.files)}`)).join('')],
+    ['Cameras', [...bc].map(([b, n]) => btn({ t: 'body', v: b }, `${b} ${fmt(n)}`)).join('') || '—'],
+    ['Days', [...days].sort((a, b) => a[0] - b[0]).map(([k, n]) => btn({ t: 'day', v: k }, `${k}: ${fmt(n)}`)).join('') || '—'],
+    ['Handled', [S.paired && `${fmt(S.paired)} RAW + JPEG pairs joined`, S.proxies && `${fmt(S.proxies)} proxies linked`, S.side && `${fmt(S.side)} sidecars kept`, S.junk && `${fmt(S.junk)} system files skipped`, S.other && `${fmt(S.other)} other files left`].filter(Boolean).map((t) => `<span>${t}</span>`).join('') || '—'],
+    ['Library', `<span>${fmt(library.size)} files remembered</span><button id="forget">Forget</button>`],
+    ['Not yet', '<span>copying, checksums, clock alignment</span>']
+  ];
+  d.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  d.querySelectorAll('[data-c]').forEach((b) => b.onclick = () => toggle(JSON.parse(b.dataset.c)));
+  $('#forget').onclick = () => { library.clear(); try { localStorage.removeItem(LIB_KEY); } catch (_) {} toast('Library forgotten: the next drop is all new'); drawDetails(); };
+}
+let toastT = 0;
+function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2200); }
+
+// ---- ask bar -------------------------------------------------------------------------------------
+const ask = $('#ask'), q = $('#q');
+function openAsk() { if (!S.items.size) return; saved = { chips: S.chips.slice(), group: S.group }; ask.classList.remove('off'); q.value = ''; q.focus(); }
+function closeAsk(keep) {
+  if (!keep && saved) { S.chips = saved.chips; S.group = saved.group; render(true); }
+  saved = null; ask.classList.add('off'); q.blur();
+}
+let askT = 0;
+q.addEventListener('input', () => { clearTimeout(askT); askT = setTimeout(() => {
+  const { chips, group } = parse(q.value);
+  S.chips = saved.chips.concat(chips.filter((c) => !saved.chips.some((x) => x.t === c.t && x.v === c.v)));
+  S.group = group || saved.group; render(true);
+}, 120); });
+q.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); const t = q.value.trim().toLowerCase();
+    if (t === 'clear' || t === 'all' || t === 'everything') { S.chips = []; S.group = 'day'; render(true); }
+    else if (t === 'forget') { library.clear(); try { localStorage.removeItem(LIB_KEY); } catch (_) {} toast('Library forgotten'); }
+    closeAsk(true); }
+  else if (e.key === 'Escape') { e.preventDefault(); closeAsk(false); }
+});
+
+// ---- keys, drop, zoom ---------------------------------------------------------------------------
+addEventListener('keydown', (e) => {
+  if (e.target === q || e.target.id === 'trip') return;
+  if (e.key === '/') { e.preventDefault(); openAsk(); }
+  else if (e.key === 'o' || e.key === 'O') { if (!e.metaKey) $('#pick').click(); }
+  else if (e.key === 'Escape') { if (!$('#details').classList.contains('off')) { $('#details').classList.add('off'); drawLine(); } else if (S.chips.length || S.group !== 'day') { S.chips = []; S.group = 'day'; render(true); } }
+  else if ((e.metaKey && (e.key === '=' || e.key === '+')) || e.key === '=') { e.preventDefault(); zoom(1.25); }
+  else if ((e.metaKey && e.key === '-') || e.key === '-') { e.preventDefault(); zoom(0.8); }
+});
+function zoom(k) { const b = rects(); S.tw = Math.max(70, Math.min(640, S.tw * k)); document.documentElement.style.setProperty('--tw', S.tw + 'px'); play(b); }
+addEventListener('wheel', (e) => { if (!e.ctrlKey) return; e.preventDefault(); zoom(Math.exp(-e.deltaY * 0.01)); }, { passive: false });
+let dragN = 0;
+addEventListener('dragenter', (e) => { e.preventDefault(); dragN++; document.body.classList.add('dragging'); });
+addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; document.body.classList.remove('dragging'); } });
+addEventListener('dragover', (e) => e.preventDefault());
+addEventListener('drop', async (e) => { e.preventDefault(); dragN = 0; document.body.classList.remove('dragging'); const g = await fromDrop(e.dataTransfer); if (g.length) ingest(g); });
+$('#pick').addEventListener('change', (e) => { const g = fromPick(e.target.files); e.target.value = ''; if (g.length) ingest(g); });
+const trip = $('#trip');
+trip.addEventListener('click', () => { trip.contentEditable = 'true'; trip.focus(); document.getSelection().selectAllChildren(trip); });
+trip.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); trip.blur(); } });
+trip.addEventListener('blur', () => { trip.contentEditable = 'false'; const t = trip.textContent.trim(); S.tripName = t || null; if (!t) drawLine(); });
+// for a headless check: window.__ingest.state()
+window.__ingest = { state: () => ({ items: S.items.size, done: S.done, total: S.total, chips: S.chips, group: S.group, here: count((i) => i.state === 'here'), unread: count((i) => i.state === 'unread') }), parse };
+</script>
+</body>
+</html>
