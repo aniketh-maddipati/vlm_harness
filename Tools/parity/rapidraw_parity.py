@@ -29,6 +29,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -84,7 +85,7 @@ class Renderer:
                 r = subprocess.run([self.exe, "export", src, "--output", out, "--format", "jpeg", "--quality", "98",
                                     "--adjustments", adj_path], capture_output=True, text=True, timeout=900)
                 self.launches += 1
-                files = {os.path.splitext(f)[0].split(".")[0]: os.path.join(dp, f)
+                files = {re.sub(r"_edited$", "", os.path.splitext(f)[0].split(".")[0]): os.path.join(dp, f)   # 1.6.9+: <stem>_edited.jpeg
                          for dp, _, fs in os.walk(out) for f in fs if not f.startswith("._")}
                 for s in stems:
                     if s not in files:
