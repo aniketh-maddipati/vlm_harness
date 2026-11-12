@@ -128,7 +128,7 @@ const S = {
   clk: null, clkOff: new Set(),  // clocks aligned (lumina-ingest-clocks.js), and the ones undone
   extra: [],            // files read as no photo or clip (other files, proxies): copied as they are, never shown
   cp: new Map(),        // source -> {sent, ok, bad, card} for the copy into the library
-  cpSent: 0, cpDone: 0, cpT0: 0, cpBytes: 0
+  cpSent: 0, cpDone: 0, cpT0: 0, cpBytes: 0, cpB0: 0
 };
 
 // ---- walking a drop --------------------------------------------------------------------------
@@ -300,7 +300,9 @@ function copyAll() {
   }
   for (const x of S.extra.splice(0)) job('', x.path, x.src, 'Other/' + x.src + (x.path.includes('/') ? '/' + x.path.split('/').slice(1, -1).join('/') : ''));
   if (!items.length) return;
-  S.cpSent += items.length; if (!S.cpT0) S.cpT0 = performance.now();
+  // the rate counts from when this run of copying began, not from the first copy of the session
+  if (!copying()) { S.cpT0 = performance.now(); S.cpB0 = S.cpBytes; }
+  S.cpSent += items.length;
   dirty();
   call('ingestCopy', { items }).then((r) => {
     if (r && r.error) { S.cpSent -= items.length; for (const i of items) cpOf(i.src).sent--; for (const it of batch) it.cpSent = false; say('Not copied: no library folder chosen'); dirty(); }
@@ -320,7 +322,8 @@ window.luminaIngest = {
   }
 };
 const copying = () => S.cpDone < S.cpSent;
-const safeSources = () => [...S.cp].filter(([, c]) => c.sent && c.ok === c.sent).map(([src, c]) => ({ src, card: c.card }));
+// "safe to format" only for a whole card (the Mac says so: the card's root was chosen) with every file copied and checked
+const safeSources = () => [...S.cp].filter(([, c]) => c.card && c.sent && c.ok === c.sent).map(([src]) => ({ src }));
 function eject(src) { call('ingestEject', { src }).then((r) => say(r && r.ok ? `Ejected ${src}` : `Not ejected: ${(r && r.why) || 'no answer'}`)); }
 
 // ---- sets: chips --------------------------------------------------------------------------------
@@ -470,7 +473,7 @@ function drawFoot() {
   if (here) parts.push(n(here, 'already here', 'already here'));
   if (bad) parts.push(n(bad, 'unreadable', 'unreadable'));
   const nc = count((i) => i.copy === 'bad'); if (nc) parts.push(n(nc, 'not copied', 'not copied'));
-  if (!S.reading && !copying()) for (const { src, card } of safeSources()) parts.push(`<span class="n" data-w="${esc(src)}">safe to format ${esc(src)}</span>` + (card ? ` <span class="n" data-eject="${esc(src)}">Eject</span>` : ''));
+  if (!S.reading && !copying()) for (const { src } of safeSources()) parts.push(`<span class="n" data-w="${esc(src)}">safe to format ${esc(src)}</span> <span class="n" data-eject="${esc(src)}">Eject</span>`);
   if (S.items.size) parts.push(`<span class="n" data-more="1">${$('#notes').classList.contains('off') ? 'Details' : 'Hide details'}</span>`);
   $('#foot').innerHTML = parts.join(' · ');
   $('#foot').querySelectorAll('[data-w]').forEach((b) => b.onclick = () => findFor(b.dataset.w));
@@ -479,7 +482,7 @@ function drawFoot() {
   const s = (performance.now() - S.t0) / 1000;
   const cs = (performance.now() - S.cpT0) / 1000;
   $('#live').textContent = S.reading ? `reading ${fmt(S.done)} of ${fmt(S.total)}${s > 2 ? ' · ' + Math.round(S.done / s) + ' a second' : ''}`
-    : copying() ? `copying ${fmt(S.cpDone)} of ${fmt(S.cpSent)}${cs > 2 ? ' · ' + Math.round(S.cpBytes / 1048576 / cs) + ' MB a second' : ''}`
+    : copying() ? `copying ${fmt(S.cpDone)} of ${fmt(S.cpSent)}${cs > 2 ? ' · ' + Math.round((S.cpBytes - S.cpB0) / 1048576 / cs) + ' MB a second' : ''}`
     : S.cpSent ? 'all copied' : S.items.size ? 'all read' : '';
   const keys = S.items.size ? [['O', 'add'], ['/', 'find'], ['esc', 'clear'], ['= −', 'size']].concat(toPick() ? [['⏎', 'open in Pick']] : []) : [['O', 'open']];
   $('#keys').innerHTML = keys.map(([k, c]) => `<span class="cap">${k.split(' ').map((x) => `<b>${esc(x)}</b>`).join('')}${c}</span>`).join('');

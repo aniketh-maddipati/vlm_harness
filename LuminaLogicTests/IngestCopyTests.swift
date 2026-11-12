@@ -135,4 +135,10 @@ final class IngestCopyTests: XCTestCase {
         t.setFolder("/y/Other", bookmark: nil); XCTAssertEqual(t.count, 0, "another folder starts empty")
         t.record("k", .init(rel: "r", sha: "s", size: 1)); t.forget(); XCTAssertEqual(t.count, 0)
     }
+
+    func testOnlyAVolumesRootIsAWholeCard() throws {
+        XCTAssertTrue(IngestCopy.isVolumeRoot(URL(fileURLWithPath: "/")))
+        XCTAssertFalse(IngestCopy.isVolumeRoot(card), "a folder is never the whole card")
+        XCTAssertFalse(IngestCopy.isVolumeRoot(card.appendingPathComponent("DCIM")))
+    }
 }
