@@ -142,15 +142,3 @@ final class IngestHost {
         webView?.evaluateJavaScript("window.luminaIngest && luminaIngest.copied(\(SetsBridge.json(d)))", completionHandler: nil)
     }
 }
-
-/// Lumina Ingest's web view: a drop still goes to the page (it reads the files), and the files and folders dropped
-/// are handed to `IngestHost` first, so its copy can find them by the page's paths. Nothing else changes.
-final class IngestDropWebView: WKWebView {
-    var onDrop: (([URL]) -> Void)?
-
-    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        if !urls.isEmpty { onDrop?(urls) }
-        return super.performDragOperation(sender)
-    }
-}
