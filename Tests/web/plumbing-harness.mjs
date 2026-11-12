@@ -943,7 +943,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
       await page.waitForTimeout(300);
       const m1 = await menu(), cur = await page.evaluate(() => luminaState().cur), file = m1 && (m1.text.match(/^DSC\d+/) || [])[0];
       ok(!!(m1 && file && /Remove from picks|Add to picks/.test(m1.text) && /Next photo/.test(m1.text) && /Save/.test(m1.text)), 'edit menu: right-click on the photo opens it for that photo', m1);
-      ok(!!(m1 && new RegExp(file + '\\.xmp · ★★\\n').test(m1.text) || m1 && /not a pick/.test(m1.text)), 'edit menu: it says where the pick goes (the .xmp, the rating from prefs)', m1 && m1.text);
+      ok(!!(m1 && new RegExp(file + '\\.xmp · ★★\\n').test(m1.text) || m1 && /Nothing is written/.test(m1.text)), 'edit menu: it says where the pick goes (the .xmp, the rating from prefs)', m1 && m1.text);
       const lm = bridge.canvas.layouts.slice(nM).filter(x => x.visible).pop();
       ok(!!(m1 && lm && lm.holes.some(h => covers(h, m1, lm))), 'edit menu: it is a hole in the native canvas', { m1, holes: lm && lm.holes });
       if (process.env.LUMINA_SHOT) await page.screenshot({ path: process.env.LUMINA_SHOT + '/edit-menu-canvas.png' });
