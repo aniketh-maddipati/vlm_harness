@@ -126,6 +126,12 @@ final class LookCanvasController: NSObject {
         /// The last settled build's time on the warm queue (ms), and its bytes.
         var settledMs = 0.0
         var settledBytes = 0
+        /// A pinch or pan (`zoom(to:)`): the time from each new placement to its frame (ms, newest
+        /// first, at most 600), refreshes skipped with a placement waiting, and ticks where one
+        /// waited behind a render still in flight. Reset by `resetMeasures`.
+        var zoomLatencyMs: [Double] = []
+        var zoomMissed = 0
+        var zoomBusy = 0
     }
 
     /// What the last `layout` placed: the same again, holes aside, changes nothing.
@@ -592,6 +598,7 @@ final class LookCanvasController: NSObject {
                 seq = schedule.submit(l, at: now(), roi: roi)
             }
             placeOnly = zoomOwed ? 0 : seq
+            if seq > 0 { zoomLooks.insert(seq); if waitingSince == nil { waitingSince = now() } }
         }
         zoomStill?.invalidate(); zoomStill = nil
         if rest {
@@ -662,6 +669,8 @@ final class LookCanvasController: NSObject {
     private var zoomStill: Timer?
     /// The schedule's count of the look `zoom(to:)` resubmitted last: the same picture in another place.
     private var placeOnly = 0
+    /// The schedule's counts of the placements `zoom(to:)` submitted, until their frame is shown.
+    private var zoomLooks: Set<Int> = []
 
     /// 100 % with G held: RAW 9 on the visible region (RAW 9 §2). Waits for stillness when the
     /// Mac is hot or on Low Power; never disabled. A pan that only moves the region (no new look)
@@ -770,7 +779,7 @@ final class LookCanvasController: NSObject {
     }
 
     /// The probe's latency measure starts fresh per drag.
-    func resetMeasures() { latencies = []; stats.droppedFrames = 0; stats.missedVsyncs = 0; stats.busyTicks = 0; stats.ticks = 0; stats.renders = 0; stats.renderErrors = 0; stats.firstRenders = [] }
+    func resetMeasures() { latencies = []; stats.droppedFrames = 0; stats.missedVsyncs = 0; stats.busyTicks = 0; stats.ticks = 0; stats.renders = 0; stats.renderErrors = 0; stats.firstRenders = []; stats.zoomLatencyMs = []; stats.zoomMissed = 0; stats.zoomBusy = 0 }
 
     /// The current look rendered from `base` into a bitmap (the parity probe compares it with the
     /// export at the same size). Nil until the bases exist.
@@ -779,6 +788,20 @@ final class LookCanvasController: NSObject {
         let img = pipeline.apply(c.look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot, anchor: e.anchor, masks: placedMasks(c.look)?.placed(photo: e.toPhoto(small: false)), style: e.style), crop: false)
         return pipeline.context.createCGImage(pipeline.output(img), from: img.extent.integral, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
     }
+
+    /// What the drawable shows at rest for the newest look, at the drawable's size, rendered again
+    /// (the probe's zoom step compares it with the export): the same `compose` the rest render runs.
+    func renderShown() -> CGImage? {
+        guard let c = current, let e = c.entry, let size = view?.drawableSize, size.width > 1, size.height > 1 else { return nil }
+        let text = schedule.latest?.look ?? schedule.presentedLook ?? c.look.format()
+        let look = (try? Look.parse(text)) ?? c.look
+        let placed = compose(look, tier: .base, roi: zoom, entry: e, size: size).placed
+        return pipeline.context.createCGImage(placed, from: CGRect(origin: .zero, size: size), format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
+    }
+
+    /// The decoder version the loupe's region renders with (the shoot's pin for this body).
+    var currentRegionDecoder: Int? { current.flatMap { $0.regionDecoder ?? $0.decoder } }
+    var drawableSize: CGSize? { view?.drawableSize }
 
     var currentEntry: LookBases.Entry? { current?.entry }
     var currentPreview: LookBases.PreviewFallback? { current?.preview }
@@ -1034,7 +1057,12 @@ final class LookCanvasController: NSObject {
                 }
             }
         }
+        if zooming, !dragging, lastTick > 0, l.duration > 0, let w = waitingSince, w <= (lastTick + l.duration) * 1000 {
+            let skipped = Int(((t - lastTick) / l.duration + 0.25).rounded(.down)) - 1
+            if skipped > 0 { stats.zoomMissed += skipped; LookTrace.mark("zoom: missed vsync ×\(skipped)", ms: (t - lastTick) * 1000, at: lastTick * 1000) }
+        }
         drainCompletion()
+        if zooming, !dragging, lastTick > 0, rendering, schedule.pending { stats.zoomBusy += 1 }
         if dragging, lastTick > 0, rendering, schedule.pending {
             stats.busyTicks += 1; stats.droppedFrames += 1
             LookTrace.mark("busy tick: GPU still on the render started \(Int(((CACurrentMediaTime() - renderStartedAt) * 1000).rounded())) ms ago", at: t * 1000)
@@ -1300,6 +1328,11 @@ final class LookCanvasController: NSObject {
     /// on the RAW yet: the page hears when that frame comes (the look is drawn again on the base).
     private func frameShown(_ r: LookCanvasSchedule.Request, at frame: CFTimeInterval, dragEnd: CFTimeInterval?, presented: Bool, standIn: Bool) {
         let frameMs = frame * 1000
+        if zoomLooks.remove(r.lookSeq) != nil {
+            stats.zoomLatencyMs.insert(frameMs - r.submittedAt, at: 0)
+            if stats.zoomLatencyMs.count > 600 { stats.zoomLatencyMs.removeLast() }
+            if zoomLooks.count > 64 { zoomLooks = zoomLooks.filter { $0 > r.lookSeq } }
+        }
         // A look's latency is to its first frame. The rest render of a look already on screen from
         // `small` (a pause in a drag, drag end) is a second frame of the same value, as late as the
         // pause was long: not a sample (`lastRestMs` times it after drag end).

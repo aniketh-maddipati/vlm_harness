@@ -43,6 +43,8 @@
 #   bash Scripts/probe.sh raw9                   RAW 9 (§8): decoder map, time to first tile / full region, export time + memory
 #   bash Scripts/probe.sh video                  video budget metrics on LUMINA_VIDEO_DIR: first rows, flags for 50 clips, peak memory, proxy disk, decoders (M1 gates; FAILS until lumina.video exists; long: LUMINA_LONG=1)
 #                                                per decoder version, the forced per-file fallback, tiles vs export ΔE per version
+#   bash Scripts/probe.sh zoom                   Edit canvas pinch to 2× and 4× (LUMINA_EDIT_DIR): frame latency during the pinch,
+#                                                time from rest to sharp, Laplacian variance of the canvas vs a full-size export there
 #   bash Scripts/probe.sh consistency            canvas vs export: ΔE between what the Edit canvas shows and what Export writes (full size,
 #                                                pinned decoder), per stage of the look, on 12 distinct real ARWs of LUMINA_EDIT_DIR
 #   bash Scripts/probe.sh readspeed              how fast a folder reads: Open → first rows, first thumbnail, first screen full,
@@ -92,7 +94,7 @@ scenario_limit() { python3 -c 'import json,sys; print(int(json.load(open(sys.arg
 long=0
 case "$suite" in
   contract|selftest)                            limit=120 ;;
-  smoke|edge|ingest|edit-cold|raw9|slowdisk)    limit=240 ;;
+  smoke|edge|ingest|edit-cold|raw9|zoom|slowdisk) limit=240 ;;
   screens|app|card|scroll|edit|readspeed)       limit=420 ;;
   reference)                                    limit=600 ;;
   fuzz|fault|consistency)                       limit=1200; long=1 ;;
@@ -417,6 +419,7 @@ case "$suite" in
              LUMINA_CANVAS=image run_out "$OUT/image-path" "$S/edit-canvas.json" ;;
   edit-cold) editdir; LUMINA_KERNEL_SALT="${LUMINA_KERNEL_SALT:-p$(date +%s)}" run "$S/edit-cold.json" ;;
   raw9)      editdir; run "$S/raw9.json" ;;
+  zoom)      editdir; run "$S/edit-zoom.json" ;;
   video)     [[ -n ${LUMINA_VIDEO_DIR:-} ]] || { echo "video: set LUMINA_VIDEO_DIR (a card's PRIVATE/M4ROOT/CLIP, or MP4s with their M01.XML sidecars); scenario SKIPs without it"; }
              run "$S/video-budget.json" ;;
   consistency) editdir; run "$S/edit-consistency.json" ;;
