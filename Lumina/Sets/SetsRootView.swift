@@ -432,6 +432,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        #if DEBUG
+        // Lumina Ingest after the window was on Pick, or a hot reload: what it read this run is read again.
+        if SetsPage.isIngest, SetsPage.current == .skim, !bridge.ingestRoots.isEmpty { resumeIngest(tries: 0); return }
+        #endif
         if skimRestoring { skimRestoring = false; raiseSkimCurtain(nil) }
         if SetsPage.current == .skim, skimCurtain == nil, skimLastKept != nil { offerSkimLast(tries: 0) }
         guard SetsPage.current == .skim, skimCurtain != nil else { return }
@@ -912,20 +916,28 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         // Skim reads clips through the page's own file input: a card, folders or clips, nothing else of Pick's.
         // The ingest prototype (Debug, LUMINA_PAGE=ingest) takes every file: cards, folders or files, any kind.
         if SetsPage.isIngest {
-            let panel = NSOpenPanel()
-            panel.canChooseDirectories = true
-            panel.canChooseFiles = true
-            panel.allowsMultipleSelection = true
-            panel.prompt = "Add"
-            panel.message = "Choose cards, folders or files. Lumina only reads them."
-            // What was chosen is held for Ingest's copy (IngestHost) and for Open in Pick (`ingestRoots`):
-            // the page knows files by their relative path only.
-            let done: (Bool) -> Void = { [weak self] ok in
-                if ok { self?.bridge.ingestHost.picked(panel.urls); self?.bridge.ingestRoots += panel.urls }
-                completionHandler(ok ? panel.urls : nil)
+            Task { @MainActor in
+                // The resume (`resumeIngest`): what this run already handed over, no panel.
+                if await skimPageFlag("window.luminaIngestResuming === true ? (window.luminaIngestResuming = false, true) : false") {
+                    var seen = Set<String>()
+                    completionHandler(bridge.ingestRoots.filter { seen.insert($0.standardizedFileURL.path).inserted && FileManager.default.fileExists(atPath: $0.path) })
+                    return
+                }
+                let panel = NSOpenPanel()
+                panel.canChooseDirectories = true
+                panel.canChooseFiles = true
+                panel.allowsMultipleSelection = true
+                panel.prompt = "Add"
+                panel.message = "Choose cards, folders or files. Lumina only reads them."
+                // What was chosen is held for Ingest's copy (IngestHost) and for Open in Pick (`ingestRoots`):
+                // the page knows files by their relative path only.
+                let done: (Bool) -> Void = { [weak self] ok in
+                    if ok { self?.bridge.ingestHost.picked(panel.urls); self?.bridge.ingestRoots += panel.urls }
+                    completionHandler(ok ? panel.urls : nil)
+                }
+                guard let window = webView.window else { done(panel.runModal() == .OK); return }
+                panel.beginSheetModal(for: window) { done($0 == .OK) }
             }
-            guard let window = webView.window else { done(panel.runModal() == .OK); return }
-            panel.beginSheetModal(for: window) { done($0 == .OK) }
             return
         }
         if SetsPage.current == .skim {
@@ -963,6 +975,20 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         }
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
     }
+
+    #if DEBUG
+    /// Asks the ingest page to read again what this run handed it (`luminaIngestResume`); its file input is then
+    /// answered with those URLs (`runOpenPanelWith`). Run from the app, it counts as the person's click.
+    private func resumeIngest(tries: Int) {
+        guard let webView else { return }
+        webView.evaluateJavaScript("window.luminaIngestResume ? luminaIngestResume() : 'wait'") { [weak self] r, _ in
+            MainActor.assumeIsolated {
+                guard (r as? String) == "wait", tries < 40 else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { MainActor.assumeIsolated { self?.resumeIngest(tries: tries + 1) } }
+            }
+        }
+    }
+    #endif
 
     /// Runs a line of the page's script that answers true or false (false when the page doesn't answer).
     private func skimPageFlag(_ script: String) async -> Bool {

@@ -83,16 +83,20 @@ nonisolated enum IngestCopy {
         do {
             let (out, sha) = try SetsFileOps.copyVerifiedHashed(item.source, to: dst)
             let target: URL
+            var numbered = false
             switch out {
             case .alreadyThere(let u): target = u
-            case .copied(let u), .renamed(let u): target = u; newBytes = true
+            case .copied(let u): target = u; newBytes = true
+            case .renamed(let u): target = u; newBytes = true; numbered = true
             }
             r.files = 1
             r.bytes = Int64((try? item.source.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
             r.rel = String(target.standardizedFileURL.path.dropFirst(lib.path.count + 1))
-            // Companions follow the main file's name in the library (a numbered main file numbers them too).
+            // Companions keep their own names beside the copy; a main file numbered for a name clash numbers them
+            // too, so the pair stays a pair. (Bytes already kept under another name don't rename them: DSC00300.JPG
+            // stays DSC00300.JPG beside an identical DSC00200.ARW.)
             let srcStem = (item.source.lastPathComponent as NSString).deletingPathExtension
-            let dstStem = (target.lastPathComponent as NSString).deletingPathExtension
+            let dstStem = numbered ? (target.lastPathComponent as NSString).deletingPathExtension : srcStem
             for c in companions(of: item.source) {
                 let rest = String(c.lastPathComponent.dropFirst(srcStem.count))
                 let cd = target.deletingLastPathComponent().appendingPathComponent(dstStem + rest)

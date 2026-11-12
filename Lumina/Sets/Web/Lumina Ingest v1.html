@@ -556,13 +556,14 @@ const isPhoto = (it) => it.kind !== 'video' && !it.unread;
 function toPick() {
   if (!host || S.reading) return null;
   const z = day0(), paths = [];
-  for (const it of S.items.values()) if (isPhoto(it) && matches(it, S.chips, z)) paths.push(it.path);
-  return paths.length ? { paths, whole: paths.length === count(isPhoto) } : null;
+  const keys = [];
+  for (const it of S.items.values()) if (isPhoto(it) && matches(it, S.chips, z)) { paths.push(it.path); keys.push(it.key); }
+  return paths.length ? { paths, keys, whole: paths.length === count(isPhoto) } : null;
 }
 async function openInPick() {
   const set = toPick(); if (!set) return;
   say('Opening in Pick…', true);
-  let r = null; try { r = await host.postMessage({ op: 'ingestToPick', paths: set.paths, whole: set.whole }); } catch (_) {}
+  let r = null; try { r = await host.postMessage({ op: 'ingestToPick', paths: set.paths, keys: set.keys, whole: set.whole }); } catch (_) {}
   if (r !== true) say((r && r.refused) || 'Pick could not open these');
 }
 
@@ -585,6 +586,8 @@ addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; main.classL
 addEventListener('dragover', (e) => e.preventDefault());
 addEventListener('drop', async (e) => { e.preventDefault(); dragN = 0; main.classList.remove('drop'); const g = await fromDrop(e.dataTransfer); if (g.length) ingest(g); });
 $('#dropbox').onclick = () => $('#pick').click();
+// Back from Pick (or a reload): the app asks for what this run read; the file input is answered without a panel.
+window.luminaIngestResume = () => { if (S.items.size || S.reading) return false; window.luminaIngestResuming = true; $('#pick').click(); return true; };
 $('#pick').addEventListener('change', (e) => { const g = fromPick(e.target.files); e.target.value = ''; if (g.length) ingest(g); });
 const trip = $('#trip');
 trip.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); trip.blur(); } });

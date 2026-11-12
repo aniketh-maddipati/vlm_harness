@@ -78,6 +78,18 @@ final class IngestCopyTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: lib.appendingPathComponent("d/DSC00001.ARW"), encoding: .utf8), "photo a")
     }
 
+    func testIdenticalBytesUnderAnotherNameLeaveTheCompanionItsOwnName() throws {
+        let a = try put("A/DSC00200.ARW", "same raw")
+        let b = try put("B/DSC00300.ARW", "same raw")
+        _ = try put("B/DSC00300.JPG", "jpeg of 300")
+        let s = store()
+        XCTAssertTrue(IngestCopy.copy(.init(key: "k", source: a, root: card, folder: "d"), into: lib, store: s).ok)
+        let r = IngestCopy.copy(.init(key: "k", source: b, root: card, folder: "d"), into: lib, store: s)
+        XCTAssertTrue(r.ok); XCTAssertTrue(r.already == false || r.files == 2)
+        XCTAssertEqual(try String(contentsOf: lib.appendingPathComponent("d/DSC00300.JPG"), encoding: .utf8), "jpeg of 300")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: lib.appendingPathComponent("d/DSC00200.JPG").path))
+    }
+
     func testAKeyThatMatchedByChanceIsStillCopied() throws {
         let a = try put("A/DSC00001.ARW", "photo a")
         let b = try put("B/DSC00002.ARW", "photo b")

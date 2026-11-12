@@ -329,8 +329,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
 
     /// Lumina Ingest's Open in Pick (`ingestToPick`, Debug only): the folder Pick opens for the page's files, or why
     /// not (`["refused": line]`). The window then goes to Pick and opens it (`onIngestToPick`).
-    func ingestToPick(_ paths: [String], whole: Bool) async -> Any {
-        switch IngestHandoff.plan(paths: paths, whole: whole, roots: ingestRoots) {
+    func ingestToPick(_ paths: [String], whole: Bool, keys: [String] = []) async -> Any {
+        // Every photo shown already copied and checked: Pick opens the library's copies (one folder, whatever
+        // the sources were, and the cards can go). Otherwise the sources themselves.
+        let fromLibrary = ingestHost.libraryPaths(keys: keys)
+        let planned = fromLibrary.map { IngestHandoff.plan(paths: $0.paths, whole: false, roots: [$0.root]) }
+            ?? IngestHandoff.plan(paths: paths, whole: whole, roots: ingestRoots)
+        switch planned {
         case .failure(let why): return ["refused": why.rawValue]
         case .success(var plan):
             let folder = plan.folder
@@ -490,7 +495,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             // Lumina Ingest (Debug only): what its page shows opens in Pick, in this window, as one shoot.
             guard SetsPage.isIngest, SetsPage.current == .skim else { return (nil, "not served") }
             let paths = (body["paths"] as? [String] ?? []).prefix(100_000).filter { $0.utf8.count <= Self.maxRelBytes }
-            return (await ingestToPick(Array(paths), whole: body["whole"] as? Bool ?? false), nil)
+            let keys = (body["keys"] as? [String] ?? []).prefix(100_000).map { String($0.prefix(64)) }
+            return (await ingestToPick(Array(paths), whole: body["whole"] as? Bool ?? false, keys: Array(keys)), nil)
         case "switchPage":
             guard SetsPage.switchable, let side = body["to"] as? String, let page = SetsPage(side: side) else { return (false, nil) }
             onSwitchPage?(page)
@@ -1950,6 +1956,7 @@ final class IngestDropWebView: WKWebView {
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
         bridge?.ingestRoots += urls
+        bridge?.ingestHost.picked(urls)     // dropped files are copied like picked ones
         return super.performDragOperation(sender)
     }
 }

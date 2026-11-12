@@ -37,6 +37,18 @@ final class IngestHost {
 
     func picked(_ urls: [URL]) { roots.append(contentsOf: urls) }
 
+    /// Open in Pick from the library: "<library>/<rel>" for every key, when each has a checked copy still there; nil
+    /// when any is missing (Pick then opens the sources).
+    func libraryPaths(keys: [String]) -> (paths: [String], root: URL)? {
+        guard !keys.isEmpty, let lib = libraryURL?.standardizedFileURL else { return nil }
+        var paths: [String] = []
+        for k in keys {
+            guard let e = store.entry(k), FileManager.default.fileExists(atPath: lib.appendingPathComponent(e.rel).path) else { return nil }
+            paths.append(lib.lastPathComponent + "/" + e.rel)
+        }
+        return (paths, lib)
+    }
+
     private func libraryJSON() -> [String: Any] {
         ["folder": libraryURL.map { $0.lastPathComponent } ?? NSNull(), "count": store.count, "keys": store.keys]
     }
