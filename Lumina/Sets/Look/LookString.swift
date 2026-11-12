@@ -451,7 +451,10 @@ nonisolated struct Look: Equatable, Sendable {
     /// `vigs`, the curve keys, the mixer keys, `prof`, `nr`, `bw`, `dust`, `crop` and `rot` only when set; each
     /// `mask:` token only with the keys it has off reset (ev to 2 places, the others whole).
     func format() -> String {
-        func signed(_ v: Double, _ decimals: Int) -> String {
+        func signed(_ v: Double, _ base: Int) -> String {
+            // One more decimal only when the value sits between `base` decimals (a fine drag:
+            // 0.001 EV, 0.1 on the ±100 sliders); every older look formats as it did.
+            let decimals = abs(v * pow(10, Double(base)) - (v * pow(10, Double(base))).rounded()) > 1e-6 ? base + 1 : base
             let r = (v * pow(10, Double(decimals))).rounded() / pow(10, Double(decimals))
             if r == 0 { return decimals == 0 ? "0" : String(format: "%.\(decimals)f", 0.0) }
             return (r > 0 ? "+" : "") + String(format: "%.\(decimals)f", r)

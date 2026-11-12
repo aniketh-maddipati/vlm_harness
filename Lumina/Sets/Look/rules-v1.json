@@ -95,10 +95,14 @@
     },
     "exposure": {
       "locked": false,
-      "form": "a scene gain through a sigmoid tone curve, per channel: G·y / (1 + (G − 1)·y/white) with G = 2^(ev * stopsPerUnit); tangent continuation above white and below 0",
+      "form": "with a profile stage (a linear base): the profile carries Exposure, its gain 2^ev on the sensor data below 0 plus blackOffset lifted with it (x·g0·2^ev + blackOffset·g0·(2^ev − 1)), above 0 plus a shadow lift, a bump in log2 linear luma (g0·(2^ev − 1)·liftAmount·exp(−((log2 y − liftCentre)/liftWidth)²)) (LookMath.exposed); stopsPerUnit and white are then unused. Otherwise (no profile, a JPEG, a mask): a scene gain through a sigmoid tone curve, per channel: G·y / (1 + (G − 1)·y/white) with G = 2^(ev * stopsPerUnit); tangent continuation above white and below 0",
       "coefficients": {
         "stopsPerUnit": 1.622202,
-        "white": 1.095133
+        "white": 1.095133,
+        "blackOffset": 0.002,
+        "liftAmount": 0.003984,
+        "liftCentre": -7.5,
+        "liftWidth": 3.25
       }
     },
     "whiteBalance": {

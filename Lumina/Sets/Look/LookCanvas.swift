@@ -826,7 +826,7 @@ final class LookCanvasController: NSObject {
     /// export at the same size). Nil until the bases exist.
     func renderToImage() -> CGImage? {
         guard let c = current, let e = c.entry else { return nil }
-        let img = pipeline.apply(c.look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot, anchor: e.anchor, masks: placedMasks(c.look)?.placed(photo: e.toPhoto(small: false)), style: e.style), crop: false)
+        let img = pipeline.apply(c.look, to: LookPipeline.Developed(image: e.base, asShot: e.asShot, anchor: e.anchor, masks: placedMasks(c.look)?.placed(photo: e.toPhoto(small: false)), style: e.style, linear: e.linear), crop: false)
         return pipeline.context.createCGImage(pipeline.output(img), from: img.extent.integral, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
     }
 
@@ -1153,7 +1153,7 @@ final class LookCanvasController: NSObject {
         if tier == .small { src = source.small; srcSize = source.smallSize } else { src = source.base; srcSize = source.baseSize }
         let masks = placedMasks(look)
         var photo = source.toPhoto(small: tier == .small)
-        var image = settled ?? pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: source.asShot, anchor: source.anchor, masks: masks?.placed(photo: photo), style: source.style), crop: false)
+        var image = settled ?? pipeline.apply(look, to: LookPipeline.Developed(image: src, asShot: source.asShot, anchor: source.anchor, masks: masks?.placed(photo: photo), style: source.style, linear: source.linear), crop: false)
         // Where the photo goes: fit the canvas (contain), or the zoomed region filling it.
         let dw = size.width, dh = size.height
         var visible = CGRect(origin: .zero, size: srcSize)
@@ -1174,7 +1174,7 @@ final class LookCanvasController: NSObject {
            let at = regionPlacement(reg, entry: source, visible: visible) {
             region = reg
             photo = reg.photo
-            var dev = LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, masks: masks?.placed(photo: photo), style: reg.style)
+            var dev = LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, masks: masks?.placed(photo: photo), style: reg.style, linear: reg.linear)
             dev.frame = at.frame
             image = pipeline.apply(look, to: dev, crop: false).cropped(to: at.visible.intersection(reg.rect))
             visible = at.visible
@@ -1292,7 +1292,7 @@ final class LookCanvasController: NSObject {
         desc.usage = [.shaderRead, .shaderWrite, .renderTarget]
         desc.storageMode = .private
         guard let tex = device.makeTexture(descriptor: desc) else { return }
-        var dev = LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, masks: placedMasks(look)?.placed(photo: reg.photo), style: reg.style)
+        var dev = LookPipeline.Developed(image: reg.image, asShot: reg.asShot, anchor: reg.anchor, masks: placedMasks(look)?.placed(photo: reg.photo), style: reg.style, linear: reg.linear)
         dev.frame = CGRect(origin: .zero, size: entry.baseSize).applying(m.inverted())
         var image = LookPipeline.atOrigin(pipeline.output(pipeline.apply(look, to: dev, crop: false)).cropped(to: rect))
         if ds < 0.999 { image = LookPipeline.atOrigin(image.applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: ds, kCIInputAspectRatioKey: 1])) }
@@ -1625,7 +1625,7 @@ final class LookCanvasController: NSObject {
         desc.storageMode = .private
         guard let tex = device.makeTexture(descriptor: desc) else { return }
         let photo = entry.toPhoto(small: false)
-        let applied = pipeline.apply(look, to: LookPipeline.Developed(image: entry.base, asShot: entry.asShot, anchor: entry.anchor, masks: placedMasks(look)?.placed(photo: photo), style: entry.style), crop: false)
+        let applied = pipeline.apply(look, to: LookPipeline.Developed(image: entry.base, asShot: entry.asShot, anchor: entry.anchor, masks: placedMasks(look)?.placed(photo: photo), style: entry.style, linear: entry.linear), crop: false)
         let image = pipeline.output(applied).cropped(to: rect)
         settledBuilding = id
         let context = warm.context, space = pipeline.workingSpace, bases = self.bases

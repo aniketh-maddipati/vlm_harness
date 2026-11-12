@@ -165,7 +165,15 @@ def profile(rgb, stage, rules):
     c = coefficients(stage)
     hsm, curve = tables(stage)
     gamma = float(rules.get("perceptualGamma", 2.2))
-    x = np.asarray(rgb, dtype=np.float64) * (2.0 ** float(c["exposure"]))
+    rgb = np.asarray(rgb, dtype=np.float64)
+    sc = stage.get("coefficients", {})
+    o = float(sc.get("offset", 0.0))
+    if float(sc.get("lift", 0.0)) != 0.0:       # LookMath.Profile.lift: a bump in log2 of the pixel's linear luma
+        lw = np.asarray(rules.get("luma", [0.2126, 0.7152, 0.0722]), dtype=np.float64)
+        z = (np.log2(np.maximum(rgb @ lw, 2.0 ** -14)) - float(sc.get("liftCentre", -7.5))) / max(float(sc.get("liftWidth", 3.25)), 1e-3)
+        o = o + float(sc["lift"]) * np.exp(-z * z)
+        o = o[..., None]
+    x = rgb * (2.0 ** float(c["exposure"])) + o
     x = x @ mix_rows(c).T
     # hue/sat map in linear ProPhoto
     pp = np.maximum(x @ SRGB_TO_PROPHOTO.T, 0.0)

@@ -45,6 +45,14 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         /// The Creative Style the camera shot with (`LookCameraStyle`), for the camera profile.
         /// Nil for anything not read from a Sony RAW (the embedded JPEG already is the camera's look).
         var style: String? = nil
+        /// The image is the linear decode and the camera profile is still to come: the look's global
+        /// stages run it first, with the look's Exposure added to the profile's own exposure, so
+        /// Exposure is a gain on the sensor data as in Lightroom (both signs; 2026-11-12, sweep
+        /// −2 … +2 held out: 1.28 / 5.11 → 0.97 / 4.59). False for a JPEG, a synthetic image, a base
+        /// without a profile: those take the exposure stage on the finished picture. No default on
+        /// purpose: every place that builds a `Developed` must say which it is (a rebuilt one that
+        /// forgot it rendered without the profile, twice).
+        var linear: Bool
         /// The whole picture the stages see, in this image's pixels, when the image is only a part
         /// of it (the canvas's region tiles): the blurs' radii follow its long edge and the
         /// vignette its centre and size, so a region renders as the same place of the whole photo
@@ -218,8 +226,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         guard var out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite else { throw Failure("couldn't decode \(url.lastPathComponent)") }
         if !spots.isEmpty, turn != .up { out = out.oriented(turn) }
         let asShot = Look.WhiteBalance(kelvin: Double(raw.neutralTemperature), tint: Double(raw.neutralTint))
-        return Developed(image: try matched(Self.atOrigin(out), rules: rules), asShot: asShot, anchor: toneAnchor(raw: url, rules: rules),
-                         style: LookCameraStyle.read(url: url))
+        let profiled = LookMath.Profile(rules).map { !$0.isIdentity } ?? false
+        return Developed(image: profiled ? Self.atOrigin(out) : try matched(Self.atOrigin(out), rules: rules), asShot: asShot,
+                         anchor: toneAnchor(raw: url, rules: rules), style: LookCameraStyle.read(url: url), linear: profiled)
     }
 
     // MARK: the tone anchor
@@ -315,7 +324,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         let args: [Any] = [img, t.hsm, t.curve,
                            CIVector(x: w[0][0], y: w[0][1], z: w[0][2], w: 0), CIVector(x: w[1][0], y: w[1][1], z: w[1][2], w: 0), CIVector(x: w[2][0], y: w[2][1], z: w[2][2], w: 0),
                            CIVector(x: exp2(p.exposure), y: 1 / rules.perceptualGamma, z: rules.perceptualGamma, w: Double(p.nodes - 1)),
-                           CIVector(x: Double(p.hue), y: Double(p.sat), z: Double(p.val), w: 0)]
+                           CIVector(x: Double(p.hue), y: Double(p.sat), z: Double(p.val), w: p.offset),
+                           CIVector(x: p.lift, y: p.liftCentre, z: p.liftWidth, w: 0),
+                           CIVector(x: rules.luma[0], y: rules.luma[1], z: rules.luma[2], w: 0)]
         guard let out = try LookKernels.shared().apply("lookProfile", extent: img.extent, tables: [t.hsm, t.curve], args) else { throw Failure("profile failed") }
         return out
     }
@@ -398,7 +409,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         if let o = CGImagePropertyOrientation(rawValue: UInt32(max(1, min(8, orientation)))), o != .up { img = img.oriented(o) }
         let upright = Self.atOrigin(img)
         return Developed(image: Self.scaled(upright, longEdge: px), asShot: Look.WhiteBalance(kelvin: 5500, tint: 0),
-                         anchor: toneAnchor(of: upright, key: "preview|\(url.path)|\(offset)|\(length)", workingSpace: defaultWorkingSpace, luma: defaultLuma))
+                         anchor: toneAnchor(of: upright, key: "preview|\(url.path)|\(offset)|\(length)", workingSpace: defaultWorkingSpace, luma: defaultLuma), linear: false)
     }
 
     /// Any image ImageIO reads (JPEG, TIFF, PNG): for tests, the A/B page and fixtures without
@@ -407,7 +418,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         guard let img = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else { throw Failure("can't read \(url.lastPathComponent)") }
         let upright = Self.atOrigin(img)
         return Developed(image: Self.scaled(upright, longEdge: px), asShot: Look.WhiteBalance(kelvin: 5500, tint: 0),
-                         anchor: toneAnchor(of: upright, key: "image|\(url.path)", workingSpace: defaultWorkingSpace, luma: defaultLuma))
+                         anchor: toneAnchor(of: upright, key: "image|\(url.path)", workingSpace: defaultWorkingSpace, luma: defaultLuma), linear: false)
     }
 
     /// A RAW when Core Image reads it as one, else any image ImageIO reads.
@@ -455,7 +466,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         }
         var anchor = dev.anchor
         let frame = crop ? nil : dev.frame
-        img = stages(look, on: img, asShot: dev.asShot, style: dev.style, frame: frame, anchor: &anchor)
+        img = stages(look, on: img, asShot: dev.asShot, style: dev.style, frame: frame, anchor: &anchor, linear: dev.linear)
         guard !look.locals.isEmpty, let masks else { return img }
         let extent = img.extent
         for local in look.locals {
@@ -470,7 +481,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             }
             // The mask's own exposure moves its own copy of the anchor, as the global one does.
             var a = anchor
-            let adjusted = stages(local.look, on: img, asShot: dev.asShot, style: dev.style, frame: frame, anchor: &a)
+            let adjusted = stages(local.look, on: img, asShot: dev.asShot, style: dev.style, frame: frame, anchor: &a, linear: false)
             img = adjusted.applyingFilter("CIBlendWithRedMask", parameters: [kCIInputBackgroundImageKey: img, kCIInputMaskImageKey: mask]).cropped(to: extent)
         }
         return img
@@ -479,9 +490,19 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// The look's stages on `input` (its extent is the frame the stages see: the blurs' radii and
     /// the vignette follow it), in the rules' order, the ones at reset left out. `anchor` comes
     /// back moved by the exposure stage. The global look and each mask's run through here.
+    /// `linear`: `input` is the linear decode (`Developed.linear`): the camera profile runs first,
+    /// carrying the look's Exposure, and the exposure stage is skipped. The profile pass is in the
+    /// graph whatever the Exposure, so moving it never changes the set of stages (no compile).
     /// `frame`: the whole picture when `input` is a part of it (`Developed.frame`).
-    private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, style: String?, frame: CGRect? = nil, anchor: inout LookMath.ToneAnchor) -> CIImage {
+    private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, style: String?, frame: CGRect? = nil, anchor: inout LookMath.ToneAnchor, linear: Bool) -> CIImage {
         var img = input
+        var exposed = false
+        if linear, let p = LookMath.Profile(rules) {
+            if let out = try? Self.profiled(img, LookMath.exposed(p, ev: look.ev, rules), rules: rules) { img = out }
+            anchor.mean = LookMath.exposureThroughProfile(anchor.mean, ev: look.ev, rules)
+            anchor.high = anchor.high.map { LookMath.exposureThroughProfile($0, ev: look.ev, rules) }
+            exposed = true
+        }
         let extent = img.extent
         let whole = frame ?? extent
         let longEdge = max(whole.width, whole.height)
@@ -509,6 +530,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 guard style != nil, let m = LookMath.BaseMatch(camera: style, r), !m.isIdentity else { continue }
                 pass("lookBase", Self.baseArgs(img, m, r))
             case "exposure":
+                guard !exposed else { continue }        // already in the profile pass
                 let g = LookMath.exposureGain(look.ev, r), w = LookMath.exposureWhite(r)
                 pass("lookExposure", [img, CIVector(x: g, y: w)])
                 anchor.mean = LookMath.exposure(anchor.mean, gain: g, white: w)
@@ -762,7 +784,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         let e = dev.extent.integral
         guard let cg = context.createCGImage(dev.image, from: e, format: .RGBAh, colorSpace: workingSpace) else { throw Failure("rasterise failed") }
         // The bitmap starts at the extent's origin, the image at (0, 0): the masks move with it.
-        var out = Developed(image: CIImage(cgImage: cg), asShot: dev.asShot, anchor: dev.anchor, style: dev.style)
+        var out = Developed(image: CIImage(cgImage: cg), asShot: dev.asShot, anchor: dev.anchor, style: dev.style, linear: dev.linear)
         out.masks = dev.masks?.placed(CGAffineTransform(translationX: -e.minX, y: -e.minY))
         return (out, cg.bytesPerRow * cg.height)
     }
@@ -783,7 +805,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// A flat patch in the working space.
     func flat(_ c: LookMath.RGB, size: Int = 64) -> Developed {
         let color = CIColor(red: c.r, green: c.g, blue: c.b, alpha: 1, colorSpace: workingSpace) ?? CIColor(red: c.r, green: c.g, blue: c.b)
-        return Developed(image: CIImage(color: color).cropped(to: CGRect(x: 0, y: 0, width: size, height: size)), asShot: Look.WhiteBalance(kelvin: 5500, tint: 0), anchor: .reference)
+        return Developed(image: CIImage(color: color).cropped(to: CGRect(x: 0, y: 0, width: size, height: size)), asShot: Look.WhiteBalance(kelvin: 5500, tint: 0), anchor: .reference, linear: false)
     }
 
     /// A horizontal ramp of `steps` columns, each `columnWidth` px wide, from `lo` to `hi` in
@@ -800,7 +822,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         }
         let bytes = data.withUnsafeBufferPointer { Data(buffer: $0) }
         let img = CIImage(bitmapData: bytes, bytesPerRow: w * 16, size: CGSize(width: w, height: height), format: .RGBAf, colorSpace: workingSpace)
-        return Developed(image: img, asShot: Look.WhiteBalance(kelvin: 5500, tint: 0), anchor: .reference)
+        return Developed(image: img, asShot: Look.WhiteBalance(kelvin: 5500, tint: 0), anchor: .reference, linear: false)
     }
 }
 
