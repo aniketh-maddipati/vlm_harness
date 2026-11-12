@@ -122,7 +122,12 @@ final class LookCanvasHolesTests: XCTestCase {
 
     // MARK: Soft holes (Edit's right-click menu)
 
-    private func soft(_ x: Any, _ y: Any, _ w: Any, _ h: Any, r: Any = 18, sh: Any? = ["dy": 22, "blur": 56, "a": 0.6]) -> [String: Any] {
+    /// The menu's CSS shadow as the page computes it: ring, contact, mid and far layers.
+    private static let menuLayers: [[String: Any]] = [["dx": 0, "dy": 0, "blur": 0, "spread": 0.5, "a": 0.5], ["dx": 0, "dy": 2, "blur": 4, "spread": 0, "a": 0.18],
+                                                      ["dx": 0, "dy": 10, "blur": 24, "spread": 0, "a": 0.26], ["dx": 0, "dy": 30, "blur": 70, "spread": 0, "a": 0.42]]
+    private static let menuShadows = [H.Shadow(spread: 0.5, alpha: 0.5), H.Shadow(dy: 2, blur: 4, alpha: 0.18), H.Shadow(dy: 10, blur: 24, alpha: 0.26), H.Shadow(dy: 30, blur: 70, alpha: 0.42)]
+
+    private func soft(_ x: Any, _ y: Any, _ w: Any, _ h: Any, r: Any = 18, sh: Any? = menuLayers) -> [String: Any] {
         var d: [String: Any] = ["x": x, "y": y, "w": w, "h": h, "r": r]
         if let sh { d["sh"] = sh }
         return d
@@ -131,16 +136,21 @@ final class LookCanvasHolesTests: XCTestCase {
     func testASoftHoleIsReadApartAndNotClipped() {
         let list: [Any] = [hole(110, 60, 40, 20), soft(400, 300, 280, 300)]
         XCTAssertEqual(H.parse(list, in: rect), [CGRect(x: 10, y: 10, width: 40, height: 20)], "parse leaves the soft hole out")
-        XCTAssertEqual(H.parseSoft(list, in: rect), [H.Soft(rect: CGRect(x: 300, y: 250, width: 280, height: 300), radius: 18, dy: 22, blur: 56, alpha: 0.6)])
+        XCTAssertEqual(H.parseSoft(list, in: rect), [H.Soft(rect: CGRect(x: 300, y: 250, width: 280, height: 300), radius: 18, shadows: Self.menuShadows)])
+        // One layer as a bare object (the attribute's fallback) reads the same as a list of one.
+        XCTAssertEqual(H.parseSoft([soft(400, 300, 280, 300, sh: ["dy": 22, "blur": 56, "a": 0.6])], in: rect).first?.shadows, [H.Shadow(dy: 22, blur: 56, alpha: 0.6)])
     }
 
     func testSoftHoleGarbageIsHeldNeverACrash() {
         // Radius and shadow are held to what a menu can use; ones that are not numbers (or absurd) are none.
-        XCTAssertEqual(H.parseSoft([soft(110, 60, 40, 20, r: 500, sh: ["dy": -300, "blur": Double.nan, "a": 7])], in: rect),
-                       [H.Soft(rect: CGRect(x: 10, y: 10, width: 40, height: 20), radius: 10, dy: -200, blur: 0, alpha: 1)])
-        XCTAssertEqual(H.parseSoft([soft(110, 60, 40, 20, r: 1e300, sh: ["dy": 1e300, "blur": 40, "a": 0.5])], in: rect),
-                       [H.Soft(rect: CGRect(x: 10, y: 10, width: 40, height: 20), radius: 0, dy: 0, blur: 40, alpha: 0.5)])
+        XCTAssertEqual(H.parseSoft([soft(110, 60, 40, 20, r: 500, sh: [["dx": 900, "dy": -300, "blur": Double.nan, "spread": -80, "a": 7]])], in: rect),
+                       [H.Soft(rect: CGRect(x: 10, y: 10, width: 40, height: 20), radius: 10, shadows: [H.Shadow(dx: 200, dy: -200, spread: -50, alpha: 1)])])
+        XCTAssertEqual(H.parseSoft([soft(110, 60, 40, 20, r: 1e300, sh: [["dy": 1e300, "blur": 40, "a": 0.5]])], in: rect),
+                       [H.Soft(rect: CGRect(x: 10, y: 10, width: 40, height: 20), radius: 0, shadows: [H.Shadow(blur: 40, alpha: 0.5)])])
         XCTAssertEqual(H.parseSoft([soft(110, 60, 40, 20, r: "x", sh: "x")], in: rect), [H.Soft(rect: CGRect(x: 10, y: 10, width: 40, height: 20))])
+        // No alpha, no layer; at most `maxShadows`.
+        XCTAssertEqual(H.parseSoft([soft(110, 60, 40, 20, sh: [["dy": 4, "blur": 8, "a": 0], ["dy": 4, "blur": 8]])], in: rect).first?.shadows, [])
+        XCTAssertEqual(H.parseSoft([soft(110, 60, 40, 20, sh: Array(repeating: Self.menuLayers[3], count: 20))], in: rect).first?.shadows.count, H.maxShadows)
         for bad in [soft(Double.nan, 60, 10, 10), soft(110, 60, 0, 10), soft(0, 0, 50, 50), soft(true, 60, 10, 10)] {
             XCTAssertEqual(H.parseSoft([bad], in: rect), [], "\(bad)")
             XCTAssertEqual(H.parse([bad], in: rect), [], "\(bad)")
@@ -151,7 +161,7 @@ final class LookCanvasHolesTests: XCTestCase {
     /// The image mask: photo drawn (255) away from the holes, see-through (0) inside them, rounded
     /// corners drawn, and under a soft hole's shadow partly drawn, more below it than above.
     func testTheSoftMaskFadesUnderTheShadowAndRoundsTheCorners() throws {
-        let menu = H.Soft(rect: CGRect(x: 100, y: 60, width: 160, height: 120), radius: 18, dy: 22, blur: 56, alpha: 0.6)
+        let menu = H.Soft(rect: CGRect(x: 100, y: 60, width: 160, height: 120), radius: 18, shadows: Self.menuShadows)
         let img = try XCTUnwrap(H.maskImage([CGRect(x: 0, y: 0, width: 40, height: 20)], soft: [menu], size: size, scale: 2))
         XCTAssertEqual(img.width, 800); XCTAssertEqual(img.height, 600)
         let data = try XCTUnwrap(img.dataProvider?.data), px = CFDataGetBytePtr(data)!, row = img.bytesPerRow
@@ -164,6 +174,13 @@ final class LookCanvasHolesTests: XCTestCase {
         XCTAssertLessThan(below, 220, "the photo fades under the shadow")
         XCTAssertGreaterThan(below, 0)
         XCTAssertLessThan(below, above, "the shadow falls below")
+        // As dark as the page's stacked CSS layers: just below the box most of the photo gives way
+        // (CSS ≈ 0.55 there), and the far layer still reaches 60 px down.
+        XCTAssertLessThan(a(180, 182), 140, "the contact shadow and the ring at the edge")
+        XCTAssertLessThan(a(180, 240), 250, "the far layer reaches")
+        XCTAssertGreaterThan(a(180, 299), 245, "and fades out")
+        // The ring (spread, no blur) darkens a sliver just outside the box, not the box's own corner.
+        XCTAssertLessThan(a(261, 120), 200, "the ring and the near layers beside the box")
         XCTAssertNil(H.maskImage([], soft: [menu], size: .zero, scale: 2))
     }
 
@@ -217,7 +234,7 @@ final class LookCanvasHolesTests: XCTestCase {
         XCTAssertFalse(try XCTUnwrap((layer.mask as? CAShapeLayer)?.path).contains(CGPoint(x: 40, y: 100 - 20)))
 
         // A soft hole: the mask becomes an image layer; back to rects, a shape layer again.
-        let menu = LookCanvasHoles.Soft(rect: CGRect(x: 100, y: 60, width: 160, height: 120), radius: 18, dy: 22, blur: 56, alpha: 0.6)
+        let menu = LookCanvasHoles.Soft(rect: CGRect(x: 100, y: 60, width: 160, height: 120), radius: 18, shadows: [LookCanvasHoles.Shadow(dy: 22, blur: 56, alpha: 0.6)])
         canvas.layout(rect: rect, visible: true, dpr: 2, holes: pill, soft: [menu])
         let image = try XCTUnwrap(layer.mask)
         XCTAssertFalse(image is CAShapeLayer)

@@ -64,18 +64,33 @@ nonisolated enum LookCanvasHoles {
     struct Soft: Equatable {
         var rect: CGRect
         var radius: CGFloat = 0
+        var shadows: [Shadow] = []
+    }
+
+    /// One outer layer of the page's CSS `box-shadow`, CSS px: offset, blur, spread and alpha.
+    struct Shadow: Equatable {
+        var dx: CGFloat = 0
         var dy: CGFloat = 0
         var blur: CGFloat = 0
+        var spread: CGFloat = 0
         var alpha: CGFloat = 0
     }
+
+    /// Layers per soft hole: a menu's shadow is a handful; more is not a shadow.
+    static let maxShadows = 6
+    /// Core Graphics' shadow blur falls off about 15 % sooner than the same CSS blur (measured on a
+    /// straight edge at 4, 24 and 70 px), so the canvas widens it to fade where the page's does.
+    static let cssBlur: CGFloat = 1.15
 
     /// An entry carrying `r` or `sh` is a soft hole: `parse` leaves it to `parseSoft`.
     private static func isSoft(_ d: [String: Any]) -> Bool { d["r"] != nil || d["sh"] != nil }
 
-    /// The soft holes among the first `maxCount` entries: `{x, y, w, h, r, sh: {dy, blur, a}}`, CSS px
-    /// like `parse`. The rect must be four finite numbers with a positive size that meet the canvas;
-    /// a radius or shadow that is not a number is read as none (the hole stays a hole), and each is
-    /// held to what a menu can use: radius ≤ half the short side, |dy| and blur ≤ 200, alpha 0…1.
+    /// The soft holes among the first `maxCount` entries: `{x, y, w, h, r, sh}`, CSS px like `parse`,
+    /// where `sh` is the layers `[{dx, dy, blur, spread, a}]` (or one `{dy, blur, a}`). The rect must
+    /// be four finite numbers with a positive size that meet the canvas; a radius or a layer value
+    /// that is not a number is read as 0 (the hole stays a hole), and each is held to what a menu can
+    /// use: radius ≤ half the short side, |dx|, |dy| and blur ≤ 200, |spread| ≤ 50, alpha 0…1; a
+    /// layer with no alpha is dropped, and at most `maxShadows` are kept.
     static func parseSoft(_ value: Any?, in rect: CGRect) -> [Soft] {
         guard let list = value as? [Any], LookCanvasController.layable(rect, dpr: 1), rect.width > 0, rect.height > 0 else { return [] }
         let bounds = CGRect(origin: .zero, size: rect.size)
@@ -85,13 +100,15 @@ nonisolated enum LookCanvasHoles {
             let r = CGRect(x: x - rect.minX, y: y - rect.minY, width: w, height: h)
             guard r.intersects(bounds) else { return nil }
             let clamp = { (v: Double?, lo: Double, hi: Double) in CGFloat(min(hi, max(lo, v ?? 0))) }
-            var soft = Soft(rect: r, radius: clamp(number(d["r"]), 0, Double(min(w, h)) / 2))
-            if let sh = d["sh"] as? [String: Any] {
-                soft.dy = clamp(number(sh["dy"]), -200, 200)
-                soft.blur = clamp(number(sh["blur"]), 0, 200)
-                soft.alpha = clamp(number(sh["a"]), 0, 1)
+            let layers = (d["sh"] as? [Any]) ?? (d["sh"].map { [$0] } ?? [])
+            let shadows = layers.prefix(maxShadows).compactMap { item -> Shadow? in
+                guard let sh = item as? [String: Any] else { return nil }
+                let s = Shadow(dx: clamp(number(sh["dx"]), -200, 200), dy: clamp(number(sh["dy"]), -200, 200),
+                               blur: clamp(number(sh["blur"]), 0, 200), spread: clamp(number(sh["spread"]), -50, 50),
+                               alpha: clamp(number(sh["a"]), 0, 1))
+                return s.alpha > 0 ? s : nil
             }
-            return soft
+            return Soft(rect: r, radius: clamp(number(d["r"]), 0, Double(min(w, h)) / 2), shadows: shadows)
         }
     }
 
@@ -112,12 +129,24 @@ nonisolated enum LookCanvasHoles {
         ctx.setFillColor(CGColor(gray: 0, alpha: 1))
         let up = { (r: CGRect) in CGRect(x: r.minX, y: size.height - r.maxY, width: r.width, height: r.height) }
         for r in hard { ctx.fill(up(r)) }
+        // Each layer is the shadow alone, as CSS draws it: its shape (the box grown by the spread)
+        // is filled a canvas-width away, off the image, and the shadow is offset back. Layers add
+        // as source-over, so their coverage combines the way the page's stacked shadows do.
+        let away = size.width + size.height + 1000
         for s in soft {
-            ctx.saveGState()
-            if s.alpha > 0 { ctx.setShadow(offset: CGSize(width: 0, height: -s.dy * k), blur: s.blur * k, color: CGColor(gray: 0, alpha: s.alpha)) }
+            for l in s.shadows {
+                let box = up(s.rect).insetBy(dx: -l.spread, dy: -l.spread)
+                guard box.width > 0, box.height > 0 else { continue }
+                let r = max(0, min(s.radius + l.spread, min(box.width, box.height) / 2))
+                ctx.saveGState()
+                ctx.setShadow(offset: CGSize(width: (l.dx - away) * k, height: -l.dy * k), blur: l.blur * k * cssBlur,
+                              color: CGColor(gray: 0, alpha: l.alpha))
+                ctx.addPath(CGPath(roundedRect: box.offsetBy(dx: away, dy: 0), cornerWidth: r, cornerHeight: r, transform: nil))
+                ctx.fillPath()
+                ctx.restoreGState()
+            }
             ctx.addPath(CGPath(roundedRect: up(s.rect), cornerWidth: s.radius, cornerHeight: s.radius, transform: nil))
             ctx.fillPath()
-            ctx.restoreGState()
         }
         let px = data.assumingMemoryBound(to: UInt8.self)
         for i in 0..<(w * h) { px[i] = 255 &- px[i] }
