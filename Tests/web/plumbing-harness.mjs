@@ -393,7 +393,10 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
       // overlaps the frame and is a hole of its own; it is not the frame.
       const isBox = (h, b) => Math.abs(h.x - b.x) < 6 && Math.abs(h.y - b.y) < 6 && Math.abs(h.x + h.w - (b.x + b.w)) < 6 && Math.abs(h.y + h.h - (b.y + b.h)) < 6;
       const frameArea = crop.frame ? crop.frame.w * crop.frame.h : 0;
-      const isDialog = h => (crop.dialogs || []).some(d => isBox(h, d));
+      // A dialog is a hole clipped to the canvas, so compare against the clipped box: a centred
+      // card can reach past the canvas once the control column is wide.
+      const clip = (d, c) => { if (!c || !(c.w > 0)) return d; const x = Math.max(d.x, c.x), y = Math.max(d.y, c.y); return { x, y, w: Math.min(d.x + d.w, c.x + c.w) - x, h: Math.min(d.y + d.h, c.y + c.h) - y }; };
+      const isDialog = h => (crop.dialogs || []).some(d => isBox(h, d) || isBox(h, clip(d, cropLast)));
       const coversInterior = h => !isDialog(h) && crop.frame && overlap(h, crop.frame) > 0.7 * h.w * h.h && overlap(h, crop.frame) > 0.2 * frameArea;
       ok(!!(crop.frame && frameArea > 100 && cropLast && holes.length <= 16 && !holes.some(h => isBox(h, crop.frame)) && !holes.some(coversInterior)),
         'edit v22 (page): with Crop open, no hole covers the crop interior', { frame: crop.frame, holes });
