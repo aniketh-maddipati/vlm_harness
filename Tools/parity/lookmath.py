@@ -269,14 +269,68 @@ def white_balance_gains(target, as_shot, rules):
     return g
 
 
-def whites_blacks(p, whites, blacks, rules):
-    """Perceptual, per channel."""
-    b_amt = -blacks * k(rules, "whitesBlacks", "blacksPerUnit", 0.002)
+def whites_blacks(p, whites, rules):
+    """Whites: perceptual, per channel. Blacks is `blacks` below."""
     w_amt = whites * k(rules, "whitesBlacks", "whitesPerUnit", 0.003)
     pc = np.clip(p, 0.0, 1.0)
-    q = p - b_amt * np.power(1.0 - pc, k(rules, "whitesBlacks", "blacksPower", 2.0))
-    q = q + w_amt * np.power(pc, k(rules, "whitesBlacks", "whitesPower", 2.0))
-    return np.maximum(0.0, q)
+    return np.maximum(0.0, p + w_amt * np.power(pc, k(rules, "whitesBlacks", "whitesPower", 2.0)))
+
+
+# Blacks: LightCraft's Process V4 form (MIT, ArtCraft Team and the LightCraft contributors), LookMath.blacks.
+BLACKS_KNOTS = np.array([0.0, 0.02, 0.05, 0.09, 0.14, 0.2, 0.28, 0.38, 0.5, 0.65, 0.82, 1.0])
+TO_PROPHOTO = np.array([[0.529345908, 0.330072837, 0.140581255], [0.098374379, 0.873460924, 0.028164697],
+                        [0.016883188, 0.117672476, 0.865444335]])
+FROM_PROPHOTO = np.array([[2.034076081, -0.727334443, -0.306741639], [-0.22881345, 1.231730369, -0.002916919],
+                          [-0.008569752, -0.153286622, 1.161856374]])
+PROPHOTO_Y = np.array([0.2880402, 0.7118741, 0.0000857])
+
+
+def blacks_curve(blacks, rules):
+    """(D at the knots, a, perChannel) or None, as LookMath.blacksCurve."""
+    if not np.isfinite(blacks) or blacks == 0:
+        return None
+    side = "blacksUp" if blacks > 0 else "blacksDown"
+    d = np.array([k(rules, "whitesBlacks", f"{side}{i}", 0.0) for i in range(11)] + [0.0])
+    tau = min(max(k(rules, "whitesBlacks", side + "Tau", 1.0), 1e-3), 1e3)
+    q = k(rules, "whitesBlacks", side + "Q", 1.0)
+    t = min(abs(blacks) / 100.0, 1.0)
+    s = ((1 - np.exp(-t / tau)) / (1 - np.exp(-1 / tau))) ** q
+    w = min(1.0, max(0.0, k(rules, "whitesBlacks", side + "PerChannel", 1.0)))
+    return d, (s if blacks > 0 else -s), w
+
+
+def srgb_encode(l):
+    l = np.asarray(l, dtype=np.float64)
+    return np.where(l <= 0.0031308, 12.92 * np.maximum(0.0, l), 1.055 * np.power(np.maximum(l, 0.0031308), 1 / 2.4) - 0.055)
+
+
+def srgb_decode(e):
+    e = np.asarray(e, dtype=np.float64)
+    return np.where(e <= 0.04045, e / 12.92, np.power((np.maximum(e, 0.04045) + 0.055) / 1.055, 2.4))
+
+
+def blacks_f(v, curve):
+    d, a, _ = curve
+    dv = np.interp(np.clip(v, 0.0, 1.0), BLACKS_KNOTS, d)
+    dv = np.where(np.asarray(v) >= 1.0, 0.0, dv)
+    return np.maximum(0.0, v + a * dv)
+
+
+def blacks_channel(l, curve):
+    l = np.asarray(l, dtype=np.float64)
+    f0 = float(srgb_decode(blacks_f(0.0, curve)))
+    return np.where(l < 0, l + f0, srgb_decode(blacks_f(srgb_encode(l), curve)))
+
+
+def blacks(c, curve):
+    """(..., 3) linear working RGB → the same after Blacks."""
+    p = np.asarray(c, dtype=np.float64) @ TO_PROPHOTO.T
+    y = p @ PROPHOTO_Y
+    ok = (y > 1e-6) & (y <= 1.0)
+    ratio = np.where(ok, blacks_channel(y, curve) / np.where(ok, y, 1.0), 1.0)
+    w = curve[2]
+    o = w * blacks_channel(p, curve) + (1 - w) * p * ratio[..., None]
+    return o @ FROM_PROPHOTO.T
 
 
 TONE_REFERENCE = 0.18
@@ -319,6 +373,36 @@ def tone_gain(base, anchor, highlights, shadows, rules):
     s = shadows * k(rules, "tone", "shadowsStopsPerUnit", 0.01) * gs * np.exp(-ps / max(0.01, k(rules, "tone", "shadowsTau", 0.2)))
     h = highlights * k(rules, "tone", "highlightsStopsPerUnit", 0.01) * gh * np.minimum(1.0, ph / max(0.01, k(rules, "tone", "highlightsKnee", 0.7)))
     return 2.0 ** (s + h)
+
+
+def tone_chroma_params(highlights, rules):
+    """(log2 chroma per mask, lo, hi) for this Highlights value, or None. Lightroom's Highlights moves
+    colour in the photo's highlights as well as their brightness: −100 gives them back chroma, +100
+    takes it away (measured on its own base → slider exports, 2026-11-12 Tools/parity/hl_chroma)."""
+    if not np.isfinite(highlights) or highlights == 0:
+        return None
+    side = "highlightsChromaDown" if highlights < 0 else "highlightsChromaUp"
+    kap = k(rules, "tone", side, 0.0)
+    if kap == 0:
+        return None
+    return kap * highlights / 100.0, k(rules, "tone", side + "Lo", 0.8), k(rules, "tone", side + "Hi", 1.1)
+
+
+def tone_chroma(c, base, highlights, rules):
+    """LookMath.toneChroma: after the tone curve, chroma around luma scaled by 2^(a·smoothstep(lo, hi, p)),
+    p the base's perceptual luma (absolute, not the photo-relative mask: fitted both ways, absolute won);
+    capped so no channel goes below 0. Luma is kept."""
+    q = tone_chroma_params(highlights, rules)
+    if q is None:
+        return c
+    a, lo, hi = q
+    s = 2.0 ** (a * smoothstep(lo, hi, perceptual(np.asarray(base, dtype=np.float64), rules)))
+    c = np.asarray(c, dtype=np.float64)
+    y = luma(c, rules)
+    spread = y - c.min(axis=-1)
+    cap = np.where(spread > 1e-9, np.maximum(y, 0.0) / np.where(spread > 1e-9, spread, 1.0), np.inf)
+    s = np.minimum(s, np.maximum(cap, 1.0))
+    return y[..., None] + (c - y[..., None]) * s[..., None]
 
 
 def tone_white(rules):
@@ -711,13 +795,17 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5):
                 # scene gains through the tone curve, per channel (LookMath.flat)
                 c = through_curve(c, white_balance_gains(look["wb"], as_shot, rules), max(0.05, k(rules, "whiteBalance", "white", 1.0)))
         elif stage == "whitesBlacks":
-            if look["wh"] != 0 or look["bl"] != 0:
-                c = linear(whites_blacks(perceptual(c, rules), look["wh"], look["bl"], rules), rules)
+            if look["wh"] != 0:
+                c = linear(whites_blacks(perceptual(c, rules), look["wh"], rules), rules)
+            bc = blacks_curve(look["bl"], rules)
+            if bc is not None:
+                c = blacks(c, bc)
         elif stage == "tone":
             if look["hl"] != 0 or look["sh"] != 0:
                 y = luma(c, rules)
                 g = tone_gain(y, anchor, look["hl"], look["sh"], rules)
                 c = through_curve(c * tone_detail(y, y, rules)[..., None], g[..., None], tone_white(rules))
+                c = tone_chroma(c, y, look["hl"], rules)
         elif stage == "contrast":
             c = contrast(c, look["con"], rules)
         elif stage == "dehaze":
@@ -759,6 +847,7 @@ def apply_image(img, look, as_shot, rules, sigma_scale=None):
             base = gaussian_filter(y, k(rules, "tone", "radiusFraction", 0.03) * long_edge, mode="nearest")
             g = tone_gain(base, anchor, look["hl"], look["sh"], rules)
             c = through_curve(c * tone_detail(y, base, rules)[..., None], g[..., None], tone_white(rules))
+            c = tone_chroma(c, base, look["hl"], rules)
         elif stage == "dehaze" and look["dhz"] != 0:
             dark = gaussian_filter(c.min(axis=-1), k(rules, "dehaze", "radiusFraction", 0.02) * long_edge, mode="nearest")
             c = dehaze(c, dark, look["dhz"], anchor, rules)

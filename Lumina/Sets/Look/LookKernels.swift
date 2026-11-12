@@ -34,6 +34,25 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return p < m ? m * pow(p / m, a) : 1.0f - (1.0f - m) * pow((1.0f - p) / (1.0f - m), a);
     }
 
+    // blacks (LookMath.blacks, LightCraft's form, MIT): F(v) = max(0, v + a·D(v)) on linear ProPhoto through the
+    // sRGB curve, per channel and on luminance. d0, d1, d2 = D at the 12 knots; k = (a, perChannel, 0, 0)
+    static float lk_srgbEnc(float l) { return l <= 0.0031308f ? 12.92f * max(0.0f, l) : 1.055f * pow(l, 1.0f / 2.4f) - 0.055f; }
+    static float lk_srgbDec(float e) { return e <= 0.04045f ? e / 12.92f : pow((e + 0.055f) / 1.055f, 2.4f); }
+    static float lk_blacksF(float v, float4 d0, float4 d1, float4 d2, float a) {
+        float x[12] = {0.0f, 0.02f, 0.05f, 0.09f, 0.14f, 0.2f, 0.28f, 0.38f, 0.5f, 0.65f, 0.82f, 1.0f};
+        float d[12] = {d0.x, d0.y, d0.z, d0.w, d1.x, d1.y, d1.z, d1.w, d2.x, d2.y, d2.z, d2.w};
+        float dv = d[0];
+        if (v >= 1.0f) { dv = 0.0f; } else if (v > 0.0f) {
+            int i = 1;
+            while (i < 11 && v > x[i]) i++;
+            float f = (v - x[i - 1]) / (x[i] - x[i - 1]);
+            dv = d[i - 1] + (d[i] - d[i - 1]) * f;
+        }
+        return max(0.0f, v + a * dv);
+    }
+    static float lk_blacksChannel(float l, float4 d0, float4 d1, float4 d2, float a) {
+        return l < 0.0f ? l + lk_srgbDec(lk_blacksF(0.0f, d0, d1, d2, a)) : lk_srgbDec(lk_blacksF(lk_srgbEnc(l), d0, d1, d2, a));
+    }
     // luma (linear), or perceptual luma when invGamma > 0: the images the blurs work on
     [[ stitchable ]] float4 lookLuma(coreimage::sample_t s, float4 lum, float invGamma) {
         float y = dot(s.rgb, lum.rgb);
@@ -167,10 +186,27 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(c, s.a);
     }
 
+    [[ stitchable ]] float4 lookBlacks(coreimage::sample_t s, float4 d0, float4 d1, float4 d2, float4 k) {
+        float3x3 toPro = float3x3(float3(0.529345908f, 0.098374379f, 0.016883188f),
+                                  float3(0.330072837f, 0.873460924f, 0.117672476f),
+                                  float3(0.140581255f, 0.028164697f, 0.865444335f));
+        float3x3 fromPro = float3x3(float3(2.034076081f, -0.22881345f, -0.008569752f),
+                                    float3(-0.727334443f, 1.231730369f, -0.153286622f),
+                                    float3(-0.306741639f, -0.002916919f, 1.161856374f));
+        float3 p = toPro * s.rgb;
+        float y = dot(p, float3(0.2880402f, 0.7118741f, 0.0000857f));
+        float ratio = (y > 1e-6f && y <= 1.0f) ? lk_blacksChannel(y, d0, d1, d2, k.x) / y : 1.0f;
+        float3 per = float3(lk_blacksChannel(p.x, d0, d1, d2, k.x), lk_blacksChannel(p.y, d0, d1, d2, k.x),
+                            lk_blacksChannel(p.z, d0, d1, d2, k.x));
+        float3 o = k.y * per + (1.0f - k.y) * p * ratio;
+        return float4(fromPro * o, s.a);
+    }
+
     // tone: a local exposure through the tone curve (LookMath.toneGain + exposure). base = blurred
     // linear luma. sh = (shadowsStops, tau, shadows normaliser, highlights normaliser) with the
-    // normalisers from the photo's anchor; hl = (highlightsStops, knee, white, detailGain)
-    [[ stitchable ]] float4 lookTone(coreimage::sample_t s, coreimage::sample_t base, float4 sh, float4 hl, float2 gam, float4 lum) {
+    // normalisers from the photo's anchor; hl = (highlightsStops, knee, white, detailGain);
+    // hc = (log2 chroma at full mask, lo, hi, 0), LookMath.toneChroma (0 = off)
+    [[ stitchable ]] float4 lookTone(coreimage::sample_t s, coreimage::sample_t base, float4 sh, float4 hl, float2 gam, float4 lum, float4 hc) {
         float ps = lk_perc(base.r * sh.z, gam.x);
         float ph = lk_perc(base.r * sh.w, gam.x);
         float g = exp2(sh.x * exp(-ps / max(0.01f, sh.y)) + hl.x * min(1.0f, ph / max(0.01f, hl.y)));
@@ -179,7 +215,14 @@ nonisolated final class LookKernels: @unchecked Sendable {
             float y = dot(s.rgb, lum.rgb);
             d = pow(max(1e-6f, y) / max(1e-6f, base.r), hl.w - 1.0f);
         }
-        return float4(lk_exposure(s.r * d, g, hl.z), lk_exposure(s.g * d, g, hl.z), lk_exposure(s.b * d, g, hl.z), s.a);
+        float3 o = float3(lk_exposure(s.r * d, g, hl.z), lk_exposure(s.g * d, g, hl.z), lk_exposure(s.b * d, g, hl.z));
+        if (hc.x != 0.0f) {
+            float c = exp2(hc.x * lk_smooth(hc.y, hc.z, lk_perc(base.r, gam.x)));
+            float y = dot(o, lum.rgb), spread = y - min(o.r, min(o.g, o.b));
+            if (spread > 1e-9f) c = min(c, max(1.0f, max(0.0f, y) / spread));
+            o = y + (o - y) * c;
+        }
+        return float4(o, s.a);
     }
 
     // contrast: k = (midpoint, slope a, lumaMix, 0)
@@ -411,7 +454,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
 
     /// The stage kernels, compiled when the pipeline is made. `lookDisplay` (the sigmoid mapper) is
     /// not one of them: it compiles on first use, so with the default mapper nothing new is built.
-    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen",
+    static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookBlacks", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen",
                              "lookVignette", "lookCurve", "lookMixer", "lookProfile"]
 
     private let header: String

@@ -268,7 +268,9 @@ do {
         let asShot = Look.WhiteBalance(kelvin: 5500, tint: 0)
         var patches: [LookMath.RGB] = (0...24).map { .gray(Double($0) / 20) }
         patches += [LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.2, g: 0.5, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6),
-                    LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), LookMath.RGB(r: 0.7, g: 0.6, b: 0.1), LookMath.RGB(r: 0.3, g: 0.6, b: 0.7)]
+                    LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), LookMath.RGB(r: 0.7, g: 0.6, b: 0.1), LookMath.RGB(r: 0.3, g: 0.6, b: 0.7),
+                    // bright colours: where Highlights moves chroma (LookMath.toneChroma)
+                    LookMath.RGB(r: 1.0, g: 0.8, b: 0.55), LookMath.RGB(r: 0.75, g: 0.9, b: 1.0), LookMath.RGB(r: 1.15, g: 0.95, b: 0.7)]
         var rows: [[String: Any]] = []
         var worst = 0.0
         for c in patches {

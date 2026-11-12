@@ -502,6 +502,31 @@ final class LookMathTests: XCTestCase {
     /// rawDevelop's base match: nothing at all with zero coefficients; otherwise a grey stays the
     /// same grey the curve gives it (rows of the mix sum to 1), the curve is the identity at 0 and
     /// from 1 up, and it never folds back.
+    /// Highlights moves colour in the highlights (Lightroom: −100 gives them chroma back, +50 takes it
+    /// away). The term keeps luma, keeps grey grey, never drives a channel below 0, and is off at 0.
+    func testHighlightsChromaKeepsLumaAndGrey() {
+        let bright = LookMath.RGB(r: 1.15, g: 0.95, b: 0.7), dull = LookMath.RGB(r: 0.25, g: 0.18, b: 0.12)
+        let spread = { (c: LookMath.RGB) in max(c.r, c.g, c.b) - min(c.r, c.g, c.b) }
+        XCTAssertNil(LookMath.toneChromaParams(highlights: 0, rules))
+        for (v, more) in [(-100.0, true), (-50, true), (50, false), (100, false)] {
+            guard LookMath.toneChromaParams(highlights: v, rules) != nil else { continue }
+            let b = LookMath.toneChroma(bright, base: luma(bright), highlights: v, rules)
+            XCTAssertEqual(luma(b), luma(bright), accuracy: 1e-12)
+            XCTAssertGreaterThanOrEqual(min(b.r, b.g, b.b), 0)
+            if more { XCTAssertGreaterThan(spread(b), spread(bright)) } else { XCTAssertLessThan(spread(b), spread(bright)) }
+            let d = LookMath.toneChroma(dull, base: luma(dull), highlights: v, rules)
+            XCTAssertEqual(spread(d), spread(dull), accuracy: 1e-12, "a dark colour is outside the mask")
+            for g in stride(from: 0.0, through: 1.6, by: 0.1) {
+                let o = LookMath.toneChroma(.gray(g), base: g, highlights: v, rules)
+                XCTAssertEqual(o.r, g, accuracy: 1e-12); XCTAssertEqual(o.b, g, accuracy: 1e-12)
+            }
+            // A saturated near-white colour is capped at 0, not pushed below it.
+            let edge = LookMath.RGB(r: 1.2, g: 1.0, b: 0.05)
+            let e = LookMath.toneChroma(edge, base: luma(edge), highlights: v, rules)
+            XCTAssertGreaterThanOrEqual(min(e.r, e.g, e.b), -1e-12)
+        }
+    }
+
     func testBaseMatchKeepsGreysNeutralAndIsMonotonic() {
         let c = LookMath.RGB(r: 0.6, g: 0.35, b: 0.25)
         XCTAssertTrue(LookMath.BaseMatch().isIdentity)

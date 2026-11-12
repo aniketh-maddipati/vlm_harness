@@ -324,6 +324,13 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         return out
     }
 
+    /// `lookBlacks`'s arguments after the image: D at the 12 knots, then (a, perChannel, 0, 0).
+    static func blacksArgs(_ k: LookMath.BlacksCurve) -> [Any] {
+        let d = k.d
+        return [CIVector(x: d[0], y: d[1], z: d[2], w: d[3]), CIVector(x: d[4], y: d[5], z: d[6], w: d[7]),
+                CIVector(x: d[8], y: d[9], z: d[10], w: d[11]), CIVector(x: k.a, y: k.perChannel, z: 0, w: 0)]
+    }
+
     /// `lookBase`'s arguments for one base match (rawDevelop's, or the camera profile's).
     static func baseArgs(_ img: CIImage, _ m: LookMath.BaseMatch, _ rules: LookRules) -> [Any] {
         let w = m.rows, lum = rules.luma
@@ -502,16 +509,22 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 let g = LookMath.whiteBalanceGains(look.wb, asShot: asShot, r)
                 pass("lookWhiteBalance", [img, CIVector(x: g.r, y: g.g, z: g.b, w: 1), CIVector(x: LookMath.whiteBalanceWhite(r), y: 0)])
             case "whitesBlacks":
-                let wbk = CIVector(x: look.whites * r.k("whitesBlacks", "whitesPerUnit", 0.003),
-                                   y: -look.blacks * r.k("whitesBlacks", "blacksPerUnit", 0.002),
-                                   z: r.k("whitesBlacks", "whitesPower", 2), w: r.k("whitesBlacks", "blacksPower", 2))
-                pass("lookPre", [img, ones, wbk, gam])
+                if look.whites != 0 {
+                    let wbk = CIVector(x: look.whites * r.k("whitesBlacks", "whitesPerUnit", 0.003), y: 0,
+                                       z: r.k("whitesBlacks", "whitesPower", 2), w: 1)
+                    pass("lookPre", [img, ones, wbk, gam])
+                }
+                if let k = LookMath.blacksCurve(look.blacks, r) {
+                    pass("lookBlacks", [img] + Self.blacksArgs(k))
+                }
             case "tone":
                 let base = blur(luma(perceptual: false), sigma: r.k("tone", "radiusFraction", 0.03) * longEdge)
                 let n = LookMath.toneNormalisers(anchor: anchor, r)
                 let sh = CIVector(x: look.shadows * r.k("tone", "shadowsStopsPerUnit", 0.01) * n.shadowsGain, y: r.k("tone", "shadowsTau", 0.2), z: n.shadows, w: n.highlights)
                 let hl = CIVector(x: look.highlights * r.k("tone", "highlightsStopsPerUnit", 0.01) * n.highlightsGain, y: r.k("tone", "highlightsKnee", 0.7), z: LookMath.toneWhite(r), w: r.k("tone", "detailGain", 1))
-                pass("lookTone", [img, base, sh, hl, gam, lum])
+                let q = LookMath.toneChromaParams(highlights: look.highlights, r)
+                let hc = CIVector(x: q?.amount ?? 0, y: q?.lo ?? 0, z: q?.hi ?? 1, w: 0)
+                pass("lookTone", [img, base, sh, hl, gam, lum, hc])
             case "contrast":
                 let k = CIVector(x: min(0.95, max(0.05, r.k("contrast", "midpoint", 0.46))),
                                  y: exp2(look.contrast * r.k("contrast", "slopePerUnit", 0.006)),
