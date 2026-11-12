@@ -279,7 +279,10 @@ nonisolated enum SetsFileOps {
     // MARK: Copy
 
     /// Copies `src` to `dst` (never moves). Streams with a running SHA-256, then re-reads the copy.
-    static func copyVerified(_ src: URL, to dst: URL) throws -> CopyOutcome {
+    static func copyVerified(_ src: URL, to dst: URL) throws -> CopyOutcome { try copyVerifiedHashed(src, to: dst).outcome }
+
+    /// `copyVerified`, also answering the SHA-256 the copy was checked against (Lumina Ingest keeps it).
+    static func copyVerifiedHashed(_ src: URL, to dst: URL) throws -> (outcome: CopyOutcome, sha: String) {
         let fm = FileManager.default
         let srcHash = try sha256(file: src)                  // first: a missing original creates nothing
         try fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -287,7 +290,7 @@ nonisolated enum SetsFileOps {
         var renamed = false
         var n = 2
         while fm.fileExists(atPath: target.path) {
-            if try sha256(file: target) == srcHash { return .alreadyThere(target) }
+            if try sha256(file: target) == srcHash { return (.alreadyThere(target), srcHash) }
             let stem = dst.deletingPathExtension().lastPathComponent, ext = dst.pathExtension
             target = dst.deletingLastPathComponent().appendingPathComponent("\(stem)-\(n)" + (ext.isEmpty ? "" : ".\(ext)"))
             renamed = true
@@ -312,7 +315,7 @@ nonisolated enum SetsFileOps {
         guard streamed == srcHash else { throw Failure("\(src.lastPathComponent) changed while it was being copied") }
         guard try sha256(file: tmp) == srcHash else { throw Failure("copy of \(src.lastPathComponent) doesn't match the original") }
         try fm.moveItem(at: tmp, to: target)
-        return renamed ? .renamed(target) : .copied(target)
+        return (renamed ? .renamed(target) : .copied(target), srcHash)
     }
 
     // MARK: Destination guard

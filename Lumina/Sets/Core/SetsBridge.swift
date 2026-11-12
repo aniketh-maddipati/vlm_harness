@@ -43,6 +43,13 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     private(set) lazy var masks = SetsMasks(ingest: ingest)
     /// Sensor dust across the frames the page names (`lumina.dust`).
     private(set) lazy var dust = SetsDust(ingest: ingest)
+    /// Lumina Ingest's copy and library (Debug, `LUMINA_PAGE=ingest` only; `IngestHost`).
+    private(set) lazy var ingestHost: IngestHost = {
+        let h = IngestHost(supportDir: supportDir)
+        h.webView = webView
+        h.onEvent = { [weak self] in self?.onEvent?($0) }
+        return h
+    }()
     private var pendingSource: URL?
     /// The recent shoot `pendingSource` reopens: the folder keeps that shoot's id wherever its
     /// bookmark found it (renamed or moved), instead of becoming a second shoot.
@@ -423,6 +430,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         // Skim's ops answer the Skim page only (the Lumina Skim app, or a Debug build run with LUMINA_PAGE=skim):
         // the Lumina app's page never calls them, so it has no way to reach them (docs/release/TRUST.md).
         if op.hasPrefix("skim"), SetsPage.current != .skim { return (nil, "not served") }
+        // Lumina Ingest's ops (copy into the library, its identities, Eject) answer the ingest page only (Debug, LUMINA_PAGE=ingest).
+        if IngestHost.ops.contains(op) {
+            guard SetsPage.isIngest else { return (nil, "not served") }
+            ingestHost.webView = webView
+            return (await ingestHost.handle(op, body), nil)
+        }
         switch op {
         case "ready":
             if let gaps = body["missing"] as? [String], !gaps.isEmpty {
