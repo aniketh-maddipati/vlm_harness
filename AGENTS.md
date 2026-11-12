@@ -321,12 +321,24 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
 - **rawDevelop undoes lens shading with the camera's own numbers** (`LookLensShading`: Sony's
   `VignettingCorrParams`, applied in the decoder's linear space; coefficient `lensShading`).
   Lightroom's lens profile does the same from Adobe's tables; Core Image's decoder leaves it in.
-- **rawDevelop ends with the base match** (`LookMath.baseMatch`, kernel `lookBase`): a two-number
-  midtone curve on luma and a colour mix whose rows sum to 1 (a grey stays grey), fitted on base
-  exports so the untouched render is Lightroom's Adobe Color. Every slider stage sits on this base:
-  when it changes, refit the stages, and adopt a stage's refit only if the held-out set agrees,
-  within the tolerance above (a fit that helps the sweep and hurts the held-out set overfitted;
-  that has happened twice).
+- **rawDevelop ends with the camera profile** (`stages.profile`, `LookMath.profile`, kernel
+  `lookProfile`, numpy `Tools/parity/profile_math.py`): the decoder runs with `boostAmount` 0 (Apple's
+  linear output, none of its look) and the profile makes it Lightroom's Adobe Color in the form of
+  an Adobe DCP: a baseline exposure, a 3×3 mix whose rows sum to 1, a hue/sat/val table in linear
+  ProPhoto HSV (30 × 8 × 4, trilinear, hue wrapping, `valScale` 1 where sat is 0 so grey stays
+  grey) and a 33-node monotone tone curve applied through RGBTone (the largest and smallest channel
+  through the curve, the middle one keeps its place). Fitted 2026-11-12 by `profile_fit.py` from
+  linear decodes to Lightroom's base exports (Death Valley tone set, portraits, the golden set; bad
+  labels in `~/LuminaEvidence/profile/bad-refs.json` excluded; smoothness and a ridge toward the
+  identity table; every 5th photo held out). Held-out mehendi 2.35 / 8.00 → 2.22 / 8.10, DV base
+  1.05 / 3.13 → 0.76 / 2.88, portraits 1.28 / 5.29 → 0.92 / 4.87, sweep 1.43 / 5.02 → 1.25 / 5.02,
+  DV unseen 1.54 / 5.53 → 1.32 / 5.44. The old base match (`LookMath.baseMatch`, `base*`) runs only
+  when a rules file has no `profile` stage. Every slider stage sits on this base: when it changes,
+  refit the stages, and adopt a stage's refit only if the held-out set agrees, within the tolerance
+  above (a fit that helps the sweep and hurts the held-out set overfitted; that has happened three
+  times, the last a tone refit on the profile base: DV unseen 1.32 → 1.23 but p95 5.44 → 5.60 and
+  mehendi 8.12). Open: the `camera` stage (`prof:camera`, Creative Styles) was fitted on the old
+  base and needs a refit on the profile (`camera_fit.py`); DSC06707's highlight hue.
 - **White balance uses the same curve**: per-channel scene gains (Temperature moves red and blue and
   holds green, as Lightroom does; Tint has its own red and blue strengths), each channel through the
   tone curve, so a cast is full strength in the shadows and fades toward white.

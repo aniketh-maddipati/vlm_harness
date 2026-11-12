@@ -50,6 +50,79 @@ final class LookMathTests: XCTestCase {
         return out
     }
 
+    /// A small profile with a random table and a bent curve (Tools/parity/profile_math.py, seed 7):
+    /// what the numpy copy gives for twelve colours, to 1e-6.
+    static let profileFixture: (stage: LookRules.Stage, input: [[Double]], output: [[Double]]) = {
+        var st = LookRules.Stage()
+        st.coefficients = ["exposure": 0.25, "rg": 0.12, "rb": -0.01, "gr": 0.02, "gb": 0.1, "br": 0.01, "bg": 0.03,
+                           "hueDivisions": 6, "satDivisions": 3, "valDivisions": 2, "curveNodes": 5]
+        st.tables = ["hsm": [0.015, 0.995, 1.0, 3.585, 1.133, 0.99, -3.29, 0.912, 1.126, -10.687, 0.983, 1.0, -5.456, 1.017, 0.967, -11.9, 1.01, 0.963, 0.722, 0.816, 1.0, 16.083, 1.011, 1.152, -5.906, 1.204, 0.957, -7.446, 0.768, 1.0, 5.878, 1.129, 1.035, 4.283, 1.018, 0.988, 1.265, 0.904, 1.0, -11.166, 1.3, 0.889, -0.351, 1.114, 0.999, 8.344, 0.82, 1.0, -16.131, 1.011, 1.117, -5.491, 1.087, 1.065, -22.815, 0.972, 1.0, -15.474, 1.102, 1.067, -22.101, 0.99, 0.966, -2.821, 1.1, 1.0, -15.209, 1.216, 0.999, 3.255, 0.899, 1.058, 1.881, 1.03, 1.0, -2.243, 0.931, 1.035, -30.201, 1.019, 0.831, -6.464, 0.822, 1.0, -0.582, 0.913, 0.97, 1.36, 0.971, 0.91, -18.362, 1.135, 1.0, -5.733, 1.172, 1.224, -11.742, 0.801, 0.917, -9.706, 0.881, 1.0, 12.731, 1.097, 1.021, -9.69, 0.701, 1.049],
+                     "curve": [0.0, 0.18, 0.5, 0.8, 1.0]]
+        let input: [[Double]] = [[0.02, 0.02, 0.02], [0.18, 0.18, 0.18], [0.9, 0.9, 0.9], [1.2, 1.2, 1.2], [0.5, 0.2, 0.2], [0.15, 0.2, 0.6], [0.7, 0.6, 0.1], [0.95, 0.85, 0.8], [0.004, 0.002, 0.006], [0.3, 0.9, 0.2], [0.05, 0.3, 0.9], [0.8, 0.1, 0.6]]
+        let output: [[Double]] = [[0.0115456663, 0.0115456661, 0.0115456662], [0.2130605879, 0.2130605856, 0.2130605873], [1.0702864006, 1.0702864095, 1.0702864032], [1.4270485341, 1.427048546, 1.4270485376], [0.6764573692, 0.1912743402, 0.2362936116], [0.0544685885, 0.3045680743, 0.8313756103], [0.9205465227, 0.5655787201, 0.0871332039], [1.1419505305, 0.9910853591, 0.9649100381], [0.0012229922, 0.0011425277, 0.0033886374], [0.609477327, 0.9658632971, 0.245112582], [-0.0090243538, 0.5361702033, 1.1399268112], [0.9684480524, 0.1665941629, 0.733524192]]
+        return (st, input, output)
+    }()
+
+    /// Rules carrying the fixture's profile.
+    static func rulesWithProfile(_ base: LookRules) -> LookRules {
+        var r = base
+        r.stages["profile"] = profileFixture.stage
+        return r
+    }
+
+    func testProfileMatchesTheNumpyMirror() throws {
+        let f = Self.profileFixture
+        let r = Self.rulesWithProfile(rules)
+        try r.validate()
+        let p = try XCTUnwrap(LookMath.Profile(r))
+        XCTAssertFalse(p.isIdentity)
+        for (i, o) in zip(f.input, f.output) {
+            let got = LookMath.profile(LookMath.RGB(r: i[0], g: i[1], b: i[2]), p, r)
+            XCTAssertEqual(got.r, o[0], accuracy: 1e-6, "\(i)"); XCTAssertEqual(got.g, o[1], accuracy: 1e-6, "\(i)"); XCTAssertEqual(got.b, o[2], accuracy: 1e-6, "\(i)")
+        }
+    }
+
+    func testProfileKeepsGreyGreyAndMonotoneAndIdentityWithoutTables() throws {
+        let r = Self.rulesWithProfile(rules)
+        let p = try XCTUnwrap(LookMath.Profile(r))
+        var last = -1.0
+        for v in ramp {
+            let out = LookMath.profile(.gray(v), p, r)
+            XCTAssertTrue(out.isNeutral(tolerance: 1e-6), "grey \(v) → \(out)")
+            XCTAssertGreaterThanOrEqual(out.r, last - 1e-9, "not monotone at \(v)")
+            last = out.r
+        }
+        var plain = rules!
+        plain.stages["profile"] = LookRules.Stage()
+        let id = try XCTUnwrap(LookMath.Profile(plain))
+        XCTAssertTrue(id.isIdentity)
+        let c = LookMath.RGB(r: 0.3, g: 0.5, b: 0.2), same = LookMath.profile(c, id, plain)
+        XCTAssertEqual(same.r, c.r, accuracy: 1e-9); XCTAssertEqual(same.g, c.g, accuracy: 1e-9); XCTAssertEqual(same.b, c.b, accuracy: 1e-9)
+        // The shipped rules carry the fitted profile (fit 4, 2026-11-12): grey stays grey and monotone there too.
+        let shipped = try XCTUnwrap(LookMath.Profile(rules), "the shipped rules carry the camera profile")
+        XCTAssertFalse(shipped.isIdentity)
+        last = -1.0
+        for v in ramp {
+            let out = LookMath.profile(.gray(v), shipped, rules)
+            XCTAssertTrue(out.isNeutral(tolerance: 1e-6), "shipped: grey \(v) → \(out)")
+            XCTAssertGreaterThanOrEqual(out.r, last - 1e-9, "shipped: not monotone at \(v)")
+            last = out.r
+        }
+    }
+
+    func testProfileValidationRefusesABrokenTable() throws {
+        var r = Self.rulesWithProfile(rules)
+        r.stages["profile"]?.tables?["curve"] = [0.0, 0.5, 0.4, 0.8, 1.0]
+        XCTAssertThrowsError(try r.validate(), "a falling curve")
+        r = Self.rulesWithProfile(rules)
+        r.stages["profile"]?.tables?["hsm"]?[2] = 1.2
+        XCTAssertThrowsError(try r.validate(), "valScale off 1 where saturation is 0")
+        r = Self.rulesWithProfile(rules)
+        r.stages["profile"]?.tables?["hsm"]?.removeLast()
+        XCTAssertThrowsError(try r.validate(), "a table of the wrong size")
+        XCTAssertNotEqual(Self.rulesWithProfile(rules).profileSignature, rules.profileSignature)
+    }
+
     func testRulesFileLoadsAndIsCanonical() throws {
         XCTAssertEqual(rules.order, LookRules.canonicalOrder)
         XCTAssertEqual(rules.lookStages, ["camera", "exposure", "whiteBalance", "whitesBlacks", "tone", "contrast", "dehaze", "curve", "colour", "mixer", "clarity", "sharpen", "vignette"])
