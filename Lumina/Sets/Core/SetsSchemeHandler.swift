@@ -343,9 +343,18 @@ nonisolated enum SetsPage: String, Sendable {
     })();
     """#
 
+    /// The ingest prototype's dev app (Scripts/dev-ingest.sh): Skim's side, its own page, the plain open panel.
+    static var isIngest: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["LUMINA_PAGE"] == "ingest"
+        #else
+        return false
+        #endif
+    }
+
     var file: String {
         #if DEBUG
-        if self == .skim, ProcessInfo.processInfo.environment["LUMINA_PAGE"] == "ingest" { return SetsSchemeHandler.ingestPageFile }
+        if self == .skim, Self.isIngest { return SetsSchemeHandler.ingestPageFile }
         #endif
         return self == .skim ? SetsSchemeHandler.skimPageFile : SetsSchemeHandler.pageFile
     }

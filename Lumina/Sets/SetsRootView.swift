@@ -883,6 +883,18 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
         // Skim reads clips through the page's own file input: a card, folders or clips, nothing else of Pick's.
+        // The ingest prototype (Debug, LUMINA_PAGE=ingest) takes every file: cards, folders or files, any kind.
+        if SetsPage.isIngest {
+            let panel = NSOpenPanel()
+            panel.canChooseDirectories = true
+            panel.canChooseFiles = true
+            panel.allowsMultipleSelection = true
+            panel.prompt = "Add"
+            panel.message = "Choose cards, folders or files. Lumina only reads them."
+            guard let window = webView.window else { completionHandler(panel.runModal() == .OK ? panel.urls : nil); return }
+            panel.beginSheetModal(for: window) { completionHandler($0 == .OK ? panel.urls : nil) }
+            return
+        }
         if SetsPage.current == .skim {
             // The folder the clips are in is the open shoot's folder for the storage line (drive, Trash).
             // A reload in place answers with the clips that were open, with no panel (reloadSkimKeeping).
