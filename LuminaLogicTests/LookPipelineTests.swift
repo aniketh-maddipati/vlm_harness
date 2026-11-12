@@ -174,6 +174,37 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertTrue(try LookPipeline.matched(img, rules: plain) === img, "an identity profile: the image itself, no pass")
     }
 
+    /// Exposure on the sensor data (`Developed.linear`, 2026-11-12): on a linear base the graph runs
+    /// the profile first with the look's Exposure added to its own; it equals `LookMath.flat(…,
+    /// linearBase: true)`, Exposure 0 equals the profiled base, and brighter is brighter.
+    func testExposureOnALinearBaseRunsThroughTheProfile() throws {
+        let r = LookMathTests.rulesWithProfile(rules)
+        let p2 = try LookPipeline(rules: r)
+        let colours: [LookMath.RGB] = [.gray(0.02), .gray(0.18), .gray(0.6), LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6)]
+        for c in colours {
+            var dev = p2.flat(c, size: 16)
+            dev.linear = true
+            var last = -1.0
+            for ev in [-2.0, -0.5, 0, 1, 2] {
+                var look = Look(); look.ev = ev
+                let got = p2.pixel(p2.apply(look, to: dev), x: 8, y: 8)
+                let want = LookMath.flat(c, look: look, asShot: asShot, rules: r, linearBase: true)
+                for (g, w) in [(got.r, want.r), (got.g, want.g), (got.b, want.b)] { XCTAssertEqual(g, w, accuracy: max(0.006, 0.02 * abs(w)), "ev \(ev) on \(c): \(got) vs \(want)") }
+                if ev == 0 {
+                    let base = LookMath.profile(c, try XCTUnwrap(LookMath.Profile(r)), r)
+                    XCTAssertEqual(got.g, base.g, accuracy: max(0.006, 0.02 * abs(base.g)), "Exposure 0 is the profiled base")
+                }
+                XCTAssertGreaterThanOrEqual(LookMath.luma(got, r), last - 1e-4, "ev \(ev) on \(c)"); last = LookMath.luma(got, r)
+            }
+        }
+        // A mask's look runs on an edited picture: it keeps the toned exposure stage.
+        var anchor = LookMath.ToneAnchor.reference
+        XCTAssertEqual(LookMath.exposureThroughProfile(anchor.mean, ev: 0, r), anchor.mean)
+        anchor.mean = 0.18
+        XCTAssertGreaterThan(LookMath.exposureThroughProfile(0.18, ev: 1, r), 0.18)
+        XCTAssertLessThan(LookMath.exposureThroughProfile(0.18, ev: -1, r), 0.18)
+    }
+
     func testFlatPatchesMatchLookMath() {
         let colours: [LookMath.RGB] = [.gray(0.02), .gray(0.18), .gray(0.5), .gray(0.9), .gray(1.1),
                                        LookMath.RGB(r: 0.5, g: 0.2, b: 0.2), LookMath.RGB(r: 0.2, g: 0.5, b: 0.2), LookMath.RGB(r: 0.15, g: 0.2, b: 0.6),

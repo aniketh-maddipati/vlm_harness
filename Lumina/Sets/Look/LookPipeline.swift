@@ -45,6 +45,12 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         /// The Creative Style the camera shot with (`LookCameraStyle`), for the camera profile.
         /// Nil for anything not read from a Sony RAW (the embedded JPEG already is the camera's look).
         var style: String? = nil
+        /// The image is the linear decode and the camera profile is still to come: the look's global
+        /// stages run it first, with the look's Exposure added to the profile's own exposure, so
+        /// Exposure is a gain on the sensor data as in Lightroom (both signs; 2026-11-12, sweep
+        /// −2 … +2 held out: 1.28 / 5.11 → 0.97 / 4.59). False for a JPEG, a synthetic image, a base
+        /// without a profile: those take the exposure stage on the finished picture.
+        var linear = false
         var extent: CGRect { image.extent }
         var longEdge: CGFloat { max(image.extent.width, image.extent.height) }
 
@@ -213,8 +219,11 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         guard var out = raw.outputImage, !out.extent.isEmpty, !out.extent.isInfinite else { throw Failure("couldn't decode \(url.lastPathComponent)") }
         if !spots.isEmpty, turn != .up { out = out.oriented(turn) }
         let asShot = Look.WhiteBalance(kelvin: Double(raw.neutralTemperature), tint: Double(raw.neutralTint))
-        return Developed(image: try matched(Self.atOrigin(out), rules: rules), asShot: asShot, anchor: toneAnchor(raw: url, rules: rules),
-                         style: LookCameraStyle.read(url: url))
+        let profiled = LookMath.Profile(rules).map { !$0.isIdentity } ?? false
+        var dev = Developed(image: profiled ? Self.atOrigin(out) : try matched(Self.atOrigin(out), rules: rules), asShot: asShot,
+                            anchor: toneAnchor(raw: url, rules: rules), style: LookCameraStyle.read(url: url))
+        dev.linear = profiled
+        return dev
     }
 
     // MARK: the tone anchor
@@ -442,7 +451,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             masks = masks?.placed(g.transform)
         }
         var anchor = dev.anchor
-        img = stages(look, on: img, asShot: dev.asShot, style: dev.style, anchor: &anchor)
+        img = stages(look, on: img, asShot: dev.asShot, style: dev.style, anchor: &anchor, linear: dev.linear)
         guard !look.locals.isEmpty, let masks else { return img }
         let extent = img.extent
         for local in look.locals {
@@ -457,7 +466,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             }
             // The mask's own exposure moves its own copy of the anchor, as the global one does.
             var a = anchor
-            let adjusted = stages(local.look, on: img, asShot: dev.asShot, style: dev.style, anchor: &a)
+            let adjusted = stages(local.look, on: img, asShot: dev.asShot, style: dev.style, anchor: &a, linear: false)
             img = adjusted.applyingFilter("CIBlendWithRedMask", parameters: [kCIInputBackgroundImageKey: img, kCIInputMaskImageKey: mask]).cropped(to: extent)
         }
         return img
@@ -466,8 +475,19 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// The look's stages on `input` (its extent is the frame the stages see: the blurs' radii and
     /// the vignette follow it), in the rules' order, the ones at reset left out. `anchor` comes
     /// back moved by the exposure stage. The global look and each mask's run through here.
-    private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, style: String?, anchor: inout LookMath.ToneAnchor) -> CIImage {
+    /// `linear`: `input` is the linear decode (`Developed.linear`): the camera profile runs first,
+    /// carrying the look's Exposure, and the exposure stage is skipped. The profile pass is in the
+    /// graph whatever the Exposure, so moving it never changes the set of stages (no compile).
+    private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, style: String?, anchor: inout LookMath.ToneAnchor, linear: Bool) -> CIImage {
         var img = input
+        var exposed = false
+        if linear, var p = LookMath.Profile(rules) {
+            p.exposure += look.ev
+            if let out = try? Self.profiled(img, p, rules: rules) { img = out }
+            anchor.mean = LookMath.exposureThroughProfile(anchor.mean, ev: look.ev, rules)
+            anchor.high = anchor.high.map { LookMath.exposureThroughProfile($0, ev: look.ev, rules) }
+            exposed = true
+        }
         let extent = img.extent
         let longEdge = max(extent.width, extent.height)
         let gam = CIVector(x: 1 / rules.perceptualGamma, y: rules.perceptualGamma)
@@ -494,6 +514,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 guard style != nil, let m = LookMath.BaseMatch(camera: style, r), !m.isIdentity else { continue }
                 pass("lookBase", Self.baseArgs(img, m, r))
             case "exposure":
+                guard !exposed else { continue }        // already in the profile pass
                 let g = LookMath.exposureGain(look.ev, r), w = LookMath.exposureWhite(r)
                 pass("lookExposure", [img, CIVector(x: g, y: w)])
                 anchor.mean = LookMath.exposure(anchor.mean, gain: g, white: w)
@@ -742,6 +763,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         guard let cg = context.createCGImage(dev.image, from: e, format: .RGBAh, colorSpace: workingSpace) else { throw Failure("rasterise failed") }
         // The bitmap starts at the extent's origin, the image at (0, 0): the masks move with it.
         var out = Developed(image: CIImage(cgImage: cg), asShot: dev.asShot, anchor: dev.anchor, style: dev.style)
+        out.linear = dev.linear
         out.masks = dev.masks?.placed(CGAffineTransform(translationX: -e.minX, y: -e.minY))
         return (out, cg.bytesPerRow * cg.height)
     }

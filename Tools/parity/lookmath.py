@@ -694,14 +694,48 @@ def apply_luma_ratio(rgb, y_new, y_old):
 
 # ---- the chain ----------------------------------------------------------------------------------
 
-def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5):
-    """Every stage on colours (..., 3) where blur(x) == x (LookMath.flat)."""
+def exposure_through_profile(y, ev, rules):
+    """LookMath.exposureThroughProfile: a profiled grey of luma y, its linear grey gained by 2^ev and
+    profiled again (how the tone anchor moves with Exposure on a linear base)."""
+    stage = rules.get("stages", {}).get("profile")
+    if not ev or not stage:
+        return float(y)
+    import profile_math
+    f = lambda x: float(luma(profile_math.profile(np.array([x, x, x], dtype=np.float64), stage, rules), rules))
+    hi = 1.0
+    while f(hi) < y and hi < 4096:
+        hi *= 2
+    lo = 0.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if f(mid) < y else (lo, mid)
+    return f((lo + hi) / 2 * 2.0 ** ev)
+
+
+def profile_with_ev(rgb, ev, rules):
+    """The camera profile with the look's Exposure added to its own (Developed.linear)."""
+    import profile_math
+    stage = json.loads(json.dumps(rules["stages"]["profile"]))
+    stage["coefficients"]["exposure"] = float(stage["coefficients"].get("exposure", 0.0)) + float(ev)
+    return profile_math.profile(rgb, stage, rules)
+
+
+def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5, linear_base=False):
+    """Every stage on colours (..., 3) where blur(x) == x (LookMath.flat). linear_base: rgb is the linear
+    decode; the profile runs first carrying Exposure, and the exposure stage is skipped."""
     c = np.array(rgb, dtype=np.float64)
     anchor = dict(anchor or REFERENCE_ANCHOR)
+    exposed = bool(linear_base and "profile" in rules.get("stages", {}))
+    if exposed:
+        c = profile_with_ev(c, look["ev"], rules)
     order = [s for s in rules.get("order", ["rawDevelop"] + STAGES + ["outputTransform"]) if s in STAGES]
     for stage in order:
         if stage == "exposure":
-            if look["ev"] != 0:
+            if look["ev"] != 0 and exposed:
+                anchor["mean"] = exposure_through_profile(anchor["mean"], look["ev"], rules)
+                if anchor.get("high") is not None:
+                    anchor["high"] = exposure_through_profile(anchor["high"], look["ev"], rules)
+            elif look["ev"] != 0:
                 c = exposure(c, look["ev"], rules)
                 anchor["mean"] = float(exposure(anchor["mean"], look["ev"], rules))
                 if anchor.get("high") is not None:
@@ -737,13 +771,23 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5):
     return c
 
 
-def apply_image(img, look, as_shot, rules, sigma_scale=None):
+def apply_image(img, look, as_shot, rules, sigma_scale=None, linear_base=False):
     """The chain on a whole image (H, W, 3) in the working space, blurs included (scipy). The
-    blur radii are fractions of the long edge, as in the graph; sharpen's is radiusPx at refPx."""
+    blur radii are fractions of the long edge, as in the graph; sharpen's is radiusPx at refPx.
+    linear_base: img is the linear decode; the profile runs first carrying Exposure (Developed.linear)."""
     from scipy.ndimage import gaussian_filter
     c = np.array(img, dtype=np.float64)
     long_edge = max(c.shape[0], c.shape[1])
-    anchor = tone_anchor(c, rules)            # of the developed frame, before any stage
+    exposed = bool(linear_base and "profile" in rules.get("stages", {}))
+    if exposed:
+        anchor = tone_anchor(profile_with_ev(c, 0.0, rules), rules)     # of the profiled frame, as the app measures it
+        c = profile_with_ev(c, look["ev"], rules)
+        if look["ev"] != 0:
+            anchor["mean"] = exposure_through_profile(anchor["mean"], look["ev"], rules)
+            anchor["high"] = exposure_through_profile(anchor["high"], look["ev"], rules)
+        look = {**look, "ev": 0.0}
+    else:
+        anchor = tone_anchor(c, rules)        # of the developed frame, before any stage
     order = [s for s in rules.get("order", ["rawDevelop"] + STAGES + ["outputTransform"]) if s in STAGES]
     for stage in order:
         if stage in ("exposure", "whiteBalance", "whitesBlacks", "contrast", "curve", "colour", "mixer"):

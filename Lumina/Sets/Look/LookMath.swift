@@ -260,6 +260,19 @@ nonisolated enum LookMath {
 
     static func exposureWhite(_ rules: LookRules) -> Double { max(0.05, rules.k("exposure", "white", 1)) }
 
+    /// Exposure on the sensor data, through the camera profile (`flat`'s `linear`): what a profiled
+    /// grey of luma `y` becomes when its linear grey is gained by 2^ev and profiled again. How the
+    /// tone anchor moves with Exposure on a linear base. `y` itself without a profile.
+    static func exposureThroughProfile(_ y: Double, ev: Double, _ rules: LookRules) -> Double {
+        guard ev != 0, let p = Profile(rules) else { return y }
+        let f = { (x: Double) in luma(profile(.gray(x), p, rules), rules) }
+        var hi = 1.0
+        while f(hi) < y && hi < 4096 { hi *= 2 }
+        var lo = 0.0
+        for _ in 0..<60 { let mid = (lo + hi) / 2; if f(mid) < y { lo = mid } else { hi = mid } }
+        return f((lo + hi) / 2 * exp2(ev))
+    }
+
     // MARK: whiteBalance
 
     /// Per-channel multipliers taking the as-shot balance to `target`. Identity when `target` is
@@ -899,8 +912,15 @@ nonisolated enum LookMath {
     /// the corners, by `VignetteForm.distance`; `aspect` is the frame's, for that form). This is what the pipeline tests and the Python
     /// mirror compare against.
     static func flat(_ input: RGB, look: Look, asShot: Look.WhiteBalance, rules: LookRules, vignetteR r: Double = 0, anchor: ToneAnchor = .reference, aspect: Double = 1.5,
-                     style: String? = nil) -> RGB {
+                     style: String? = nil, linearBase: Bool = false) -> RGB {
         var c = input
+        var exposed = false
+        // `input` is the linear decode (`LookPipeline.Developed.linear`): the profile first, carrying Exposure.
+        if linearBase, var p = Profile(rules) {
+            p.exposure += look.ev
+            c = profile(c, p, rules)
+            exposed = true
+        }
         var anchor = anchor
         for stage in rules.lookStages {
             switch stage {
@@ -909,6 +929,11 @@ nonisolated enum LookMath {
                 c = baseMatch(c, m, rules)
             case "exposure":
                 guard look.ev != 0 else { continue }
+                if exposed {
+                    anchor.mean = exposureThroughProfile(anchor.mean, ev: look.ev, rules)
+                    anchor.high = anchor.high.map { exposureThroughProfile($0, ev: look.ev, rules) }
+                    continue
+                }
                 let g = exposureGain(look.ev, rules), w = exposureWhite(rules)
                 anchor.mean = exposure(anchor.mean, gain: g, white: w)          // the photo is that much brighter for the tone masks
                 anchor.high = anchor.high.map { exposure($0, gain: g, white: w) }
