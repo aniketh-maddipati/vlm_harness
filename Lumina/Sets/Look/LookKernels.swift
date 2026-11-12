@@ -71,7 +71,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     [[ stitchable ]] float4 lookProfile(coreimage::sampler src, coreimage::sampler hsm, coreimage::sampler curve,
                                         float4 r0, float4 r1, float4 r2, float4 k, float4 d) {
         float4 s0 = src.sample(src.coord());
-        float3 t = s0.rgb * k.x;
+        float3 t = s0.rgb * k.x + d.w;      // d.w: LookMath.Profile.offset (Exposure's black level)
         float3 x = float3(dot(t, r0.rgb), dot(t, r1.rgb), dot(t, r2.rgb));
         const float3x3 toPP = float3x3(float3(0.5293458759317613f, 0.0983743638449671f, 0.01688317839798025f),
                                        float3(0.330072797941936f, 0.8734610679819278f, 0.1176724654297775f),

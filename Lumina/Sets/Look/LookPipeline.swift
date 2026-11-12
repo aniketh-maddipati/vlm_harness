@@ -319,7 +319,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         let args: [Any] = [img, t.hsm, t.curve,
                            CIVector(x: w[0][0], y: w[0][1], z: w[0][2], w: 0), CIVector(x: w[1][0], y: w[1][1], z: w[1][2], w: 0), CIVector(x: w[2][0], y: w[2][1], z: w[2][2], w: 0),
                            CIVector(x: exp2(p.exposure), y: 1 / rules.perceptualGamma, z: rules.perceptualGamma, w: Double(p.nodes - 1)),
-                           CIVector(x: Double(p.hue), y: Double(p.sat), z: Double(p.val), w: 0)]
+                           CIVector(x: Double(p.hue), y: Double(p.sat), z: Double(p.val), w: p.offset)]
         guard let out = try LookKernels.shared().apply("lookProfile", extent: img.extent, tables: [t.hsm, t.curve], args) else { throw Failure("profile failed") }
         return out
     }
@@ -481,9 +481,8 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, style: String?, anchor: inout LookMath.ToneAnchor, linear: Bool) -> CIImage {
         var img = input
         var exposed = false
-        if linear, var p = LookMath.Profile(rules) {
-            p.exposure += look.ev
-            if let out = try? Self.profiled(img, p, rules: rules) { img = out }
+        if linear, let p = LookMath.Profile(rules) {
+            if let out = try? Self.profiled(img, LookMath.exposed(p, ev: look.ev, rules), rules: rules) { img = out }
             anchor.mean = LookMath.exposureThroughProfile(anchor.mean, ev: look.ev, rules)
             anchor.high = anchor.high.map { LookMath.exposureThroughProfile($0, ev: look.ev, rules) }
             exposed = true

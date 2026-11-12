@@ -115,6 +115,8 @@ nonisolated enum LookMath {
     /// keeps its place between them. Python copy: Tools/parity/profile_math.py.
     struct Profile: Equatable, Sendable {
         var exposure = 0.0
+        /// Added to every channel after the exposure gain (`exposed`): 0 for the base.
+        var offset = 0.0
         var rg = 0.0, rb = 0.0, gr = 0.0, gb = 0.0, br = 0.0, bg = 0.0
         var hue = 30, sat = 8, val = 1, nodes = 33
         /// (val, hue, sat) outer to inner, 3 numbers each: hueShift (degrees), satScale, valScale.
@@ -199,8 +201,8 @@ nonisolated enum LookMath {
 
     static func profile(_ c: RGB, _ p: Profile, _ rules: LookRules) -> RGB {
         let gamma = rules.perceptualGamma
-        let g = exp2(p.exposure)
-        let t = RGB(r: c.r * g, g: c.g * g, b: c.b * g), w = p.rows
+        let g = exp2(p.exposure), o = p.offset
+        let t = RGB(r: c.r * g + o, g: c.g * g + o, b: c.b * g + o), w = p.rows
         var x = [w[0][0] * t.r + w[0][1] * t.g + w[0][2] * t.b, w[1][0] * t.r + w[1][1] * t.g + w[1][2] * t.b, w[2][0] * t.r + w[2][1] * t.g + w[2][2] * t.b]
         // the hue/sat map in linear ProPhoto HSV
         let m = Profile.srgbToProPhoto
@@ -270,7 +272,19 @@ nonisolated enum LookMath {
         while f(hi) < y && hi < 4096 { hi *= 2 }
         var lo = 0.0
         for _ in 0..<60 { let mid = (lo + hi) / 2; if f(mid) < y { lo = mid } else { hi = mid } }
-        return f((lo + hi) / 2 * exp2(ev))
+        return luma(profile(.gray((lo + hi) / 2), exposed(p, ev: ev, rules), rules), rules)
+    }
+
+    /// The profile carrying the look's Exposure on the sensor data: the gain on (x + δ), less δ, so
+    /// a black level δ the linear decode sits below Lightroom's (`exposure.blackOffset`, 0.002;
+    /// fitted 2026-11-12 on sweep 1, held out photo by photo: −2 … +2 0.97 / 4.59 → 0.80 / 3.67,
+    /// the night frame at +2 2.73 / 8.11 → 2.09 / 6.57) is lifted as Lightroom lifts it. Through
+    /// the profile's own gain g₀: x·g₀·2^ev + δ·g₀·(2^ev − 1). Exposure 0 is the base exactly.
+    static func exposed(_ p: Profile, ev: Double, _ rules: LookRules) -> Profile {
+        var q = p
+        q.offset = rules.k("exposure", "blackOffset", 0) * exp2(p.exposure) * (exp2(ev) - 1)
+        q.exposure += ev
+        return q
     }
 
     // MARK: whiteBalance
@@ -914,12 +928,11 @@ nonisolated enum LookMath {
     static func flat(_ input: RGB, look: Look, asShot: Look.WhiteBalance, rules: LookRules, vignetteR r: Double = 0, anchor: ToneAnchor = .reference, aspect: Double = 1.5,
                      style: String? = nil, linearBase: Bool = false) -> RGB {
         var c = input
-        var exposed = false
+        var throughProfile = false
         // `input` is the linear decode (`LookPipeline.Developed.linear`): the profile first, carrying Exposure.
-        if linearBase, var p = Profile(rules) {
-            p.exposure += look.ev
-            c = profile(c, p, rules)
-            exposed = true
+        if linearBase, let p = Profile(rules) {
+            c = profile(c, exposed(p, ev: look.ev, rules), rules)
+            throughProfile = true
         }
         var anchor = anchor
         for stage in rules.lookStages {
@@ -929,7 +942,7 @@ nonisolated enum LookMath {
                 c = baseMatch(c, m, rules)
             case "exposure":
                 guard look.ev != 0 else { continue }
-                if exposed {
+                if throughProfile {
                     anchor.mean = exposureThroughProfile(anchor.mean, ev: look.ev, rules)
                     anchor.high = anchor.high.map { exposureThroughProfile($0, ev: look.ev, rules) }
                     continue

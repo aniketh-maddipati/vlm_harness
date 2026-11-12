@@ -165,7 +165,7 @@ def profile(rgb, stage, rules):
     c = coefficients(stage)
     hsm, curve = tables(stage)
     gamma = float(rules.get("perceptualGamma", 2.2))
-    x = np.asarray(rgb, dtype=np.float64) * (2.0 ** float(c["exposure"]))
+    x = np.asarray(rgb, dtype=np.float64) * (2.0 ** float(c["exposure"])) + float(stage.get("coefficients", {}).get("offset", 0.0))
     x = x @ mix_rows(c).T
     # hue/sat map in linear ProPhoto
     pp = np.maximum(x @ SRGB_TO_PROPHOTO.T, 0.0)

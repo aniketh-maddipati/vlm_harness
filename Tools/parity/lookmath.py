@@ -701,7 +701,7 @@ def exposure_through_profile(y, ev, rules):
     if not ev or not stage:
         return float(y)
     import profile_math
-    f = lambda x: float(luma(profile_math.profile(np.array([x, x, x], dtype=np.float64), stage, rules), rules))
+    f = lambda x, st=stage: float(luma(profile_math.profile(np.array([x, x, x], dtype=np.float64), st, rules), rules))
     hi = 1.0
     while f(hi) < y and hi < 4096:
         hi *= 2
@@ -709,15 +709,23 @@ def exposure_through_profile(y, ev, rules):
     for _ in range(60):
         mid = (lo + hi) / 2
         lo, hi = (mid, hi) if f(mid) < y else (lo, mid)
-    return f((lo + hi) / 2 * 2.0 ** ev)
+    return f((lo + hi) / 2, exposed_profile(rules, ev))
 
 
 def profile_with_ev(rgb, ev, rules):
     """The camera profile with the look's Exposure added to its own (Developed.linear)."""
     import profile_math
-    stage = json.loads(json.dumps(rules["stages"]["profile"]))
-    stage["coefficients"]["exposure"] = float(stage["coefficients"].get("exposure", 0.0)) + float(ev)
+    stage = exposed_profile(rules, ev)
     return profile_math.profile(rgb, stage, rules)
+
+
+def exposed_profile(rules, ev):
+    """LookMath.exposed: the profile stage carrying Exposure on the sensor data, the gain on (x + δ) less δ."""
+    stage = json.loads(json.dumps(rules["stages"]["profile"]))
+    e0 = float(stage["coefficients"].get("exposure", 0.0))
+    stage["coefficients"]["offset"] = k(rules, "exposure", "blackOffset", 0.0) * 2.0 ** e0 * (2.0 ** float(ev) - 1.0)
+    stage["coefficients"]["exposure"] = e0 + float(ev)
+    return stage
 
 
 def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5, linear_base=False):
