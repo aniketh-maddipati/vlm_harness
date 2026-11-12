@@ -92,13 +92,25 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 // The Edit canvas: the one native view over the page (AGENTS.md), above the web view.
                 if page == .pick || both { bridge.attachCanvas(host: host) }
                 bridge.onSwitchPage = { [weak self] in self?.switchPage(to: $0) }
+                #if DEBUG
+                bridge.onIngestToPick = { [weak self] plan in
+                    guard let self else { return }
+                    self.ingestHandoff = plan
+                    self.switchPage(to: .pick)
+                }
+                #endif
                 bridge.onAirdrop = { [weak self] in self?.skimAirdropArrived($0) }
                 bridge.onAirdropState = { [weak self] st in
                     self?.webView?.evaluateJavaScript("window.luminaSkimAirdrop && luminaSkimAirdrop.changed && luminaSkimAirdrop.changed(\(Self.json(st)))", completionHandler: nil)
                 }
                 bridge.onReady = { [weak self] in
                     // Back on Photos: the shoot that was open when the window went to Video opens again.
-                    guard let self, let id = self.pickReturn else { return }
+                    guard let self else { return }
+                    #if DEBUG
+                    // The hot build's own resume takes Lumina Ingest's hand-off (below), after this.
+                    if self.hotReload == nil, self.takeIngestHandoff() { return }
+                    #endif
+                    guard let id = self.pickReturn else { return }
                     self.pickReturn = nil
                     #if DEBUG
                     // The hot build reopens the most recent shoot on every ready, this one.
@@ -113,7 +125,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 #if DEBUG
                 if SetsHotReload.isOn {
                     hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: page == .pick || both ? plumbing : nil) { [weak self] in
-                        guard let self, let last = self.bridge.shoots.index().first else { return }
+                        guard let self else { return }
+                        if self.takeIngestHandoff() { return }
+                        guard let last = self.bridge.shoots.index().first else { return }
                         self.pickReturn = nil
                         self.reopen(last.id)
                     }
@@ -196,6 +210,19 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     /// The Pick shoot that was open when the window went to Video; it opens again on the way back.
     private var pickReturn: String?
+    #if DEBUG
+    /// Lumina Ingest's Open in Pick: the folder (or part of it) Pick opens once its page is ready.
+    private var ingestHandoff: IngestHandoff.Plan?
+
+    /// Opens Lumina Ingest's hand-off in Pick, as if the user had picked that folder; false when there is none.
+    private func takeIngestHandoff() -> Bool {
+        guard let plan = ingestHandoff else { return false }
+        ingestHandoff = nil
+        pickReturn = nil
+        bridge.open(plan.folder, only: plan.only)
+        return true
+    }
+    #endif
     /// Skim's open shoot (`luminaSkimKeep.take()`) when the window went to Photos; it comes back on the way back,
     /// the same clips with no panel, as ⌘R's reload does.
     private var skimAway: String?
@@ -891,8 +918,16 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             panel.allowsMultipleSelection = true
             panel.prompt = "Add"
             panel.message = "Choose cards, folders or files. Lumina only reads them."
-            guard let window = webView.window else { completionHandler(panel.runModal() == .OK ? panel.urls : nil); return }
-            panel.beginSheetModal(for: window) { completionHandler($0 == .OK ? panel.urls : nil) }
+            guard let window = webView.window else {
+                let ok = panel.runModal() == .OK
+                if ok { bridge.ingestRoots += panel.urls }
+                completionHandler(ok ? panel.urls : nil); return
+            }
+            panel.beginSheetModal(for: window) { [weak self] in
+                // Where the page's "<folder>/<file>" names are on disk, for Open in Pick.
+                if $0 == .OK { self?.bridge.ingestRoots += panel.urls }
+                completionHandler($0 == .OK ? panel.urls : nil)
+            }
             return
         }
         if SetsPage.current == .skim {

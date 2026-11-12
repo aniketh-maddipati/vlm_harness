@@ -47,6 +47,14 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     /// The recent shoot `pendingSource` reopens: the folder keeps that shoot's id wherever its
     /// bookmark found it (renamed or moved), instead of becoming a second shoot.
     private var pendingShoot: String?
+    /// The part of `pendingSource` to read (Lumina Ingest's Open in Pick, Debug only); nil: all of it.
+    private var pendingOnly: Set<String>?
+    /// The part of the open folder the page reads (from `pendingOnly`): the listing is cut to it, and the shoot has
+    /// an id of its own and no recent (`IngestHandoff`). Nil for every folder the user opened in Pick itself.
+    private var openOnly: Set<String>?
+    /// The cards, folders and files handed to the ingest page (its open panel and drops), Debug only: where its
+    /// "<folder>/<file>" names are on disk.
+    var ingestRoots: [URL] = []
     private var lastOpened: URL?
     /// The folder the user picked for the last export in this run: with the opened folders, the
     /// only places Show in Finder opens (`revealURL`).
@@ -95,6 +103,8 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     var onReady: (() -> Void)?
     /// The page's Photos / Video switch (`window.luminaSwitch.go`, Debug builds): the window loads the other page.
     var onSwitchPage: ((SetsPage) -> Void)?
+    /// Lumina Ingest's Open in Pick (Debug only): the window goes to Pick and opens this folder, or part of it.
+    var onIngestToPick: ((IngestHandoff.Plan) -> Void)?
     /// Skim's live AirDrop (SkimAirdrop): clips that settled in the watched folder, on the main thread. The window hands
     /// them to the page as Add clips (`SetsWindowController.skimAirdropArrived`).
     var onAirdrop: (([URL]) -> Void)?
@@ -277,9 +287,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
     func openPanel(allowsDirectories: Bool) async -> [URL]? {
         let url: URL?
         let reopening: String?
+        let only = pendingOnly
+        pendingOnly = nil
         if let pending = pendingSource { url = pending; reopening = pendingShoot; pendingSource = nil; pendingShoot = nil }
         else { url = await chooser.chooseSource(allowsDirectories: allowsDirectories); reopening = nil }
         guard let url else { return nil }
+        openOnly = reopening == nil ? only : nil
         // The open shoot is this folder now. A reopen already started its access (scoped); a
         // panel's pick needs none, and the shoot open before is let go either way.
         access.openShoot(url, scoped: false)
@@ -288,7 +301,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         let place = SetsShootStore.id(for: url), volume = SetsFileOps.volumeID(url)
         // A recent's own id; else the shoot that is at this place; else a recent renamed or moved
         // here since (its bookmark follows it); else a new shoot.
-        let id = reopening ?? shoots.index().first(where: { $0.currentPlace == place })?.id
+        let id = reopening ?? openOnly.map { IngestHandoff.subsetID(place: place, only: $0) } ?? shoots.index().first(where: { $0.currentPlace == place })?.id
             ?? access.movedShoot(to: url, volume: volume, in: shoots)?.id ?? shoots.shootID(at: place)
         // The bookmark the index keeps, made while the grant is fresh. The only one: there is no
         // second copy elsewhere.
@@ -300,15 +313,37 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
 
     /// Opens a folder in the page as if the user picked it (menu, "Cull this card", a recent).
     /// `shoot`: the recent shoot this is, whatever its folder is called now.
-    func open(_ url: URL, shoot: String? = nil) {
+    func open(_ url: URL, shoot: String? = nil, only: Set<String>? = nil) {
         pendingSource = url
         pendingShoot = shoot
+        pendingOnly = only
         webView?.evaluateJavaScript("window.__lumina && __lumina.openFolder()", completionHandler: nil)
+    }
+
+    /// Lumina Ingest's Open in Pick (`ingestToPick`, Debug only): the folder Pick opens for the page's files, or why
+    /// not (`["refused": line]`). The window then goes to Pick and opens it (`onIngestToPick`).
+    func ingestToPick(_ paths: [String], whole: Bool) async -> Any {
+        switch IngestHandoff.plan(paths: paths, whole: whole, roots: ingestRoots) {
+        case .failure(let why): return ["refused": why.rawValue]
+        case .success(var plan):
+            let folder = plan.folder
+            let (denied, all) = await Task.detached(priority: .userInitiated) { () -> (Bool, Set<String>?) in
+                if SetsIngest.accessDenied(folder) { return (true, nil) }
+                let l = SetsIngest.list(folder)
+                return (false, l.stopped == nil ? Set(l.files.map { String($0.rel.dropFirst(l.name.count + 1)) }) : nil)
+            }.value
+            guard !denied else { return ["refused": IngestHandoff.Refusal.unknown.rawValue] }
+            // Every RAW Pick would read there: that folder, opened as the user would open it.
+            if let only = plan.only, let all, all.isSubset(of: only) { plan.only = nil }
+            onEvent?("ingest → pick \(plan.folder.path)\(plan.only.map { " · \($0.count) files" } ?? "")")
+            onIngestToPick?(plan)
+            return true
+        }
     }
 
     /// No shoot is open any more (File ▸ Close Shoot, or the page started over): its folder's
     /// access is stopped.
-    func closeShoot() { access.closeShoot() }
+    func closeShoot() { access.closeShoot(); openOnly = nil }
 
     /// The window is about to load the other page (the Photos / Video switch): Pick's page is no longer there to
     /// be told about cards, and the Edit canvas leaves the screen with it.
@@ -438,6 +473,11 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             onEvent?("ready")
             onReady?()
             return (true, nil)
+        case "ingestToPick":
+            // Lumina Ingest (Debug only): what its page shows opens in Pick, in this window, as one shoot.
+            guard SetsPage.isIngest, SetsPage.current == .skim else { return (nil, "not served") }
+            let paths = (body["paths"] as? [String] ?? []).prefix(100_000).filter { $0.utf8.count <= Self.maxRelBytes }
+            return (await ingestToPick(Array(paths), whole: body["whole"] as? Bool ?? false), nil)
         case "switchPage":
             guard SetsPage.switchable, let side = body["to"] as? String, let page = SetsPage(side: side) else { return (false, nil) }
             onSwitchPage?(page)
@@ -470,7 +510,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                 return (false, SetsIngest.list(url))
             }
             self.listing = task
-            let (denied, listing) = await task.value
+            var (denied, listing) = await task.value
             if self.listing == task { self.listing = nil }
             if task.isCancelled || listing.stopped == .cancelled {
                 onEvent?("listing stopped: another folder opened · \(url.path)")
@@ -489,6 +529,18 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             }
             deniedFolder = nil
             onEvent?("listed \(listing.files.count) ARW + \(listing.xmp.count) xmp + \(listing.others.count) other\(listing.skippedXmp.isEmpty ? "" : " · \(listing.skippedXmp.count) xmp over 1 MB skipped")\(listing.onCard ? " (card)" : "") in \(Int(Date().timeIntervalSince(t0) * 1000)) ms · \(ingest.workers) readers")
+            if let only = openOnly, url == lastOpened {
+                // Lumina Ingest's Open in Pick for part of a folder: only those files, their sidecars and twins.
+                // The listing names files "<folder>/<path>"; the hand-over, by the path inside the folder.
+                let stems = IngestHandoff.stems(only), n = listing.name.count + 1
+                let file = { (r: String) in only.contains(String(r.dropFirst(n))) }, twin = { (r: String) in IngestHandoff.isTwin(String(r.dropFirst(n)), of: stems) }
+                listing.files = listing.files.filter { file($0.rel) }
+                listing.xmp = listing.xmp.filter { twin($0.rel) }
+                listing.others = listing.others.filter(twin)
+                listing.skippedXmp = listing.skippedXmp.filter(twin)
+                listing.unreadableXmp = listing.unreadableXmp.filter(twin)
+                onEvent?("only \(listing.files.count) of the folder's files (Lumina Ingest)")
+            }
             var d = listing.dictionary
             d["workers"] = ingest.workers
             return (d, nil)
@@ -537,8 +589,12 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
                                              firstCapture: body["date"] as? String ?? "", opened: Date(),
                                              bookmark: key.map { $0.bookmark } ?? (try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)),
                                              place: place)
-            try? shoots.upsert(shoot)
-            onShootsChanged?()
+            // Part of a folder (Lumina Ingest) keeps its session under its own id but is no recent: a recent reopens a
+            // whole folder.
+            if openOnly == nil || url != lastOpened {
+                try? shoots.upsert(shoot)
+                onShootsChanged?()
+            }
             onEvent?("shoot \(id) \(url.path)")
             let session = shoots.session(id).flatMap { String(data: $0, encoding: .utf8) }
             // The shoot header: the decoder map per body (measured once, at .utility) and the pin.
@@ -1109,7 +1165,7 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "reopenCurrent":
             // The card with the open shoot came back after a read it cut short: read it again.
             guard let url = lastOpened, FileManager.default.fileExists(atPath: url.path) else { return (false, nil) }
-            open(url)
+            open(url, only: openOnly)
             return (true, nil)
         default:
             return (nil, "unknown op \(op)")
@@ -1854,11 +1910,37 @@ enum SetsWebView {
             throw SetsFileOps.Failure("the offline content rules did not compile")
         }
         ucc.add(list)
+        #if DEBUG
+        // Lumina Ingest: drops are read by the page, which sees names only; the window keeps where they are.
+        let wv: WKWebView = SetsPage.isIngest ? IngestDropWebView(frame: frame, configuration: conf, bridge: bridge) : WKWebView(frame: frame, configuration: conf)
+        #else
         let wv = WKWebView(frame: frame, configuration: conf)
+        #endif
         bridge?.webView = wv
         return (wv, scheme)
     }
 }
+
+#if DEBUG
+/// Lumina Ingest's web view (Debug only): what is dropped on its page is also noted as `SetsBridge.ingestRoots`, so Open
+/// in Pick finds the files the page read. The drop itself is WebKit's, unchanged.
+final class IngestDropWebView: WKWebView {
+    private weak var bridge: SetsBridge?
+
+    init(frame: CGRect, configuration: WKWebViewConfiguration, bridge: SetsBridge?) {
+        self.bridge = bridge
+        super.init(frame: frame, configuration: configuration)
+    }
+
+    required init?(coder: NSCoder) { fatalError("not from a nib") }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        bridge?.ingestRoots += urls
+        return super.performDragOperation(sender)
+    }
+}
+#endif
 
 // Read here, not in Look: Look is also compiled without Core (Tools/parity/lumina-render), and
 // every number the page sends goes through SetsNumber.

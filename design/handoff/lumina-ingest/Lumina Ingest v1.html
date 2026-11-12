@@ -411,7 +411,7 @@ function drawFoot() {
   const m = $('#foot').querySelector('[data-more]'); if (m) m.onclick = () => { $('#notes').classList.toggle('off'); drawFoot(); drawNotes(); };
   const s = (performance.now() - S.t0) / 1000;
   $('#live').textContent = S.reading ? `reading ${fmt(S.done)} of ${fmt(S.total)}${s > 2 ? ' · ' + Math.round(S.done / s) + ' a second' : ''}` : S.items.size ? 'all read' : '';
-  const keys = S.items.size ? [['O', 'add'], ['/', 'find'], ['esc', 'clear'], ['= −', 'size']] : [['O', 'open']];
+  const keys = S.items.size ? [['O', 'add'], ['/', 'find'], ['esc', 'clear'], ['= −', 'size']].concat(toPick() ? [['⏎', 'open in Pick']] : []) : [['O', 'open']];
   $('#keys').innerHTML = keys.map(([k, c]) => `<span class="cap">${k.split(' ').map((x) => `<b>${esc(x)}</b>`).join('')}${c}</span>`).join('');
 }
 function tripName() {
@@ -465,11 +465,28 @@ q.addEventListener('keydown', (e) => {
 });
 $('#clear').onclick = () => { q.value = ''; apply(); };
 
+// ---- Open in Pick: what is shown now becomes one shoot in Pick (the Mac app only) ----------------------
+const host = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lumina;
+const isPhoto = (it) => it.kind !== 'video' && !it.unread;
+function toPick() {
+  if (!host || S.reading) return null;
+  const z = day0(), paths = [];
+  for (const it of S.items.values()) if (isPhoto(it) && matches(it, S.chips, z)) paths.push(it.path);
+  return paths.length ? { paths, whole: paths.length === count(isPhoto) } : null;
+}
+async function openInPick() {
+  const set = toPick(); if (!set) return;
+  say('Opening in Pick…', true);
+  let r = null; try { r = await host.postMessage({ op: 'ingestToPick', paths: set.paths, whole: set.whole }); } catch (_) {}
+  if (r !== true) say((r && r.refused) || 'Pick could not open these');
+}
+
 // ---- keys, drop, size ----------------------------------------------------------------------------
 addEventListener('keydown', (e) => {
   if (e.target === q || e.target.id === 'trip') return;
   if (e.key === '/') { if (S.items.size) { e.preventDefault(); q.focus(); q.select(); } }
   else if ((e.key === 'o' || e.key === 'O') && !e.metaKey) $('#pick').click();
+  else if (e.key === 'Enter' && !e.metaKey && (document.activeElement === document.body || !document.activeElement)) { e.preventDefault(); openInPick(); }
   else if (e.key === 'Escape') { if (!$('#notes').classList.contains('off')) { $('#notes').classList.add('off'); drawFoot(); } else if (q.value) { q.value = ''; apply(); } }
   else if (e.key === '=' || e.key === '+') { e.preventDefault(); size(1.25); }
   else if (e.key === '-') { e.preventDefault(); size(0.8); }
