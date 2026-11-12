@@ -375,6 +375,36 @@ def tone_gain(base, anchor, highlights, shadows, rules):
     return 2.0 ** (s + h)
 
 
+def tone_chroma_params(highlights, rules):
+    """(log2 chroma per mask, lo, hi) for this Highlights value, or None. Lightroom's Highlights moves
+    colour in the photo's highlights as well as their brightness: −100 gives them back chroma, +100
+    takes it away (measured on its own base → slider exports, 2026-11-12 Tools/parity/hl_chroma)."""
+    if not np.isfinite(highlights) or highlights == 0:
+        return None
+    side = "highlightsChromaDown" if highlights < 0 else "highlightsChromaUp"
+    kap = k(rules, "tone", side, 0.0)
+    if kap == 0:
+        return None
+    return kap * highlights / 100.0, k(rules, "tone", side + "Lo", 0.8), k(rules, "tone", side + "Hi", 1.1)
+
+
+def tone_chroma(c, base, highlights, rules):
+    """LookMath.toneChroma: after the tone curve, chroma around luma scaled by 2^(a·smoothstep(lo, hi, p)),
+    p the base's perceptual luma (absolute, not the photo-relative mask: fitted both ways, absolute won);
+    capped so no channel goes below 0. Luma is kept."""
+    q = tone_chroma_params(highlights, rules)
+    if q is None:
+        return c
+    a, lo, hi = q
+    s = 2.0 ** (a * smoothstep(lo, hi, perceptual(np.asarray(base, dtype=np.float64), rules)))
+    c = np.asarray(c, dtype=np.float64)
+    y = luma(c, rules)
+    spread = y - c.min(axis=-1)
+    cap = np.where(spread > 1e-9, np.maximum(y, 0.0) / np.where(spread > 1e-9, spread, 1.0), np.inf)
+    s = np.minimum(s, np.maximum(cap, 1.0))
+    return y[..., None] + (c - y[..., None]) * s[..., None]
+
+
 def tone_white(rules):
     return max(0.05, k(rules, "tone", "white", 1.0))
 
@@ -775,6 +805,7 @@ def flat(rgb, look, as_shot, rules, vignette_r=0.0, anchor=None, aspect=1.5):
                 y = luma(c, rules)
                 g = tone_gain(y, anchor, look["hl"], look["sh"], rules)
                 c = through_curve(c * tone_detail(y, y, rules)[..., None], g[..., None], tone_white(rules))
+                c = tone_chroma(c, y, look["hl"], rules)
         elif stage == "contrast":
             c = contrast(c, look["con"], rules)
         elif stage == "dehaze":
@@ -816,6 +847,7 @@ def apply_image(img, look, as_shot, rules, sigma_scale=None):
             base = gaussian_filter(y, k(rules, "tone", "radiusFraction", 0.03) * long_edge, mode="nearest")
             g = tone_gain(base, anchor, look["hl"], look["sh"], rules)
             c = through_curve(c * tone_detail(y, base, rules)[..., None], g[..., None], tone_white(rules))
+            c = tone_chroma(c, base, look["hl"], rules)
         elif stage == "dehaze" and look["dhz"] != 0:
             dark = gaussian_filter(c.min(axis=-1), k(rules, "dehaze", "radiusFraction", 0.02) * long_edge, mode="nearest")
             c = dehaze(c, dark, look["dhz"], anchor, rules)

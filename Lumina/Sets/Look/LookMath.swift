@@ -443,6 +443,28 @@ nonisolated enum LookMath {
 
     static func toneWhite(_ rules: LookRules) -> Double { max(0.05, rules.k("tone", "white", 1)) }
 
+    /// Highlights moves colour as well as brightness: in Lightroom −100 gives the photo's highlights
+    /// back chroma and +100 takes it away (measured on its own base → slider exports, 2026-11-12,
+    /// Tools/parity/hl_chroma). (log2 chroma at full mask, lo, hi) for this value, nil when off.
+    static func toneChromaParams(highlights: Double, _ rules: LookRules) -> (amount: Double, lo: Double, hi: Double)? {
+        guard highlights.isFinite, highlights != 0 else { return nil }
+        let side = highlights < 0 ? "highlightsChromaDown" : "highlightsChromaUp"
+        let kap = rules.k("tone", side, 0)
+        guard kap != 0 else { return nil }
+        return (kap * highlights / 100, rules.k("tone", side + "Lo", 0.8), rules.k("tone", side + "Hi", 1.1))
+    }
+
+    /// After the tone curve: chroma around luma scaled by 2^(amount · smoothstep(lo, hi, p)), p the
+    /// base's perceptual luma (absolute: a photo-relative mask was fitted too and lost); capped so no
+    /// channel goes below 0. Luma is kept, grey stays grey.
+    static func toneChroma(_ c: RGB, base: Double, highlights: Double, _ rules: LookRules) -> RGB {
+        guard let q = toneChromaParams(highlights: highlights, rules) else { return c }
+        var s = exp2(q.amount * smoothstep(q.lo, q.hi, perceptual(base, rules)))
+        let y = luma(c, rules), spread = y - min(c.r, c.g, c.b)
+        if spread > 1e-9 { s = min(s, max(1, max(0, y) / spread)) }
+        return RGB(r: y + (c.r - y) * s, g: y + (c.g - y) * s, b: y + (c.b - y) * s)
+    }
+
     /// Detail re-applied with a gain: (luma / base)^(detailGain − 1). 1 on a flat patch.
     static func toneDetail(luma y: Double, base: Double, _ rules: LookRules) -> Double {
         let d = rules.k("tone", "detailGain", 1)
@@ -1000,6 +1022,7 @@ nonisolated enum LookMath {
                 let g = toneGain(base: y, anchor: anchor, highlights: look.highlights, shadows: look.shadows, rules)
                 let d = toneDetail(luma: y, base: y, rules), w = toneWhite(rules)
                 c = RGB(r: exposure(c.r * d, gain: g, white: w), g: exposure(c.g * d, gain: g, white: w), b: exposure(c.b * d, gain: g, white: w))
+                c = toneChroma(c, base: y, highlights: look.highlights, rules)
             case "contrast":
                 c = contrast(c, contrast: look.contrast, rules)
             case "dehaze":

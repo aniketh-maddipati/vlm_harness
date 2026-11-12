@@ -522,7 +522,9 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 let n = LookMath.toneNormalisers(anchor: anchor, r)
                 let sh = CIVector(x: look.shadows * r.k("tone", "shadowsStopsPerUnit", 0.01) * n.shadowsGain, y: r.k("tone", "shadowsTau", 0.2), z: n.shadows, w: n.highlights)
                 let hl = CIVector(x: look.highlights * r.k("tone", "highlightsStopsPerUnit", 0.01) * n.highlightsGain, y: r.k("tone", "highlightsKnee", 0.7), z: LookMath.toneWhite(r), w: r.k("tone", "detailGain", 1))
-                pass("lookTone", [img, base, sh, hl, gam, lum])
+                let q = LookMath.toneChromaParams(highlights: look.highlights, r)
+                let hc = CIVector(x: q?.amount ?? 0, y: q?.lo ?? 0, z: q?.hi ?? 1, w: 0)
+                pass("lookTone", [img, base, sh, hl, gam, lum, hc])
             case "contrast":
                 let k = CIVector(x: min(0.95, max(0.05, r.k("contrast", "midpoint", 0.46))),
                                  y: exp2(look.contrast * r.k("contrast", "slopePerUnit", 0.006)),
