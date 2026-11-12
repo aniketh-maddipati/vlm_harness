@@ -1,0 +1,144 @@
+import AppKit
+import WebKit
+
+/// The native side of Lumina Ingest (Debug, `LUMINA_PAGE=ingest`): the folders chosen in its open panel, the
+/// library folder (picked once, a security-scoped bookmark), the background copy and Eject. Its ops answer the
+/// ingest page only (`SetsBridge`); docs/release/TRUST.md lists them.
+@MainActor
+final class IngestHost {
+    static let ops: Set<String> = ["ingestLibrary", "ingestPickLibrary", "ingestHas", "ingestForget", "ingestCopy", "ingestEject"]
+
+    weak var webView: WKWebView?
+    let store: IngestLibrary
+    var onEvent: ((String) -> Void)?
+    /// Swapped out by tests.
+    var choose: (String?) async -> URL? = IngestHost.panel
+    var eject: (URL) throws -> Void = { try NSWorkspace.shared.unmountAndEjectDevice(at: $0) }
+
+    /// What the owner chose in Ingest's open panel this run (a card's root, folders, files), held for the copy.
+    private(set) var roots: [URL] = []
+    private var libraryURL: URL?
+    private struct Job { var item: IngestCopy.Item; var src: String }
+    private var queue: [Job] = []
+    private var running = false
+    /// Per source label the page uses: how many were sent, verified, failed; its root and whether it is a card.
+    private struct Tally { var sent = 0, ok = 0, bad = 0; var root: URL?; var card = false }
+    private var tally: [String: Tally] = [:]
+
+    init(supportDir: URL) {
+        store = IngestLibrary(url: supportDir.appendingPathComponent("ingest", isDirectory: true).appendingPathComponent("library.json"))
+        if let data = store.bookmark {
+            var stale = false
+            if let u = try? URL(resolvingBookmarkData: data, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale), u.startAccessingSecurityScopedResource() {
+                libraryURL = u
+            }
+        }
+    }
+
+    func picked(_ urls: [URL]) { roots.append(contentsOf: urls) }
+
+    private func libraryJSON() -> [String: Any] {
+        ["folder": libraryURL.map { $0.lastPathComponent } ?? NSNull(), "count": store.count, "keys": store.keys]
+    }
+
+    func handle(_ op: String, _ body: [String: Any]) async -> Any? {
+        switch op {
+        case "ingestLibrary":
+            return libraryJSON()
+        case "ingestHas":
+            return store.has((body["keys"] as? [String] ?? []).prefix(100_000).map { $0 })
+        case "ingestForget":
+            store.forget(); try? store.save()
+            return libraryJSON()
+        case "ingestPickLibrary":
+            return await pickLibrary(refusal: nil)
+        case "ingestCopy":
+            if libraryURL == nil, (await pickLibrary(refusal: nil))["folder"] is NSNull { return ["error": "no library"] }
+            guard let lib = libraryURL else { return ["error": "no library"] }
+            var n = 0, unresolved: [[String: Any]] = []
+            for d in (body["items"] as? [[String: Any]] ?? []).prefix(200_000) {
+                let key = d["key"] as? String ?? "", path = d["path"] as? String ?? "", src = d["src"] as? String ?? ""
+                var t = tally[src] ?? Tally(); t.sent += 1
+                guard let (file, root) = IngestCopy.resolve(path, roots: roots) else {
+                    t.bad += 1; tally[src] = t
+                    unresolved.append(["key": key, "src": src, "ok": false, "why": "not chosen with O"]); continue
+                }
+                if t.root == nil { t.root = root; t.card = SetsFileOps.isCard(root) }
+                tally[src] = t
+                queue.append(Job(item: IngestCopy.Item(key: key, source: file, root: root, folder: d["folder"] as? String ?? "No date"), src: src))
+                n += 1
+            }
+            for u in unresolved { post(u, src: u["src"] as? String ?? "") }
+            pump()
+            return ["queued": n, "unresolved": unresolved.count, "folder": lib.lastPathComponent]
+        case "ingestEject":
+            let src = body["src"] as? String ?? ""
+            guard let t = tally[src], let root = t.root else { return ["ok": false, "why": "nothing copied from it"] }
+            guard t.card else { return ["ok": false, "why": "not a card"] }
+            guard let vol = (try? root.resourceValues(forKeys: [.volumeURLKey]))?.volume else { return ["ok": false, "why": "no volume"] }
+            // Every source on that volume: all sent, all verified, none failed, none waiting.
+            for (_, o) in tally where o.root.flatMap({ (try? $0.resourceValues(forKeys: [.volumeURLKey]))?.volume?.path }) == vol.path {
+                if o.bad > 0 || o.ok < o.sent { return ["ok": false, "why": "not every file copied"] }
+            }
+            if queue.contains(where: { $0.item.root.path.hasPrefix(vol.path) }) { return ["ok": false, "why": "still copying"] }
+            do { try eject(vol); onEvent?("ingest: ejected \(src)"); return ["ok": true] }
+            catch { return ["ok": false, "why": (error as NSError).localizedDescription] }
+        default:
+            return nil
+        }
+    }
+
+    private func pickLibrary(refusal: String?) async -> [String: Any] {
+        guard let u = await choose(refusal) else { return libraryJSON() }
+        if let why = SetsFileOps.refusal(destination: u, sources: roots) {
+            return await pickLibrary(refusal: why)
+        }
+        libraryURL?.stopAccessingSecurityScopedResource()
+        libraryURL = u
+        _ = u.startAccessingSecurityScopedResource()
+        store.setFolder(u.standardizedFileURL.path, bookmark: try? u.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil))
+        try? store.save()
+        return libraryJSON()
+    }
+
+    private static func panel(_ refusal: String?) async -> URL? {
+        let p = NSOpenPanel()
+        p.canChooseDirectories = true; p.canChooseFiles = false; p.canCreateDirectories = true; p.allowsMultipleSelection = false
+        p.prompt = "Choose"
+        p.message = refusal ?? "Choose the library folder. Lumina copies into it and checks every copy."
+        return await p.begin() == .OK ? p.url : nil
+    }
+
+    private func pump() {
+        guard !running, !queue.isEmpty, let lib = libraryURL else { return }
+        running = true
+        let jobs = queue; queue = []
+        let store = self.store
+        Task.detached(priority: .utility) { [weak self] in
+            var n = 0
+            for j in jobs {
+                let r = IngestCopy.copy(j.item, into: lib, store: store)
+                n += 1
+                if n % 20 == 0 { try? store.save() }
+                await self?.finished(r, src: j.src)
+            }
+            try? store.save()
+            await self?.drained()
+        }
+    }
+
+    private func finished(_ r: IngestCopy.Result, src: String) {
+        var t = tally[src] ?? Tally()
+        if r.ok { t.ok += 1 } else { t.bad += 1 }
+        tally[src] = t
+        var d: [String: Any] = ["key": r.key, "src": src, "ok": r.ok, "files": r.files, "bytes": r.bytes, "already": r.already, "card": t.card]
+        if let w = r.why { d["why"] = w }
+        post(d, src: src)
+    }
+
+    private func drained() { running = false; pump() }
+
+    private func post(_ d: [String: Any], src: String) {
+        webView?.evaluateJavaScript("window.luminaIngest && luminaIngest.copied(\(SetsBridge.json(d)))", completionHandler: nil)
+    }
+}

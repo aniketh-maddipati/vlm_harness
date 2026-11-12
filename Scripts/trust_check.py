@@ -69,6 +69,9 @@ m = re.search(r'didReceive message: WKScriptMessage\).*?switch op \{(.*?)\n     
 ops = set(re.findall(r'^        case "([^"]+)"', m.group(1), re.M)) if m else set()
 if not m:
     FAILS.append('SetsBridge.swift: the page → native switch was not found (trust_check.py needs updating)')
+# Lumina Ingest's ops (Debug only) are dispatched from IngestHost.ops, not the switch.
+mi = re.search(r'static let ops: Set<String> = \[(.*?)\]', SWIFT.get('Lumina/Sets/Core/IngestHost.swift', ''))
+if mi: ops |= set(re.findall(r'"([^"]+)"', mi.group(1)))
 compare('Bridge ops', table('Bridge ops'), ops, 'bridge ops')
 
 # lumina:// hosts

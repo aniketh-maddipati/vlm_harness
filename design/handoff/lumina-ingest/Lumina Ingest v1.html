@@ -112,16 +112,23 @@ const stem = (p) => p.replace(/\.[^./]+$/, '').toLowerCase();
 const junk = (name) => name.startsWith('.') || name === 'Thumbs.db' || name === 'desktop.ini';
 
 // ---- state ---------------------------------------------------------------------------------
-const LIB_KEY = 'lumina.ingest.library';
-let library = new Set();
-try { library = new Set(JSON.parse(localStorage.getItem(LIB_KEY) || '[]')); } catch (_) {}
+// The library is the Mac's (IngestHost): the folder picked once, its identities, the verified copy and Eject.
+// In a browser there is no host: nothing is remembered or copied.
+const host = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lumina;
+const call = (op, body) => host ? host.postMessage(Object.assign({ op }, body || {})).catch(() => null) : Promise.resolve(null);
+let library = new Set(), libName = null;
+const libFrom = (r) => { if (r && r.keys) { library = new Set(r.keys); libName = r.folder || null; } };
+call('ingestLibrary').then((r) => { libFrom(r); drawNotes(); });
 const S = {
   items: new Map(),     // key -> item (one per photo or clip)
   sources: new Map(),   // label -> {label, files}
   total: 0, done: 0, t0: 0, reading: false,
   junk: 0, side: 0, other: 0, paired: 0, proxies: 0,
   chips: [], group: 'day', tw: 150, tripName: null,
-  clk: null, clkOff: new Set()   // clocks aligned (lumina-ingest-clocks.js), and the ones undone
+  clk: null, clkOff: new Set(),  // clocks aligned (lumina-ingest-clocks.js), and the ones undone
+  extra: [],            // files read as no photo or clip (other files, proxies): copied as they are, never shown
+  cp: new Map(),        // source -> {sent, ok, bad, card} for the copy into the library
+  cpSent: 0, cpDone: 0, cpT0: 0, cpBytes: 0
 };
 
 // ---- walking a drop --------------------------------------------------------------------------
@@ -158,10 +165,10 @@ function plan(groups) {
     const byStem = new Map();
     for (const { f, path } of g.files) {
       const k = kindOf(f.name);
-      if (!k) { S.other++; continue; }
+      if (!k) { S.other++; S.extra.push({ path, src: label }); continue; }
       if (k === 'side') { S.side++; continue; }
       // Sony proxies (C0001S03.MP4 in SUB/) go with their clip and never show as tiles.
-      if (k === 'video' && (/\/SUB\//i.test('/' + path) || /^C\d{4}S\d{2}\.MP4$/i.test(f.name))) { S.proxies++; continue; }
+      if (k === 'video' && (/\/SUB\//i.test('/' + path) || /^C\d{4}S\d{2}\.MP4$/i.test(f.name))) { S.proxies++; S.extra.push({ path, src: label }); continue; }
       const st = stem(path);
       const prev = byStem.get(st);
       if (prev && ((prev.kind === 'raw' && k === 'jpeg') || (prev.kind === 'jpeg' && k === 'raw'))) {
@@ -251,7 +258,7 @@ async function ingest(groups) {
       const job = pending.shift();
       const it = await readOne(job);
       const known = S.items.get(it.key);
-      if (known) { known.copies.push(it.src); if (!known.unread) known.state = 'here'; known.v = (known.v || 0) + 1; }
+      if (known) { known.copies.push(it.src); (known.also ||= []).push({ src: it.src, path: it.path }); if (!known.unread) known.state = 'here'; known.v = (known.v || 0) + 1; }
       else { it.state = it.unread ? 'unread' : before.has(it.key) ? 'here' : 'new'; it.fresh = true; S.items.set(it.key, it); }
       S.done++; dirty();
     }
@@ -259,10 +266,9 @@ async function ingest(groups) {
   await Promise.all(Array.from({ length: 6 }, worker));
   if (!pending.length && S.done >= S.total) {
     S.reading = false;
-    for (const it of S.items.values()) if (!it.unread) library.add(it.key);
     alignClocks();
-    try { localStorage.setItem(LIB_KEY, JSON.stringify([...library])); } catch (_) {}
     dirty(true);
+    copyAll();
   }
 }
 
@@ -279,6 +285,44 @@ function shiftClocks() {
   for (const it of S.items.values()) if (it.date0 !== undefined) { const d = it.date0 && it.date0 + (by.get(it.key) || 0); if (d !== it.date) { it.date = d; it.v = (it.v || 0) + 1; } }
 }
 
+// ---- the copy into the library (the Mac copies, checks every copy, and says when a card is safe) ----------
+const pad = (n) => String(n).padStart(2, '0');
+const dayFolder = (it) => { if (!it.date) return 'No date'; const d = new Date(it.date); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const cpOf = (src) => { if (!S.cp.has(src)) S.cp.set(src, { sent: 0, ok: 0, bad: 0, card: false }); return S.cp.get(src); };
+function copyAll() {
+  if (!host) return;
+  const items = [], batch = [];
+  const job = (key, path, src, folder) => { items.push({ key, path, src, folder }); cpOf(src).sent++; };
+  for (const it of S.items.values()) {
+    if (it.cpSent) continue; it.cpSent = true; batch.push(it); it.cpWait = 1 + (it.also || []).length;
+    job(it.key, it.path, it.src, dayFolder(it));
+    for (const a of it.also || []) job(it.key, a.path, a.src, dayFolder(it));
+  }
+  for (const x of S.extra.splice(0)) job('', x.path, x.src, 'Other/' + x.src + (x.path.includes('/') ? '/' + x.path.split('/').slice(1, -1).join('/') : ''));
+  if (!items.length) return;
+  S.cpSent += items.length; if (!S.cpT0) S.cpT0 = performance.now();
+  dirty();
+  call('ingestCopy', { items }).then((r) => {
+    if (r && r.error) { S.cpSent -= items.length; for (const i of items) cpOf(i.src).sent--; for (const it of batch) it.cpSent = false; say('Not copied: no library folder chosen'); dirty(); }
+    else if (r && r.folder) { libName = r.folder; }
+  });
+}
+window.luminaIngest = {
+  copied(d) {
+    S.cpDone++; S.cpBytes += d.bytes || 0;
+    const c = cpOf(d.src); if (d.ok) c.ok++; else c.bad++; c.card = c.card || !!d.card;
+    const it = d.key && S.items.get(d.key);
+    if (it) {
+      if (!d.ok) { it.copy = 'bad'; it.why = d.why; it.v = (it.v || 0) + 1; }
+      if (--it.cpWait <= 0 && it.copy !== 'bad') { it.copy = 'ok'; library.add(it.key); }
+    }
+    dirty(!d.ok);
+  }
+};
+const copying = () => S.cpDone < S.cpSent;
+const safeSources = () => [...S.cp].filter(([, c]) => c.sent && c.ok === c.sent).map(([src, c]) => ({ src, card: c.card }));
+function eject(src) { call('ingestEject', { src }).then((r) => say(r && r.ok ? `Ejected ${src}` : `Not ejected: ${(r && r.why) || 'no answer'}`)); }
+
 // ---- sets: chips --------------------------------------------------------------------------------
 const day0 = () => { let m = Infinity; for (const it of S.items.values()) if (it.date && it.date < m) m = it.date; if (m === Infinity) return null; const d = new Date(m); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const dayOf = (it, z) => it.date && z != null ? Math.floor((new Date(it.date).setHours(0, 0, 0, 0) - z) / 864e5) + 1 : 0;
@@ -287,6 +331,7 @@ const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const CHIP = {
   kind: { show: (v) => ({ photo: 'photos', video: 'clips', raw: 'RAW', jpeg: 'JPEG', phone: 'phone' })[v], test: (it, v) => v === 'photo' ? it.kind !== 'video' : v === 'phone' ? /iphone|pixel|galaxy|phone/i.test(it.body || '') : it.kind === v },
   state: { show: (v) => ({ new: 'new', here: 'already here', unread: 'unreadable' })[v], test: (it, v) => it.state === v },
+  copy: { show: () => 'not copied', test: (it) => it.copy === 'bad' },
   day: { show: (v) => 'day ' + v, test: (it, v, z) => dayOf(it, z) === v },
   body: { show: (v) => v, test: (it, v) => it.body === v },
   src: { show: (v) => v, test: (it, v) => it.src === v || it.copies.includes(v) },
@@ -314,6 +359,7 @@ function parse(text) {
   const take = (re, fn) => { s = s.replace(re, (...a) => { fn(...a); return ' '; }); };
   take(/\b(?:split |group |sort )?by (day|camera|body|source|card|nothing)\b/g, (_, w) => { group = { day: 'day', camera: 'body', body: 'body', source: 'src', card: 'src', nothing: 'none' }[w]; });
   take(/\b(?:one grid|flat)\b/g, () => { group = 'none'; });
+  take(/\b(?:not copied|uncopied|failed)\b/g, () => { chips.push({ t: 'copy', v: 'bad', not: false }); });
   const words = s.trim().split(/\s+/).filter(Boolean);
   const stop = new Set(['show','me','only','the','from','on','of','and','or','all','with','in','just','files','that','are','were','is','what','which','everything']);
   const B = bodies(), SRC = [...S.sources.keys()];
@@ -351,7 +397,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 function render(doFlip) {
   // while reading, redraw at most twice a second (tiles keep arriving)
   const now = performance.now();
-  if (S.reading && !doFlip && now - lastDraw < 500) { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(false); }); drawFoot(); return; }
+  if ((S.reading || copying()) && !doFlip && now - lastDraw < 500) { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(false); }); drawFoot(); return; }
   lastDraw = now;
   const z = day0(), all = [...S.items.values()].sort((a, b) => (a.date || Infinity) - (b.date || Infinity) || a.name.localeCompare(b.name));
   const shown = all.filter((it) => matches(it, S.chips, z));
@@ -385,7 +431,7 @@ function render(doFlip) {
 function tile(it) {
   const el = document.createElement('div'); el.className = 'tile' + (it.fresh ? ' enter' : ''); it.fresh = false;
   el.dataset.k = it.key; el.dataset.v = String(it.v || 0);
-  el.title = it.path + (it.copies.length ? '\nalso in ' + it.copies.join(', ') : '') + (it.state === 'here' ? '\nalready here' : '');
+  el.title = it.path + (it.copies.length ? '\nalso in ' + it.copies.join(', ') : '') + (it.state === 'here' ? '\nalready here' : '') + (it.copy === 'bad' ? '\nnot copied · ' + (it.why || 'failed') : '');
   if (it.thumb) { const im = new Image(); im.decoding = 'async'; im.onload = () => im.classList.add('in'); im.src = it.thumb; el.appendChild(im); }
   if (it.unread) { const w = document.createElement('span'); w.className = 'w'; w.textContent = 'unreadable'; el.appendChild(w); }
   else if (it.kind === 'video') { const b = document.createElement('span'); b.className = 'd'; b.textContent = it.dur ? Math.floor(it.dur / 60) + ':' + String(Math.round(it.dur % 60)).padStart(2, '0') : 'clip'; el.appendChild(b); }
@@ -405,8 +451,9 @@ function play(before) {
 }
 function count(fn) { let n = 0; for (const it of S.items.values()) if (fn(it)) n++; return n; }
 function drawTop() {
-  $('#bar>div').style.width = S.total ? (100 * S.done / S.total) + '%' : '0';
-  $('#bar').style.visibility = S.reading ? 'visible' : 'hidden';
+  // Pick's load bar: the read, then the copy
+  $('#bar>div').style.width = S.reading ? (S.total ? (100 * S.done / S.total) + '%' : '0') : S.cpSent ? (100 * S.cpDone / S.cpSent) + '%' : '0';
+  $('#bar').style.visibility = S.reading || copying() ? 'visible' : 'hidden';
   if (document.activeElement !== $('#trip') && S.tripName == null) $('#trip').value = tripName();
   $('#trip').style.width = Math.max(8, $('#trip').value.length + 1) + 'ch';
   const src = S.sources.size;
@@ -422,12 +469,18 @@ function drawFoot() {
   if (here && nw) parts.push(n(nw, 'new', 'new'));
   if (here) parts.push(n(here, 'already here', 'already here'));
   if (bad) parts.push(n(bad, 'unreadable', 'unreadable'));
+  const nc = count((i) => i.copy === 'bad'); if (nc) parts.push(n(nc, 'not copied', 'not copied'));
+  if (!S.reading && !copying()) for (const { src, card } of safeSources()) parts.push(`<span class="n" data-w="${esc(src)}">safe to format ${esc(src)}</span>` + (card ? ` <span class="n" data-eject="${esc(src)}">Eject</span>` : ''));
   if (S.items.size) parts.push(`<span class="n" data-more="1">${$('#notes').classList.contains('off') ? 'Details' : 'Hide details'}</span>`);
   $('#foot').innerHTML = parts.join(' · ');
   $('#foot').querySelectorAll('[data-w]').forEach((b) => b.onclick = () => findFor(b.dataset.w));
+  $('#foot').querySelectorAll('[data-eject]').forEach((b) => b.onclick = () => eject(b.dataset.eject));
   const m = $('#foot').querySelector('[data-more]'); if (m) m.onclick = () => { $('#notes').classList.toggle('off'); drawFoot(); drawNotes(); };
   const s = (performance.now() - S.t0) / 1000;
-  $('#live').textContent = S.reading ? `reading ${fmt(S.done)} of ${fmt(S.total)}${s > 2 ? ' · ' + Math.round(S.done / s) + ' a second' : ''}` : S.items.size ? 'all read' : '';
+  const cs = (performance.now() - S.cpT0) / 1000;
+  $('#live').textContent = S.reading ? `reading ${fmt(S.done)} of ${fmt(S.total)}${s > 2 ? ' · ' + Math.round(S.done / s) + ' a second' : ''}`
+    : copying() ? `copying ${fmt(S.cpDone)} of ${fmt(S.cpSent)}${cs > 2 ? ' · ' + Math.round(S.cpBytes / 1048576 / cs) + ' MB a second' : ''}`
+    : S.cpSent ? 'all copied' : S.items.size ? 'all read' : '';
   const keys = S.items.size ? [['O', 'add'], ['/', 'find'], ['esc', 'clear'], ['= −', 'size']] : [['O', 'open']];
   $('#keys').innerHTML = keys.map(([k, c]) => `<span class="cap">${k.split(' ').map((x) => `<b>${esc(x)}</b>`).join('')}${c}</span>`).join('');
 }
@@ -452,12 +505,12 @@ function drawNotes() {
     + (bc.size ? line('Cameras ' + [...bc].map(([b, n]) => pick(b, `${b} (${fmt(n)})`)).join(', ')) : '')
     + (days.size ? line('Days ' + [...days].sort((a, b) => a[0] - b[0]).map(([k, n]) => pick('day ' + k, `${k} (${fmt(n)})`)).join(', ')) : '')
     + (handled.length ? line(handled.join(' · ')) : '')
-    + line(`${fmt(library.size)} files remembered from earlier drops <span class="act" id="forget">Forget</span>`)
-    + clockLines(line)
-    + line('Not yet: copying, checksums');
+    + line(`${libName ? 'Library ' + esc(libName) + ' · ' : ''}${fmt(library.size)} files remembered <span class="act" id="forget">Forget</span>`)
+    + (S.cpSent ? line(`${fmt(S.cpDone)} of ${fmt(S.cpSent)} copied and checked` + (S.other + S.proxies ? ` · ${fmt(S.other + S.proxies)} other files and proxies copied as they are` : '') + ` · ${fmt(S.junk)} system files not copied`) : '')
+    + clockLines(line);
   d.querySelectorAll('[data-c]').forEach((b) => b.onclick = () => findFor(b.dataset.c));
   d.querySelectorAll('[data-clk]').forEach((b) => b.onclick = () => { const k = b.dataset.clk; if (S.clkOff.has(k)) S.clkOff.delete(k); else S.clkOff.add(k); shiftClocks(); say(S.clkOff.has(k) ? k + ' back to its own clock' : k + ' shifted'); dirty(true); });
-  $('#forget').onclick = () => { library.clear(); try { localStorage.removeItem(LIB_KEY); } catch (_) {} say('Forgotten: the next drop is all new'); drawNotes(); };
+  $('#forget').onclick = () => { library.clear(); call('ingestForget').then(libFrom); say('Forgotten: the next drop is all new'); drawNotes(); };
 }
 // one line per clock that was shifted, set mid-card, or has nothing to match against
 function clockLines(line) {
@@ -492,7 +545,7 @@ q.addEventListener('focus', () => { before = q.value; });
 q.addEventListener('input', () => { clearTimeout(qT); qT = setTimeout(apply, 120); });
 q.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); const t = q.value.trim().toLowerCase();
-    if (t === 'forget') { library.clear(); try { localStorage.removeItem(LIB_KEY); } catch (_) {} q.value = ''; apply(); say('Forgotten: the next drop is all new'); }
+    if (t === 'forget') { library.clear(); call('ingestForget').then(libFrom); q.value = ''; apply(); say('Forgotten: the next drop is all new'); }
     q.blur(); }
   else if (e.key === 'Escape') { e.preventDefault(); if (q.value !== before) { q.value = before; apply(); } else { q.value = ''; apply(); } q.blur(); }
 });
@@ -522,7 +575,7 @@ trip.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Es
 trip.addEventListener('input', () => { S.tripName = trip.value.trim() || null; drawTop(); });
 drawFoot();
 // for a headless check: window.__ingest.state()
-window.__ingest = { state: () => ({ items: S.items.size, done: S.done, total: S.total, chips: S.chips, group: S.group, here: count((i) => i.state === 'here'), unread: count((i) => i.state === 'unread') }), parse, find: (t) => { q.value = t; apply(); },
+window.__ingest = { state: () => ({ items: S.items.size, done: S.done, total: S.total, chips: S.chips, group: S.group, here: count((i) => i.state === 'here'), unread: count((i) => i.state === 'unread'), copied: S.cpDone, sent: S.cpSent, notCopied: count((i) => i.copy === 'bad'), safe: safeSources() }), parse, find: (t) => { q.value = t; apply(); },
   clocks: () => S.clk && { clocks: S.clk.clocks.map(({ ids, ...c }) => ({ ...c, off: S.clkOff.has(c.key) })), edges: S.clk.edges }, days: () => [...document.querySelectorAll('#groups .head .t')].map((e) => e.textContent) };
 </script>
 </body>

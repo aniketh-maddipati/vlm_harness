@@ -891,8 +891,13 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
             panel.allowsMultipleSelection = true
             panel.prompt = "Add"
             panel.message = "Choose cards, folders or files. Lumina only reads them."
-            guard let window = webView.window else { completionHandler(panel.runModal() == .OK ? panel.urls : nil); return }
-            panel.beginSheetModal(for: window) { completionHandler($0 == .OK ? panel.urls : nil) }
+            // What was chosen is held for Ingest's copy (IngestHost): the page knows files by their relative path only.
+            let done: (Bool) -> Void = { [weak self] ok in
+                if ok { self?.bridge.ingestHost.picked(panel.urls) }
+                completionHandler(ok ? panel.urls : nil)
+            }
+            guard let window = webView.window else { done(panel.runModal() == .OK); return }
+            panel.beginSheetModal(for: window) { done($0 == .OK) }
             return
         }
         if SetsPage.current == .skim {
