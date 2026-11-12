@@ -34,6 +34,8 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     /// A Debug-only prototype: the minimal ingest (drop anything, one line, counts as sets). Scripts/dev-ingest.sh's
     /// "Lumina Ingest" app (`LUMINA_PAGE=ingest`) shows it on Skim's side, so no plumbing and no Edit canvas.
     static let ingestPageFile = "Lumina Ingest v1.html"
+    /// Its camera clock alignment (design/handoff/lumina-ingest/lumina-ingest-clocks.js), loaded by the page.
+    static let ingestFiles = [ingestPageFile, "lumina-ingest-clocks.js"]
     /// What `lumina://app/<file>` serves. Debug builds and the probe: the same list as
     /// Scripts/page_files.sh, with the design's self-test, which the page asks for only with
     /// `?selftest` (`probe.sh selftest`). The app's Release build does not serve the self-test
@@ -41,7 +43,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     /// binary has no name for it, so `?selftest` gets "not served" and the page runs as usual.
     /// The Lumina Skim app's Release build serves Skim's page and support.js, nothing of Pick's.
     #if DEBUG || LUMINA_TOOLS
-    static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js", "lumina-selftest.js"] + skimFiles + [ingestPageFile]
+    static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js", "lumina-selftest.js"] + skimFiles + ingestFiles
     #elseif LUMINA_SKIM_APP
     static let pageFiles = skimFiles + ["support.js"]
     #else

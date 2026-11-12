@@ -5,6 +5,7 @@
 <title>Lumina Ingest</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="lumina-core-v4.js"></script>
+<script src="lumina-ingest-clocks.js"></script>
 <style>
 /* Stills' own look (Lumina Sets v12): its colours, type, Open's Drop box, Pick's load bar, rows and tiles,
    Handoff's find box, the import notes and the key bar. Nothing here is new. */
@@ -119,7 +120,8 @@ const S = {
   sources: new Map(),   // label -> {label, files}
   total: 0, done: 0, t0: 0, reading: false,
   junk: 0, side: 0, other: 0, paired: 0, proxies: 0,
-  chips: [], group: 'day', tw: 150, tripName: null
+  chips: [], group: 'day', tw: 150, tripName: null,
+  clk: null, clkOff: new Set()   // clocks aligned (lumina-ingest-clocks.js), and the ones undone
 };
 
 // ---- walking a drop --------------------------------------------------------------------------
@@ -186,7 +188,8 @@ async function thumbFrom(blob, orient) {
   const dw = sw ? c.height : c.width, dh = sw ? c.width : c.height;
   x.drawImage(b0, -dw / 2, -dh / 2, dw, dh); b0.close();
   const out = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.82));
-  return { url: URL.createObjectURL(out), portrait: c.height > c.width };
+  let sig = null; try { sig = window.LuminaIngestClocks.sigOf(c); } catch (_) {}
+  return { url: URL.createObjectURL(out), portrait: c.height > c.width, sig };
 }
 function videoThumb(f) {
   return new Promise((res) => {
@@ -210,7 +213,7 @@ async function readOne(job) {
     if (job.kind === 'raw' || job.kind === 'jpeg') {
       const m = job.kind === 'jpeg' ? (() => { const t = C.jpegTiff(head); return t ? C.parseHead(t, f.size) : null; })() : C.parseHead(head, f.size);
       if (!m && job.kind === 'raw') throw new Error('unreadable');
-      if (m) { it.date = parseDate(m.date); const ph = C.phoneOf(m); it.body = ph ? ph.short : (m.model || null); it.serial = m.serial || null; }
+      if (m) { it.date = parseDate(m.date); const ph = C.phoneOf(m); it.body = ph ? ph.short : (m.model || null); it.serial = m.serial || null; it.phone = !!ph; it.clock = ph ? ph.short : m.model ? m.model + (m.serial ? ' #' + String(m.serial).slice(-4) : '') : null; }
       let blob = null;
       if (job.kind === 'jpeg') blob = f;
       else for (const [po, pl] of (m.previews && m.previews.length ? m.previews : m.preview ? [m.preview] : [])) {
@@ -220,7 +223,7 @@ async function readOne(job) {
       }
       if (!blob && m && (m.pvParts || m.pvRGB)) try { const ap = await C.assemblePreview(f, m); if (ap && ap.blob) blob = ap.blob; } catch (_) {}
       if (!blob && job.jpegFile) blob = job.jpegFile;
-      if (blob) { const t = await thumbFrom(blob, (m && m.orient) || 1); it.thumb = t.url; it.portrait = t.portrait; }
+      if (blob) { const t = await thumbFrom(blob, (m && m.orient) || 1); it.thumb = t.url; it.portrait = t.portrait; it.sig = t.sig; }
       else if (job.kind === 'raw') throw new Error('no preview');
     } else if (job.kind === 'heic' || job.kind === 'png') {
       try { const t = await thumbFrom(f, 1); it.thumb = t.url; } catch (_) { it.thumb = URL.createObjectURL(f); }
@@ -257,9 +260,23 @@ async function ingest(groups) {
   if (!pending.length && S.done >= S.total) {
     S.reading = false;
     for (const it of S.items.values()) if (!it.unread) library.add(it.key);
+    alignClocks();
     try { localStorage.setItem(LIB_KEY, JSON.stringify([...library])); } catch (_) {}
     dirty(true);
   }
+}
+
+// ---- clocks: bodies whose clocks disagree, matched on the moments both shot ----------------------------------
+function alignClocks() {
+  const all = [...S.items.values()];
+  for (const it of all) if (it.date0 === undefined) it.date0 = it.date;
+  const K = window.LuminaIngestClocks;
+  S.clk = K ? K.align(all.filter((it) => it.date0 && it.clock && !it.unread).map((it) => ({ id: it.key, t: it.date0, body: it.clock, phone: it.phone, name: it.name, src: it.src, sig: it.sig }))) : null;
+  shiftClocks();
+}
+function shiftClocks() {
+  const by = new Map(); if (S.clk) for (const c of S.clk.clocks) if (c.shift && !S.clkOff.has(c.key)) for (const id of c.ids) by.set(id, c.shift);
+  for (const it of S.items.values()) if (it.date0 !== undefined) { const d = it.date0 && it.date0 + (by.get(it.key) || 0); if (d !== it.date) { it.date = d; it.v = (it.v || 0) + 1; } }
 }
 
 // ---- sets: chips --------------------------------------------------------------------------------
@@ -436,9 +453,25 @@ function drawNotes() {
     + (days.size ? line('Days ' + [...days].sort((a, b) => a[0] - b[0]).map(([k, n]) => pick('day ' + k, `${k} (${fmt(n)})`)).join(', ')) : '')
     + (handled.length ? line(handled.join(' · ')) : '')
     + line(`${fmt(library.size)} files remembered from earlier drops <span class="act" id="forget">Forget</span>`)
-    + line('Not yet: copying, checksums, clock alignment');
+    + clockLines(line)
+    + line('Not yet: copying, checksums');
   d.querySelectorAll('[data-c]').forEach((b) => b.onclick = () => findFor(b.dataset.c));
+  d.querySelectorAll('[data-clk]').forEach((b) => b.onclick = () => { const k = b.dataset.clk; if (S.clkOff.has(k)) S.clkOff.delete(k); else S.clkOff.add(k); shiftClocks(); say(S.clkOff.has(k) ? k + ' back to its own clock' : k + ' shifted'); dirty(true); });
   $('#forget').onclick = () => { library.clear(); try { localStorage.removeItem(LIB_KEY); } catch (_) {} say('Forgotten: the next drop is all new'); drawNotes(); };
+}
+// one line per clock that was shifted, set mid-card, or has nothing to match against
+function clockLines(line) {
+  if (!S.clk || S.clk.clocks.length < 2) return '';
+  const K = window.LuminaIngestClocks, f = K.fmtShift, cs = S.clk.clocks, out = [];
+  const m = (n) => `${fmt(n)} matching ${n === 1 ? 'moment' : 'moments'}`;
+  for (const c of cs) {
+    const act = (w) => ` <span class="act" data-clk="${esc(c.key)}">${w}</span>`;
+    if (c.shift && S.clkOff.has(c.key)) out.push(line(`${esc(c.key)} left on its own clock (${f(c.shift)} found, ${m(c.matches)})` + act('Shift')));
+    else if (c.shift) out.push(line(`${esc(c.key)} shifted ${f(c.shift)} (${c.tz ? 'time zone, ' : ''}${m(c.matches)})` + act('Undo')));
+    else if (c.jump && !c.matches) out.push(line(`${esc(c.body)} clock set back ${f(c.jump.by).slice(1)} after ${esc(c.jump.after)}: left as shot, no matching moments`));
+    else if (!c.matches && !c.ref) out.push(line(`${esc(c.key)} not shifted: no matching moments`));
+  }
+  return out.join('');
 }
 let sayT = 0;
 function say(t, keep) { $('#say').textContent = t; clearTimeout(sayT); if (!keep) sayT = setTimeout(() => { $('#say').textContent = ''; }, 2400); }
@@ -489,7 +522,8 @@ trip.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Es
 trip.addEventListener('input', () => { S.tripName = trip.value.trim() || null; drawTop(); });
 drawFoot();
 // for a headless check: window.__ingest.state()
-window.__ingest = { state: () => ({ items: S.items.size, done: S.done, total: S.total, chips: S.chips, group: S.group, here: count((i) => i.state === 'here'), unread: count((i) => i.state === 'unread') }), parse, find: (t) => { q.value = t; apply(); } };
+window.__ingest = { state: () => ({ items: S.items.size, done: S.done, total: S.total, chips: S.chips, group: S.group, here: count((i) => i.state === 'here'), unread: count((i) => i.state === 'unread') }), parse, find: (t) => { q.value = t; apply(); },
+  clocks: () => S.clk && { clocks: S.clk.clocks.map(({ ids, ...c }) => ({ ...c, off: S.clkOff.has(c.key) })), edges: S.clk.edges }, days: () => [...document.querySelectorAll('#groups .head .t')].map((e) => e.textContent) };
 </script>
 </body>
 </html>
