@@ -11,8 +11,8 @@ $PY Tools/visualcheck/calibrate.py --sources <img> … --out ~/LuminaEvidence/vi
 ```
 
 **Pairs.** A directory of `<stem>-before.* / <stem>-after.*` (also `a/b`, `canvas/export`,
-`lumina/lightroom`, `render/ref`, `old/new`), sub-directories holding one such pair each, or a list
-file of `A<TAB>B[<TAB>name]` lines. B is resized to A when the sizes differ.
+`lumina/lightroom`, `render/ref`, `old/new`), a directory holding two sub-directories named like
+such a pair (`before/`, `after/`) with matching file names, or a list file of `A B [name]` lines. B is resized to A when the sizes differ.
 
 **Output** (in `--out`, which must be outside the repo): `index.html` (the contact sheet: A, B and
 a ΔE2000 heatmap per pair, flagged first), `report.md`, `report.json`, `heat/`, `thumbs/`.
