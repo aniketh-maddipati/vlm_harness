@@ -132,6 +132,19 @@ fi
 # What is left of the limit: the probe ends itself (and detaches its images) just before the guard would.
 left() { local s=$((limit - SECONDS - 10)); echo $((s > 5 ? s : 5)); }
 export LUMINA_FIXTURE_ROOT="${LUMINA_FIXTURE_ROOT:-}"
+# Folders resolved to where they really are. ~/Pictures, ~/Desktop, ~/Documents, ~/Downloads, ~/Movies
+# and ~/Music are privacy-protected: the probe is a fresh unsigned binary each build, so its first read
+# there waits on a permission request nobody sees and the scenario sits until its limit (2026-11-11:
+# ~/Pictures/lumina-fixtures/card-clean-200, a symlink to the T7, hung every Edit and RAW 9 scenario;
+# the same folder by its /Volumes path passed). A symlink out of them is followed here; a folder that
+# is really inside one is named before the run.
+for v in LUMINA_FIXTURE_ROOT LUMINA_EDIT_DIR LUMINA_SCROLL_DIR LUMINA_READ_DIR LUMINA_CARD_DIR LUMINA_VIDEO_DIR; do
+  p="${!v:-}"; [[ -n $p && -d $p ]] || continue
+  r="$(cd "$p" && pwd -P)"; export "$v=$r"
+  case "$r/" in "$HOME"/Pictures/*|"$HOME"/Desktop/*|"$HOME"/Documents/*|"$HOME"/Downloads/*|"$HOME"/Movies/*|"$HOME"/Music/*)
+    echo "WARN  $v=$r is in a privacy-protected folder: the probe may wait on a permission prompt until its limit. Move it or link it from elsewhere." >&2 ;;
+  esac
+done
 # The probe is a SwiftPM tool with no bundle: the look rules come from the checkout (LookRules.bundled reads LUMINA_RULES).
 export LUMINA_RULES="${LUMINA_RULES:-$ROOT/Lumina/Sets/Look/rules-v1.json}"
 status=0
