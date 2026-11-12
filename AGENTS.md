@@ -365,9 +365,14 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
   skin hues (a narrow band, `skinHue` / `skinWidth` / `skinProtect`); below 0 it takes colour away
   on every hue, faster than it adds it (`vibranceDownPerUnit`). The stage is fitted on Lightroom's
   base export → Lightroom's slider export, so it does not depend on Lumina's base.
-- **Exposure is a scene gain seen through a sigmoid tone curve** (`LookMath.exposure`: per channel
-  G·y / (1 + (G − 1)·y/white), G = 2^(ev · stopsPerUnit)), the form Lightroom's sweep shows:
-  shadows and midtones move ~1.6 stops per unit, highlights roll off and lose saturation.
+- **Exposure is a gain on the sensor data, through the camera profile** (2026-11-12). With a
+  `profile` stage the RAW develops linear (`Developed.linear`) and the profile runs first in the
+  look, with the look's Exposure added to its own exposure: one stop per unit, nothing fitted
+  (sweep 1: 1.31 / 5.23 → 0.99 / 4.76; `Tools/parity/exposure_fit.py`). Every place that rebuilds a
+  `Developed` from cached parts (canvas bases, region tiles, the settled zoom, lumina-render's
+  cache) must carry `linear`, or that frame renders without the profile. A JPEG stand-in, a
+  synthetic image and a mask's look keep the toned form (`LookMath.exposure`: per channel
+  G·y / (1 + (G − 1)·y/white), G = 2^(ev · stopsPerUnit)).
 - **Criteria are edited only by a human.** `criteria.json` and `golden.json` never change inside the
   loop. Changing the golden set means a new sweep and every stage unlocked.
 - **Add a golden image:** copy the ARW to `~/LuminaEvidence/parity/golden/`, run
