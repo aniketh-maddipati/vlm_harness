@@ -418,9 +418,21 @@ class LookMathMirrorTests(unittest.TestCase):
         d = abs(a - b) % 360.0
         return 360.0 - d if d > 180.0 else d
 
-    def test_shipped_mapper_is_the_clamp(self):
-        self.assertEqual(lm.mapper(self.rules), "clamp")
-        np.testing.assert_allclose(lm.output_transform([1.5, 0.5, -0.1], self.rules), [1.0, 0.5, 0.0])
+    def clamp_rules(self):
+        r = json.loads(json.dumps(self.rules))
+        r["stages"]["outputTransform"]["mapper"] = "clamp"
+        return r
+
+    def test_shipped_mapper_is_the_hue_clamp(self):
+        self.assertEqual(lm.mapper(self.rules), "hueClamp")
+        np.testing.assert_allclose(lm.output_transform([1.5, 0.5, -0.1], self.clamp_rules()), [1.0, 0.5, 0.0])
+        np.testing.assert_allclose(lm.output_transform([0.9, 0.5, -0.1], self.rules), [0.9, 0.5, 0.0])   # inside white: the clamp
+        out = lm.output_transform([2.0, 1.2, 0.2], self.rules)
+        g = self.rules["perceptualGamma"]
+        place = lambda c: (c[1] ** (1 / g) - c[2] ** (1 / g)) / (c[0] ** (1 / g) - c[2] ** (1 / g))
+        self.assertAlmostEqual(out[0], 1.0)
+        self.assertAlmostEqual(place(out), place([2.0, 1.2, 0.2]), "the middle channel keeps its place")
+        np.testing.assert_allclose(lm.output_transform([6.0, 3.5, 2.5], self.rules), [1.0, 1.0, 1.0])
         self.assertEqual(lm.mapper(self.sigmoid_rules()), "sigmoid")
         self.assertEqual(lm.mapper({"stages": {}}), "clamp")
 
@@ -469,7 +481,7 @@ class LookMathMirrorTests(unittest.TestCase):
             self.assertLess(chroma, 0.02, f"{base} x 16 is nearly white")
             self.assertGreater(float(lm.output_transform(base * 64, r).min()), 0.98)
         orange, h0 = np.array([4, 2, 0.2]), self.hue([0.5, 0.25, 0.025])[0]
-        self.assertGreater(self.hue_shift(self.hue(lm.output_transform(orange, self.rules))[0], h0), 20.0, "the clamp turns it yellow")
+        self.assertGreater(self.hue_shift(self.hue(lm.output_transform(orange, self.clamp_rules()))[0], h0), 20.0, "the clamp turns it yellow")
         self.assertLess(self.hue_shift(self.hue(lm.output_transform(orange, r))[0], h0), 8.0)
         self.assertGreater(float(lm.output_transform([30.0, 0, 0], r)[1]), 0.95)
 

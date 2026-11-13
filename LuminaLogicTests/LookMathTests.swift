@@ -885,6 +885,12 @@ final class LookMathTests: XCTestCase {
 
     // MARK: outputTransform (the display mapper)
 
+    private var clampRules: LookRules {
+        var r = rules!
+        r.stages["outputTransform", default: LookRules.Stage()].mapper = "clamp"
+        return r
+    }
+
     private var sigmoidRules: LookRules {
         var r = rules!
         r.stages["outputTransform", default: LookRules.Stage()].mapper = "sigmoid"
@@ -902,10 +908,11 @@ final class LookMathTests: XCTestCase {
         return d > 180 ? 360 - d : d
     }
 
-    func testTheShippedMapperIsTheClamp() throws {
-        XCTAssertEqual(rules.mapper, .clamp, "the sigmoid mapper is a prototype: the owner rules before it ships")
-        let out = LookMath.output(LookMath.RGB(r: 1.5, g: 0.5, b: -0.1), rules)
-        XCTAssertEqual(out, LookMath.RGB(r: 1, g: 0.5, b: 0))
+    func testTheShippedMapperIsTheHueClamp() throws {
+        XCTAssertEqual(rules.mapper, .hueClamp, "the sigmoid mapper is a prototype: the owner rules before it ships")
+        XCTAssertEqual(LookMath.output(LookMath.RGB(r: 1.5, g: 0.5, b: -0.1), clampRules), LookMath.RGB(r: 1, g: 0.5, b: 0))
+        XCTAssertEqual(LookMath.output(LookMath.RGB(r: 0.9, g: 0.5, b: -0.1), rules), LookMath.RGB(r: 0.9, g: 0.5, b: 0), "inside white: the clamp")
+        XCTAssertEqual(try LookRules.load(json: try rules.encoded()).mapper, .hueClamp, "the mapper survives a re-encode")
         let s = sigmoidRules
         XCTAssertEqual(s.mapper, .sigmoid)
         XCTAssertEqual(try LookRules.load(json: try s.encoded()).mapper, .sigmoid, "the mapper survives a re-encode")
@@ -987,11 +994,11 @@ final class LookMathTests: XCTestCase {
             XCTAssertGreaterThan(min(far.r, far.g, far.b), 0.98, "\(base) × 64 → \(far): white")
         }
         let orange = LookMath.RGB(r: 4, g: 2, b: 0.2), h0 = hue(LookMath.RGB(r: 0.5, g: 0.25, b: 0.025)).h
-        XCTAssertGreaterThan(hueShift(hue(LookMath.output(orange, rules)).h, h0), 20, "the clamp turns it yellow")
+        XCTAssertGreaterThan(hueShift(hue(LookMath.output(orange, clampRules)).h, h0), 20, "the clamp turns it yellow")
         XCTAssertLessThan(hueShift(hue(LookMath.output(orange, r)).h, h0), 8)
         // A pure primary reaches white too (the inset gives its other channels something to rise from).
         let red = LookMath.output(LookMath.RGB(r: 30, g: 0, b: 0), r)
-        XCTAssertGreaterThan(red.g, 0.95); XCTAssertEqual(LookMath.output(LookMath.RGB(r: 30, g: 0, b: 0), rules), LookMath.RGB(r: 1, g: 0, b: 0))
+        XCTAssertGreaterThan(red.g, 0.95); XCTAssertEqual(LookMath.output(LookMath.RGB(r: 30, g: 0, b: 0), clampRules), LookMath.RGB(r: 1, g: 0, b: 0))
     }
 
     func testMapperIsFiniteForZeroNegativeAndHugeInputs() {

@@ -374,6 +374,13 @@ tolerance is the owner's to change. The full procedure is `Tools/parity/README.m
   cache) must carry `linear`, or that frame renders without the profile. A JPEG stand-in, a
   synthetic image and a mask's look keep the toned form (`LookMath.exposure`: per channel
   G·y / (1 + (G − 1)·y/white), G = 2^(ev · stopsPerUnit)).
+- **Past white the hue stays** (`outputTransform.mapper: hueClamp`, 2026-11-13). Exposure on the sensor
+  data pushes bright colours past 1; the per-channel clamp turned them toward orange and yellow in
+  hard bands. `LookMath.hueClamp` (kernel `lookHueClamp`, numpy `hue_clamp`) is the clamp inside
+  white and, past it, the profile's RGBTone rule in perceptual space (largest channel to 1, smallest
+  to min(itself, 1), middle kept between them). Lightroom's Exposure sweep, pixels past white: +1
+  1.33 / 4.11 → 0.46 / 2.04, +2 1.09 / 3.97 → 0.93 / 2.10; held-out mehendi 2.18 / 7.51 → 2.18 / 7.47.
+  Roll-offs on the gain itself all lost to the plain gain (they dim the midtones), so the gain stays.
 - **Criteria are edited only by a human.** `criteria.json` and `golden.json` never change inside the
   loop. Changing the golden set means a new sweep and every stage unlocked.
 - **Add a golden image:** copy the ARW to `~/LuminaEvidence/parity/golden/`, run
