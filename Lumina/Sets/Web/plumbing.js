@@ -883,6 +883,24 @@
     }
   };
   const fadingIn = el => typeof el.getAnimations === 'function' && el.getAnimations().some(a => a.playState === 'running' || a.playState === 'pending' || a.playState === 'paused');
+  // The outer layers of a computed `box-shadow` ("rgba(0, 0, 0, 0.42) 0px 30px 70px 0px, …"; inset
+  // layers light the inside and are left out), as {dx, dy, blur, spread, a}: what the canvas darkens
+  // the photo by around a soft hole. At most six; a layer with no alpha is none.
+  const shadowLayers = s => {
+    if (!s || s === 'none') return [];
+    const out = [];
+    for (const part of s.split(/,(?![^(]*\))/)) {
+      if (out.length >= 6) break;
+      if (/\binset\b/.test(part)) continue;
+      const col = part.match(/rgba?\(([^)]*)\)/);
+      const v = col ? col[1].split(/[\s,\/]+/).filter(Boolean) : [];
+      const a = /transparent/.test(part) ? 0 : v.length > 3 ? (v[3].endsWith('%') ? parseFloat(v[3]) / 100 : +v[3]) : 1;
+      const n = (part.replace(/rgba?\([^)]*\)/, '').match(/-?\d*\.?\d+(?:e[-+]?\d+)?px/g) || []).map(parseFloat);
+      if (n.length < 2 || !n.every(Number.isFinite) || !(a > 0)) continue;
+      out.push({ dx: n[0], dy: n[1], blur: n[2] || 0, spread: n[3] || 0, a: Math.min(1, a) });
+    }
+    return out;
+  };
   const holesOf = rect => {
     const root = document.querySelector('[data-lumina="canvas"]'), out = [];
     if (!root || !rect || !(rect.w > 0) || !(rect.h > 0)) return out;
@@ -932,7 +950,8 @@
     // takes no input with nothing on screen to close. Opacity 0 with no animation is hidden. Opacity
     // 0 while `rise` is running is the card on its first frame: treat it as showing, and look once
     // more on the next frame in case the animation was not registered yet.
-    for (const d of document.querySelectorAll('[role="dialog"]')) {
+    // Edit's right-click menu is fixed over the photo too, outside the canvas element: the same rule.
+    for (const d of document.querySelectorAll('[role="dialog"], [role="menu"]')) {
       if (out.length >= MAX_HOLES) break;
       if (root.contains(d)) continue;
       const cs = getComputedStyle(d);
@@ -940,6 +959,20 @@
       if (+cs.opacity === 0 && !fadingIn(d)) { if (!dialogRetried.has(d)) { dialogRetried.add(d); dialogPending = true; } continue; }
       armDialog(d);
       const b = d.getBoundingClientRect(); if (b.width < 1 || b.height < 1) continue;
+      // One marked `data-lumina-shadow` (Edit's right-click menu) is a soft hole: its rounded box,
+      // with the photo darkened under each layer of its own CSS box-shadow, so the page's corners
+      // and shadow show over the photo instead of a black rect around them. The attribute's
+      // "dy blur alpha" is the one layer used when the computed shadow can't be read.
+      if (d.hasAttribute('data-lumina-shadow')) {
+        let sh = shadowLayers(cs.boxShadow);
+        if (!sh.length) {
+          const n = (d.getAttribute('data-lumina-shadow') || '').trim().split(/\s+/).map(Number);
+          if (n.length === 3 && n.every(Number.isFinite)) sh = [{ dx: 0, dy: n[0], blur: n[1], spread: 0, a: n[2] }];
+        }
+        if (b.right > rect.x && b.left < rect.x + rect.w && b.bottom > rect.y && b.top < rect.y + rect.h)
+          out.push({ x: b.left, y: b.top, w: b.width, h: b.height, r: parseFloat(cs.borderTopLeftRadius) || 0, sh });
+        continue;
+      }
       const x0 = Math.max(rect.x, Math.floor(b.left) - 1), y0 = Math.max(rect.y, Math.floor(b.top) - 1);
       const x1 = Math.min(rect.x + rect.w, Math.ceil(b.right) + 1), y1 = Math.min(rect.y + rect.h, Math.ceil(b.bottom) + 1);
       if (x1 > x0 && y1 > y0) out.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });

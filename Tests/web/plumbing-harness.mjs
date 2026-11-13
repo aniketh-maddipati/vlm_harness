@@ -937,6 +937,34 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
     ok(await page.evaluate(() => localStorage.getItem('lumina.edit.intro.v1') === '1' && !('editIntro' in __lumina.logic().state.prefs)), 'edit intro: the page\'s own prefs do not carry the flag');
     await page.evaluate(() => __lumina.logic().setPref({ rating: 2 }));
     ok(bridge.prefs && bridge.prefs.editIntro === true && bridge.prefs.rating === 2, 'edit intro: a later setPrefs keeps the flag', bridge.prefs);
+    // Edit's right-click menu: on the photo and on a filmstrip thumbnail. It is fixed over the photo,
+    // outside the canvas element, so it has to be a hole; it names the sidecar and the pick's rating.
+    { const menu = () => page.evaluate(() => { const m = document.querySelector('[data-lumina="photo-menu"]'); if (!m) return null; const b = m.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height, text: m.innerText }; });
+      const r = await page.evaluate(() => lumina.edit.state().rect);
+      const nM = bridge.canvas.layouts.length;
+      await page.mouse.click(r.x + r.w / 2, r.y + r.h / 2, { button: 'right' });
+      await page.waitForTimeout(300);
+      const m1 = await menu(), cur = await page.evaluate(() => luminaState().cur), file = m1 && (m1.text.match(/^DSC\d+/) || [])[0];
+      ok(!!(m1 && file && /Remove from picks|Add to picks/.test(m1.text) && /Next photo/.test(m1.text) && /Save/.test(m1.text)), 'edit menu: right-click on the photo opens it for that photo', m1);
+      ok(!!(m1 && new RegExp(file + '\\.xmp · ★★\\n').test(m1.text) || m1 && /Nothing is written/.test(m1.text)), 'edit menu: it says where the pick goes (the .xmp, the rating from prefs)', m1 && m1.text);
+      const lm = bridge.canvas.layouts.slice(nM).filter(x => x.visible).pop();
+      ok(!!(m1 && lm && lm.holes.some(h => covers(h, m1, lm))), 'edit menu: it is a hole in the native canvas', { m1, holes: lm && lm.holes });
+      ok(!!(m1 && lm && lm.holes.some(h => covers(h, m1, lm) && h.r >= 12 && Array.isArray(h.sh) && h.sh.length >= 3 && h.sh.some(l => l.dy >= 20 && l.blur >= 50 && l.a > 0.3) && h.sh.some(l => l.blur === 0 && l.spread > 0))), 'edit menu: its hole is soft (rounded, with every outer layer of its CSS shadow, the ring included)', lm && lm.holes);
+      if (process.env.LUMINA_SHOT) await page.screenshot({ path: process.env.LUMINA_SHOT + '/edit-menu-canvas.png' });
+      const wasKept = !!(m1 && /Remove from picks/.test(m1.text));
+      await page.evaluate(() => { const it = [...document.querySelectorAll('[data-lumina="photo-menu"] [role="menuitem"]')].find(e => /picks/.test(e.textContent)); it && it.click(); });
+      await page.waitForTimeout(250);
+      const after = await page.evaluate(() => luminaState());
+      ok(!(await menu()) && after.keep && after.keep[cur] === !wasKept, 'edit menu: the pick item changes the pick and closes the menu', { cur, wasKept, keep: after.keep });
+      await key(page, 'z', { metaKey: true, code: 'KeyZ' }); await page.waitForTimeout(200);
+      const th = await page.evaluate(() => { const t = document.querySelectorAll('[data-lumina="filmstrip"] [data-strip-cur="0"]')[0]; if (!t) return null; const b = t.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; });
+      if (th) await page.mouse.click(th.x, th.y, { button: 'right' });
+      await page.waitForTimeout(300);
+      const m2 = await menu();
+      ok(!!(th && m2 && /Edit this photo/.test(m2.text) && m2.y + m2.h <= (await page.evaluate(() => innerHeight))), 'edit menu: right-click on a thumbnail opens it for that photo, inside the window', m2);
+      if (process.env.LUMINA_SHOT) await page.screenshot({ path: process.env.LUMINA_SHOT + '/edit-menu-strip.png' });
+      await key(page, 'Escape'); await page.waitForTimeout(150);
+      ok(!(await menu()), 'edit menu: Esc closes it'); }
     const bridge2 = new Bridge();
     const p2 = await open(browser, bridge2, { prefs: { rating: 2, editIntro: true } });
     ok(await p2.page.evaluate(() => localStorage.getItem('lumina.edit.intro.v1') === '1' && !('editIntro' in __lumina.logic().state.prefs) && __lumina.logic().state.prefs.rating === 2), 'edit intro: a later launch seeds the seen key and not the page\'s prefs');
