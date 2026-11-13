@@ -9,6 +9,12 @@ DST="$ROOT/Lumina/Sets/Web"
 # SetsPageBytesTests lists (the Skim page and its data) are not this page's and stay.
 KEEP=("${PAGE_FILES[@]}")
 while IFS= read -r p; do KEEP+=("$p"); done < <(grep -oE '"Lumina/Sets/Web/[^"]+"' "$ROOT/LuminaLogicTests/SetsPageBytesTests.swift" | tr -d '"' | xargs -I{} basename {})
+# Another page's own files (design/handoff/lumina-ingest, lumina-skim, …) are not this page's either,
+# listed in the test or not: a file with a source there is never stale.
+for d in "$ROOT"/design/handoff/lumina-*/; do
+  [[ $(basename "$d") == lumina-cull ]] && continue
+  for s in "$d"*.html "$d"*.js; do [[ -e $s ]] && KEEP+=("$(basename "$s")"); done
+done
 for f in "$DST"/*.dc.html "$DST"/lumina-*.js; do
   [[ -e $f ]] || continue
   keep=0; for p in "${KEEP[@]}"; do [[ $(basename "$f") == "$p" ]] && keep=1; done
