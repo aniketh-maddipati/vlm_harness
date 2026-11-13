@@ -562,7 +562,9 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   if (await page.evaluate(() => __lumina.logic().state.armed === 'save')) await page.evaluate(() => __lumina.command('save'));
   await page.waitForFunction(() => { const r = __lumina.logic().state.ex; return r && r.result; }, null, { timeout: 5000 }).catch(() => {});
   const res = await page.evaluate(() => __lumina.logic().state.ex.result);
-  ok(res && res.t === keptN + ' saved' && !res.bad, 'save: result "N saved"', res);
+  ok(res && res.t.startsWith(keptN + ' saved · ' + keptN + ' JPEGs') && !res.bad, 'save: the finished JPEGs are written unless switched off: "N saved · N JPEGs"', res);
+  // The sidecar checks below are about the rating files: finished JPEGs off for them (the choice is remembered).
+  await page.evaluate(() => __lumina.logic().hoPref({ jpg: false }));
   const xmps = fs.readdirSync(shoot).filter(f => /\.xmp$/.test(f));
   ok(xmps.length >= keptN, 'save: sidecars written next to the RAWs', xmps);
   const kept1 = Object.keys(saved.marks)[0].replace(/\.ARW$/, '.xmp');
