@@ -58,6 +58,13 @@ struct LuminaCommands: Commands {
             } else {
                 Button(menu.page == .skim ? "Reload Page" : "Show in Finder") { send(menu.page == .skim ? "reload" : "finder") }.keyboardShortcut("r", modifiers: .command)
             }
+            #if DEBUG
+            // The dev app only: load the page again from the bundle and, in a hot build, open the shoot it had
+            // (SetsHotReload's "ready"). ⌘R is Show in Finder on Pick, so this one is ⇧⌘R.
+            if menu.page != .skim && !menu.pageError {
+                Button("Reload Page") { SetsMenuModel.reloadPage() }.keyboardShortcut("r", modifiers: [.command, .shift])
+            }
+            #endif
             // ⌥⌘R: Handoff's file view shows the row selected there in Finder (Prompt 27); on the other steps, the same as ⌘R.
             if menu.page != .skim {
                 Button("Show Selection in Finder") { send("finderSel") }.keyboardShortcut("r", modifiers: [.command, .option])
