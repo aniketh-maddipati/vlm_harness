@@ -85,17 +85,21 @@ video.
 
 `/Volumes/T7/Lumina/datasets/hdrvs-trevor/` holds two Dropbox zips from the dataset's author (see the README there).
 They hold the source clips, but under camera take names (`SHGCNCT_S001_S001_Tnnn.MOV`, Atomos ProRes RAW HQ,
-4128 × 2192 Bayer, 59.94p) and with no labels or mapping. `match_clips.py` finds the mapping: it decodes three
-frames per clip with ffmpeg, z-scores their log luminance, correlates them with every label thumbnail and takes
-the best shot. It reads clips straight out of the stored zip through sparse local copies, about 20 s for
-`20240629.zip`:
+4128 × 2192 Bayer, 59.94p) and with no labels or mapping. `match_clips.py` finds the mapping: it decodes a frame at t = 0 and then
+every second with ffmpeg, z-scores each frame's log luminance and correlates it with every label thumbnail. A shot is
+found when some frame reaches r ≥ 0.8 with a margin ≥ 0.15 over the next shot. Frames are matched one at a time
+because a still is often its clip's opening frame and the camera moves after it, and because one long take can hold
+more than one annotated shot. Clips are read straight out of the stored zip through sparse local copies. Frame
+offsets come from the clip's own sample table (`video_samples`): ffprobe's packet list stops after one packet on a
+sparse copy. All three zips take about 5 min on the T7's USB 2 link:
 
 ```bash
 ~/LuminaEvidence/venv-parity/bin/python -I Tools/exposeval/match_clips.py --pkl …/trainDemo8b.pkl.UNTRUSTED-do-not-unpickle \
   --zip /Volumes/T7/Lumina/datasets/hdrvs-trevor/20240629.zip --out ~/LuminaEvidence/exposeval/clip-map-20240629.json
 ```
 
-`20240629.zip`: all 8 clips map to annotated shots (stills choice87612 … 87728). Seven are clear (r 0.93 to 0.99,
-next-best shot ≤ 0.75). T084 → 87668 is weaker (0.72 vs 0.62), but the take order supports it. Eight shots are too
-few to score. If `20240805.zip` (39.1 GB) brings many more, the next run measures ⇧E on the source frames in
-scene-linear (black level off, white balanced) instead of on the display-referred thumbnails.
+Of the 19 clips in the three zips, 17 are annotated shots: all 8 of `20240629.zip`, all 7 of `20240805.zip` and 1
+of the 4 long takes in `20240502.zip` (best r 0.85 to 0.99, margin 0.21 to 0.60). The table is in the zips' folder
+README. Where both stills of a shot are found, the even one matches the clip's opening frames and the odd one a
+later moment. 17 of 782 shots are too few to score ⇧E on. A source-frame score (scene-linear: black level off,
+white balanced) would need far more of the clips.
