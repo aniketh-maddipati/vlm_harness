@@ -31,6 +31,11 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     static let skimPageFile = "Lumina Skim v3.dc.html"
     static let skimFiles = [skimPageFile, "lumina-video-data-mvp.js"]
     static let vendorFiles = ["react.production.min.js", "react-dom.production.min.js"]
+    /// A Debug-only prototype: the minimal ingest (drop anything, one line, counts as sets). Scripts/dev-ingest.sh's
+    /// "Lumina Ingest" app (`LUMINA_PAGE=ingest`) shows it on Skim's side, so no plumbing and no Edit canvas.
+    static let ingestPageFile = "Lumina Ingest v1.html"
+    /// Its camera clock alignment (design/handoff/lumina-ingest/lumina-ingest-clocks.js), loaded by the page.
+    static let ingestFiles = [ingestPageFile, "lumina-ingest-clocks.js"]
     /// What `lumina://app/<file>` serves. Debug builds and the probe: the same list as
     /// Scripts/page_files.sh, with the design's self-test, which the page asks for only with
     /// `?selftest` (`probe.sh selftest`). The app's Release build does not serve the self-test
@@ -38,7 +43,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     /// binary has no name for it, so `?selftest` gets "not served" and the page runs as usual.
     /// The Lumina Skim app's Release build serves Skim's page and support.js, nothing of Pick's.
     #if DEBUG || LUMINA_TOOLS
-    static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js", "lumina-selftest.js"] + skimFiles
+    static let pageFiles = [pageFile, editPageFile, "support.js", "lumina-core-v4.js", "lumina-v4-data.js", "lumina-measure.js", "lumina-selftest.js"] + skimFiles + ingestFiles
     #elseif LUMINA_SKIM_APP
     static let pageFiles = skimFiles + ["support.js"]
     #else
@@ -289,7 +294,7 @@ nonisolated enum SetsPage: String, Sendable {
         #if DEBUG
         if let page = chosen { return page }
         if hot, let side = UserDefaults.standard.string(forKey: keptSide), let page = SetsPage(side: side) { return page }
-        if ProcessInfo.processInfo.environment["LUMINA_PAGE"] == "skim" { return .skim }
+        if ["skim", "ingest"].contains(ProcessInfo.processInfo.environment["LUMINA_PAGE"]) { return .skim }
         #endif
         return .pick
         #endif
@@ -340,7 +345,21 @@ nonisolated enum SetsPage: String, Sendable {
     })();
     """#
 
-    var file: String { self == .skim ? SetsSchemeHandler.skimPageFile : SetsSchemeHandler.pageFile }
+    /// The ingest prototype's dev app (Scripts/dev-ingest.sh): Skim's side, its own page, the plain open panel.
+    static var isIngest: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["LUMINA_PAGE"] == "ingest"
+        #else
+        return false
+        #endif
+    }
+
+    var file: String {
+        #if DEBUG
+        if self == .skim, Self.isIngest { return SetsSchemeHandler.ingestPageFile }
+        #endif
+        return self == .skim ? SetsSchemeHandler.skimPageFile : SetsSchemeHandler.pageFile
+    }
 
     /// Both pages: tells the window when the page shows an error in place of its screen (the design runtime's
     /// `.sc-logic-error`, e.g. "Lumina Sets v12: undefined is not an object"), and when it no longer does, so the

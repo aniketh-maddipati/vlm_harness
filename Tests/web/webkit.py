@@ -356,6 +356,14 @@ return { state: JSON.parse(JSON.stringify(l.state, (k, v) => { if (typeof v === 
   if (v && typeof v === 'object') { if (v.nodeType || v instanceof Blob || ('current' in v && Object.keys(v).length === 1)) return undefined; if (seen.has(v)) return undefined; seen.add(v); } return v; })),
   order: l.data ? l.data.order.length : 0, real: !!l.real };"""
 
+# Before a snap: the page's transitions and finite animations have ended (at most 2 s; endless ones, a spinner, are
+# left alone), then two frames. A fixed settleMs after a key is not enough on a slow runner: a ring or a fade can be
+# mid-way in one twin and done in the other (02-cull-next differed by 25 px with → at 65 ms to its frame).
+STILL = """const t0 = performance.now();
+const busy = () => (document.getAnimations ? document.getAnimations() : []).some(a => a.playState === 'running' && (a.effect && a.effect.getComputedTiming().iterations) !== Infinity);
+while (busy() && performance.now() - t0 < 2000) await new Promise(r => setTimeout(r, 30));
+await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); return true"""
+
 SETTLE = """const l = __probe.logic(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 if (l.state.view === 'cull' && typeof l.visNow === 'function') l.visNow(); await new Promise(r => setTimeout(r, 50)); return true"""
 
@@ -377,7 +385,9 @@ def run_screens(spec, app, d):
                 p.js('K(%s, {up: false})' % json.dumps(s['k'])); wait(s.get('ms', 400))
                 if s.get('snap'): snaps[s['snap']] = p.snap(os.path.join(d, s['snap'] + '.png'))
                 p.js('K(%s, {down: false})' % json.dumps(s['k'])); wait(60)
-            elif s['do'] == 'snap': snaps[s['name']] = p.snap(os.path.join(d, s['name'] + '.png'))
+            elif s['do'] == 'snap':
+                p.js(STILL)
+                snaps[s['name']] = p.snap(os.path.join(d, s['name'] + '.png'))
             elif s['do'] == 'state':
                 # v8 widens the mounted-row window (vr) on a scroll frame and narrows it 240 ms after the
                 # scroll rests. On a software-rendered runner a frame can land after that timer and leave

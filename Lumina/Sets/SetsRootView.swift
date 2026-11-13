@@ -92,13 +92,25 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 // The Edit canvas: the one native view over the page (AGENTS.md), above the web view.
                 if page == .pick || both { bridge.attachCanvas(host: host) }
                 bridge.onSwitchPage = { [weak self] in self?.switchPage(to: $0) }
+                #if DEBUG
+                bridge.onIngestToPick = { [weak self] plan in
+                    guard let self else { return }
+                    self.ingestHandoff = plan
+                    self.switchPage(to: .pick)
+                }
+                #endif
                 bridge.onAirdrop = { [weak self] in self?.skimAirdropArrived($0) }
                 bridge.onAirdropState = { [weak self] st in
                     self?.webView?.evaluateJavaScript("window.luminaSkimAirdrop && luminaSkimAirdrop.changed && luminaSkimAirdrop.changed(\(Self.json(st)))", completionHandler: nil)
                 }
                 bridge.onReady = { [weak self] in
                     // Back on Photos: the shoot that was open when the window went to Video opens again.
-                    guard let self, let id = self.pickReturn else { return }
+                    guard let self else { return }
+                    #if DEBUG
+                    // The hot build's own resume takes Lumina Ingest's hand-off (below), after this.
+                    if self.hotReload == nil, self.takeIngestHandoff() { return }
+                    #endif
+                    guard let id = self.pickReturn else { return }
                     self.pickReturn = nil
                     #if DEBUG
                     // The hot build reopens the most recent shoot on every ready, this one.
@@ -113,7 +125,9 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                 #if DEBUG
                 if SetsHotReload.isOn {
                     hotReload = SetsHotReload(root: res, webView: wv, bridge: bridge, plumbing: page == .pick || both ? plumbing : nil) { [weak self] in
-                        guard let self, let last = self.bridge.shoots.index().first else { return }
+                        guard let self else { return }
+                        if self.takeIngestHandoff() { return }
+                        guard let last = self.bridge.shoots.index().first else { return }
                         self.pickReturn = nil
                         self.reopen(last.id)
                     }
@@ -196,6 +210,19 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
 
     /// The Pick shoot that was open when the window went to Video; it opens again on the way back.
     private var pickReturn: String?
+    #if DEBUG
+    /// Lumina Ingest's Open in Pick: the folder (or part of it) Pick opens once its page is ready.
+    private var ingestHandoff: IngestHandoff.Plan?
+
+    /// Opens Lumina Ingest's hand-off in Pick, as if the user had picked that folder; false when there is none.
+    private func takeIngestHandoff() -> Bool {
+        guard let plan = ingestHandoff else { return false }
+        ingestHandoff = nil
+        pickReturn = nil
+        bridge.open(plan.folder, only: plan.only)
+        return true
+    }
+    #endif
     /// Skim's open shoot (`luminaSkimKeep.take()`) when the window went to Photos; it comes back on the way back,
     /// the same clips with no panel, as ⌘R's reload does.
     private var skimAway: String?
@@ -405,6 +432,10 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        #if DEBUG
+        // Lumina Ingest after the window was on Pick, or a hot reload: what it read this run is read again.
+        if SetsPage.isIngest, SetsPage.current == .skim, !bridge.ingestRoots.isEmpty { resumeIngest(tries: 0); return }
+        #endif
         if skimRestoring { skimRestoring = false; raiseSkimCurtain(nil) }
         if SetsPage.current == .skim, skimCurtain == nil, skimLastKept != nil { offerSkimLast(tries: 0) }
         guard SetsPage.current == .skim, skimCurtain != nil else { return }
@@ -883,6 +914,32 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
         // Skim reads clips through the page's own file input: a card, folders or clips, nothing else of Pick's.
+        // The ingest prototype (Debug, LUMINA_PAGE=ingest) takes every file: cards, folders or files, any kind.
+        if SetsPage.isIngest {
+            Task { @MainActor in
+                // The resume (`resumeIngest`): what this run already handed over, no panel.
+                if await skimPageFlag("window.luminaIngestResuming === true ? (window.luminaIngestResuming = false, true) : false") {
+                    var seen = Set<String>()
+                    completionHandler(bridge.ingestRoots.filter { seen.insert($0.standardizedFileURL.path).inserted && FileManager.default.fileExists(atPath: $0.path) })
+                    return
+                }
+                let panel = NSOpenPanel()
+                panel.canChooseDirectories = true
+                panel.canChooseFiles = true
+                panel.allowsMultipleSelection = true
+                panel.prompt = "Add"
+                panel.message = "Choose cards, folders or files. Lumina only reads them."
+                // What was chosen is held for Ingest's copy (IngestHost) and for Open in Pick (`ingestRoots`):
+                // the page knows files by their relative path only.
+                let done: (Bool) -> Void = { [weak self] ok in
+                    if ok { self?.bridge.ingestHost.picked(panel.urls); self?.bridge.ingestRoots += panel.urls }
+                    completionHandler(ok ? panel.urls : nil)
+                }
+                guard let window = webView.window else { done(panel.runModal() == .OK); return }
+                panel.beginSheetModal(for: window) { done($0 == .OK) }
+            }
+            return
+        }
         if SetsPage.current == .skim {
             // The folder the clips are in is the open shoot's folder for the storage line (drive, Trash).
             // A reload in place answers with the clips that were open, with no panel (reloadSkimKeeping).
@@ -918,6 +975,20 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
         }
         Task { @MainActor in completionHandler(await bridge.openPanel(allowsDirectories: parameters.allowsDirectories)) }
     }
+
+    #if DEBUG
+    /// Asks the ingest page to read again what this run handed it (`luminaIngestResume`); its file input is then
+    /// answered with those URLs (`runOpenPanelWith`). Run from the app, it counts as the person's click.
+    private func resumeIngest(tries: Int) {
+        guard let webView else { return }
+        webView.evaluateJavaScript("window.luminaIngestResume ? luminaIngestResume() : 'wait'") { [weak self] r, _ in
+            MainActor.assumeIsolated {
+                guard (r as? String) == "wait", tries < 40 else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { MainActor.assumeIsolated { self?.resumeIngest(tries: tries + 1) } }
+            }
+        }
+    }
+    #endif
 
     /// Runs a line of the page's script that answers true or false (false when the page doesn't answer).
     private func skimPageFlag(_ script: String) async -> Bool {

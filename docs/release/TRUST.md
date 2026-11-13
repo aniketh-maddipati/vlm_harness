@@ -126,6 +126,7 @@ so the Lumina app's page has no way to reach them.
 | `setPrefs` | — | the page's preferences in the app's defaults |
 | `pageError` | — | — (the page shows an error in place of its screen, or no longer does: the window offers Reload Page, a button over the page and ⌘R) |
 | `switchPage` | — | — (Debug builds only: the window loads the other page, Photos or Video; the open shoot is closed first, saved as always) |
+| `ingestToPick` | folders the user handed to the ingest prototype (its open panel or a drop), listed as Pick's Open does | — (Debug builds, `LUMINA_PAGE=ingest` only: the window goes to Pick and opens that folder, or only the files the page shows under a shoot id of its own that is no recent) |
 | `skimStore` | Skim's saved shoots, `skim/store.json` in the container (Skim only: the Lumina Skim app, or Debug with `LUMINA_PAGE=skim`) | — |
 | `skimSave` | — | one Skim shoot's marks, name and counts in `skim/store.json` in the container (Skim only: the Lumina Skim app, or Debug with `LUMINA_PAGE=skim`) |
 | `skimCoverGet` | Skim's saved covers and first measures for the clips asked for, `skim/covers/` in the container (Skim only: the Lumina Skim app, or Debug with `LUMINA_PAGE=skim`) | — |
@@ -199,6 +200,12 @@ so the Lumina app's page has no way to reach them.
 | `checkAccess` | whether a refused folder is readable now | — |
 | `reopenDenied` | the refused folder, again | — |
 | `reopenCurrent` | the open shoot's folder, again | — |
+| `ingestLibrary` | `ingest/library.json` in the container: the library folder's name and the identities kept (Lumina Ingest only: Debug with `LUMINA_PAGE=ingest`) | — |
+| `ingestHas` | the same identities, for the keys the page names (Lumina Ingest only: Debug with `LUMINA_PAGE=ingest`) | — |
+| `ingestForget` | — | forgets the identities in `ingest/library.json`; the library's files are not touched (Lumina Ingest only: Debug with `LUMINA_PAGE=ingest`) |
+| `ingestPickLibrary` | — | the library folder picked in a folder panel (refused inside a chosen source or on a card), its security-scoped bookmark in `ingest/library.json` (Lumina Ingest only: Debug with `LUMINA_PAGE=ingest`) |
+| `ingestCopy` | files inside the cards, folders or files chosen in Ingest's open panel or dropped on its window this run, named by their path there, and the files beside each with the same stem (RAW + JPEG, `.xmp`, Sony's `M01.XML`, …) | copies of them into the library folder (`<day>/` or `Other/<source>/`), each SHA-256 verified (`SetsFileOps.copyVerified`), never moved, never over a different file (a numbered name), never inside the source or on a card; the copies' keys, paths and SHA-256 in `ingest/library.json`; opens the library panel when none is chosen (Lumina Ingest only: Debug with `LUMINA_PAGE=ingest`) |
+| `ingestEject` | — | — (unmounts and ejects one card, `NSWorkspace.unmountAndEjectDevice`, after the user's click, only when the card's root was chosen, every file sent from it was copied and verified and none is waiting) (Lumina Ingest only: Debug with `LUMINA_PAGE=ingest`) |
 
 ### `lumina://` hosts (`SetsSchemeHandler`)
 
@@ -270,6 +277,8 @@ Not checked by the script; keep it current by hand.
 | Folder picked in the save panel (Skim only) | Help ▸ Save a Report… / Open's Save a report: one `.txt` of what the page saw (build, timings, counts, names of clips that didn't read, page errors; no paths, no pictures), for the user to send themselves | the user, in Finder |
 | Container `skim/trash.json` (Skim only) | where each clip Skim moved to the Trash came from and where it went, for Put back | Put back, and dropped from the list once a file is no longer in the Trash |
 | Opened Skim folder (Skim only) | nothing written; cut clips and their sidecars moved to the system Trash after two clicks | the user, from the Trash (Put Back) |
+| Container `ingest/library.json` (Lumina Ingest only, Debug) | the library folder's bookmark; per copied file its key (size + crc32 of the first and last 64 KB), path in the library, SHA-256 and size | Forget in Ingest's Details |
+| Library folder picked in Lumina Ingest (Debug) | verified copies of what Ingest read, and the files beside them with the same stem; temp files while writing | the user, in Finder |
 | Container `exports/` | one journal per export | after recovery |
 | Container preferences | the page's preferences | deleting the app's container |
 | Opened folder | `.xmp` sidecars, `.lumina-bak` | the user |

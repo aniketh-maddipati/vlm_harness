@@ -146,7 +146,9 @@ check(await page.locator('[data-lumina="side-video"]').getAttribute('aria-select
 check(await page.locator('meta[http-equiv="Content-Security-Policy"]').count() === 1, 'under the same content policy');
 check((await page.evaluate(() => window.__refused)).length === 0, 'which refuses nothing Skim needs', JSON.stringify(await page.evaluate(() => window.__refused)));
 await page.locator('[data-lumina="side-photos"]').click();
-await page.waitForFunction(() => /Folder or card|SONY-A7M4/.test(document.body.innerText), null, { timeout: 30000 })
+// The navigation back has a moment with no body (a slower runner hits it): wait for the URL, then guard the read.
+await page.waitForURL((u) => u.pathname === '/', { timeout: 10000 }).catch(() => {});
+await page.waitForFunction(() => !!document.body && /Folder or card|SONY-A7M4/.test(document.body.innerText), null, { timeout: 30000 })
   .then(() => check(new URL(page.url()).pathname === '/', 'Photos goes back to the Sets page'), () => check(false, 'Photos goes back to the Sets page', page.url()));
 
 check(errors.length === 0, 'no page error', errors.slice(0, 5).join('\n      '));

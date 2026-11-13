@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lumina Ingest</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="lumina-core-v4.js"></script>
+<script src="lumina-ingest-clocks.js"></script>
+<style>
+/* Stills' own look (Lumina Sets v12): its colours, type, Open's Drop box, Pick's load bar, rows and tiles,
+   Handoff's find box, the import notes and the key bar. Nothing here is new. */
+body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;user-select:none;overflow:hidden;height:100vh}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes hoPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+@keyframes imgIn{from{opacity:0;transform:scale(0.94)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:1ms!important;transition-duration:1ms!important}}
+#root{display:flex;flex-direction:column;height:100vh}
+.top{flex:none;height:52px;padding:0 20px;display:flex;align-items:center;gap:18px;background:#262523;border-bottom:1px solid rgba(239,236,230,0.08)}
+.mark{font-family:'Iowan Old Style','Palatino',Georgia,serif;font-weight:400;font-size:21px}
+#name{display:none;align-items:center;gap:8px;padding:3px 10px;border-radius:8px}
+body.has #name{display:flex}
+#trip{min-width:60px;max-width:220px;background:transparent;border:0;outline:none;padding:0;font:inherit;font-size:14px;font-weight:600;color:#EFECE6}
+#meta{font-size:12px;color:#9A958D;white-space:nowrap}
+.findbox{display:none;flex:0 1 460px;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:9px;background:#161514;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);transition:box-shadow 140ms ease-out;margin-left:auto}
+body.has .findbox{display:flex}
+.findbox:focus-within{box-shadow:inset 0 0 0 1.5px #FFD27A}
+.findbox .glass{flex:none;color:#9A958D;font-size:15px}
+#q{flex:1;min-width:0;height:100%;border:none;background:transparent;color:#EFECE6;font:inherit;font-size:15px;outline:none}
+#q::placeholder{color:#7D7971}
+#clear{flex:none;width:18px;height:18px;display:none;place-items:center;border-radius:50%;background:rgba(239,236,230,0.12);color:#EFECE6;font-size:12px;cursor:pointer;animation:hoPop 140ms ease-out}
+#clear:hover{background:rgba(239,236,230,0.22)}
+#say{flex:none;padding:6px 32px 0;color:#9A958D;font-size:13.5px;min-height:0}
+#say:empty{display:none}
+#bar{flex:none;height:2px;background:rgba(239,236,230,0.08)}
+#bar>div{height:100%;width:0;background:#B8B3AB;transition:width 400ms linear}
+#notes{flex:none;margin:10px 28px 0;padding:12px 14px;border-radius:12px;background:#262523;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.1);display:flex;flex-direction:column;gap:5px;font-size:12px;animation:rise 160ms ease-out;line-height:1.5}
+#notes.off{display:none}
+#notes .h{color:#EFECE6;font-weight:700}
+#notes .n{display:flex;gap:10px;color:#B8B3AB;flex-wrap:wrap}
+#notes .n i{font-style:normal;flex:none;width:8px;color:#9A958D}
+#notes [data-c],#notes .act{color:#EFECE6;cursor:pointer;border-radius:5px;padding:0 4px}
+#notes [data-c]:hover,#notes .act:hover{background:rgba(239,236,230,0.08)}
+#main{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+#main.drop{box-shadow:inset 0 0 0 2px #FFD27A}
+#open{max-width:min(1360px,100%);box-sizing:border-box;margin:0 auto;padding:clamp(24px,4vh,56px) clamp(16px,3vw,48px) 40px;display:flex;flex-direction:column;gap:30px;font-size:12px;animation:rise 160ms ease-out}
+body.has #open{display:none}
+.dropbox{position:relative;display:flex;align-items:center;justify-content:center;min-height:clamp(200px,40vh,440px);box-sizing:border-box;padding:22px 24px;border-radius:16px;background:#232220;border:1.5px dashed rgba(239,236,230,0.32);cursor:pointer;transition:background 140ms ease-out,border-color 140ms ease-out}
+.dropbox:hover{background:#262523;border-color:rgba(239,236,230,0.6)}
+.dropbox .big{font-family:'Iowan Old Style','Palatino',Georgia,serif;font-weight:400;font-size:clamp(44px,7vw,68px);line-height:1;color:#EFECE6}
+.dropbox .k{position:absolute;right:16px;bottom:14px;padding:3px 8px;border-radius:6px;background:rgba(239,236,230,0.08);color:#9A958D;font-weight:700;font-size:12px}
+.where{font-size:12px;color:#7D7971}
+#groups{padding:8px 0 24px}
+.row{padding:0 clamp(16px,2.2vw,40px);margin-bottom:14px;animation:fade 160ms ease-out}
+.head{height:30px;display:flex;align-items:center;gap:12px;font-size:12px;white-space:nowrap}
+.head .t{color:#EFECE6}
+.head .p{color:#9A958D}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tw,150px),1fr));gap:8px}
+.tile{position:relative;aspect-ratio:3/2;border-radius:3px;background:#3C3836;will-change:transform}
+.tile img{width:100%;height:100%;display:block;border-radius:3px;object-fit:cover;opacity:0;transition:opacity 180ms ease-out}
+.tile img.in{opacity:1}
+.tile.enter{animation:imgIn 180ms ease-out}
+.tile .w{position:absolute;left:6px;bottom:4px;font-size:11px;color:#9A958D}
+.tile .d{position:absolute;left:6px;bottom:4px;font-size:11px;color:#EFECE6;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.keybar{flex:none;height:34px;display:flex;align-items:center;gap:16px;padding:0 20px;background:#232220;border-top:1px solid rgba(239,236,230,0.06);font-size:12px;color:#B8B3AB;white-space:nowrap;overflow:hidden}
+#foot{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;animation:fade 100ms ease-out}
+#foot .n{color:#EFECE6;cursor:pointer;border-radius:5px;padding:2px 4px}
+#foot .n:hover{background:rgba(239,236,230,0.08)}
+.keys{flex:none;display:flex;gap:16px}
+.cap{display:flex;align-items:center;gap:6px}
+.cap b{min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);font-weight:700;font-size:12px;line-height:1;display:grid;place-items:center;color:#EFECE6}
+#live{flex:none;color:#9A958D}
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="top">
+    <div class="mark">Lumina</div>
+    <div id="name"><input id="trip" aria-label="Shoot name" placeholder="Name this shoot" spellcheck="false"><span id="meta"></span></div>
+    <div class="findbox"><span class="glass" aria-hidden="true">⌕</span><input id="q" type="text" aria-label="Find" placeholder="Find   /" autocomplete="off" spellcheck="false"><div id="clear" role="button" aria-label="Clear the search" title="Clear (esc)">✕</div></div>
+  </div>
+  <div id="bar"><div></div></div>
+  <div id="say" role="status" aria-live="polite"></div>
+  <div id="notes" class="off" role="status"></div>
+  <div id="main">
+    <div id="open">
+      <div class="dropbox" id="dropbox" role="button" tabindex="0" title="Drop a card, folder or files here, or click to choose (O)"><span class="big">Drop</span><span class="k">O</span></div>
+      <div class="where">Cards, folders, drives, phone exports: RAW, JPEG, HEIC and clips. Files stay where they are.</div>
+    </div>
+    <div id="groups"></div>
+  </div>
+  <div class="keybar"><span id="foot"></span><span class="keys" id="keys"></span><span id="live"></span></div>
+</div>
+<input id="pick" type="file" webkitdirectory multiple hidden>
+<script>
+'use strict';
+const C = window.LuminaCore;
+const $ = (s) => document.querySelector(s);
+const fmt = (n) => n.toLocaleString('en-US');
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// ---- what a file is -------------------------------------------------------------------------
+const EXT = {
+  raw: ['arw','dng','cr2','cr3','nef','raf','orf','rw2','srw','pef'],
+  jpeg: ['jpg','jpeg'], heic: ['heic','heif','hif'], png: ['png'],
+  video: ['mp4','mov','m4v','mts','avi'],
+  side: ['xmp','xml','thm','bim','cpi','mpl','bdm','smi','lrv','aae','srt']
+};
+const kindOf = (name) => { const e = (name.split('.').pop() || '').toLowerCase(); for (const k in EXT) if (EXT[k].includes(e)) return k; return null; };
+const stem = (p) => p.replace(/\.[^./]+$/, '').toLowerCase();
+const junk = (name) => name.startsWith('.') || name === 'Thumbs.db' || name === 'desktop.ini';
+
+// ---- state ---------------------------------------------------------------------------------
+// The library is the Mac's (IngestHost): the folder picked once, its identities, the verified copy and Eject.
+// In a browser there is no host: nothing is remembered or copied.
+const host = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lumina;
+const call = (op, body) => host ? host.postMessage(Object.assign({ op }, body || {})).catch(() => null) : Promise.resolve(null);
+let library = new Set(), libName = null;
+const libFrom = (r) => { if (r && r.keys) { library = new Set(r.keys); libName = r.folder || null; } };
+call('ingestLibrary').then((r) => { libFrom(r); drawNotes(); });
+const S = {
+  items: new Map(),     // key -> item (one per photo or clip)
+  sources: new Map(),   // label -> {label, files}
+  total: 0, done: 0, t0: 0, reading: false,
+  junk: 0, side: 0, other: 0, paired: 0, proxies: 0,
+  chips: [], group: 'day', tw: 150, tripName: null,
+  clk: null, clkOff: new Set(),  // clocks aligned (lumina-ingest-clocks.js), and the ones undone
+  extra: [],            // files read as no photo or clip (other files, proxies): copied as they are, never shown
+  cp: new Map(),        // source -> {sent, ok, bad, card} for the copy into the library
+  cpSent: 0, cpDone: 0, cpT0: 0, cpBytes: 0, cpB0: 0
+};
+
+// ---- walking a drop --------------------------------------------------------------------------
+function readAll(reader) { return new Promise((res) => { const out = []; const more = () => reader.readEntries((b) => { if (!b.length) return res(out); out.push(...b); more(); }, () => res(out)); more(); }); }
+async function walk(entry, path, files) {
+  if (junk(entry.name)) { if (entry.isFile) S.junk++; return; }
+  if (entry.isFile) { const f = await new Promise((r) => entry.file(r, () => r(null))); if (f) files.push({ f, path: path + entry.name }); return; }
+  if (entry.isDirectory) for (const e of await readAll(entry.createReader())) await walk(e, path + entry.name + '/', files);
+}
+async function fromDrop(dt) {
+  const roots = [];
+  for (const it of dt.items) { const e = it.webkitGetAsEntry && it.webkitGetAsEntry(); if (e) roots.push(e); }
+  const groups = [];
+  for (const e of roots) { const files = []; await walk(e, '', files); groups.push({ label: e.isDirectory ? e.name : 'Loose files', files }); }
+  return groups;
+}
+function fromPick(list) {
+  const by = new Map();
+  for (const f of list) {
+    const p = f.webkitRelativePath || f.name, top = p.includes('/') ? p.split('/')[0] : 'Loose files';
+    if (p.split('/').some(junk)) { S.junk++; continue; }
+    if (!by.has(top)) by.set(top, []);
+    by.get(top).push({ f, path: p });
+  }
+  return [...by].map(([label, files]) => ({ label, files }));
+}
+
+// ---- sorting files into items ----------------------------------------------------------------
+function plan(groups) {
+  const jobs = [];
+  for (const g of groups) {
+    let label = g.label, n = 2; while (S.sources.has(label)) label = g.label + ' ' + n++;
+    const src = { label, files: 0 }; S.sources.set(label, src);
+    const byStem = new Map();
+    for (const { f, path } of g.files) {
+      const k = kindOf(f.name);
+      if (!k) { S.other++; S.extra.push({ path, src: label }); continue; }
+      if (k === 'side') { S.side++; continue; }
+      // Sony proxies (C0001S03.MP4 in SUB/) go with their clip and never show as tiles.
+      if (k === 'video' && (/\/SUB\//i.test('/' + path) || /^C\d{4}S\d{2}\.MP4$/i.test(f.name))) { S.proxies++; S.extra.push({ path, src: label }); continue; }
+      const st = stem(path);
+      const prev = byStem.get(st);
+      if (prev && ((prev.kind === 'raw' && k === 'jpeg') || (prev.kind === 'jpeg' && k === 'raw'))) {
+        S.paired++;
+        if (k === 'raw') { prev.jpegFile = prev.f; prev.f = f; prev.kind = 'raw'; prev.path = path; } else prev.jpegFile = f;
+        continue;
+      }
+      const job = { f, path, kind: k, src: label };
+      byStem.set(st, job); jobs.push(job); src.files++;
+    }
+  }
+  return jobs;
+}
+
+// ---- reading one item: identity, date, body, thumbnail -----------------------------------------
+const parseDate = (s) => { const m = /^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/.exec(s || ''); return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() : null; };
+async function thumbFrom(blob, orient) {
+  const b0 = await createImageBitmap(blob, { imageOrientation: 'none' });
+  const sw = orient === 6 || orient === 8, w = sw ? b0.height : b0.width, h = sw ? b0.width : b0.height;
+  const k = Math.min(1, 480 / Math.max(w, h)), c = document.createElement('canvas');
+  c.width = Math.round(w * k); c.height = Math.round(h * k);
+  const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2);
+  if (orient === 6) x.rotate(Math.PI / 2); else if (orient === 8) x.rotate(-Math.PI / 2); else if (orient === 3) x.rotate(Math.PI);
+  const dw = sw ? c.height : c.width, dh = sw ? c.width : c.height;
+  x.drawImage(b0, -dw / 2, -dh / 2, dw, dh); b0.close();
+  const out = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.82));
+  let sig = null; try { sig = window.LuminaIngestClocks.sigOf(c); } catch (_) {}
+  return { url: URL.createObjectURL(out), portrait: c.height > c.width, sig };
+}
+function videoThumb(f) {
+  return new Promise((res) => {
+    const v = document.createElement('video'), url = URL.createObjectURL(f); let done = false;
+    const end = (r) => { if (done) return; done = true; v.removeAttribute('src'); v.load(); URL.revokeObjectURL(url); res(r); };
+    v.muted = true; v.preload = 'metadata'; v.src = url;
+    v.onloadedmetadata = () => { v.currentTime = Math.min(1, (v.duration || 2) / 3); };
+    v.onseeked = () => { try { const k = 480 / Math.max(v.videoWidth, v.videoHeight), c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); c.toBlob((b) => end(b ? { url: URL.createObjectURL(b), dur: v.duration } : { dur: v.duration }), 'image/jpeg', 0.8); } catch (_) { end({ dur: v.duration }); } };
+    v.onerror = () => end(null);
+    setTimeout(() => end(null), 6000);
+  });
+}
+async function readOne(job) {
+  const { f } = job;
+  const head = new Uint8Array(await f.slice(0, Math.min(262144, f.size)).arrayBuffer());
+  // identity = size + the first and last 64 KB: the same file on a card and a T7 copy, never two photos that share a head
+  const tail = f.size > 131072 ? new Uint8Array(await f.slice(f.size - 65536).arrayBuffer()) : new Uint8Array(0);
+  const key = f.size.toString(36) + '-' + C.crc32(head.subarray(0, 65536)).toString(36) + '-' + C.crc32(tail).toString(36);
+  const it = { key, name: f.name, path: job.path, kind: job.kind, src: job.src, size: f.size, date: null, body: null, serial: null, thumb: null, unread: false, copies: [], pair: !!job.jpegFile };
+  try {
+    if (job.kind === 'raw' || job.kind === 'jpeg') {
+      const m = job.kind === 'jpeg' ? (() => { const t = C.jpegTiff(head); return t ? C.parseHead(t, f.size) : null; })() : C.parseHead(head, f.size);
+      if (!m && job.kind === 'raw') throw new Error('unreadable');
+      if (m) { it.date = parseDate(m.date); const ph = C.phoneOf(m); it.body = ph ? ph.short : (m.model || null); it.serial = m.serial || null; it.phone = !!ph; it.clock = ph ? ph.short : m.model ? m.model + (m.serial ? ' #' + String(m.serial).slice(-4) : '') : null; }
+      let blob = null;
+      if (job.kind === 'jpeg') blob = f;
+      else for (const [po, pl] of (m.previews && m.previews.length ? m.previews : m.preview ? [m.preview] : [])) {
+        if (po + pl > f.size) continue;
+        const pb = new Uint8Array(po + pl <= head.length ? head.slice(po, po + pl) : await f.slice(po, po + pl).arrayBuffer());
+        if (pb[0] === 0xFF && pb[1] === 0xD8) { blob = new Blob([pb], { type: 'image/jpeg' }); break; }
+      }
+      if (!blob && m && (m.pvParts || m.pvRGB)) try { const ap = await C.assemblePreview(f, m); if (ap && ap.blob) blob = ap.blob; } catch (_) {}
+      if (!blob && job.jpegFile) blob = job.jpegFile;
+      if (blob) { const t = await thumbFrom(blob, (m && m.orient) || 1); it.thumb = t.url; it.portrait = t.portrait; it.sig = t.sig; }
+      else if (job.kind === 'raw') throw new Error('no preview');
+    } else if (job.kind === 'heic' || job.kind === 'png') {
+      try { const t = await thumbFrom(f, 1); it.thumb = t.url; } catch (_) { it.thumb = URL.createObjectURL(f); }
+    } else if (job.kind === 'video') {
+      const t = await videoThumb(f);
+      if (t) { it.thumb = t.url || null; it.dur = t.dur; } else it.unread = true;
+    }
+  } catch (_) { it.unread = true; }
+  // a clip or phone file without EXIF dates from its file time; a broken file stays undated ("No date")
+  if (!it.date && !it.unread && job.kind !== 'raw' && job.kind !== 'jpeg') it.date = f.lastModified || null;
+  return it;
+}
+
+// ---- the queue -------------------------------------------------------------------------------
+let pending = [];
+async function ingest(groups) {
+  const before = new Set(library);
+  const jobs = plan(groups);
+  if (!jobs.length && !S.items.size) say('Nothing to read there');
+  S.total += jobs.length; S.reading = true; if (!S.t0) S.t0 = performance.now();
+  document.body.classList.add('has'); if (document.activeElement && document.activeElement.id === 'dropbox') document.activeElement.blur();
+  pending = pending.concat(jobs);
+  const worker = async () => {
+    while (pending.length) {
+      const job = pending.shift();
+      const it = await readOne(job);
+      const known = S.items.get(it.key);
+      if (known) { known.copies.push(it.src); (known.also ||= []).push({ src: it.src, path: it.path }); if (!known.unread) known.state = 'here'; known.v = (known.v || 0) + 1; }
+      else { it.state = it.unread ? 'unread' : before.has(it.key) ? 'here' : 'new'; it.fresh = true; S.items.set(it.key, it); }
+      S.done++; dirty();
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+  if (!pending.length && S.done >= S.total) {
+    S.reading = false;
+    alignClocks();
+    dirty(true);
+    copyAll();
+  }
+}
+
+// ---- clocks: bodies whose clocks disagree, matched on the moments both shot ----------------------------------
+function alignClocks() {
+  const all = [...S.items.values()];
+  for (const it of all) if (it.date0 === undefined) it.date0 = it.date;
+  const K = window.LuminaIngestClocks;
+  S.clk = K ? K.align(all.filter((it) => it.date0 && it.clock && !it.unread).map((it) => ({ id: it.key, t: it.date0, body: it.clock, phone: it.phone, name: it.name, src: it.src, sig: it.sig }))) : null;
+  shiftClocks();
+}
+function shiftClocks() {
+  const by = new Map(); if (S.clk) for (const c of S.clk.clocks) if (c.shift && !S.clkOff.has(c.key)) for (const id of c.ids) by.set(id, c.shift);
+  for (const it of S.items.values()) if (it.date0 !== undefined) { const d = it.date0 && it.date0 + (by.get(it.key) || 0); if (d !== it.date) { it.date = d; it.v = (it.v || 0) + 1; } }
+}
+
+// ---- the copy into the library (the Mac copies, checks every copy, and says when a card is safe) ----------
+const pad = (n) => String(n).padStart(2, '0');
+const dayFolder = (it) => { if (!it.date) return 'No date'; const d = new Date(it.date); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const cpOf = (src) => { if (!S.cp.has(src)) S.cp.set(src, { sent: 0, ok: 0, bad: 0, card: false }); return S.cp.get(src); };
+function copyAll() {
+  if (!host) return;
+  const items = [], batch = [];
+  const job = (key, path, src, folder) => { items.push({ key, path, src, folder }); cpOf(src).sent++; };
+  for (const it of S.items.values()) {
+    if (it.cpSent) continue; it.cpSent = true; batch.push(it); it.cpWait = 1 + (it.also || []).length;
+    job(it.key, it.path, it.src, dayFolder(it));
+    for (const a of it.also || []) job(it.key, a.path, a.src, dayFolder(it));
+  }
+  for (const x of S.extra.splice(0)) job('', x.path, x.src, 'Other/' + x.src + (x.path.includes('/') ? '/' + x.path.split('/').slice(1, -1).join('/') : ''));
+  if (!items.length) return;
+  // the rate counts from when this run of copying began, not from the first copy of the session
+  if (!copying()) { S.cpT0 = performance.now(); S.cpB0 = S.cpBytes; }
+  S.cpSent += items.length;
+  dirty();
+  call('ingestCopy', { items }).then((r) => {
+    if (r && r.error) { S.cpSent -= items.length; for (const i of items) cpOf(i.src).sent--; for (const it of batch) it.cpSent = false; say('Not copied: no library folder chosen'); dirty(); }
+    else if (r && r.folder) { libName = r.folder; }
+  });
+}
+window.luminaIngest = {
+  copied(d) {
+    S.cpDone++; S.cpBytes += d.bytes || 0;
+    const c = cpOf(d.src); if (d.ok) c.ok++; else c.bad++; c.card = c.card || !!d.card;
+    const it = d.key && S.items.get(d.key);
+    if (it) {
+      if (!d.ok) { it.copy = 'bad'; it.why = d.why; it.v = (it.v || 0) + 1; }
+      if (--it.cpWait <= 0 && it.copy !== 'bad') { it.copy = 'ok'; library.add(it.key); }
+    }
+    dirty(!d.ok);
+  }
+};
+const copying = () => S.cpDone < S.cpSent;
+// "safe to format" only for a whole card (the Mac says so: the card's root was chosen) with every file copied and checked
+const safeSources = () => [...S.cp].filter(([, c]) => c.card && c.sent && c.ok === c.sent).map(([src]) => ({ src }));
+function eject(src) { call('ingestEject', { src }).then((r) => say(r && r.ok ? `Ejected ${src}` : `Not ejected: ${(r && r.why) || 'no answer'}`)); }
+
+// ---- sets: chips --------------------------------------------------------------------------------
+const day0 = () => { let m = Infinity; for (const it of S.items.values()) if (it.date && it.date < m) m = it.date; if (m === Infinity) return null; const d = new Date(m); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const dayOf = (it, z) => it.date && z != null ? Math.floor((new Date(it.date).setHours(0, 0, 0, 0) - z) / 864e5) + 1 : 0;
+const bodies = () => [...new Set([...S.items.values()].map((i) => i.body).filter(Boolean))];
+const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const CHIP = {
+  kind: { show: (v) => ({ photo: 'photos', video: 'clips', raw: 'RAW', jpeg: 'JPEG', phone: 'phone' })[v], test: (it, v) => v === 'photo' ? it.kind !== 'video' : v === 'phone' ? /iphone|pixel|galaxy|phone/i.test(it.body || '') : it.kind === v },
+  state: { show: (v) => ({ new: 'new', here: 'already here', unread: 'unreadable' })[v], test: (it, v) => it.state === v },
+  copy: { show: () => 'not copied', test: (it) => it.copy === 'bad' },
+  day: { show: (v) => 'day ' + v, test: (it, v, z) => dayOf(it, z) === v },
+  body: { show: (v) => v, test: (it, v) => it.body === v },
+  src: { show: (v) => v, test: (it, v) => it.src === v || it.copies.includes(v) },
+  part: { show: (v) => v, test: (it, v) => { if (!it.date) return false; const h = new Date(it.date).getHours(); return v === 'morning' ? h >= 5 && h < 11 : v === 'midday' ? h >= 11 && h < 15 : v === 'afternoon' ? h >= 15 && h < 18 : v === 'evening' ? h >= 18 && h < 21 : h >= 21 || h < 5; } },
+  unknown: { show: (v) => v + '?', test: () => true }
+};
+const chipText = (c) => CHIP[c.t].show(c.v);
+function matches(it, chips, z) {
+  // chips of one type are "or"; different types are "and"; a "not" chip removes
+  const by = {};
+  for (const c of chips) if (c.t !== 'unknown') (by[c.t + (c.not ? '!' : '')] ||= []).push(c);
+  for (const k in by) {
+    const not = k.endsWith('!'), any = by[k].some((c) => CHIP[c.t].test(it, c.v, z));
+    if (not ? any : !any) return false;
+  }
+  return true;
+}
+// A count, a source, a camera or a day clicked: its words go into the find box (again clears it).
+function findFor(words) { q.value = q.value.trim() === words ? '' : words; apply(); }
+
+// ---- the ask bar: words -> chips (rules, no model) ---------------------------------------------
+function parse(text) {
+  const chips = []; let group = null;
+  let s = ' ' + text.toLowerCase().replace(/[,;]+/g, ' ') + ' ';
+  const take = (re, fn) => { s = s.replace(re, (...a) => { fn(...a); return ' '; }); };
+  take(/\b(?:split |group |sort )?by (day|camera|body|source|card|nothing)\b/g, (_, w) => { group = { day: 'day', camera: 'body', body: 'body', source: 'src', card: 'src', nothing: 'none' }[w]; });
+  take(/\b(?:one grid|flat)\b/g, () => { group = 'none'; });
+  take(/\b(?:not copied|uncopied|failed)\b/g, () => { chips.push({ t: 'copy', v: 'bad', not: false }); });
+  const words = s.trim().split(/\s+/).filter(Boolean);
+  const stop = new Set(['show','me','only','the','from','on','of','and','or','all','with','in','just','files','that','are','were','is','what','which','everything']);
+  const B = bodies(), SRC = [...S.sources.keys()];
+  for (let i = 0; i < words.length; i++) {
+    let w = words[i], not = false;
+    if (/^(not|no|without|hide|except|minus)$/.test(w) && i + 1 < words.length) { not = true; w = words[++i]; }
+    const push = (t, v) => chips.push({ t, v, not });
+    if (stop.has(w)) continue;
+    if (/^(photos?|stills?|pictures?)$/.test(w)) push('kind', 'photo');
+    else if (/^(clips?|videos?|video|footage)$/.test(w)) push('kind', 'video');
+    else if (w === 'raw' || w === 'raws') push('kind', 'raw');
+    else if (/^(jpe?gs?)$/.test(w)) push('kind', 'jpeg');
+    else if (/^(phone|iphone)$/.test(w)) push('kind', 'phone');
+    else if (w === 'new') push('state', 'new');
+    else if (w === 'already' && words[i + 1] === 'here') { i++; push('state', 'here'); }
+    else if (/^(here|dupes?|duplicates?|copies|imported)$/.test(w)) push('state', 'here');
+    else if (/^(unreadable|broken|corrupt|bad)$/.test(w)) push('state', 'unread');
+    else if (w === 'day' && /^\d+$/.test(words[i + 1] || '')) { push('day', +words[++i]); }
+    else if (/^day\d+$/.test(w)) push('day', +w.slice(3));
+    else if (/^(morning|midday|noon|afternoon|evening|night)$/.test(w)) push('part', w === 'noon' ? 'midday' : w);
+    else {
+      const b = B.find((x) => norm(x).includes(norm(w)) && norm(w).length >= 2);
+      const src = SRC.find((x) => norm(x) === norm(w) || (norm(w).length >= 3 && norm(x).includes(norm(w))));
+      if (b) push('body', b); else if (src) push('src', src); else push('unknown', w);
+    }
+  }
+  return { chips, group };
+}
+
+// ---- drawing -----------------------------------------------------------------------------------
+let raf = 0, flip = false;
+function dirty(withFlip) { flip = flip || !!withFlip; if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(flip); flip = false; }); }
+let lastDraw = 0;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+function render(doFlip) {
+  // while reading, redraw at most twice a second (tiles keep arriving)
+  const now = performance.now();
+  if ((S.reading || copying()) && !doFlip && now - lastDraw < 500) { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(false); }); drawFoot(); return; }
+  lastDraw = now;
+  const z = day0(), all = [...S.items.values()].sort((a, b) => (a.date || Infinity) - (b.date || Infinity) || a.name.localeCompare(b.name));
+  const shown = all.filter((it) => matches(it, S.chips, z));
+  const before = doFlip ? rects() : null;
+  const groups = new Map();
+  for (const it of shown) {
+    const k = S.group === 'day' ? (it.date ? 'd' + dayOf(it, z) : 'd?') : S.group === 'body' ? (it.body || 'Unknown camera') : S.group === 'src' ? it.src : 'all';
+    if (!groups.has(k)) groups.set(k, []); groups.get(k).push(it);
+  }
+  const root = $('#groups'), keep = new Map();
+  root.querySelectorAll('.tile').forEach((el) => keep.set(el.dataset.k, el));
+  const frag = document.createDocumentFragment();
+  for (const [k, list] of groups) {
+    const g = document.createElement('div'); g.className = 'row';
+    if (S.group !== 'none') {
+      const h = document.createElement('div'); h.className = 'head';
+      let t;
+      if (S.group === 'day' && k !== 'd?') { const d = new Date(list[0].date); t = `Day ${k.slice(1)} · ${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}`; }
+      else t = k === 'd?' ? 'No date' : k;
+      h.innerHTML = `<span class="t">${esc(t)}</span><span class="p">${fmt(list.length)}</span>`;
+      g.appendChild(h);
+    }
+    const grid = document.createElement('div'); grid.className = 'tiles';
+    for (const it of list) { const el = keep.get(it.key); grid.appendChild(el && el.dataset.v === String(it.v || 0) ? el : tile(it)); }
+    g.appendChild(grid); frag.appendChild(g);
+  }
+  root.replaceChildren(frag);
+  if (before) play(before);
+  drawTop(); drawFoot(); drawNotes();
+}
+function tile(it) {
+  const el = document.createElement('div'); el.className = 'tile' + (it.fresh ? ' enter' : ''); it.fresh = false;
+  el.dataset.k = it.key; el.dataset.v = String(it.v || 0);
+  el.title = it.path + (it.copies.length ? '\nalso in ' + it.copies.join(', ') : '') + (it.state === 'here' ? '\nalready here' : '') + (it.copy === 'bad' ? '\nnot copied · ' + (it.why || 'failed') : '');
+  if (it.thumb) { const im = new Image(); im.decoding = 'async'; im.onload = () => im.classList.add('in'); im.src = it.thumb; el.appendChild(im); }
+  if (it.unread) { const w = document.createElement('span'); w.className = 'w'; w.textContent = 'unreadable'; el.appendChild(w); }
+  else if (it.kind === 'video') { const b = document.createElement('span'); b.className = 'd'; b.textContent = it.dur ? Math.floor(it.dur / 60) + ':' + String(Math.round(it.dur % 60)).padStart(2, '0') : 'clip'; el.appendChild(b); }
+  return el;
+}
+// tiles move to their new places (Pick's curve) instead of jumping
+function rects() { const m = new Map(); document.querySelectorAll('.tile').forEach((el) => { const r = el.getBoundingClientRect(); if (r.bottom > -200 && r.top < innerHeight + 200) m.set(el.dataset.k, r); }); return m; }
+function play(before) {
+  const els = [...document.querySelectorAll('.tile')]; if (els.length > 1500) return;
+  for (const el of els) {
+    const a = before.get(el.dataset.k), b = el.getBoundingClientRect();
+    if (!a || b.bottom < -200 || b.top > innerHeight + 200) continue;
+    const dx = a.left - b.left, dy = a.top - b.top, s = a.width / b.width;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(s - 1) < .01) continue;
+    el.animate([{ transform: `translate(${dx}px,${dy}px) scale(${s})` }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(0.2,0.8,0.2,1)' });
+  }
+}
+function count(fn) { let n = 0; for (const it of S.items.values()) if (fn(it)) n++; return n; }
+function drawTop() {
+  // Pick's load bar: the read, then the copy
+  $('#bar>div').style.width = S.reading ? (S.total ? (100 * S.done / S.total) + '%' : '0') : S.cpSent ? (100 * S.cpDone / S.cpSent) + '%' : '0';
+  $('#bar').style.visibility = S.reading || copying() ? 'visible' : 'hidden';
+  if (document.activeElement !== $('#trip') && S.tripName == null) $('#trip').value = tripName();
+  $('#trip').style.width = Math.max(8, $('#trip').value.length + 1) + 'ch';
+  const src = S.sources.size;
+  $('#meta').textContent = src ? `${src} ${src === 1 ? 'source' : 'sources'}` : '';
+}
+function drawFoot() {
+  drawTop();
+  const photos = count((i) => i.kind !== 'video' && i.state !== 'unread'), clips = count((i) => i.kind === 'video' && i.state !== 'unread');
+  const nw = count((i) => i.state === 'new'), here = count((i) => i.state === 'here'), bad = count((i) => i.state === 'unread');
+  const parts = [], n = (v, label, words) => `<span class="n" data-w="${words}">${fmt(v)} ${label}</span>`;
+  if (photos) parts.push(n(photos, photos === 1 ? 'photo' : 'photos', 'photos'));
+  if (clips) parts.push(n(clips, clips === 1 ? 'clip' : 'clips', 'clips'));
+  if (here && nw) parts.push(n(nw, 'new', 'new'));
+  if (here) parts.push(n(here, 'already here', 'already here'));
+  if (bad) parts.push(n(bad, 'unreadable', 'unreadable'));
+  const nc = count((i) => i.copy === 'bad'); if (nc) parts.push(n(nc, 'not copied', 'not copied'));
+  if (!S.reading && !copying()) for (const { src } of safeSources()) parts.push(`<span class="n" data-w="${esc(src)}">safe to format ${esc(src)}</span> <span class="n" data-eject="${esc(src)}">Eject</span>`);
+  if (S.items.size) parts.push(`<span class="n" data-more="1">${$('#notes').classList.contains('off') ? 'Details' : 'Hide details'}</span>`);
+  $('#foot').innerHTML = parts.join(' · ');
+  $('#foot').querySelectorAll('[data-w]').forEach((b) => b.onclick = () => findFor(b.dataset.w));
+  $('#foot').querySelectorAll('[data-eject]').forEach((b) => b.onclick = () => eject(b.dataset.eject));
+  const m = $('#foot').querySelector('[data-more]'); if (m) m.onclick = () => { $('#notes').classList.toggle('off'); drawFoot(); drawNotes(); };
+  const s = (performance.now() - S.t0) / 1000;
+  const cs = (performance.now() - S.cpT0) / 1000;
+  $('#live').textContent = S.reading ? `reading ${fmt(S.done)} of ${fmt(S.total)}${s > 2 ? ' · ' + Math.round(S.done / s) + ' a second' : ''}`
+    : copying() ? `copying ${fmt(S.cpDone)} of ${fmt(S.cpSent)}${cs > 2 ? ' · ' + Math.round((S.cpBytes - S.cpB0) / 1048576 / cs) + ' MB a second' : ''}`
+    : S.cpSent ? 'all copied' : S.items.size ? 'all read' : '';
+  const keys = S.items.size ? [['O', 'add'], ['/', 'find'], ['esc', 'clear'], ['= −', 'size']].concat(toPick() ? [['⏎', 'open in Pick']] : []) : [['O', 'open']];
+  $('#keys').innerHTML = keys.map(([k, c]) => `<span class="cap">${k.split(' ').map((x) => `<b>${esc(x)}</b>`).join('')}${c}</span>`).join('');
+}
+function tripName() {
+  let lo = Infinity, hi = -Infinity; for (const it of S.items.values()) if (it.date) { lo = Math.min(lo, it.date); hi = Math.max(hi, it.date); }
+  if (lo === Infinity) return '';
+  const a = new Date(lo), b = new Date(hi);
+  if (a.toDateString() === b.toDateString()) return `${MON[a.getMonth()]} ${a.getDate()}, ${a.getFullYear()}`;
+  if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) return `${MON[a.getMonth()]} ${a.getDate()} – ${b.getDate()}, ${a.getFullYear()}`;
+  return `${MON[a.getMonth()]} ${a.getDate()} – ${MON[b.getMonth()]} ${b.getDate()}, ${b.getFullYear()}`;
+}
+// Details: Pick's import notes card
+function drawNotes() {
+  const d = $('#notes'); if (d.classList.contains('off')) return;
+  const z = day0(), days = new Map(); for (const it of S.items.values()) { const k = dayOf(it, z); if (k) days.set(k, (days.get(k) || 0) + 1); }
+  const bc = new Map(); for (const it of S.items.values()) if (it.body) bc.set(it.body, (bc.get(it.body) || 0) + 1);
+  const pick = (words, label) => `<span data-c="${esc(words)}">${esc(label)}</span>`;
+  const handled = [S.paired && `${fmt(S.paired)} RAW + JPEG pairs joined`, S.proxies && `${fmt(S.proxies)} proxies left with their clips`, S.side && `${fmt(S.side)} sidecars kept`, S.junk && `${fmt(S.junk)} system files skipped`, S.other && `${fmt(S.other)} other files left alone`].filter(Boolean);
+  const line = (t) => `<div class="n"><i>●</i><span>${t}</span></div>`;
+  d.innerHTML = `<span class="h">What was read</span>`
+    + line('From ' + [...S.sources.values()].map((s) => pick(s.label, `${s.label} (${fmt(s.files)})`)).join(', '))
+    + (bc.size ? line('Cameras ' + [...bc].map(([b, n]) => pick(b, `${b} (${fmt(n)})`)).join(', ')) : '')
+    + (days.size ? line('Days ' + [...days].sort((a, b) => a[0] - b[0]).map(([k, n]) => pick('day ' + k, `${k} (${fmt(n)})`)).join(', ')) : '')
+    + (handled.length ? line(handled.join(' · ')) : '')
+    + line(`${libName ? 'Library ' + esc(libName) + ' · ' : ''}${fmt(library.size)} files remembered <span class="act" id="forget">Forget</span>`)
+    + (S.cpSent ? line(`${fmt(S.cpDone)} of ${fmt(S.cpSent)} copied and checked` + (S.other + S.proxies ? ` · ${fmt(S.other + S.proxies)} other files and proxies copied as they are` : '') + ` · ${fmt(S.junk)} system files not copied`) : '')
+    + clockLines(line);
+  d.querySelectorAll('[data-c]').forEach((b) => b.onclick = () => findFor(b.dataset.c));
+  d.querySelectorAll('[data-clk]').forEach((b) => b.onclick = () => { const k = b.dataset.clk; if (S.clkOff.has(k)) S.clkOff.delete(k); else S.clkOff.add(k); shiftClocks(); say(S.clkOff.has(k) ? k + ' back to its own clock' : k + ' shifted'); dirty(true); });
+  $('#forget').onclick = () => { library.clear(); call('ingestForget').then(libFrom); say('Forgotten: the next drop is all new'); drawNotes(); };
+}
+// one line per clock that was shifted, set mid-card, or has nothing to match against
+function clockLines(line) {
+  if (!S.clk || S.clk.clocks.length < 2) return '';
+  const K = window.LuminaIngestClocks, f = K.fmtShift, cs = S.clk.clocks, out = [];
+  const m = (n) => `${fmt(n)} matching ${n === 1 ? 'moment' : 'moments'}`;
+  for (const c of cs) {
+    const act = (w) => ` <span class="act" data-clk="${esc(c.key)}">${w}</span>`;
+    if (c.shift && S.clkOff.has(c.key)) out.push(line(`${esc(c.key)} left on its own clock (${f(c.shift)} found, ${m(c.matches)})` + act('Shift')));
+    else if (c.shift) out.push(line(`${esc(c.key)} shifted ${f(c.shift)} (${c.tz ? 'time zone, ' : ''}${m(c.matches)})` + act('Undo')));
+    else if (c.jump && !c.matches) out.push(line(`${esc(c.body)} clock set back ${f(c.jump.by).slice(1)} after ${esc(c.jump.after)}: left as shot, no matching moments`));
+    else if (!c.matches && !c.ref) out.push(line(`${esc(c.key)} not shifted: no matching moments`));
+  }
+  return out.join('');
+}
+let sayT = 0;
+function say(t, keep) { $('#say').textContent = t; clearTimeout(sayT); if (!keep) sayT = setTimeout(() => { $('#say').textContent = ''; }, 2400); }
+
+// ---- the find box: words -> a set (rules, no model) ------------------------------------------------
+const q = $('#q');
+let before = '';
+function apply() {
+  const { chips, group } = parse(q.value);
+  S.chips = chips; S.group = group || 'day';
+  const left = chips.filter((c) => c.t === 'unknown').map((c) => c.v);
+  if (left.length) say(`Not understood, left out: ${left.join(', ')}`, true); else say('');
+  $('#clear').style.display = q.value ? 'grid' : 'none';
+  render(true);
+}
+let qT = 0;
+q.addEventListener('focus', () => { before = q.value; });
+q.addEventListener('input', () => { clearTimeout(qT); qT = setTimeout(apply, 120); });
+q.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); const t = q.value.trim().toLowerCase();
+    if (t === 'forget') { library.clear(); call('ingestForget').then(libFrom); q.value = ''; apply(); say('Forgotten: the next drop is all new'); }
+    q.blur(); }
+  else if (e.key === 'Escape') { e.preventDefault(); if (q.value !== before) { q.value = before; apply(); } else { q.value = ''; apply(); } q.blur(); }
+});
+$('#clear').onclick = () => { q.value = ''; apply(); };
+
+// ---- Open in Pick: what is shown now becomes one shoot in Pick (the Mac app only) ----------------------
+const isPhoto = (it) => it.kind !== 'video' && !it.unread;
+function toPick() {
+  if (!host || S.reading) return null;
+  const z = day0(), paths = [];
+  const keys = [];
+  for (const it of S.items.values()) if (isPhoto(it) && matches(it, S.chips, z)) { paths.push(it.path); keys.push(it.key); }
+  return paths.length ? { paths, keys, whole: paths.length === count(isPhoto) } : null;
+}
+async function openInPick() {
+  const set = toPick(); if (!set) return;
+  say('Opening in Pick…', true);
+  let r = null; try { r = await host.postMessage({ op: 'ingestToPick', paths: set.paths, keys: set.keys, whole: set.whole }); } catch (_) {}
+  if (r !== true) say((r && r.refused) || 'Pick could not open these');
+}
+
+// ---- keys, drop, size ----------------------------------------------------------------------------
+addEventListener('keydown', (e) => {
+  if (e.target === q || e.target.id === 'trip') return;
+  if (e.key === '/') { if (S.items.size) { e.preventDefault(); q.focus(); q.select(); } }
+  else if ((e.key === 'o' || e.key === 'O') && !e.metaKey) $('#pick').click();
+  else if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); openInPick(); }
+  else if (e.key === 'Escape') { if (!$('#notes').classList.contains('off')) { $('#notes').classList.add('off'); drawFoot(); } else if (q.value) { q.value = ''; apply(); } }
+  else if (e.key === '=' || e.key === '+') { e.preventDefault(); size(1.25); }
+  else if (e.key === '-') { e.preventDefault(); size(0.8); }
+});
+function size(k) { const b = rects(); S.tw = Math.max(70, Math.min(640, S.tw * k)); document.documentElement.style.setProperty('--tw', S.tw + 'px'); play(b); }
+addEventListener('wheel', (e) => { if (!e.ctrlKey) return; e.preventDefault(); size(Math.exp(-e.deltaY * 0.01)); }, { passive: false });
+let dragN = 0;
+const main = $('#main');
+addEventListener('dragenter', (e) => { e.preventDefault(); dragN++; main.classList.add('drop'); });
+addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; main.classList.remove('drop'); } });
+addEventListener('dragover', (e) => e.preventDefault());
+addEventListener('drop', async (e) => { e.preventDefault(); dragN = 0; main.classList.remove('drop'); const g = await fromDrop(e.dataTransfer); if (g.length) ingest(g); });
+$('#dropbox').onclick = () => $('#pick').click();
+// Back from Pick (or a reload): the app asks for what this run read; the file input is answered without a panel.
+window.luminaIngestResume = () => { if (S.items.size || S.reading) return false; window.luminaIngestResuming = true; $('#pick').click(); return true; };
+$('#pick').addEventListener('change', (e) => { const g = fromPick(e.target.files); e.target.value = ''; if (g.length) ingest(g); });
+const trip = $('#trip');
+trip.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); trip.blur(); } });
+trip.addEventListener('input', () => { S.tripName = trip.value.trim() || null; drawTop(); });
+drawFoot();
+// for a headless check: window.__ingest.state()
+window.__ingest = { state: () => ({ items: S.items.size, done: S.done, total: S.total, chips: S.chips, group: S.group, here: count((i) => i.state === 'here'), unread: count((i) => i.state === 'unread'), copied: S.cpDone, sent: S.cpSent, notCopied: count((i) => i.copy === 'bad'), safe: safeSources() }), parse, find: (t) => { q.value = t; apply(); },
+  clocks: () => S.clk && { clocks: S.clk.clocks.map(({ ids, ...c }) => ({ ...c, off: S.clkOff.has(c.key) })), edges: S.clk.edges }, days: () => [...document.querySelectorAll('#groups .head .t')].map((e) => e.textContent) };
+</script>
+</body>
+</html>
