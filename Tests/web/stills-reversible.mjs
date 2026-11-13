@@ -169,6 +169,15 @@ s = await sel();
 ok(s.done === 0 && s.ord === 0 && s.marks === t0.marks, 'after the storm: no row finished, time order, decisions untouched', [s.done, s.ord]);
 await L(() => __l().setState({ aim: 0, done: {}, ord: {}, tsz: 5 })); await wait(200);
 
+// the large view shows the whole photo whichever way the camera was held: the stored size is landscape, the photo upright
+{ const box = async (portrait, pw, ph) => { await L(([po, w, h]) => { const l = __l(), f = l.data.byId[l.data.order[0]]; f.portrait = po; f.pw = w; f.ph = h; l.setState({ cur: l.cellIdOf(f.id), open: null, large: true, zl: 1, zx: 0, zy: 0 }); }, [portrait, pw, ph]); await wait(400);
+    return L(() => { const st = document.querySelector('[data-lumina="large-stage"]'), d = st && [...st.querySelectorAll('div')].find(x => x.style.backgroundSize === 'cover'), r = d.getBoundingClientRect(), sr = st.getBoundingClientRect(), b = __l().pickBox(); return { w: r.width, h: r.height, inside: r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 && r.left >= sr.left - 1 && r.right <= sr.right + 1, bw: b.bw, bh: b.bh }; }); };
+  const keep = await L(() => { const f = __l().data.byId[__l().data.order[0]]; return [!!f.portrait, f.pw, f.ph]; });
+  for (const [name, po, w, h, want] of [['upright, stored landscape (orientation 6 / 8)', true, 6000, 4000, 2 / 3], ['upright, stored upright', true, 4000, 6000, 2 / 3], ['landscape', false, 6000, 4000, 1.5], ['upright, size unknown', true, null, null, 2 / 3], ['4:3 upright', true, 4000, 3000, 0.75]]) {
+    const b = await box(po, w, h);
+    ok(Math.abs(b.w / b.h - want) < 0.02 && b.inside && Math.abs(b.bw / b.bh - want) < 0.02, 'large view, ' + name + ': the whole photo, in its own shape, inside the stage', b); }
+  await L(([po, w, h]) => { const l = __l(), f = l.data.byId[l.data.order[0]]; f.portrait = po; f.pw = w; f.ph = h; l.setState({ large: false, zoom: false }); }, keep); await wait(300); }
+
 // taken out
 await L(() => { const l = __l(); l.setState({ cur: l.data.order[0] }); }); await key('Enter', 300);
 const foot = await L(() => (document.querySelector('[data-lumina="live"]') || {}).textContent || '');
