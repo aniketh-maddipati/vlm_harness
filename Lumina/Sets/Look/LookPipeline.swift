@@ -753,7 +753,10 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// Brought into 0…1 in the working space by the rules' mapper (`LookRules.mapper`): the clamp,
     /// or `LookMath.DisplayMapper`. The colour space conversion happens in the encode.
     func output(_ img: CIImage) -> CIImage {
-        guard rules.mapper == .sigmoid else { return img.applyingFilter("CIColorClamp") }
+        if rules.mapper == .clamp { return img.applyingFilter("CIColorClamp") }
+        if rules.mapper == .hueClamp {
+            return kernels.apply("lookHueClamp", extent: img.extent, [img, CIVector(x: 1 / rules.perceptualGamma, y: 0)]) ?? img.applyingFilter("CIColorClamp")
+        }
         let m = LookMath.DisplayMapper(rules), r = m.insetRows, o = m.outsetRows
         var args: [Any] = [img]
         for row in r + o { args.append(CIVector(x: row[0], y: row[1], z: row[2], w: 0)) }

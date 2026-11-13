@@ -726,7 +726,7 @@ WHITE_EV = float(np.log2(1.0 / GREY))      # display white, in stops above mid g
 
 
 def mapper(rules):
-    """"clamp" (what ships) or "sigmoid" (LookRules.mapper)."""
+    """"clamp", "hueClamp" (what ships) or "sigmoid" (LookRules.mapper)."""
     return rules["stages"].get("outputTransform", {}).get("mapper") or "clamp"
 
 
@@ -754,9 +754,23 @@ def shoulder(x, knee_ev, max_ev):
     return np.where(x > knee, GREY * 2.0 ** (knee_ev + h * (1.0 - np.power(np.maximum(0.0, 1.0 - u), (max_ev - knee_ev) / h))), x)
 
 
+def hue_clamp(c, rules):
+    """LookMath.hueClamp: the clamp inside white; past it, in perceptual space, the largest channel to
+    1, the smallest to min(itself, 1), the middle kept between them."""
+    x = np.maximum(np.asarray(c, dtype=np.float64), 0.0)
+    g = float(rules.get("perceptualGamma", 2.2))
+    p = np.power(x, 1.0 / g)
+    pmx, pmn = p.max(axis=-1, keepdims=True), p.min(axis=-1, keepdims=True)
+    lo, span = np.minimum(pmn, 1.0), pmx - pmn
+    q = np.where(span > 1e-9, lo + (1.0 - lo) * (p - pmn) / np.where(span > 1e-9, span, 1.0), 1.0)
+    return np.where(x.max(axis=-1, keepdims=True) > 1.0, np.power(q, g), x)
+
+
 def output_transform(rgb, rules):
     """LookMath.output: the rules' mapper on colours (..., 3), inside 0…1 (linear, working space)."""
     c = np.asarray(rgb, dtype=np.float64)
+    if mapper(rules) == "hueClamp":
+        return hue_clamp(c, rules)
     if mapper(rules) != "sigmoid":
         return np.clip(c, 0.0, 1.0)
     knee_ev, max_ev, inset, rotate, hue_keep = display_mapper(rules)
