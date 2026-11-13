@@ -316,6 +316,19 @@ nonisolated final class LookKernels: @unchecked Sendable {
         return float4(clamp(o, 0.0f, 1.0f), s.a);
     }
 
+    // outputTransform's hueClamp mapper (LookMath.hueClamp): the clamp inside white; past it, in perceptual
+    // space, the largest channel to 1, the smallest to min(itself, 1), the middle kept between them.
+    // k.x = 1 / perceptualGamma
+    [[ stitchable ]] float4 lookHueClamp(coreimage::sample_t s, float2 k) {
+        float3 x = max(s.rgb, float3(0.0f));
+        float mx = max(x.r, max(x.g, x.b));
+        if (mx <= 1.0f) return float4(x, s.a);
+        float3 p = pow(x, float3(k.x));
+        float pmx = max(p.r, max(p.g, p.b)), pmn = min(p.r, min(p.g, p.b)), lo = min(pmn, 1.0f), span = pmx - pmn;
+        float3 q = span > 1e-9f ? float3(lo) + (1.0f - lo) * ((p - float3(pmn)) / span) : float3(1.0f);
+        return float4(pow(q, float3(1.0f / k.x)), s.a);
+    }
+
     // Argument echo (tests only): what each parameter slot receives, in the layouts the stages use.
     [[ stitchable ]] float4 lookEcho442(coreimage::sample_t s, float4 a, float4 b, float2 c) {
         return float4(s.r + 1000.0f * a.x + 1000000.0f * b.x, a.y + 1000.0f * b.y + 1000000.0f * c.x, a.z + 1000.0f * b.z + 1000000.0f * c.y, a.w + 1000.0f * b.w);
@@ -459,7 +472,7 @@ nonisolated final class LookKernels: @unchecked Sendable {
     /// The stage kernels, compiled when the pipeline is made. `lookDisplay` (the sigmoid mapper) is
     /// not one of them: it compiles on first use, so with the default mapper nothing new is built.
     static let stageNames = ["lookLuma", "lookBase", "lookExposure", "lookWhiteBalance", "lookPre", "lookBlacks", "lookTone", "lookContrast", "lookColour", "lookClarity", "lookSharpen",
-                             "lookVignette", "lookCurve", "lookMixer", "lookProfile"]
+                             "lookVignette", "lookCurve", "lookMixer", "lookProfile", "lookHueClamp"]
 
     private let header: String
     /// The helpers a `moreSource` kernel compiles with: `header` plus that source's own.

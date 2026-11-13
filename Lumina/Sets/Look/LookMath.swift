@@ -1018,8 +1018,26 @@ nonisolated enum LookMath {
     static func output(_ c: RGB, _ rules: LookRules) -> RGB {
         switch rules.mapper {
         case .clamp: return RGB(r: min(1, max(0, c.r)), g: min(1, max(0, c.g)), b: min(1, max(0, c.b)))
+        case .hueClamp: return hueClamp(c, rules)
         case .sigmoid: return DisplayMapper(rules).apply(c)
         }
+    }
+
+    /// The `hueClamp` mapper: inside white, the clamp. Past white (a channel above 1, as Exposure on
+    /// the sensor data makes it), the profile's own RGBTone rule: in perceptual space the largest
+    /// channel goes to 1, the smallest to min(itself, 1), the middle keeps its place between them.
+    /// So a colour pushed past white keeps its hue and fades to white only as its smallest channel
+    /// gets there, where the clamp turned it toward the nearest secondary (red to orange to yellow)
+    /// in hard bands. Measured on Lightroom's Exposure sweep, on the pixels past white: +1 1.33 / 4.11
+    /// → 0.46 / 2.04, +2 1.09 / 3.97 → 0.93 / 2.10 (2026-11-13).
+    static func hueClamp(_ c: RGB, _ rules: LookRules) -> RGB {
+        let x = [max(0, c.r), max(0, c.g), max(0, c.b)]
+        guard let mx = x.max(), mx > 1 else { return RGB(r: x[0], g: x[1], b: x[2]) }
+        let gamma = rules.perceptualGamma
+        let p = x.map { pow($0, 1 / gamma) }
+        let pmx = p.max()!, pmn = p.min()!, lo = min(pmn, 1), span = pmx - pmn
+        let out = p.map { span > 1e-9 ? pow(lo + (1 - lo) * (($0 - pmn) / span), gamma) : 1 }
+        return RGB(r: out[0], g: out[1], b: out[2])
     }
 
     // MARK: the whole chain on a flat patch
