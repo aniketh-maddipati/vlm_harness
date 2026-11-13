@@ -6,7 +6,7 @@ import WebKit
 /// ingest page only (`SetsBridge`); docs/release/TRUST.md lists them.
 @MainActor
 final class IngestHost {
-    static let ops: Set<String> = ["ingestLibrary", "ingestPickLibrary", "ingestHas", "ingestForget", "ingestCopy", "ingestEject"]
+    static let ops: Set<String> = ["ingestLibrary", "ingestPickLibrary", "ingestHas", "ingestForget", "ingestCopy", "ingestEject", "ingestSources", "ingestOpen", "ingestForgetPlaces"]
 
     weak var webView: WKWebView?
     let store: IngestLibrary
@@ -40,7 +40,105 @@ final class IngestHost {
         }
     }
 
-    func picked(_ urls: [URL]) { roots.append(contentsOf: urls) }
+    /// What was chosen is held for the copy, and a folder or a card's root is remembered as a source for next time
+    /// (`ingestSources`); loose files are not.
+    func picked(_ urls: [URL]) {
+        roots.append(contentsOf: urls)
+        var changed = false
+        for u in urls {
+            var isDir: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: u.path, isDirectory: &isDir), isDir.boolValue else { continue }
+            let card = SetsFileOps.isCard(u)
+            // Of a card only its root is kept (by volume, so "Untitled" twice is two cards); a folder on a card is not.
+            if card, !IngestCopy.isVolumeRoot(u) { continue }
+            guard let b = try? u.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) else { continue }
+            let name = card ? ((try? u.resourceValues(forKeys: [.volumeNameKey]))?.volumeName ?? u.lastPathComponent) : u.lastPathComponent
+            store.remember(.init(path: u.standardizedFileURL.path, name: name, bookmark: b, volume: card ? SetsFileOps.volumeID(u) : nil))
+            changed = true
+        }
+        if changed { saved(Self.save(store)); postSources() }
+    }
+
+    // MARK: Sources: cards that are in, and the usual folders (no Finder)
+
+    private struct Source { var id: String; var name: String; var card: Bool; var there: Bool; var url: URL; var bookmark: Data? }
+    private var watching = false
+    /// Answered to the page's next file-input click (`SetsRootView.runOpenPanelWith`), within a moment of `ingestOpen`.
+    private var opening: (urls: [URL], at: Date)?
+
+    /// The cards mounted now (`SetsFileOps.isCard`: removable, or a DCIM at the root) and the folders chosen before.
+    /// Reads volume names and whether a folder is there; lists nothing inside them.
+    private func sources() -> [Source] {
+        var out: [Source] = []
+        let places = store.places
+        let keys: [URLResourceKey] = [.volumeNameKey, .volumeIsRemovableKey, .volumeUUIDStringKey]
+        for v in FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? [] where v.path != "/" && SetsFileOps.isCard(v) {
+            let id = SetsFileOps.volumeID(v)
+            let name = (try? v.resourceValues(forKeys: [.volumeNameKey]))?.volumeName ?? v.lastPathComponent
+            out.append(Source(id: "card:" + (id ?? v.path), name: name, card: true, there: true, url: v, bookmark: places.first { $0.volume != nil && $0.volume == id }?.bookmark))
+        }
+        for p in places where p.volume == nil {
+            let u = URL(fileURLWithPath: p.path, isDirectory: true)
+            out.append(Source(id: "folder:" + p.path, name: p.name, card: false, there: FileManager.default.fileExists(atPath: p.path), url: u, bookmark: p.bookmark))
+        }
+        return out
+    }
+
+    private func sourcesJSON() -> [[String: Any]] {
+        let read = Set(roots.map { $0.standardizedFileURL.path })
+        return sources().map { ["id": $0.id, "name": $0.name, "card": $0.card, "there": $0.there, "read": read.contains($0.url.standardizedFileURL.path)] }
+    }
+
+    private func postSources() {
+        webView?.evaluateJavaScript("window.luminaIngest && luminaIngest.sources && luminaIngest.sources(\(SetsBridge.json(sourcesJSON())))", completionHandler: nil)
+    }
+
+    /// Cards going in and out, as Stills notices them (`SetsCardWatcher`): mount notifications, no polling.
+    private func watch() {
+        guard !watching else { return }
+        watching = true
+        let nc = NSWorkspace.shared.notificationCenter
+        for n in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
+            nc.addObserver(forName: n, object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.postSources() } }
+        }
+    }
+
+    /// One source opened from the page: a place with a grant opens as it is; a card never chosen before opens the
+    /// panel at the card (the sandbox needs that one click, once per card). The page's file input is then answered
+    /// with it (`takeOpening`), read like any pick.
+    private func open(_ id: String) async -> [String: Any] {
+        guard let s = sources().first(where: { $0.id == id }) else { return ["ok": false, "why": "not there"] }
+        guard s.there else { return ["ok": false, "why": "not connected"] }
+        var url: URL?
+        if let b = s.bookmark {
+            var stale = false
+            if let u = try? URL(resolvingBookmarkData: b, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale), u.startAccessingSecurityScopedResource(),
+               FileManager.default.isReadableFile(atPath: u.path) { url = u }
+        }
+        if url == nil { url = await chooseSource(s.url, s.name) }
+        guard let url else { return ["ok": false, "why": "not chosen"] }
+        picked([url])
+        opening = ([url], Date())
+        webView?.evaluateJavaScript("window.luminaIngestOpenNow && luminaIngestOpenNow()", completionHandler: nil)
+        return ["ok": true]
+    }
+
+    /// The URLs `ingestOpen` just resolved, once, for the page's file input; nil when there are none or they are old.
+    func takeOpening() -> [URL]? {
+        guard let o = opening else { return nil }
+        opening = nil
+        return Date().timeIntervalSince(o.at) < 5 ? o.urls : nil
+    }
+
+    /// Swapped out by tests.
+    var chooseSource: (URL, String) async -> URL? = { at, name in
+        let p = NSOpenPanel()
+        p.canChooseDirectories = true; p.canChooseFiles = false; p.allowsMultipleSelection = false
+        p.directoryURL = at
+        p.prompt = "Add"
+        p.message = "Add \(name). Lumina only reads it; after this once it opens without asking."
+        return await p.begin() == .OK ? p.url : nil
+    }
 
     /// Open in Pick from the library: "<library>/<rel>" for every key, when each has a checked copy still there; nil
     /// when any is missing (Pick then opens the sources).
@@ -69,6 +167,14 @@ final class IngestHost {
             return libraryJSON()
         case "ingestPickLibrary":
             return await pickLibrary(refusal: nil)
+        case "ingestSources":
+            watch()
+            return sourcesJSON()
+        case "ingestOpen":
+            return await open(body["id"] as? String ?? "")
+        case "ingestForgetPlaces":
+            store.forgetFolders(); saved(Self.save(store))
+            return sourcesJSON()
         case "ingestCopy":
             if libraryURL == nil, (await pickLibrary(refusal: nil))["folder"] is NSNull { return ["error": "no library"] }
             guard let lib = libraryURL else { return ["error": "no library"] }

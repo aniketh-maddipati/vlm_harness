@@ -141,7 +141,11 @@ nonisolated enum IngestCopy {
 /// (a security-scoped bookmark, picked once) and key → where its copy is, the copy's SHA-256 and size.
 nonisolated final class IngestLibrary: @unchecked Sendable {
     struct Entry: Codable, Equatable, Sendable { var rel: String; var sha: String; var size: Int64 }
-    private struct File: Codable { var path: String?; var bookmark: Data?; var keys: [String: Entry] = [:] }
+    /// A folder or card the owner chose before (`IngestHost`): shown as a source so it opens without the panel.
+    /// `volume` is a card's volume UUID (the card is offered only while it is in); nil for a folder.
+    struct Place: Codable, Equatable, Sendable { var path: String; var name: String; var bookmark: Data; var volume: String? }
+    static let maxPlaces = 8
+    private struct File: Codable { var path: String?; var bookmark: Data?; var keys: [String: Entry] = [:]; var places: [Place]? }
 
     let url: URL
     private let lock = NSLock()
@@ -168,6 +172,21 @@ nonisolated final class IngestLibrary: @unchecked Sendable {
             file.path = path; file.bookmark = bookmark
         }
     }
+
+    var places: [Place] { lock.withLock { file.places ?? [] } }
+
+    /// Remembers a chosen folder or card, newest first; one entry per folder (per card: per volume), at most
+    /// `maxPlaces`.
+    func remember(_ p: Place) {
+        lock.withLock {
+            var all = (file.places ?? []).filter { $0.path != p.path && (p.volume == nil || $0.volume != p.volume) }
+            all.insert(p, at: 0)
+            file.places = Array(all.prefix(Self.maxPlaces))
+        }
+    }
+
+    /// Forgets the remembered folders (the page's "Forget these"); cards keep their grant.
+    func forgetFolders() { lock.withLock { file.places = (file.places ?? []).filter { $0.volume != nil } } }
 
     /// Forgets the identities (the page's Forget); the library's files are not touched.
     func forget() { lock.withLock { file.keys = [:] } }

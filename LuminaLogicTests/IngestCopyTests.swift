@@ -201,6 +201,26 @@ final class IngestCopyTests: XCTestCase {
         t.record("k", .init(rel: "r", sha: "s", size: 1)); t.forget(); XCTAssertEqual(t.count, 0)
     }
 
+    func testUsualFoldersAreRememberedNewestFirstAndForgotten() throws {
+        let s = store()
+        s.setFolder("/x/Library", bookmark: nil)
+        s.record("k", .init(rel: "d/a.ARW", sha: "00", size: 3))
+        for i in 0..<10 { s.remember(.init(path: "/trips/\(i)", name: "\(i)", bookmark: Data([UInt8(i)]), volume: nil)) }
+        s.remember(.init(path: "/trips/7", name: "7", bookmark: Data([70]), volume: nil))
+        XCTAssertEqual(s.places.count, IngestLibrary.maxPlaces)
+        XCTAssertEqual(s.places.first?.bookmark, Data([70]), "chosen again: moved to the front, once")
+        XCTAssertEqual(s.places.filter { $0.path == "/trips/7" }.count, 1)
+        s.remember(.init(path: "/Volumes/Untitled", name: "Untitled", bookmark: Data([1]), volume: "UUID-A"))
+        s.remember(.init(path: "/Volumes/Untitled 1", name: "Untitled", bookmark: Data([2]), volume: "UUID-A"))
+        XCTAssertEqual(s.places.filter { $0.volume == "UUID-A" }.map(\.bookmark), [Data([2])], "one grant per card, by volume")
+        try s.save()
+        let t = store()
+        XCTAssertEqual(t.places, s.places); XCTAssertEqual(t.count, 1, "the identities are untouched")
+        t.forgetFolders()
+        XCTAssertEqual(t.places.map(\.volume), ["UUID-A"], "folders forgotten, the card's grant kept")
+        XCTAssertEqual(t.count, 1)
+    }
+
     func testOnlyAVolumesRootIsAWholeCard() throws {
         XCTAssertTrue(IngestCopy.isVolumeRoot(URL(fileURLWithPath: "/")))
         XCTAssertFalse(IngestCopy.isVolumeRoot(card), "a folder is never the whole card")

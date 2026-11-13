@@ -64,8 +64,9 @@ body.has #open{display:none}
 .tile .d{position:absolute;left:6px;bottom:4px;font-size:11px;color:#EFECE6;text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .keybar{flex:none;height:34px;display:flex;align-items:center;gap:16px;padding:0 20px;background:#232220;border-top:1px solid rgba(239,236,230,0.06);font-size:12px;color:#B8B3AB;white-space:nowrap;overflow:hidden}
 #foot{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;animation:fade 100ms ease-out}
-#foot .n{color:#EFECE6;cursor:pointer;border-radius:5px;padding:2px 4px}
-#foot .n:hover{background:rgba(239,236,230,0.08)}
+#foot .n,#places .n{color:#EFECE6;cursor:pointer;border-radius:5px;padding:2px 4px}
+#foot .n:hover,#places .n:hover{background:rgba(239,236,230,0.08)}
+#places:empty{display:none}
 .keys{flex:none;display:flex;gap:16px}
 .cap{display:flex;align-items:center;gap:6px}
 .cap b{min-width:20px;height:20px;box-sizing:border-box;padding:0 5px;border-radius:5px;background:rgba(239,236,230,0.12);font-weight:700;font-size:12px;line-height:1;display:grid;place-items:center;color:#EFECE6}
@@ -86,6 +87,7 @@ body.has #open{display:none}
     <div id="open">
       <div class="dropbox" id="dropbox" role="button" tabindex="0" title="Drop a card, folder or files here, or click to choose (O)"><span class="big">Drop</span><span class="k">O</span></div>
       <div class="where">Cards, folders, drives, phone exports: RAW, JPEG, HEIC and clips. Files stay where they are.</div>
+      <div class="where" id="places"></div>
     </div>
     <div id="groups"></div>
   </div>
@@ -123,7 +125,7 @@ const S = {
   items: new Map(),     // key -> item (one per photo or clip)
   sources: new Map(),   // label -> {label, files}
   total: 0, done: 0, t0: 0, reading: false,
-  junk: 0, side: 0, other: 0, paired: 0, proxies: 0,
+  junk: 0, side: 0, other: 0, paired: 0, proxies: 0, lost: 0,
   chips: [], group: 'day', tw: 150, tripName: null,
   clk: null, clkOff: new Set(),  // clocks aligned (lumina-ingest-clocks.js), and the ones undone
   extra: [],            // files read as no photo or clip (other files, proxies): copied as they are, never shown
@@ -135,7 +137,7 @@ const S = {
 function readAll(reader) { return new Promise((res) => { const out = []; const more = () => reader.readEntries((b) => { if (!b.length) return res(out); out.push(...b); more(); }, () => res(out)); more(); }); }
 async function walk(entry, path, files) {
   if (junk(entry.name)) { if (entry.isFile) S.junk++; return; }
-  if (entry.isFile) { const f = await new Promise((r) => entry.file(r, () => r(null))); if (f) files.push({ f, path: path + entry.name }); return; }
+  if (entry.isFile) { const f = await new Promise((r) => entry.file(r, () => r(null))); if (f) files.push({ f, path: path + entry.name }); else S.lost++; return; }
   if (entry.isDirectory) for (const e of await readAll(entry.createReader())) await walk(e, path + entry.name + '/', files);
 }
 async function fromDrop(dt) {
@@ -247,11 +249,16 @@ async function readOne(job) {
 }
 
 // ---- the queue -------------------------------------------------------------------------------
-let pending = [];
+let pending = [], lostSaid = 0;
 async function ingest(groups) {
   const before = new Set(library);
+  const x0 = S.extra.length, l0 = lostSaid;
   const jobs = plan(groups);
-  if (!jobs.length && !S.items.size) say('Nothing to read there');
+  // nothing is turned away for its kind: files that are no photo or clip are still copied, as they are
+  const others = S.extra.length - x0;
+  if (!jobs.length && others) say(`No photos or clips there · ${fmt(others)} other ${others === 1 ? 'file' : 'files'} ${host ? 'copied as they are' : 'left as they are'}`, true);
+  else if (!jobs.length && !S.items.size) say('Nothing to read there');
+  if (S.lost > l0) { say(`${fmt(S.lost - l0)} ${S.lost - l0 === 1 ? 'file' : 'files'} could not be opened`, true); lostSaid = S.lost; }
   S.total += jobs.length; S.reading = true; if (!S.t0) S.t0 = performance.now();
   document.body.classList.add('has'); if (document.activeElement && document.activeElement.id === 'dropbox') document.activeElement.blur();
   pending = pending.concat(jobs);
@@ -327,13 +334,43 @@ window.luminaIngest = {
   // the library's record could not be written (the copies themselves are done and checked)
   saveFailed(why) { say(`Library record not saved (${why}): the copies are checked, and will be checked again next time`, true); },
   // the Mac counted the card itself once its copies were done: files still only on it (left), the first by name
-  audited(d) { const c = cpOf(d.src); c.left = d.left; c.first = d.first || ''; dirty(); }
+  audited(d) { const c = cpOf(d.src); c.left = d.left; c.first = d.first || ''; dirty(); },
+  // a card went in or out, or a folder was chosen: the list under Drop and the C key follow
+  sources(list) { setPlaces(list); }
 };
 const copying = () => S.cpDone < S.cpSent;
 // "safe to format" only for a whole card (the Mac says so: the card's root was chosen) with every file sent copied and
 // checked, and the Mac's count of the card itself: nothing on it without a copy
 const safeSources = () => [...S.cp].filter(([, c]) => c.card && c.sent && c.ok === c.sent && c.left === 0).map(([src]) => ({ src }));
 const leftOn = () => [...S.cp].filter(([, c]) => c.card && c.left > 0).map(([src, c]) => ({ src, left: c.left, first: c.first }));
+
+// ---- sources without Finder: the cards that are in and the usual folders (the Mac lists them and remembers) ----
+let places = [];
+const nextCard = () => places.find((p) => p.card && p.there && !p.read);
+function drawPlaces() {
+  const one = (p) => p.there ? `<span class="n" data-open="${esc(p.id)}" title="Read ${esc(p.name)}">${esc(p.name)}</span>` : `<span title="Not connected">${esc(p.name)}</span>`;
+  const cards = places.filter((p) => p.card), folders = places.filter((p) => !p.card), parts = [];
+  if (cards.length) parts.push((cards.length === 1 ? 'Card ' : 'Cards ') + cards.map(one).join(' '));
+  if (folders.length) parts.push('Usual folders ' + folders.map(one).join(' ') + ' <span class="n" data-forget="1" title="Forget the usual folders; nothing is deleted">Forget these</span>');
+  const el = $('#places'); el.innerHTML = parts.join(' · ');
+  el.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => openPlace(b.dataset.open));
+  const f = el.querySelector('[data-forget]'); if (f) f.onclick = () => call('ingestForgetPlaces').then(setPlaces);
+}
+function setPlaces(list) {
+  if (!Array.isArray(list)) return;
+  const had = new Set(places.filter((p) => p.card).map((p) => p.id));
+  const first = !places.length && !setPlaces.asked; setPlaces.asked = true;
+  places = list;
+  const c = places.find((p) => p.card && !had.has(p.id) && !p.read);
+  if (c && !first) say(`${c.name} is in · C reads it`);
+  drawPlaces(); drawFoot();
+}
+function openPlace(id) {
+  const p = places.find((x) => x.id === id);
+  call('ingestOpen', { id }).then((r) => { if (r && r.ok) { if (p) p.read = true; drawFoot(); } else if (r && r.why !== 'not chosen') say(`Not opened: ${(r && r.why) || 'no answer'}`); });
+}
+// the Mac resolved the source: the file input is answered with it, no panel (run from the app, it counts as a click)
+window.luminaIngestOpenNow = () => $('#pick').click();
 function eject(src) { call('ingestEject', { src }).then((r) => say(r && r.ok ? `Ejected ${src}` : `Not ejected: ${(r && r.why) || 'no answer'}`)); }
 
 // ---- sets: chips --------------------------------------------------------------------------------
@@ -495,8 +532,9 @@ function drawFoot() {
   $('#live').textContent = S.reading ? `reading ${fmt(S.done)} of ${fmt(S.total)}${s > 2 ? ' · ' + Math.round(S.done / s) + ' a second' : ''}`
     : copying() ? `copying ${fmt(S.cpDone)} of ${fmt(S.cpSent)}${cs > 2 ? ' · ' + Math.round((S.cpBytes - S.cpB0) / 1048576 / cs) + ' MB a second' : ''}`
     : S.cpSent ? 'all copied' : S.items.size ? 'all read' : '';
-  const keys = S.items.size ? [['O', 'add'], ['/', 'find'], ['esc', 'clear'], ['= −', 'size']].concat(toPick() ? [['⏎', 'open in Pick']] : []) : [['O', 'open']];
-  $('#keys').innerHTML = keys.map(([k, c]) => `<span class="cap">${k.split(' ').map((x) => `<b>${esc(x)}</b>`).join('')}${c}</span>`).join('');
+  const card = nextCard(), cardKey = card ? [['C', 'read ' + card.name]] : [];
+  const keys = S.items.size ? [['O', 'add']].concat(cardKey, [['/', 'find'], ['esc', 'clear'], ['= −', 'size']], toPick() ? [['⏎', 'open in Pick']] : []) : [['O', 'open']].concat(cardKey);
+  $('#keys').innerHTML = keys.map(([k, c]) => `<span class="cap">${k.split(' ').map((x) => `<b>${esc(x)}</b>`).join('')}${esc(c)}</span>`).join('');
 }
 function tripName() {
   let lo = Infinity, hi = -Infinity; for (const it of S.items.values()) if (it.date) { lo = Math.min(lo, it.date); hi = Math.max(hi, it.date); }
@@ -512,7 +550,7 @@ function drawNotes() {
   const z = day0(), days = new Map(); for (const it of S.items.values()) { const k = dayOf(it, z); if (k) days.set(k, (days.get(k) || 0) + 1); }
   const bc = new Map(); for (const it of S.items.values()) if (it.body) bc.set(it.body, (bc.get(it.body) || 0) + 1);
   const pick = (words, label) => `<span data-c="${esc(words)}">${esc(label)}</span>`;
-  const handled = [S.paired && `${fmt(S.paired)} RAW + JPEG pairs joined`, S.proxies && `${fmt(S.proxies)} proxies left with their clips`, S.side && `${fmt(S.side)} sidecars kept`, S.junk && `${fmt(S.junk)} system files skipped`, S.other && `${fmt(S.other)} other files left alone`].filter(Boolean);
+  const handled = [S.paired && `${fmt(S.paired)} RAW + JPEG pairs joined`, S.proxies && `${fmt(S.proxies)} proxies left with their clips`, S.side && `${fmt(S.side)} sidecars kept`, S.junk && `${fmt(S.junk)} system files skipped`, S.other && `${fmt(S.other)} other files ${host ? 'copied as they are' : 'left alone'}`, S.lost && `${fmt(S.lost)} could not be opened`].filter(Boolean);
   const line = (t) => `<div class="n"><i>●</i><span>${t}</span></div>`;
   d.innerHTML = `<span class="h">What was read</span>`
     + line('From ' + [...S.sources.values()].map((s) => pick(s.label, `${s.label} (${fmt(s.files)})`)).join(', '))
@@ -586,6 +624,7 @@ addEventListener('keydown', (e) => {
   if (e.target === q || e.target.id === 'trip') return;
   if (e.key === '/') { if (S.items.size) { e.preventDefault(); q.focus(); q.select(); } }
   else if ((e.key === 'o' || e.key === 'O') && !e.metaKey) $('#pick').click();
+  else if ((e.key === 'c' || e.key === 'C') && !e.metaKey && !e.ctrlKey) { const c = nextCard(); if (c) openPlace(c.id); }
   else if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); openInPick(); }
   else if (e.key === 'Escape') { if (!$('#notes').classList.contains('off')) { $('#notes').classList.add('off'); drawFoot(); } else if (q.value) { q.value = ''; apply(); } }
   else if (e.key === '=' || e.key === '+') { e.preventDefault(); size(1.25); }
@@ -607,8 +646,9 @@ const trip = $('#trip');
 trip.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); trip.blur(); } });
 trip.addEventListener('input', () => { S.tripName = trip.value.trim() || null; drawTop(); });
 drawFoot();
+call('ingestSources').then(setPlaces);
 // for a headless check: window.__ingest.state()
-window.__ingest = { state: () => ({ items: S.items.size, done: S.done, total: S.total, chips: S.chips, group: S.group, here: count((i) => i.state === 'here'), unread: count((i) => i.state === 'unread'), copied: S.cpDone, sent: S.cpSent, notCopied: count((i) => i.copy === 'bad'), safe: safeSources() }), parse, find: (t) => { q.value = t; apply(); },
+window.__ingest = { state: () => ({ items: S.items.size, done: S.done, total: S.total, chips: S.chips, group: S.group, here: count((i) => i.state === 'here'), unread: count((i) => i.state === 'unread'), copied: S.cpDone, sent: S.cpSent, notCopied: count((i) => i.copy === 'bad'), safe: safeSources(), places, lost: S.lost }), parse, find: (t) => { q.value = t; apply(); },
   clocks: () => S.clk && { clocks: S.clk.clocks.map(({ ids, ...c }) => ({ ...c, off: S.clkOff.has(c.key) })), edges: S.clk.edges }, days: () => [...document.querySelectorAll('#groups .head .t')].map((e) => e.textContent) };
 </script>
 </body>

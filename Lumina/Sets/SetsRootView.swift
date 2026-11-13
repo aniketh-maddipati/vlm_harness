@@ -923,6 +923,8 @@ final class SetsWindowController: NSObject, WKUIDelegate, WKNavigationDelegate, 
                     completionHandler(bridge.ingestRoots.filter { seen.insert($0.standardizedFileURL.path).inserted && FileManager.default.fileExists(atPath: $0.path) })
                     return
                 }
+                // A card or usual folder opened from the page's own list (`ingestOpen`): already resolved, no panel.
+                if let urls = bridge.ingestHost.takeOpening() { bridge.ingestRoots += urls; completionHandler(urls); return }
                 let panel = NSOpenPanel()
                 panel.canChooseDirectories = true
                 panel.canChooseFiles = true
