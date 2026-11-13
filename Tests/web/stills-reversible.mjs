@@ -207,6 +207,17 @@ s = await sel();
 ok(s.done === 0 && s.ord === 0 && s.marks === t0.marks, 'after the storm: no row finished, time order, decisions untouched', [s.done, s.ord]);
 await L(() => __l().setState({ aim: 0, done: {}, ord: {}, tsz: 5 })); await wait(200);
 
+// the resting size follows the shoot: with short rows the tiles grow until a line holds the typical row, never fewer than three; 0 returns to it
+{ const home = p => L(p => { const l = __l(); l._p75 = p; const n = l.tszHome(), Lo = (l.setState({ tsz: n }), null); return n; }, p);
+  const base = await home(0); await wait(200); const perBase = await L(() => __l().layout().per);
+  const h4 = await home(4); await wait(200); const per4 = await L(() => __l().layout().per);
+  ok(perBase > 4 && h4 > base && per4 === 4, 'typical row of 4: tiles grow until a line holds 4', [base, perBase, h4, per4]);
+  const h1 = await home(1); await wait(200); ok(await L(() => __l().layout().per) === 3, 'typical row of 1 or 2: never fewer than 3 to a line', h1);
+  ok(await home(40) === base, 'long rows: the window\'s own size', base);
+  await home(4); await wait(200); await key('Equal', 250); await key('Equal', 250); ok((await st()).tsz > h4, '= still zooms in from it');
+  await key('Digit0', 300); ok((await st()).tsz === h4, '0 returns to the shoot\'s resting size', (await st()).tsz);
+  await L(() => { const l = __l(); l._p75 = 0; l.setState({ tsz: l.tszHome() }); }); await wait(300); ok((await st()).tsz === base, 'and without a read it is as before', base); }
+
 // the large view shows the whole photo whichever way the camera was held: the stored size is landscape, the photo upright
 { const box = async (portrait, pw, ph) => { await L(([po, w, h]) => { const l = __l(), f = l.data.byId[l.data.order[0]]; f.portrait = po; f.pw = w; f.ph = h; l.setState({ cur: l.cellIdOf(f.id), open: null, large: true, zl: 1, zx: 0, zy: 0 }); }, [portrait, pw, ph]); await wait(400);
     return L(() => { const st = document.querySelector('[data-lumina="large-stage"]'), d = st && [...st.querySelectorAll('div')].find(x => /url/.test(x.style.backgroundImage) && x.style.backgroundSize === 'contain' && x.style.boxShadow), r = d.getBoundingClientRect(), sr = st.getBoundingClientRect(), b = __l().pickBox(); return { w: r.width, h: r.height, inside: r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 && r.left >= sr.left - 1 && r.right <= sr.right + 1, bw: b.bw, bh: b.bh }; }); };
