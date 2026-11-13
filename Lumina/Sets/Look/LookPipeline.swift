@@ -53,6 +53,11 @@ nonisolated final class LookPipeline: @unchecked Sendable {
         /// purpose: every place that builds a `Developed` must say which it is (a rebuilt one that
         /// forgot it rendered without the profile, twice).
         var linear: Bool
+        /// The whole picture the stages see, in this image's pixels, when the image is only a part
+        /// of it (the canvas's region tiles): the blurs' radii follow its long edge and the
+        /// vignette its centre and size, so a region renders as the same place of the whole photo
+        /// does. Nil: the image is the whole picture. Read only with `apply(…, crop: false)`.
+        var frame: CGRect? = nil
         var extent: CGRect { image.extent }
         var longEdge: CGFloat { max(image.extent.width, image.extent.height) }
 
@@ -460,7 +465,8 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             masks = masks?.placed(g.transform)
         }
         var anchor = dev.anchor
-        img = stages(look, on: img, asShot: dev.asShot, style: dev.style, anchor: &anchor, linear: dev.linear)
+        let frame = crop ? nil : dev.frame
+        img = stages(look, on: img, asShot: dev.asShot, style: dev.style, frame: frame, anchor: &anchor, linear: dev.linear)
         guard !look.locals.isEmpty, let masks else { return img }
         let extent = img.extent
         for local in look.locals {
@@ -475,7 +481,7 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             }
             // The mask's own exposure moves its own copy of the anchor, as the global one does.
             var a = anchor
-            let adjusted = stages(local.look, on: img, asShot: dev.asShot, style: dev.style, anchor: &a, linear: false)
+            let adjusted = stages(local.look, on: img, asShot: dev.asShot, style: dev.style, frame: frame, anchor: &a, linear: false)
             img = adjusted.applyingFilter("CIBlendWithRedMask", parameters: [kCIInputBackgroundImageKey: img, kCIInputMaskImageKey: mask]).cropped(to: extent)
         }
         return img
@@ -487,7 +493,8 @@ nonisolated final class LookPipeline: @unchecked Sendable {
     /// `linear`: `input` is the linear decode (`Developed.linear`): the camera profile runs first,
     /// carrying the look's Exposure, and the exposure stage is skipped. The profile pass is in the
     /// graph whatever the Exposure, so moving it never changes the set of stages (no compile).
-    private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, style: String?, anchor: inout LookMath.ToneAnchor, linear: Bool) -> CIImage {
+    /// `frame`: the whole picture when `input` is a part of it (`Developed.frame`).
+    private func stages(_ look: Look, on input: CIImage, asShot: Look.WhiteBalance, style: String?, frame: CGRect? = nil, anchor: inout LookMath.ToneAnchor, linear: Bool) -> CIImage {
         var img = input
         var exposed = false
         if linear, let p = LookMath.Profile(rules) {
@@ -497,7 +504,8 @@ nonisolated final class LookPipeline: @unchecked Sendable {
             exposed = true
         }
         let extent = img.extent
-        let longEdge = max(extent.width, extent.height)
+        let whole = frame ?? extent
+        let longEdge = max(whole.width, whole.height)
         let gam = CIVector(x: 1 / rules.perceptualGamma, y: rules.perceptualGamma)
         let lum = CIVector(x: rules.luma[0], y: rules.luma[1], z: rules.luma[2], w: 0)
         let ones = CIVector(x: 1, y: 1, z: 1, w: 1), zero = CIVector(x: 0, y: 0, z: 0, w: 0)
@@ -587,10 +595,10 @@ nonisolated final class LookPipeline: @unchecked Sendable {
                 let k = CIVector(x: look.sharpen * r.k("sharpen", "amountPerUnit", 0.01), y: max(1e-6, r.k("sharpen", "threshold", 0.01)), z: 0, w: 0)
                 pass("lookSharpen", [img, base, k, gam, lum])
             case "vignette":
-                let f = LookMath.VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: extent.height > 0 ? extent.width / extent.height : 1, r)
+                let f = LookMath.VignetteForm(shape: look.vignetteShape, vignette: look.vignette, aspect: whole.height > 0 ? whole.width / whole.height : 1, r)
                 let k = CIVector(x: look.vignette * f.stopsPerUnit, y: f.edge0, z: f.edge1, w: f.keep)
-                let sh = CIVector(x: extent.width > 0 ? f.sx * 2 / extent.width : 0, y: extent.height > 0 ? f.sy * 2 / extent.height : 0, z: f.power, w: f.norm)
-                pass("lookVignette", [img, k, sh, CIVector(x: f.keepPower, y: 1 / r.perceptualGamma, z: 0, w: 0), lum, CIVector(x: extent.midX, y: extent.midY)])
+                let sh = CIVector(x: whole.width > 0 ? f.sx * 2 / whole.width : 0, y: whole.height > 0 ? f.sy * 2 / whole.height : 0, z: f.power, w: f.norm)
+                pass("lookVignette", [img, k, sh, CIVector(x: f.keepPower, y: 1 / r.perceptualGamma, z: 0, w: 0), lum, CIVector(x: whole.midX, y: whole.midY)])
             default:
                 continue
             }

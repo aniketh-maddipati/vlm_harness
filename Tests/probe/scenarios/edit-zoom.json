@@ -1,0 +1,60 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v12.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "sampleMs": 100,
+ "stopOnFailure": false,
+ "checklist": "The Edit canvas zoomed (sharp at rest): a 400 ms pinch from fit to 2× and to 4× through zoom(to:) at 120 placements/s, as plumbing's canvasZoom sends it, then the page's rest 300 ms later. Gated: pinch frame latency p95 ≤ 16 ms and no refresh missed with a placement waiting; once at rest the canvas is drawn from detail at the zoom's resolution within 2.5 s, and its Laplacian variance is at least 0.8 of a full-size export's placed the same way. Folder: LUMINA_EDIT_DIR (probe.sh zoom).",
+ "budgets": {
+  "probePeakMB": 4000
+ },
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_EDIT_DIR}",
+   "via": "js",
+   "timeoutMs": 900000
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(); const p=l.real[Math.min(1,l.real.length-1)]; return lumina.edit.enter(p.path, 'ev:+0.30 con:+10 clr:+20 vig:-20').then(f=>JSON.stringify(f))"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.layout({x:280,y:60,w:880,h:640}, true, {force:true}); return JSON.stringify(lumina.edit.state().rect)"
+  },
+  {
+   "do": "waitFor",
+   "js": "return lumina.edit.stats().then(s=>s.path==='image'||(s.bases&&s.bases.resident>0&&s.settledMs>0))",
+   "timeoutMs": 90000,
+   "what": "bases built and the settled look rendered"
+  },
+  {
+   "do": "editZoom",
+   "zooms": [2, 4],
+   "pinchMs": 400,
+   "hz": 120,
+   "restAfterMs": 300,
+   "p95Ms": 16,
+   "maxMissed": 0,
+   "minSharpRatio": 0.8,
+   "maxSharpMs": 2500
+  },
+  {
+   "do": "dump",
+   "name": "canvas-zoomed",
+   "js": "return lumina.edit.stats()"
+  },
+  {
+   "do": "js",
+   "src": "lumina.edit.leave(); return lumina.edit.state().visible===false"
+  },
+  {
+   "do": "invariants"
+  }
+ ]
+}

@@ -18,6 +18,8 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let decoder: Int
         let nr: Int?
         let dust: Int
+        /// The develop's scale, per mille of the full size (1000: 100 %, the loupe's).
+        var scale: Int = 1000
         let col: Int
         let row: Int
     }
@@ -43,6 +45,8 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         let rel: String
         let decoder: Int
         let roi: LookCanvasSchedule.ROI
+        /// The develop's scale (1: the RAW's full size). `photoSize`, `rect` and `image` are at it.
+        var scale: Double = 1
         /// The quarter turn (`Look.rot`) the region was made for: `roi`, `photoSize`, `rect` and
         /// `image` are all in the turned picture. The tiles themselves are in the frame as shot.
         var rot: Int = 0
@@ -122,37 +126,41 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
     /// with the composite. Failures name the decoder so the caller can fall back one version.
     /// `rot` is the look's quarter turn: `roi` is then a region of the turned picture, and the
     /// region comes back turned (the crop is not applied here, as before).
-    func region(rel: String, url: URL, decoder: Int, nr: Double?, dust: Bool = false, roi: LookCanvasSchedule.ROI, rot: Int = 0, seq: Int,
+    /// `scale` < 1 develops the RAW smaller (`scaleFactor`) and tiles that: the zoomed canvas at
+    /// rest below 100 % (`LookRawPolicy.detailScale`); `margin` 0 leaves out the tiles around it.
+    func region(rel: String, url: URL, decoder: Int, nr: Double?, dust: Bool = false, roi: LookCanvasSchedule.ROI, rot: Int = 0, scale: Double = 1, margin: Int = 1, seq: Int,
                 first: @escaping (Double) -> Void, done: @escaping (Result<Region, Error>) -> Void) {
         lock.withLock { latest = max(latest, seq) }
         queue.addOperation { [self] in
-            let r = Result { try self.render(rel: rel, url: url, decoder: decoder, nr: nr, dust: dust, roi: roi, rot: rot, seq: seq, first: first) }
+            let r = Result { try self.render(rel: rel, url: url, decoder: decoder, nr: nr, dust: dust, roi: roi, rot: rot, scale: scale, margin: margin, seq: seq, first: first) }
             DispatchQueue.main.async { done(r) }
         }
     }
 
     private func stale(_ seq: Int) -> Bool { lock.withLock { latest > seq } }
 
-    private func render(rel: String, url: URL, decoder: Int, nr: Double?, dust: Bool, roi: LookCanvasSchedule.ROI, rot: Int, seq: Int, first: @escaping (Double) -> Void) throws -> Region {
+    private func render(rel: String, url: URL, decoder: Int, nr: Double?, dust: Bool, roi: LookCanvasSchedule.ROI, rot: Int, scale: Double, margin: Int, seq: Int, first: @escaping (Double) -> Void) throws -> Region {
         if stale(seq) { throw Cancelled() }
         let t0 = Date()
         let dustKey = dust ? LookDust.Registry.shared.generation : 0
-        let dkey = "\(rel)|\(decoder)|\(nr.map { Int($0.rounded()) } ?? -1)|\(dustKey)"
+        let permille = scale >= 0.999 ? 1000 : max(1, Int((scale * 1000).rounded()))
+        let dkey = "\(rel)|\(decoder)|\(nr.map { Int($0.rounded()) } ?? -1)|\(dustKey)|\(permille)"
         let dev: LookPipeline.Developed
         if let d = lock.withLock({ developed[dkey] }) { dev = d } else {
-            dev = try LookPipeline.develop(url: url, longEdge: nil, rules: pipeline.rules, decoderVersion: decoder, nr: nr, dust: dust)
+            let long = permille == 1000 ? nil : LookPipeline.nativeSize(url: url).map { Int((max($0.width, $0.height) * Double(permille) / 1000).rounded()) }
+            dev = try LookPipeline.develop(url: url, longEdge: long, rules: pipeline.rules, decoderVersion: decoder, nr: nr, dust: dust)
             lock.withLock { developed = [dkey: dev] }          // one full-size graph at a time
         }
         let size = dev.extent.size
         let w = Int(size.width), h = Int(size.height)
-        let wanted = LookRawPolicy.tiles(covering: LookRawPolicy.unturned(roi, rot: rot), width: w, height: h, tile: tileSize)
+        let wanted = LookRawPolicy.tiles(covering: LookRawPolicy.unturned(roi, rot: rot), width: w, height: h, tile: tileSize, margin: margin)
         guard !wanted.isEmpty else { throw LookPipeline.Failure("empty region") }
         var tiles: [Tile] = []
         var hits = 0, firstMs = 0.0, firstSent = false
         let nrKey = nr.map { Int($0.rounded()) }
         for (col, row) in wanted {
             if stale(seq) { throw Cancelled() }
-            let key = Key(rel: rel, decoder: decoder, nr: nrKey, dust: dustKey, col: col, row: row)
+            let key = Key(rel: rel, decoder: decoder, nr: nrKey, dust: dustKey, scale: permille, col: col, row: row)
             if let t = lock.withLock({ cache.get(key) }) { tiles.append(t); hits += 1 }
             else {
                 let tt = Date()
@@ -178,11 +186,11 @@ nonisolated final class LookRegionTiles: @unchecked Sendable {
         // The quarter turn: the composite and its place move with the whole frame's transform.
         let turn = LookPipeline.turnTransform(size: size, rot: rot)
         if !turn.isIdentity {
-            return Region(rel: rel, decoder: decoder, roi: roi, rot: rot, photoSize: rot % 180 == 0 ? size : CGSize(width: size.height, height: size.width),
+            return Region(rel: rel, decoder: decoder, roi: roi, scale: Double(permille) / 1000, rot: rot, photoSize: rot % 180 == 0 ? size : CGSize(width: size.height, height: size.width),
                           rect: rect.applying(turn), image: composite.transformed(by: turn), asShot: dev.asShot, anchor: dev.anchor, style: dev.style, linear: dev.linear,
                           tiles: tiles.count, fromCache: hits, firstTileMs: firstMs, totalMs: total, facts: facts)
         }
-        return Region(rel: rel, decoder: decoder, roi: roi, photoSize: size, rect: rect, image: composite, asShot: dev.asShot, anchor: dev.anchor, style: dev.style, linear: dev.linear,
+        return Region(rel: rel, decoder: decoder, roi: roi, scale: Double(permille) / 1000, photoSize: size, rect: rect, image: composite, asShot: dev.asShot, anchor: dev.anchor, style: dev.style, linear: dev.linear,
                       tiles: tiles.count, fromCache: hits, firstTileMs: firstMs, totalMs: total, facts: facts)
     }
 
