@@ -95,6 +95,80 @@ for (let i = 0; i < 4 && (await st()).view === 'edit'; i++) await key('Escape', 
 s = await st();
 ok(s.view === 'cull', 'Esc in Edit backs out to Pick once nothing is open', s);
 
+// select-in: S orders untouched rows sharpest first and S again is time order; D finishes a row, ⌘Z or ⇧D opens it;
+// [ and ] set the target; ⇧T shows the keepers alone to trim, ⇧T or Esc goes back. Each move is a 120 ms transform / opacity snap.
+const sel = () => L(() => { const l = __l(), s = l.state, Lo = l.layout(); return { cur: s.cur, done: Object.keys(s.done || {}).length, ord: Object.keys(s.ord || {}).length, aim: l.aimN(), pass: s.pass || 1, trim: !!s.trim, kept: l.kept().length, marks: JSON.stringify(Object.entries(s.marks).sort()), cells: Lo.cells.map(c => c.id).join(','), rows: Lo.rows.map(r => r.cells.map(c => c.id).join(',')), touched: Lo.rows.map(r => r.r.ids.some(id => s.marks[id])), bars: Lo.rows.filter(r => r.bar).length, undo: s.undo.length, flips: l._flipN || 0, last: l._flipLast || null }; });
+const anims = () => L(() => document.getAnimations().filter(a => a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('[data-screen-label="1 Cull"]') && a.effect.target.matches('[data-tile],[data-lumina="row"]')).map(a => ({ props: [...new Set(a.effect.getKeyframes().flatMap(k => Object.keys(k)).filter(k => !['offset', 'easing', 'composite', 'computedOffset'].includes(k)))], ms: a.effect.getTiming().duration })));
+await L(() => { const l = __l(); l.setState({ pass: 1, trim: false, open: null, large: false, done: {}, ord: {}, aim: 0, tsz: 2, cur: l.data.order[0] }); }); await wait(400);
+const a0 = await sel();
+await page.keyboard.press('KeyS'); const sAn = await anims(); await wait(250); s = await sel();
+ok(s.ord > 0 && s.cells !== a0.cells && s.cells.split(',').sort().join() === a0.cells.split(',').sort().join(), 'S puts the rows sharpest first: same photos, another order', [s.ord, s.cells === a0.cells]);
+ok(s.marks === a0.marks && s.cur === a0.cur && s.undo === a0.undo, 'S decides nothing and keeps the cursor on its photo', s);
+ok(a0.touched.some(Boolean) && a0.touched.every((t, i) => !t || s.rows[i] === a0.rows[i]), 'rows with a decision in them stay in time order', a0.touched);
+ok(sAn.length > 0 && sAn.every(a => a.ms <= 130 && a.props.every(p => p === 'transform' || p === 'opacity')), 'the reorder is a snap of at most 130 ms on transform and opacity only', sAn.slice(0, 3));
+const chips = await L(() => [...document.querySelectorAll('[data-lumina="tile-chips"]')].map(n => n.textContent).join('|'));
+ok(/^(soft|motion|blown|peak|\|)*$/.test(chips), 'ranked tiles carry only soft / motion / blown / peak chips', chips);
+await page.keyboard.press('KeyS'); const sAn2 = await anims(); await wait(250); s = await sel();
+ok(s.ord === 0 && s.cells === a0.cells && s.cur === a0.cur, 'S again is time order, as it was', s.ord);
+ok(sAn2.length === sAn.length, 'and plays the same number of moves back', [sAn.length, sAn2.length]);
+
+// D on a row with a keeper and on one with none; one ⌘Z each; ⇧D opens the last one
+for (const withKeep of [true, false]) {
+  const name = withKeep ? 'a row with a keeper' : 'a row with no keeper';
+  const found = await L(w => { const l = __l(), s = l.state, Lo = l.layout(); const row = Lo.rows.find(r => r.cells.length && r.r.ids.some(id => s.marks[id] === 'keep') === w && Lo.rows.some(x => x !== r && x.cells.length)); if (!row) return false; l.setState({ cur: row.cells[0].id, open: null }); return true; }, withKeep); await wait(250);
+  if (!found) { ok(false, 'found ' + name); continue; }
+  const b0 = await sel();
+  await page.keyboard.press('KeyD'); const dAn = await anims(); await wait(250); s = await sel();
+  ok(s.done === b0.done + 1 && s.bars === b0.bars + 1 && s.marks === b0.marks && s.undo === b0.undo + 1, 'D finishes ' + name + ': it folds, nothing in it is decided, one undo step', s);
+  ok(s.cur !== b0.cur && s.cells.split(',').includes(s.cur), 'and the cursor is on the next row', [s.cur, b0.cur]);
+  ok(dAn.length > 0 && dAn.every(a => a.ms <= 130 && a.props.every(p => p === 'transform' || p === 'opacity')), 'the fold is a snap on transform and opacity', dAn.slice(0, 3));
+  await key('Meta+KeyZ', 250); s = await sel();
+  ok(s.done === b0.done && s.cells === b0.cells && s.cur === b0.cur && s.marks === b0.marks, '⌘Z opens the row again, cursor back where it was', [s.done, s.cur, b0.cur]);
+  await key('Meta+Shift+KeyZ', 250); s = await sel();
+  ok(s.done === b0.done + 1, '⇧⌘Z finishes it again', s.done);
+  await key('Shift+KeyD', 250); s = await sel();
+  ok(s.done === b0.done && s.cells === b0.cells && s.marks === b0.marks, '⇧D opens the finished row', [s.done, s.cells === b0.cells]);
+}
+ok(await L(() => document.querySelectorAll('[data-lumina-flip]').length) === 0, 'the fold leaves no copies behind');
+
+// keys pressed while a snap is still playing apply in order
+const q0 = await sel();
+for (const k of ['KeyD', 'KeyD', 'KeyS', 'Meta+KeyZ', 'Meta+KeyZ', 'KeyS']) await page.keyboard.press(k);
+await wait(400); s = await sel();
+ok(s.done === q0.done && s.ord === 0 && s.cells === q0.cells && s.marks === q0.marks, 'D D S ⌘Z ⌘Z S with no pause ends where it began', [s.done, s.ord, s.cells === q0.cells]);
+
+// the target, and the trim view
+await key('BracketRight'); s = await sel(); ok(s.aim === 21, '] raises the target', s.aim);
+await key('BracketLeft'); s = await sel(); ok(s.aim === 20, '[ lowers it back', s.aim);
+await L(() => __l().setState({ aim: 2 })); await wait(150);
+const t0 = await sel();
+ok(t0.kept > 2, 'more kept than the target', t0.kept);
+const lead = await L(() => document.body.innerText.split('\n').filter(x => /\d+ \/ \d+/.test(x)).join(' | '));
+ok(new RegExp('\\b' + t0.kept + ' / 2\\b').test(lead), 'kept / target is on screen', lead);
+await key('Shift+KeyT', 300); s = await sel();
+ok(s.pass === 2 && s.trim && s.cells.split(',').length === t0.kept && s.marks === t0.marks, '⇧T shows the keepers alone', s);
+const t1 = s;
+await page.keyboard.press('KeyR'); const rAn = await anims(); await wait(250); s = await sel();
+ok(s.kept === t0.kept - 1 && s.cells.split(',').length === t0.kept - 1, 'R drops one', s.kept);
+ok(rAn.every(a => a.ms <= 130 && a.props.every(p => p === 'transform' || p === 'opacity')), 'the others close up on transform and opacity', rAn.slice(0, 3));
+await key('Meta+KeyZ', 250); s = await sel();
+ok(s.kept === t0.kept && s.cells === t1.cells && s.trim, '⌘Z brings it back in place', [s.kept, s.cells, t1.cells]);
+await key('Shift+KeyT', 300); s = await sel();
+ok(s.pass === 1 && !s.trim && s.cells === t0.cells && s.cur === t0.cur && s.marks === t0.marks, '⇧T again: all photos, cursor back where it was', [s.pass, s.cur, t0.cur]);
+await key('Shift+KeyT', 300); await key('Escape', 300); s = await sel();
+ok(s.pass === 1 && !s.trim && s.cells === t0.cells, 'Esc leaves the trim view too', s.pass);
+
+// frames while finishing and reopening rows (reported, not gated: headless Chromium, the sample shoot)
+const fr = await page.evaluate(async () => { const gaps = []; let last = performance.now(), on = true; const tick = t => { gaps.push(t - last); last = t; if (on) requestAnimationFrame(tick); }; requestAnimationFrame(tick);
+  const press = (code, o = {}) => window.dispatchEvent(new KeyboardEvent('keydown', { key: o.key || code.replace('Key', '').toLowerCase(), code, bubbles: true, cancelable: true, ...o }));
+  for (let i = 0; i < 12; i++) { press('KeyD'); await new Promise(r => setTimeout(r, 70)); press('KeyZ', { key: 'z', metaKey: true }); await new Promise(r => setTimeout(r, 70)); }
+  for (let i = 0; i < 6; i++) { press('KeyS'); await new Promise(r => setTimeout(r, 70)); }
+  await new Promise(r => setTimeout(r, 200)); on = false; const g = gaps.slice(2).sort((a, b) => a - b); return { frames: g.length, median: +g[g.length >> 1].toFixed(1), p95: +g[Math.floor(g.length * 0.95)].toFixed(1), max: +g[g.length - 1].toFixed(1), over25: g.filter(x => x > 25).length, over34: g.filter(x => x > 34).length }; });
+console.log('note frames during 12 × (D, ⌘Z) + 6 × S at 70 ms: ' + JSON.stringify(fr));
+s = await sel();
+ok(s.done === 0 && s.ord === 0 && s.marks === t0.marks, 'after the storm: no row finished, time order, decisions untouched', [s.done, s.ord]);
+await L(() => __l().setState({ aim: 0, done: {}, ord: {}, tsz: 5 })); await wait(200);
+
 // taken out
 await L(() => { const l = __l(); l.setState({ cur: l.data.order[0] }); }); await key('Enter', 300);
 const foot = await L(() => (document.querySelector('[data-lumina="live"]') || {}).textContent || '');
