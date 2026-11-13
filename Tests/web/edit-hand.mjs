@@ -218,7 +218,7 @@ for (const eng of engines) {
   await page.locator('[data-lumina="rail"] [data-task="crop"]').click(); await page.waitForTimeout(150);
   ok(await E(`return !!E.state.crop`), tag + 'rail: Crop opens the crop'); await page.keyboard.press('Escape'); await page.waitForTimeout(100);
   await page.locator('[data-lumina="rail"] [data-task="light"]').click(); await page.waitForTimeout(120);
-  ok(await E(`return E.task() === 'light' && E.list().map(x => x[0]).join() === 'ev,con,wh,hl,sh,bl'`), tag + 'rail: Light back on its tone rows');
+  ok(await E(`return E.task() === 'light' && E.list().map(x => x[0]).join() === 'ev,wb,con,hl,sh,sat'`), tag + 'rail: Light back on its six rows');
   const rows = await page.evaluate(() => [...document.querySelectorAll('[data-slider]')].map(e => e.getBoundingClientRect().height));
   ok(rows.length === 6 && rows.every(h => h <= 44), tag + 'rail: rows fold to one line', rows);
 
