@@ -4,8 +4,8 @@ Start a new loop from this file plus `docs/dev/INGEST-AGENT-LOOP.md` (roles and 
 
 ## Where it stands
 
-Branch `claude/ingest-one-a7bf8b` (worktree `.claude/worktrees/ingest-one-a7bf8b`), six commits on top of main `f72fa6c5`,
-**not pushed, no PR**:
+Branch `claude/ingest-one-a7bf8b` (worktree `.claude/worktrees/ingest-one-a7bf8b`), on top of main `f72fa6c5`,
+**pushed to origin, no PR**:
 
 | Commit | What |
 |---|---|
@@ -19,19 +19,22 @@ Branch `claude/ingest-one-a7bf8b` (worktree `.claude/worktrees/ingest-one-a7bf8b
 Checked (all light, no Xcode): `IngestCopyTests` 17/17 in a two-file SwiftPM copy, `IngestHost` typechecked against stubs,
 `trust_check.py`, `page_bytes.py` 12/12, `lumina-ingest-shoots.test.mjs`, `Tests/web/ingest-{sources,shoots,clocks}.mjs`.
 
-**Never done on any of the six commits:** an `xcodebuild`, the hosted logic tests (`SetsFileOpsTests` included), one run in
+**Never done on any of these commits:** an `xcodebuild`, the hosted logic tests (`SetsFileOpsTests` included), one run in
 the app, one real card through the app. The line added to `SetsRootView.runOpenPanelWith` has never been compiled.
 
 ## The card copy (outside the app)
 
 `~/LuminaEvidence/ingest-card-t7/tool/cardrun` copies `/Volumes/Untitled` → `/Volumes/T7/Lumina/ingest-card-2026-11-12`,
-log `run4.log`, record `library.json`. Rebuilt from `9a879794`; 34 MB resident after 3 minutes (was 76 GB).
-- The T7 cannot take the whole card: about 83 GiB was left on the card, 69 GiB free, the tool keeps 10 GB. Expect about
-  24 GiB logged `NO ROOM`. **The card is not safe to format.**
+logs `run1.log` to `run4.log`, record `library.json`. Rebuilt from `9a879794`; 28 MB resident after an hour (was 76 GB).
+- **The card is not safe to format.** Run 4 ended at 14:43 when the T7 disconnected: about 1,115 of 1,632 items are on
+  the T7, 516 are only on the card (from `PRIVATE/M4ROOT/CLIP/C0341.MP4` on; they failed at once as `destination gone`,
+  nothing was written to the internal disk). Not re-checked since the T7 came back.
+- The T7 is back with 18 GiB free; the tool keeps 10 GB, so the rest will not fit. The owner has to say where it goes.
 - One broken link on the card (`C0002.fcpbundle/…/C4815.mp4`) has no data behind it.
 - A 365 MB half-written `.lumina-tmp-…` sits in `2026-09-09/` on the T7 from the run that was killed.
 - The tool plans its own folders (file time, not EXIF; no shoots, no pattern, packages file by file). What is on the T7
   is the tool's layout, not the app's.
+- Hand-over and the prompt for the next loop: `~/LuminaEvidence/continuation-2026-11-13/ingest.md`, `ingest-prompt.md`.
 
 ## What went well
 
@@ -59,8 +62,8 @@ log `run4.log`, record `library.json`. Rebuilt from `9a879794`; 34 MB resident a
 
 ## Next, in order
 
-1. When `cardrun` ends: read the last line of `run4.log` and its `NO ROOM` / `NOT COPIED` lines, tell the owner what is
-   still only on the card. Ask before removing the temp file or freeing T7 space. Nothing else touches the card or that folder.
+1. Ask the owner where the 516 items still only on the card go (the T7 has no room). Before a rerun: measure what is
+   left, check the destination has room, run the tool small first, watch its memory. Ask before removing the temp file.
 2. Build and run the logic tests (`python3 Scripts/test_guard.py run --name ingest-logic --limit 900 -- xcodebuild …
    -only-testing:LuminaLogicTests/IngestCopyTests -only-testing:LuminaLogicTests/SetsFileOpsTests test`), then the
    classes `Scripts/ci_changes.py` names. Fix what the compiler finds.
@@ -70,7 +73,7 @@ log `run4.log`, record `library.json`. Rebuilt from `9a879794`; 34 MB resident a
 5. Open items: no retry for "not copied" after a lost library; shoot names and corrections are forgotten on reload;
    a split is only offered at the start of a part; companions of an "other" file can be copied twice; `cardrun`'s own
    planning should be replaced by the page's (or dropped).
-6. One push and one PR, on the owner's word.
+6. One PR, on the owner's word (the branch is already on origin).
 
 ## Rules to add to the loop
 
