@@ -222,6 +222,17 @@ await L(() => __l().setState({ aim: 0, done: {}, ord: {}, tsz: 5 })); await wait
   await key('Digit0', 300); ok((await st()).tsz === h4, '0 returns to the shoot\'s resting size', (await st()).tsz);
   await L(() => { const l = __l(); l._p75 = 0; l.setState({ tsz: l.tszHome() }); }); await wait(300); ok((await st()).tsz === base, 'and without a read it is as before', base); }
 
+// an upright photo's tile has the photo's own width: no bars, nothing past the right edge, no two tiles overlapping
+{ const flip = on => L(on => { const l = __l(), B = l.data.byId, Lo = l.layout(); const ids = Lo.rows.filter(r => r.cells.length >= 4)[0].cells.filter(c => c.t === 'single').slice(1, 4).map(c => c.id); window.__up = window.__up || ids; window.__up.forEach(id => { B[id].portrait = on; }); l._lk = null; l.forceUpdate(); return window.__up; }, on);
+  const widths = () => L(() => [...__l().scrollRef.current.querySelectorAll('[data-tile]')].map(n => n.dataset.tile + ':' + Math.round(n.firstElementChild.getBoundingClientRect().width)).join(','));
+  await L(() => __l().setState({ cur: __l().data.order[0], open: null })); await wait(300); const w0 = await widths(); const up = await flip(true); await wait(400);
+  const g = await L(up => { const l = __l(), Lo = l.layout(), el = l.scrollRef.current, er = el.getBoundingClientRect(), T = [...el.querySelectorAll('[data-tile]')].map(n => ({ id: n.dataset.tile, r: n.firstElementChild.getBoundingClientRect() })).filter(t => t.r.bottom > er.top && t.r.top < er.bottom);
+    const lap = []; T.forEach((a, i) => T.slice(i + 1).forEach(b => { if (a.r.left < b.r.right - 1 && b.r.left < a.r.right - 1 && a.r.top < b.r.bottom - 1 && b.r.top < a.r.bottom - 1) lap.push([a.id, b.id]); }));
+    return { TW: Lo.TW, TH: Lo.TH, up: T.filter(t => up.includes(t.id)).map(t => [Math.round(t.r.width), Math.round(t.r.height)]), other: T.filter(t => !up.includes(t.id)).slice(0, 3).map(t => Math.round(t.r.width)), past: T.filter(t => t.r.right > er.left + el.clientWidth + 1).length, lap: lap.length, dotted: [...el.querySelectorAll('[data-tile]')].filter(n => up.includes(n.dataset.tile) && [...n.querySelectorAll('div')].some(d => /dotted/.test(d.style.border))).length }; }, up);
+  ok(g.up.length >= 2 && g.up.every(([w, h]) => Math.abs(w / h - 2 / 3) < 0.03 && h === g.TH) && g.other.every(w => w === g.TW), 'upright tiles are 2:3 at the row\'s height, the others unchanged', g);
+  ok(g.past === 0 && g.lap === 0 && g.dotted === 0, 'none runs past the right edge, none overlaps, no guide box left on them', g);
+  await flip(false); await wait(300); ok(await widths() === w0, 'turned back, every tile is where and as wide as it was'); }
+
 // nothing resizes by itself: when a read ends the tiles stay the size they are, and 0 / Reset zoom is what goes to the shoot's size
 { const snap = () => L(() => { const l = __l(), Lo = l.layout(), n = document.querySelector('[data-tile]').firstElementChild.getBoundingClientRect(); return { tsz: l.state.tsz, TW: Lo.TW, per: Lo.per, w: Math.round(n.width), home: l.tszHome(), reset: !!document.querySelector('[data-lumina="zoom-reset"]') }; });
   await L(() => { const l = __l(); l._p75 = 0; l.setState({ tsz: l.tszHome(), realLoad: { done: 1, total: 2, t0: Date.now() } }); }); await wait(300);
