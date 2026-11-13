@@ -154,6 +154,27 @@ for (const k of ['KeyD', 'KeyS', 'Shift+KeyS', 'KeyD', 'Meta+KeyZ', 'Meta+KeyZ']
 await wait(400); s = await sel();
 ok(s.done === q0.done && s.ord === 0 && s.cells === q0.cells && s.marks === q0.marks, 'D S ⇧S D ⌘Z ⌘Z with no pause ends where it began', [s.done, s.ord, s.cells === q0.cells]);
 
+// ⏎ and R carry on in the direction the cursor last moved: ← turns it round, → turns it forward; Q brings a removed photo back
+{ await L(() => { const l = __l(), Lo = l.layout(), s = l.state; const row = Lo.rows.filter(r => r.cells.length >= 4 && r.cells.every(c => c.t === 'single') && !r.r.ids.some(id => s.marks[id]))[0] || Lo.rows.filter(r => r.cells.filter(c => c.t === 'single').length >= 4)[0]; const C = row.cells.filter(c => c.t === 'single'); window.__run = C.slice(0, 4).map(c => c.id); l.setState({ cur: window.__run[0], open: null }); }); await wait(250);
+  const run = await L(() => window.__run), at = async () => (await sel()).cur, kept = id => L(i => __l().state.marks[i] === 'keep', id);
+  const adjacent = await L(() => { const C = __l().layout().cells, i = C.findIndex(c => c.id === window.__run[0]); return window.__run.every((id, k) => C[i + k] && C[i + k].id === id); });
+  if (!adjacent) ok(false, 'found four singles side by side', run); else {
+    const m0 = (await sel()).marks;
+    await key('Enter'); ok(await kept(run[0]) && await at() === run[1], '⏎ keeps and moves on to the right');
+    await key('ArrowRight'); await key('ArrowLeft'); ok(await at() === run[1], '→ then ← : the cursor is turned round');
+    await key('Enter'); ok(await kept(run[1]) && await at() === run[0], '⏎ now keeps and carries on to the left', await at());
+    await key('ArrowRight'); await key('ArrowRight'); await key('ArrowRight'); await key('ArrowLeft'); ok(await at() === run[2], 'on the third photo, facing left');
+    await key('Enter'); ok(await kept(run[2]) && await at() === run[1], '⏎ keeps the third, back to the second');
+    await page.keyboard.press('KeyR'); const ring = await L(() => [...document.querySelectorAll('[data-lumina-ring] > div')].map(n => n.getAnimations().map(x => [x.effect.getTiming().duration, Object.keys(x.effect.getKeyframes()[0]).includes('opacity')])).flat()); await wait(250);
+    ok(ring.length === 1 && ring[0][0] === 120 && ring[0][1], 'un-keep plays the kept ring out over 120 ms, as it came in', ring);
+    ok(await L(() => document.querySelectorAll('[data-lumina-ring]').length) === 0, 'and leaves nothing behind');
+    ok(!(await kept(run[1])) && await at() === run[0], 'R un-keeps going left the same way', await at());
+    await key('KeyQ'); ok(await kept(run[1]) && await at() === run[1], 'Q brings it back, cursor on it', await at());
+    await key('ArrowRight'); await key('KeyR'); ok(!(await kept(run[2])) && await at() === run[3], '→ turns it forward: R un-keeps and moves right', await at());
+    for (let i = 0; i < 6 && (await sel()).marks !== m0; i++) await key('Meta+KeyZ', 150);
+    ok((await sel()).marks === m0, '⌘Z walks every one of those back'); }
+  await L(() => { const l = __l(); l._dir = 1; l.setState({ cur: l.data.order[0] }); }); await wait(200); }
+
 // the target, and the trim view
 await key('BracketRight'); s = await sel(); ok(s.aim === 21, '] raises the target', s.aim);
 await key('BracketLeft'); s = await sel(); ok(s.aim === 20, '[ lowers it back', s.aim);
