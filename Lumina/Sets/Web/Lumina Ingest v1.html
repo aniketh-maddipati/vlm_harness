@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="lumina-core-v4.js"></script>
 <script src="lumina-ingest-clocks.js"></script>
+<script src="lumina-ingest-shoots.js"></script>
 <style>
 /* Stills' own look (Lumina Sets v12): its colours, type, Open's Drop box, Pick's load bar, rows and tiles,
    Handoff's find box, the import notes and the key bar. Nothing here is new. */
@@ -20,7 +21,7 @@ body{margin:0;background:#1E1D1B;color:#EFECE6;font-family:-apple-system,BlinkMa
 .mark{font-family:'Iowan Old Style','Palatino',Georgia,serif;font-weight:400;font-size:21px}
 #name{display:none;align-items:center;gap:8px;padding:3px 10px;border-radius:8px}
 body.has #name{display:flex}
-#trip{min-width:60px;max-width:220px;background:transparent;border:0;outline:none;padding:0;font:inherit;font-size:14px;font-weight:600;color:#EFECE6}
+#trip,.nm{min-width:60px;max-width:220px;background:transparent;border:0;outline:none;padding:0;font:inherit;font-size:14px;font-weight:600;color:#EFECE6}
 #meta{font-size:12px;color:#9A958D;white-space:nowrap}
 .findbox{display:none;flex:0 1 460px;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:9px;background:#161514;box-shadow:inset 0 0 0 1px rgba(239,236,230,0.14);transition:box-shadow 140ms ease-out;margin-left:auto}
 body.has .findbox{display:flex}
@@ -55,6 +56,9 @@ body.has #open{display:none}
 .head{height:30px;display:flex;align-items:center;gap:12px;font-size:12px;white-space:nowrap}
 .head .t{color:#EFECE6}
 .head .p{color:#9A958D}
+.head .n{opacity:0;transition:opacity 140ms ease-out}
+.row:hover .head .n,.head .n.on{opacity:1}
+.head.blk{height:38px;margin-top:8px}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tw,150px),1fr));gap:8px}
 .tile{position:relative;aspect-ratio:3/2;border-radius:3px;background:#3C3836;will-change:transform}
 .tile img{width:100%;height:100%;display:block;border-radius:3px;object-fit:cover;opacity:0;transition:opacity 180ms ease-out}
@@ -64,8 +68,8 @@ body.has #open{display:none}
 .tile .d{position:absolute;left:6px;bottom:4px;font-size:11px;color:#EFECE6;text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .keybar{flex:none;height:34px;display:flex;align-items:center;gap:16px;padding:0 20px;background:#232220;border-top:1px solid rgba(239,236,230,0.06);font-size:12px;color:#B8B3AB;white-space:nowrap;overflow:hidden}
 #foot{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;animation:fade 100ms ease-out}
-#foot .n,#places .n{color:#EFECE6;cursor:pointer;border-radius:5px;padding:2px 4px}
-#foot .n:hover,#places .n:hover{background:rgba(239,236,230,0.08)}
+#foot .n,#places .n,.head .n{color:#EFECE6;cursor:pointer;border-radius:5px;padding:2px 4px}
+#foot .n:hover,#places .n:hover,.head .n:hover{background:rgba(239,236,230,0.08)}
 #places:empty{display:none}
 .keys{flex:none;display:flex;gap:16px}
 .cap{display:flex;align-items:center;gap:6px}
@@ -119,7 +123,7 @@ const junk = (name) => name.startsWith('.') || name === 'Thumbs.db' || name === 
 const host = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lumina;
 const call = (op, body) => host ? host.postMessage(Object.assign({ op }, body || {})).catch(() => null) : Promise.resolve(null);
 let library = new Set(), libName = null;
-const libFrom = (r) => { if (r && r.keys) { library = new Set(r.keys); libName = r.folder || null; } };
+const libFrom = (r) => { if (r && r.keys) { library = new Set(r.keys); libName = r.folder || null; S.pattern = r.pattern || null; } };
 call('ingestLibrary').then((r) => { libFrom(r); drawNotes(); });
 const S = {
   items: new Map(),     // key -> item (one per photo or clip)
@@ -127,6 +131,9 @@ const S = {
   total: 0, done: 0, t0: 0, reading: false,
   junk: 0, side: 0, other: 0, paired: 0, proxies: 0, lost: 0,
   chips: [], group: 'day', tw: 150, tripName: null,
+  cut: new Set(), join: new Set(), names: new Map(),  // shoots corrected by hand (lumina-ingest-shoots.js) and named
+  shoots: [], at: new Map(),   // the shoots as they stand, and key -> {shoot, part}
+  pattern: null, patEdit: false, held: false,  // the folder pattern (kept with the library); a copy waiting for the go
   clk: null, clkOff: new Set(),  // clocks aligned (lumina-ingest-clocks.js), and the ones undone
   extra: [],            // files read as no photo or clip (other files, proxies): copied as they are, never shown
   cp: new Map(),        // source -> {sent, ok, bad, card} for the copy into the library
@@ -277,7 +284,9 @@ async function ingest(groups) {
     S.reading = false;
     alignClocks();
     dirty(true);
-    copyAll();
+    // with a folder pattern the copy waits for the go, so the folders can be read first; plain dated folders copy at once
+    if (host && S.pattern && unsent()) { S.held = true; $('#notes').classList.remove('off'); say('Ready to copy · the folders are listed below · I copies', true); dirty(); }
+    else copyAll();
   }
 }
 
@@ -298,16 +307,43 @@ function shiftClocks() {
 const pad = (n) => String(n).padStart(2, '0');
 const dayFolder = (it) => { if (!it.date) return 'No date'; const d = new Date(it.date); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const cpOf = (src) => { if (!S.cp.has(src)) S.cp.set(src, { sent: 0, ok: 0, bad: 0, card: false, left: null }); return S.cp.get(src); };
+// ---- shoots (proposed from gaps, corrected by hand) and the folder each file goes into --------------------
+const SH = window.LuminaIngestShoots;
+function shootsNow() {
+  S.shoots = SH.propose([...S.items.values()].filter((it) => it.date).map((it) => ({ id: it.key, t: it.date, body: it.clock || it.body, src: it.src })), { cut: S.cut, join: S.join });
+  S.at = new Map(); for (const shoot of S.shoots) for (const part of shoot.parts) for (const id of part.ids) S.at.set(id, { shoot, part });
+  return S.shoots;
+}
+// a shoot's name: the owner's, else its dates; one shoot alone is named in the top bar
+const nameOf = (shoot) => S.names.get(shoot.start) || (S.shoots.length === 1 && S.tripName) || SH.draftName(shoot.lo, shoot.hi);
+function folderOf(it) {
+  if (!S.pattern) return dayFolder(it);
+  const at = S.at.get(it.key);
+  return SH.folder(S.pattern, { t: it.date, start: at && at.shoot.lo, shoot: at ? nameOf(at.shoot) : '', kind: it.kind === 'video' ? 'Clips' : 'Photos', camera: it.body || 'Unknown camera' });
+}
+const unsent = () => count((it) => !it.cpSent) + S.extra.length;
+const extraFolder = (x) => ['Other', x.src].concat(x.path.split('/').slice(1, -1)).join('/');
+// the exact folders the next copy goes into, with how many photos, clips and other files each takes
+function folders() {
+  shootsNow();
+  const m = new Map(), add = (f) => m.set(f, (m.get(f) || 0) + 1);
+  for (const it of S.items.values()) if (!it.cpSent) add(folderOf(it));
+  for (const x of S.extra) add(extraFolder(x));
+  return [...m].sort((a, b) => a[0].localeCompare(b[0]));
+}
+function goCopy() { if (!S.held) return; S.held = false; say(''); copyAll(); dirty(); }
 function copyAll() {
   if (!host) return;
+  shootsNow();
   const items = [], batch = [];
   const job = (key, path, src, folder) => { items.push({ key, path, src, folder }); const c = cpOf(src); c.sent++; c.left = null; };
   for (const it of S.items.values()) {
     if (it.cpSent) continue; it.cpSent = true; batch.push(it); it.cpWait = 1 + (it.also || []).length;
-    job(it.key, it.path, it.src, dayFolder(it));
-    for (const a of it.also || []) job(it.key, a.path, a.src, dayFolder(it));
+    const f = folderOf(it);
+    job(it.key, it.path, it.src, f);
+    for (const a of it.also || []) job(it.key, a.path, a.src, f);
   }
-  for (const x of S.extra.splice(0)) job('', x.path, x.src, 'Other/' + x.src + (x.path.includes('/') ? '/' + x.path.split('/').slice(1, -1).join('/') : ''));
+  for (const x of S.extra.splice(0)) job('', x.path, x.src, extraFolder(x));
   if (!items.length) return;
   // the rate counts from when this run of copying began, not from the first copy of the session
   if (!copying()) { S.cpT0 = performance.now(); S.cpB0 = S.cpBytes; }
@@ -447,27 +483,53 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 function render(doFlip) {
   // while reading, redraw at most twice a second (tiles keep arriving)
   const now = performance.now();
-  if ((S.reading || copying()) && !doFlip && now - lastDraw < 500) { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(false); }); drawFoot(); return; }
+  const typing = document.activeElement && document.activeElement.classList.contains('nm');
+  if (typing) { drawFoot(); return; }
+  if ((S.reading || copying()) && !doFlip && now - lastDraw < 500) { if (!raf) raf = requestAnimationFrame(() => { raf = 0; const f = flip; flip = false; render(f); }); drawFoot(); return; }   // a change made meanwhile (a split, a find) draws at once
   lastDraw = now;
   const z = day0(), all = [...S.items.values()].sort((a, b) => (a.date || Infinity) - (b.date || Infinity) || a.name.localeCompare(b.name));
   const shown = all.filter((it) => matches(it, S.chips, z));
   const before = doFlip ? rects() : null;
-  const groups = new Map();
-  for (const it of shown) {
-    const k = S.group === 'day' ? (it.date ? 'd' + dayOf(it, z) : 'd?') : S.group === 'body' ? (it.body || 'Unknown camera') : S.group === 'src' ? it.src : 'all';
-    if (!groups.has(k)) groups.set(k, []); groups.get(k).push(it);
+  // rows: by day, a row is one part of a shoot (a day, mostly) and a shoot of several is headed by its name;
+  // by camera or source, a row is that camera or source
+  const rows = [];
+  if (S.group === 'day') {
+    const on = new Set(shown.map((it) => it.key)), shoots = shootsNow();
+    const perDay = new Map(); for (const sh of shoots) for (const p of sh.parts) perDay.set(SH.ymd(p.lo), (perDay.get(SH.ymd(p.lo)) || 0) + 1);
+    const clock = (t) => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    shoots.forEach((sh, si) => {
+      const parts = sh.parts.map((p) => ({ p, list: p.ids.filter((id) => on.has(id)).map((id) => S.items.get(id)) })).filter((x) => x.list.length);
+      if (!parts.length) return;
+      if (shoots.length > 1) rows.push({ block: sh, next: shoots[si + 1], n: parts.reduce((a, x) => a + x.list.length, 0) });
+      parts.forEach(({ p, list }) => {
+        const d = new Date(p.lo);
+        rows.push({ list, t: `Day ${dayOf({ date: p.lo }, z)} · ${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}` + (perDay.get(SH.ymd(p.lo)) > 1 ? ` · ${clock(p.lo)} – ${clock(p.hi)}` : ''), cut: p.start !== sh.start ? p.start : null });
+      });
+    });
+    const undated = shown.filter((it) => !it.date); if (undated.length) rows.push({ list: undated, t: 'No date' });
+  } else {
+    const groups = new Map();
+    for (const it of shown) { const k = S.group === 'body' ? (it.body || 'Unknown camera') : S.group === 'src' ? it.src : 'all'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(it); }
+    for (const [k, list] of groups) rows.push({ list, t: k });
   }
   const root = $('#groups'), keep = new Map();
   root.querySelectorAll('.tile').forEach((el) => keep.set(el.dataset.k, el));
   const frag = document.createDocumentFragment();
-  for (const [k, list] of groups) {
+  for (const { block, next, n, list, t, cut } of rows) {
     const g = document.createElement('div'); g.className = 'row';
+    if (block) {
+      // a shoot: its name (typed over, or its dates), and the two corrections; each is undone where it was made
+      const a = new Date(block.lo), b = new Date(block.hi), range = a.toDateString() === b.toDateString() ? `${DOW[a.getDay()]} ${MON[a.getMonth()]} ${a.getDate()}` : `${MON[a.getMonth()]} ${a.getDate()} – ${MON[b.getMonth()]} ${b.getDate()}`;
+      const h = document.createElement('div'); h.className = 'head blk';
+      h.innerHTML = `<input class="nm" data-shoot="${esc(block.start)}" aria-label="Shoot name" placeholder="${esc(SH.draftName(block.lo, block.hi))}" spellcheck="false" value="${esc(S.names.get(block.start) || '')}" style="width:${Math.max(12, (S.names.get(block.start) || SH.draftName(block.lo, block.hi)).length + 1)}ch"><span class="p">${esc(range)} · ${fmt(n)}</span>`
+        + (block.cut ? `<span class="n on" data-uncut="${esc(block.start)}" title="Back into the shoot before it">undo split</span>` : '')
+        + (block.joined.length ? `<span class="n on" data-unjoin="${esc(block.joined[block.joined.length - 1])}" title="Two shoots again">undo merge</span>` : '')
+        + (next ? `<span class="n" data-join="${esc(next.start)}" title="One shoot with the next one">merge with next</span>` : '');
+      g.appendChild(h); frag.appendChild(g); continue;
+    }
     if (S.group !== 'none') {
       const h = document.createElement('div'); h.className = 'head';
-      let t;
-      if (S.group === 'day' && k !== 'd?') { const d = new Date(list[0].date); t = `Day ${k.slice(1)} · ${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}`; }
-      else t = k === 'd?' ? 'No date' : k;
-      h.innerHTML = `<span class="t">${esc(t)}</span><span class="p">${fmt(list.length)}</span>`;
+      h.innerHTML = `<span class="t">${esc(t)}</span><span class="p">${fmt(list.length)}</span>` + (cut ? `<span class="n" data-cut="${esc(cut)}" title="A new shoot starts here">split here</span>` : '');
       g.appendChild(h);
     }
     const grid = document.createElement('div'); grid.className = 'tiles';
@@ -475,6 +537,16 @@ function render(doFlip) {
     g.appendChild(grid); frag.appendChild(g);
   }
   root.replaceChildren(frag);
+  // split here / merge with next / undo: plain sets (S.cut, S.join); a split of what was merged takes the merge back
+  const fix = (sel, fn) => root.querySelectorAll(sel).forEach((b) => b.onclick = () => { fn(b.dataset); dirty(true); });
+  fix('[data-cut]', (d) => { S.cut.add(d.cut); say('Split · undo split puts it back'); });
+  fix('[data-uncut]', (d) => { S.cut.delete(d.uncut); });
+  fix('[data-join]', (d) => { if (S.cut.has(d.join)) S.cut.delete(d.join); else S.join.add(d.join); say('Merged · undo merge puts it back'); });
+  fix('[data-unjoin]', (d) => { S.join.delete(d.unjoin); });
+  root.querySelectorAll('.nm').forEach((el) => {
+    el.oninput = () => { const v = el.value.trim(); if (v) S.names.set(el.dataset.shoot, v); else S.names.delete(el.dataset.shoot); el.style.width = Math.max(12, (el.value || el.placeholder).length + 1) + 'ch'; drawNotes(); };
+    el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); el.blur(); } };
+  });
   if (before) play(before);
   drawTop(); drawFoot(); drawNotes();
 }
@@ -522,18 +594,20 @@ function drawFoot() {
   const nc = count((i) => i.copy === 'bad'); if (nc) parts.push(n(nc, 'not copied', 'not copied'));
   if (!S.reading && !copying()) for (const { src, left, first } of leftOn()) parts.push(`<span class="n" title="${esc(first)}">${fmt(left)} only on ${esc(src)}</span>`);
   if (!S.reading && !copying()) for (const { src } of safeSources()) parts.push(`<span class="n" data-w="${esc(src)}">safe to format ${esc(src)}</span> <span class="n" data-eject="${esc(src)}">Eject</span>`);
+  if (S.held && !S.reading) { const fs = folders(), nf = fs.reduce((a, f) => a + f[1], 0); parts.push(`<span class="n" data-go="1" title="${esc(fs.slice(0, 12).map((f) => f[0]).join('\n'))}">Copy ${fmt(nf)} into ${fmt(fs.length)} ${fs.length === 1 ? 'folder' : 'folders'}</span>`); }
   if (S.items.size) parts.push(`<span class="n" data-more="1">${$('#notes').classList.contains('off') ? 'Details' : 'Hide details'}</span>`);
   $('#foot').innerHTML = parts.join(' · ');
   $('#foot').querySelectorAll('[data-w]').forEach((b) => b.onclick = () => findFor(b.dataset.w));
   $('#foot').querySelectorAll('[data-eject]').forEach((b) => b.onclick = () => eject(b.dataset.eject));
+  const go = $('#foot').querySelector('[data-go]'); if (go) go.onclick = goCopy;
   const m = $('#foot').querySelector('[data-more]'); if (m) m.onclick = () => { $('#notes').classList.toggle('off'); drawFoot(); drawNotes(); };
   const s = (performance.now() - S.t0) / 1000;
   const cs = (performance.now() - S.cpT0) / 1000;
   $('#live').textContent = S.reading ? `reading ${fmt(S.done)} of ${fmt(S.total)}${s > 2 ? ' · ' + Math.round(S.done / s) + ' a second' : ''}`
     : copying() ? `copying ${fmt(S.cpDone)} of ${fmt(S.cpSent)}${cs > 2 ? ' · ' + Math.round((S.cpBytes - S.cpB0) / 1048576 / cs) + ' MB a second' : ''}`
-    : S.cpSent ? 'all copied' : S.items.size ? 'all read' : '';
+    : S.held ? 'ready to copy' : S.cpSent ? 'all copied' : S.items.size ? 'all read' : '';
   const card = nextCard(), cardKey = card ? [['C', 'read ' + card.name]] : [];
-  const keys = S.items.size ? [['O', 'add']].concat(cardKey, [['/', 'find'], ['esc', 'clear'], ['= −', 'size']], toPick() ? [['⏎', 'open in Pick']] : []) : [['O', 'open']].concat(cardKey);
+  const keys = S.items.size ? [['O', 'add']].concat(cardKey, S.held && !S.reading ? [['I', 'copy']] : [], [['/', 'find'], ['esc', 'clear'], ['= −', 'size']], toPick() ? [['⏎', 'open in Pick']] : []) : [['O', 'open']].concat(cardKey);
   $('#keys').innerHTML = keys.map(([k, c]) => `<span class="cap">${k.split(' ').map((x) => `<b>${esc(x)}</b>`).join('')}${esc(c)}</span>`).join('');
 }
 function tripName() {
@@ -547,6 +621,7 @@ function tripName() {
 // Details: Pick's import notes card
 function drawNotes() {
   const d = $('#notes'); if (d.classList.contains('off')) return;
+  if (document.activeElement && document.activeElement.id === 'pat') return;   // the pattern is being typed
   const z = day0(), days = new Map(); for (const it of S.items.values()) { const k = dayOf(it, z); if (k) days.set(k, (days.get(k) || 0) + 1); }
   const bc = new Map(); for (const it of S.items.values()) if (it.body) bc.set(it.body, (bc.get(it.body) || 0) + 1);
   const pick = (words, label) => `<span data-c="${esc(words)}">${esc(label)}</span>`;
@@ -559,10 +634,51 @@ function drawNotes() {
     + (handled.length ? line(handled.join(' · ')) : '')
     + line(`${libName ? 'Library ' + esc(libName) + ' · ' : ''}${fmt(library.size)} files remembered <span class="act" id="forget">Forget</span>`)
     + (S.cpSent ? line(`${fmt(S.cpDone)} of ${fmt(S.cpSent)} copied and checked` + (S.other + S.proxies ? ` · ${fmt(S.other + S.proxies)} other files and proxies copied as they are` : '') + ` · ${fmt(S.junk)} system files not copied`) : '')
-    + clockLines(line);
+    + clockLines(line)
+    + patternLines(line);
   d.querySelectorAll('[data-c]').forEach((b) => b.onclick = () => findFor(b.dataset.c));
   d.querySelectorAll('[data-clk]').forEach((b) => b.onclick = () => { const k = b.dataset.clk; if (S.clkOff.has(k)) S.clkOff.delete(k); else S.clkOff.add(k); shiftClocks(); say(S.clkOff.has(k) ? k + ' back to its own clock' : k + ' shifted'); dirty(true); });
+  const pe = $('#patEdit'); if (pe) pe.onclick = () => { S.patEdit = true; drawNotes(); const i = $('#pat'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
+  const pc = $('#patClear'); if (pc) pc.onclick = () => setPattern(null);
+  const pi = $('#pat');
+  if (pi) {
+    const eg = () => { const c = SH.check(pi.value); $('#patEg').textContent = !pi.value.trim() ? '' : c.ok ? '→ ' + patternExample(c.pattern) : c.unknown.length ? `not a token: {${c.unknown.join('}, {')}}` : 'needs at least one token'; };
+    pi.oninput = eg; eg();
+    pi.onkeydown = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); S.patEdit = false; pi.blur(); drawNotes(); }
+      else if (e.key === 'Enter') { e.preventDefault(); const c = SH.check(pi.value); if (!pi.value.trim()) { S.patEdit = false; pi.blur(); setPattern(null); } else if (c.ok) { S.patEdit = false; pi.blur(); setPattern(c.pattern); } else eg(); }
+    };
+    d.querySelectorAll('[data-tok]').forEach((b) => { b.onmousedown = (e) => e.preventDefault(); b.onclick = () => { const a = pi.selectionStart ?? pi.value.length; pi.setRangeText(b.dataset.tok, a, pi.selectionEnd ?? a, 'end'); pi.focus(); eg(); }; });
+  }
   $('#forget').onclick = () => { library.clear(); call('ingestForget').then(libFrom); say('Forgotten: the next drop is all new'); drawNotes(); };
+}
+// Folders: plain dated ones until the owner sets a pattern; the pattern is kept with the library and used for what is
+// copied from then on (what is already in the library stays where it is). While a copy waits: the exact folders.
+function patternExample(p) {
+  shootsNow();
+  const it = [...S.items.values()].find((i) => i.date), at = it && S.at.get(it.key);
+  return SH.folder(p, it ? { t: it.date, start: at && at.shoot.lo, shoot: at ? nameOf(at.shoot) : '', kind: it.kind === 'video' ? 'Clips' : 'Photos', camera: it.body || 'Unknown camera' }
+    : { t: Date.now(), start: Date.now(), shoot: 'Shoot name', kind: 'Photos', camera: 'Camera' });
+}
+function setPattern(p) {
+  const was = S.pattern; S.pattern = p; S.patEdit = false;
+  call('ingestSetPattern', { pattern: p || '' });
+  say(p ? 'Folder pattern kept with the library · used for what is copied from now on' : 'Plain dated folders again');
+  if (was !== p) dirty();
+  drawNotes(); drawFoot();
+}
+function patternLines(line) {
+  if (!host && !S.items.size) return '';
+  let out = '';
+  if (S.patEdit) out += line(`Folders <input id="pat" class="nm" aria-label="Folder pattern" spellcheck="false" placeholder="{year}/{start} {shoot}/{kind}" value="${esc(S.pattern || '')}" style="width:34ch;max-width:none;font-size:12px"> `
+    + SH.TOKENS.map((t) => `<span class="act" data-tok="{${t}}">{${t}}</span>`).join('') + ` <span id="patEg" style="color:#9A958D"></span>`);
+  else out += line(S.pattern ? `Folders ${esc(S.pattern)} <span class="act" id="patEdit">Change</span><span class="act" id="patClear">Plain dated folders</span>`
+    : `Folders by date (${esc(SH.ymd(Date.now()))}) <span class="act" id="patEdit">Set a pattern</span>`);
+  if (S.held && !S.reading) {
+    const fs = folders(), more = fs.length - 12;
+    out += line('Goes into ' + fs.slice(0, 12).map(([f, n]) => `${esc(f)} (${fmt(n)})`).join(', ') + (more > 0 ? ` and ${fmt(more)} more` : ''));
+  }
+  return out;
 }
 // one line per clock that was shifted, set mid-card, or has nothing to match against
 function clockLines(line) {
@@ -621,9 +737,10 @@ async function openInPick() {
 
 // ---- keys, drop, size ----------------------------------------------------------------------------
 addEventListener('keydown', (e) => {
-  if (e.target === q || e.target.id === 'trip') return;
+  if (e.target === q || e.target.tagName === 'INPUT' && e.target.type === 'text' || e.target.id === 'trip') return;
   if (e.key === '/') { if (S.items.size) { e.preventDefault(); q.focus(); q.select(); } }
   else if ((e.key === 'o' || e.key === 'O') && !e.metaKey) $('#pick').click();
+  else if ((e.key === 'i' || e.key === 'I') && !e.metaKey && !e.ctrlKey) goCopy();
   else if ((e.key === 'c' || e.key === 'C') && !e.metaKey && !e.ctrlKey) { const c = nextCard(); if (c) openPlace(c.id); }
   else if (e.key === 'Enter' && !e.metaKey) { e.preventDefault(); openInPick(); }
   else if (e.key === 'Escape') { if (!$('#notes').classList.contains('off')) { $('#notes').classList.add('off'); drawFoot(); } else if (q.value) { q.value = ''; apply(); } }
@@ -644,11 +761,13 @@ window.luminaIngestResume = () => { if (S.items.size || S.reading) return false;
 $('#pick').addEventListener('change', (e) => { const g = fromPick(e.target.files); e.target.value = ''; if (g.length) ingest(g); });
 const trip = $('#trip');
 trip.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); trip.blur(); } });
-trip.addEventListener('input', () => { S.tripName = trip.value.trim() || null; drawTop(); });
+trip.addEventListener('input', () => { S.tripName = trip.value.trim() || null; drawTop(); drawNotes(); });
+addEventListener('focusout', (e) => { if (e.target.classList && e.target.classList.contains('nm') && e.target.id !== 'pat') dirty(true); });
 drawFoot();
 call('ingestSources').then(setPlaces);
 // for a headless check: window.__ingest.state()
-window.__ingest = { state: () => ({ items: S.items.size, done: S.done, total: S.total, chips: S.chips, group: S.group, here: count((i) => i.state === 'here'), unread: count((i) => i.state === 'unread'), copied: S.cpDone, sent: S.cpSent, notCopied: count((i) => i.copy === 'bad'), safe: safeSources(), places, lost: S.lost }), parse, find: (t) => { q.value = t; apply(); },
+window.__ingest = { state: () => ({ items: S.items.size, done: S.done, total: S.total, chips: S.chips, group: S.group, here: count((i) => i.state === 'here'), unread: count((i) => i.state === 'unread'), copied: S.cpDone, sent: S.cpSent, notCopied: count((i) => i.copy === 'bad'), safe: safeSources(), places, lost: S.lost, held: S.held, pattern: S.pattern }), parse,
+  shoots: () => shootsNow().map((s) => ({ name: nameOf(s), parts: s.parts.map((p) => p.ids.length), cut: s.cut, joined: s.joined.length })), folders, setPattern, goCopy, find: (t) => { q.value = t; apply(); },
   clocks: () => S.clk && { clocks: S.clk.clocks.map(({ ids, ...c }) => ({ ...c, off: S.clkOff.has(c.key) })), edges: S.clk.edges }, days: () => [...document.querySelectorAll('#groups .head .t')].map((e) => e.textContent) };
 </script>
 </body>

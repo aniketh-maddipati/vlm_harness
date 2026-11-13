@@ -145,7 +145,7 @@ nonisolated final class IngestLibrary: @unchecked Sendable {
     /// `volume` is a card's volume UUID (the card is offered only while it is in); nil for a folder.
     struct Place: Codable, Equatable, Sendable { var path: String; var name: String; var bookmark: Data; var volume: String? }
     static let maxPlaces = 8
-    private struct File: Codable { var path: String?; var bookmark: Data?; var keys: [String: Entry] = [:]; var places: [Place]? }
+    private struct File: Codable { var path: String?; var bookmark: Data?; var keys: [String: Entry] = [:]; var places: [Place]?; var pattern: String? }
 
     let url: URL
     private let lock = NSLock()
@@ -174,6 +174,16 @@ nonisolated final class IngestLibrary: @unchecked Sendable {
     }
 
     var places: [Place] { lock.withLock { file.places ?? [] } }
+
+    /// The owner's folder pattern ("{year}/{start} {shoot}/{kind}"), kept as typed; nil: plain dated folders. The
+    /// page turns it into folders (lumina-ingest-shoots.js); each one still goes through `IngestCopy.safeFolder`.
+    /// It stays when another library folder is picked: it is the owner's way of filing, not that folder's.
+    var pattern: String? { lock.withLock { file.pattern } }
+    static let maxPattern = 200
+    func setPattern(_ p: String?) {
+        let t = (p ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        lock.withLock { file.pattern = t.isEmpty ? nil : String(t.prefix(Self.maxPattern)) }
+    }
 
     /// Remembers a chosen folder or card, newest first; one entry per folder (per card: per volume), at most
     /// `maxPlaces`.

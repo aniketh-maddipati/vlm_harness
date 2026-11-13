@@ -22,7 +22,7 @@ export LUMINA_PAGE=ingest
 FROM="$ROOT/design/handoff/lumina-ingest"
 TO="$ROOT/Lumina/Sets/Web"
 RES="$LUMINA_DEV_CACHE/DD/Build/Products/Debug/Lumina.app/Contents/Resources"
-FILES=("Lumina Ingest v1.html" "lumina-ingest-clocks.js")
+FILES=("Lumina Ingest v1.html" "lumina-ingest-clocks.js" "lumina-ingest-shoots.js")
 
 put() { cp "$1" "$2/.$3.part" && mv -f "$2/.$3.part" "$2/$3"; }
 mirror() {

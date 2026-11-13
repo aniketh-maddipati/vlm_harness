@@ -221,6 +221,24 @@ final class IngestCopyTests: XCTestCase {
         XCTAssertEqual(t.count, 1)
     }
 
+    func testTheFolderPatternIsKeptAndItsFoldersAreSafe() throws {
+        let s = store()
+        s.setFolder("/x/Library", bookmark: nil)
+        s.setPattern("  {year}/{start} {shoot}/{kind} ")
+        try s.save()
+        let t = store()
+        XCTAssertEqual(t.pattern, "{year}/{start} {shoot}/{kind}")
+        t.setFolder("/y/Other", bookmark: nil); XCTAssertEqual(t.pattern, "{year}/{start} {shoot}/{kind}", "another library keeps the owner's pattern")
+        t.setPattern(String(repeating: "x", count: 500)); XCTAssertEqual(t.pattern?.count, IngestLibrary.maxPattern)
+        t.setPattern(" "); XCTAssertNil(t.pattern, "cleared: plain dated folders")
+        // what the page makes of a pattern (lumina-ingest-shoots.test.mjs) is taken as it is; anything else is refused
+        for f in ["2026/2026-10-28 Death Valley/Photos", "2026/10/2026-10-29/ILCE-7M3", "Oct 28 – 30, 2026/Clips"] { XCTAssertEqual(IngestCopy.safeFolder(f), f) }
+        for f in ["../x", "a/../b", ".hidden/x", "a/.b", "", "/"] { XCTAssertNil(IngestCopy.safeFolder(f), f) }
+        let a = try put("A/DSC00001.ARW", "photo a")
+        let r = IngestCopy.copy(.init(key: key(a), source: a, root: card, folder: "2026/2026-10-28 Death Valley/Photos"), into: lib, store: s)
+        XCTAssertTrue(r.ok, r.why ?? ""); XCTAssertEqual(r.rel, "2026/2026-10-28 Death Valley/Photos/DSC00001.ARW")
+    }
+
     func testOnlyAVolumesRootIsAWholeCard() throws {
         XCTAssertTrue(IngestCopy.isVolumeRoot(URL(fileURLWithPath: "/")))
         XCTAssertFalse(IngestCopy.isVolumeRoot(card), "a folder is never the whole card")

@@ -6,7 +6,7 @@ import WebKit
 /// ingest page only (`SetsBridge`); docs/release/TRUST.md lists them.
 @MainActor
 final class IngestHost {
-    static let ops: Set<String> = ["ingestLibrary", "ingestPickLibrary", "ingestHas", "ingestForget", "ingestCopy", "ingestEject", "ingestSources", "ingestOpen", "ingestForgetPlaces"]
+    static let ops: Set<String> = ["ingestLibrary", "ingestPickLibrary", "ingestHas", "ingestForget", "ingestCopy", "ingestEject", "ingestSources", "ingestOpen", "ingestForgetPlaces", "ingestSetPattern"]
 
     weak var webView: WKWebView?
     let store: IngestLibrary
@@ -153,7 +153,7 @@ final class IngestHost {
     }
 
     private func libraryJSON() -> [String: Any] {
-        ["folder": libraryURL.map { $0.lastPathComponent } ?? NSNull(), "count": store.count, "keys": store.keys]
+        ["folder": libraryURL.map { $0.lastPathComponent } ?? NSNull(), "count": store.count, "keys": store.keys, "pattern": store.pattern as Any? ?? NSNull()]
     }
 
     func handle(_ op: String, _ body: [String: Any]) async -> Any? {
@@ -172,6 +172,9 @@ final class IngestHost {
             return sourcesJSON()
         case "ingestOpen":
             return await open(body["id"] as? String ?? "")
+        case "ingestSetPattern":
+            store.setPattern(body["pattern"] as? String); saved(Self.save(store))
+            return ["pattern": store.pattern as Any? ?? NSNull()]
         case "ingestForgetPlaces":
             store.forgetFolders(); saved(Self.save(store))
             return sourcesJSON()

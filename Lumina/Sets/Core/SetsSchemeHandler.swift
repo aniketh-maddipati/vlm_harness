@@ -35,7 +35,7 @@ nonisolated final class SetsSchemeHandler: NSObject, WKURLSchemeHandler {
     /// "Lumina Ingest" app (`LUMINA_PAGE=ingest`) shows it on Skim's side, so no plumbing and no Edit canvas.
     static let ingestPageFile = "Lumina Ingest v1.html"
     /// Its camera clock alignment (design/handoff/lumina-ingest/lumina-ingest-clocks.js), loaded by the page.
-    static let ingestFiles = [ingestPageFile, "lumina-ingest-clocks.js"]
+    static let ingestFiles = [ingestPageFile, "lumina-ingest-clocks.js", "lumina-ingest-shoots.js"]
     /// What `lumina://app/<file>` serves. Debug builds and the probe: the same list as
     /// Scripts/page_files.sh, with the design's self-test, which the page asks for only with
     /// `?selftest` (`probe.sh selftest`). The app's Release build does not serve the self-test
