@@ -101,16 +101,33 @@ const sel = () => L(() => { const l = __l(), s = l.state, Lo = l.layout(); retur
 const anims = () => L(() => document.getAnimations().filter(a => a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('[data-screen-label="1 Cull"]') && a.effect.target.matches('[data-tile],[data-lumina="row"]')).map(a => ({ props: [...new Set(a.effect.getKeyframes().flatMap(k => Object.keys(k)).filter(k => !['offset', 'easing', 'composite', 'computedOffset'].includes(k)))], ms: a.effect.getTiming().duration })));
 await L(() => { const l = __l(); l.setState({ pass: 1, trim: false, open: null, large: false, done: {}, ord: {}, aim: 0, tsz: 2, cur: l.data.order[0] }); }); await wait(400);
 const a0 = await sel();
-await page.keyboard.press('KeyS'); const sAn = await anims(); await wait(250); s = await sel();
-ok(s.ord > 0 && s.cells !== a0.cells && s.cells.split(',').sort().join() === a0.cells.split(',').sort().join(), 'S puts the rows sharpest first: same photos, another order', [s.ord, s.cells === a0.cells]);
-ok(s.marks === a0.marks && s.cur === a0.cur && s.undo === a0.undo, 'S decides nothing and keeps the cursor on its photo', s);
-ok(a0.touched.some(Boolean) && a0.touched.every((t, i) => !t || s.rows[i] === a0.rows[i]), 'rows with a decision in them stay in time order', a0.touched);
+// S steps the row under the cursor: as shot → sharpest first → least clipped first → as shot; ⇧S steps back; ⌥S does it to every row
+const rowOf = () => L(() => { const l = __l(), Lo = l.layout(), c = l.curCell(); return { ids: Lo.rows[c.ri].cells.map(x => x.id).join(','), by: Lo.rows[c.ri].by || null, focus: Lo.rows[c.ri].cells.map(x => l.data.byId[x.id].focus), clip: Lo.rows[c.ri].cells.map(x => l.data.byId[x.id].clip), chips: [...document.querySelectorAll('[data-lumina="tile-chips"]')].map(n => n.textContent), bars: document.querySelectorAll('[data-lumina="tile-measure"]').length }; });
+await L(() => { const l = __l(), Lo = l.layout(), s = l.state; const row = Lo.rows.filter(r => r.cells.length >= 3 && !r.r.ids.some(id => s.marks[id])).sort((x, y) => y.cells.filter(c => c.t === 'single').length - x.cells.filter(c => c.t === 'single').length)[0]; l.setState({ cur: row.cells[0].id, open: null }); }); await wait(300);
+const r0 = await rowOf(), c0 = (await sel()).cur;
+ok(r0.by === null && r0.bars > 0 && r0.chips.length === 0, 'as shot, the cursor\'s row carries the thin measure strip and no words', r0);
+await page.keyboard.press('KeyS'); const sAn = await anims(); await wait(250); let r1 = await rowOf(); s = await sel();
+ok(r1.by === 'sharp' && r1.ids.split(',').sort().join() === r0.ids.split(',').sort().join() && r1.focus.every((v, i) => !i || v <= r1.focus[i - 1]), 'S: the row sharpest first, same photos', r1.focus);
+ok(s.ord === 1 && s.marks === a0.marks && s.cur === c0 && s.undo === a0.undo, 'only that row, nothing decided, cursor on its photo', s.ord);
+ok(r1.chips.length > 0 && r1.chips.every(t => /^edge detail \d+$/.test(t)) && r1.bars === 0, 'each tile shows edge detail as a number, no words', r1.chips);
 ok(sAn.length > 0 && sAn.every(a => a.ms <= 130 && a.props.every(p => p === 'transform' || p === 'opacity')), 'the reorder is a snap of at most 130 ms on transform and opacity only', sAn.slice(0, 3));
-const chips = await L(() => [...document.querySelectorAll('[data-lumina="tile-chips"]')].map(n => n.textContent).join('|'));
-ok(/^(soft|motion|blown|peak|\|)*$/.test(chips), 'ranked tiles carry only soft / motion / blown / peak chips', chips);
-await page.keyboard.press('KeyS'); const sAn2 = await anims(); await wait(250); s = await sel();
-ok(s.ord === 0 && s.cells === a0.cells && s.cur === a0.cur, 'S again is time order, as it was', s.ord);
-ok(sAn2.length === sAn.length, 'and plays the same number of moves back', [sAn.length, sAn2.length]);
+await key('KeyS', 250); r1 = await rowOf();
+ok(r1.by === 'clip' && r1.clip.every((v, i) => !i || v >= r1.clip[i - 1]) && r1.chips.every(t => /^clipped [\d.]+%$/.test(t)), 'S again: least clipped first, clipped % on each tile', [r1.clip, r1.chips]);
+await key('Shift+KeyS', 250); r1 = await rowOf();
+ok(r1.by === 'sharp', '⇧S steps back to sharpest first', r1.by);
+await key('KeyS', 250); await page.keyboard.press('KeyS'); const sAn2 = await anims(); await wait(250); r1 = await rowOf(); s = await sel();
+ok(r1.by === null && r1.ids === r0.ids && s.cells === a0.cells && s.ord === 0, 'S a third time: as shot, exactly as it was', r1.by);
+ok(sAn2.length > 0 && sAn2.every(a => a.ms <= 130), 'and the way back is the same kind of snap', sAn2.length);
+ok(!/nothing sharp|\bsoft\b|\bblown\b/.test(await L(() => document.querySelector('[data-screen-label="1 Cull"]').innerText)), 'no verdict words in the grid');
+await key('Alt+KeyS', 250); s = await sel();
+ok(s.ord > 1 && s.marks === a0.marks, '⌥S: every row sharpest first', s.ord);
+ok(a0.touched.some(Boolean) && a0.touched.every((t, i) => !t || s.rows[i] === a0.rows[i]), 'rows with a decision in them stay as shot', a0.touched);
+await key('Alt+Shift+KeyS', 250); s = await sel();
+ok(s.ord === 0 && s.cells === a0.cells, '⌥⇧S: every row back as shot', s.ord);
+await L(() => { const l = __l(), Lo = l.layout(), s = l.state; const row = Lo.rows.find(r => r.cells.length >= 2 && r.r.ids.some(id => s.marks[id])); l.setState({ cur: row.cells[0].id }); }); await wait(200);
+await key('KeyS', 250); s = await sel();
+ok(s.ord === 0 && s.cells === a0.cells, 'S on a row with a decision in it changes nothing', s.ord);
+await L(() => { const l = __l(); l.setState({ cur: l.data.order[0] }); }); await wait(200);
 
 // D on a row with a keeper and on one with none; one ⌘Z each; ⇧D opens the last one
 for (const withKeep of [true, false]) {
@@ -133,9 +150,9 @@ ok(await L(() => document.querySelectorAll('[data-lumina-flip]').length) === 0, 
 
 // keys pressed while a snap is still playing apply in order
 const q0 = await sel();
-for (const k of ['KeyD', 'KeyD', 'KeyS', 'Meta+KeyZ', 'Meta+KeyZ', 'KeyS']) await page.keyboard.press(k);
+for (const k of ['KeyD', 'KeyS', 'Shift+KeyS', 'KeyD', 'Meta+KeyZ', 'Meta+KeyZ']) await page.keyboard.press(k);
 await wait(400); s = await sel();
-ok(s.done === q0.done && s.ord === 0 && s.cells === q0.cells && s.marks === q0.marks, 'D D S ⌘Z ⌘Z S with no pause ends where it began', [s.done, s.ord, s.cells === q0.cells]);
+ok(s.done === q0.done && s.ord === 0 && s.cells === q0.cells && s.marks === q0.marks, 'D S ⇧S D ⌘Z ⌘Z with no pause ends where it began', [s.done, s.ord, s.cells === q0.cells]);
 
 // the target, and the trim view
 await key('BracketRight'); s = await sel(); ok(s.aim === 21, '] raises the target', s.aim);
