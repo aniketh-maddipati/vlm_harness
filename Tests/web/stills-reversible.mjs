@@ -209,12 +209,22 @@ await L(() => __l().setState({ aim: 0, done: {}, ord: {}, tsz: 5 })); await wait
 
 // the large view shows the whole photo whichever way the camera was held: the stored size is landscape, the photo upright
 { const box = async (portrait, pw, ph) => { await L(([po, w, h]) => { const l = __l(), f = l.data.byId[l.data.order[0]]; f.portrait = po; f.pw = w; f.ph = h; l.setState({ cur: l.cellIdOf(f.id), open: null, large: true, zl: 1, zx: 0, zy: 0 }); }, [portrait, pw, ph]); await wait(400);
-    return L(() => { const st = document.querySelector('[data-lumina="large-stage"]'), d = st && [...st.querySelectorAll('div')].find(x => x.style.backgroundSize === 'cover'), r = d.getBoundingClientRect(), sr = st.getBoundingClientRect(), b = __l().pickBox(); return { w: r.width, h: r.height, inside: r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 && r.left >= sr.left - 1 && r.right <= sr.right + 1, bw: b.bw, bh: b.bh }; }); };
+    return L(() => { const st = document.querySelector('[data-lumina="large-stage"]'), d = st && [...st.querySelectorAll('div')].find(x => /url/.test(x.style.backgroundImage) && x.style.backgroundSize === 'contain' && x.style.boxShadow), r = d.getBoundingClientRect(), sr = st.getBoundingClientRect(), b = __l().pickBox(); return { w: r.width, h: r.height, inside: r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 && r.left >= sr.left - 1 && r.right <= sr.right + 1, bw: b.bw, bh: b.bh }; }); };
   const keep = await L(() => { const f = __l().data.byId[__l().data.order[0]]; return [!!f.portrait, f.pw, f.ph]; });
   for (const [name, po, w, h, want] of [['upright, stored landscape (orientation 6 / 8)', true, 6000, 4000, 2 / 3], ['upright, stored upright', true, 4000, 6000, 2 / 3], ['landscape', false, 6000, 4000, 1.5], ['upright, size unknown', true, null, null, 2 / 3], ['4:3 upright', true, 4000, 3000, 0.75]]) {
     const b = await box(po, w, h);
     ok(Math.abs(b.w / b.h - want) < 0.02 && b.inside && Math.abs(b.bw / b.bh - want) < 0.02, 'large view, ' + name + ': the whole photo, in its own shape, inside the stage', b); }
-  await L(([po, w, h]) => { const l = __l(), f = l.data.byId[l.data.order[0]]; f.portrait = po; f.pw = w; f.ph = h; l.setState({ large: false, zoom: false }); }, keep); await wait(300); }
+  // no view before Edit cuts into a photo: the filmstrip, the picks tray, the grid tile and the large picture all show it whole
+  await box(true, 6000, 4000);
+  const cut = await L(() => { const l = __l(), B = l.data.byId, bad = [], st = document.querySelector('[data-lumina="large-stage"]');
+    const F = [...document.querySelectorAll('[data-lumina="large-frame"]')]; F.forEach(n => { const r = n.getBoundingClientRect(), f = B[n.dataset.id], cs = getComputedStyle(n.firstElementChild); if (cs.backgroundSize !== 'contain' || Math.abs(r.width / r.height - l.arOf(f)) > 0.04) bad.push(['strip', n.dataset.id, cs.backgroundSize, +(r.width / r.height).toFixed(2), +l.arOf(f).toFixed(2)]); });
+    [...st.querySelectorAll('img')].forEach(im => { if (getComputedStyle(im).objectFit !== 'contain') bad.push(['large img', getComputedStyle(im).objectFit]); });
+    [...st.querySelectorAll('div')].filter(d => d.style.backgroundImage && d.style.backgroundImage !== 'none' && /url/.test(d.style.backgroundImage)).forEach(d => { if (d.style.backgroundSize !== 'contain') bad.push(['large box', d.style.backgroundSize]); });
+    return { bad, strip: F.length, heights: [...new Set(F.map(n => Math.round(n.getBoundingClientRect().height)))], upright: F.filter(n => n.getBoundingClientRect().height > n.getBoundingClientRect().width).length }; });
+  ok(cut.strip > 1 && !cut.bad.length && cut.heights.length === 1 && cut.upright >= 1, 'large view: every filmstrip tile has its photo\'s own shape at one height, nothing cut', cut);
+  await L(([po, w, h]) => { const l = __l(), f = l.data.byId[l.data.order[0]]; f.portrait = po; f.pw = w; f.ph = h; l.setState({ large: false, zoom: false }); }, keep); await wait(300);
+  const cut2 = await L(() => { const bad = []; document.querySelectorAll('[data-screen-label="1 Cull"] [data-tile] img, [data-lumina="keepers-tray"] img').forEach(im => { if (getComputedStyle(im).objectFit !== 'contain') bad.push(im.closest('[data-tile]') ? 'tile' : 'tray'); }); return { bad, tiles: document.querySelectorAll('[data-screen-label="1 Cull"] [data-tile] img').length, tray: document.querySelectorAll('[data-lumina="keepers-tray"] img').length }; });
+  ok(cut2.tiles > 0 && !cut2.bad.length, 'grid tiles and the picks tray fit the whole photo', cut2); }
 
 // taken out
 await L(() => { const l = __l(); l.setState({ cur: l.data.order[0] }); }); await key('Enter', 300);
