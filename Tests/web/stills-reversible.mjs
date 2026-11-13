@@ -102,7 +102,7 @@ const anims = () => L(() => document.getAnimations().filter(a => a.effect && a.e
 await L(() => { const l = __l(); l.setState({ pass: 1, trim: false, open: null, large: false, done: {}, ord: {}, aim: 0, tsz: 2, cur: l.data.order[0] }); }); await wait(400);
 const a0 = await sel();
 // S steps the row under the cursor: as shot → sharpest first → least clipped first → as shot; ⇧S steps back; ⌥S does it to every row
-const rowOf = () => L(() => { const l = __l(), Lo = l.layout(), c = l.curCell(); return { ids: Lo.rows[c.ri].cells.map(x => x.id).join(','), by: Lo.rows[c.ri].by || null, focus: Lo.rows[c.ri].cells.map(x => l.data.byId[x.id].focus), clip: Lo.rows[c.ri].cells.map(x => l.data.byId[x.id].clip), chips: [...document.querySelectorAll('[data-lumina="tile-chips"]')].map(n => n.textContent), bars: document.querySelectorAll('[data-lumina="tile-measure"]').length }; });
+const rowOf = () => L(() => { const l = __l(), Lo = l.layout(), c = l.curCell(); return { ids: Lo.rows[c.ri].cells.map(x => x.id).join(','), by: Lo.rows[c.ri].by || null, focus: Lo.rows[c.ri].cells.map(x => l.data.byId[x.id].focus), clip: Lo.rows[c.ri].cells.map(x => l.clipOf(l.data.byId[x.id])), chips: [...document.querySelectorAll('[data-lumina="tile-chips"]')].map(n => n.textContent), bars: document.querySelectorAll('[data-lumina="tile-measure"]').length }; });
 await L(() => { const l = __l(), Lo = l.layout(), s = l.state; const row = Lo.rows.filter(r => r.cells.length >= 3 && !r.r.ids.some(id => s.marks[id])).sort((x, y) => y.cells.filter(c => c.t === 'single').length - x.cells.filter(c => c.t === 'single').length)[0]; l.setState({ cur: row.cells[0].id, open: null }); }); await wait(300);
 const r0 = await rowOf(), c0 = (await sel()).cur;
 ok(r0.by === null && r0.bars > 0 && r0.chips.length === 0, 'as shot, the cursor\'s row carries the thin measure strip and no words', r0);
@@ -111,12 +111,16 @@ ok(r1.by === 'sharp' && r1.ids.split(',').sort().join() === r0.ids.split(',').so
 ok(s.ord === 1 && s.marks === a0.marks && s.cur === c0 && s.undo === a0.undo, 'only that row, nothing decided, cursor on its photo', s.ord);
 ok(r1.chips.length > 0 && r1.chips.every(t => /^edge detail \d+$/.test(t)) && r1.bars === 0, 'each tile shows edge detail as a number, no words', r1.chips);
 ok(sAn.length > 0 && sAn.every(a => a.ms <= 130 && a.props.every(p => p === 'transform' || p === 'opacity')), 'the reorder is a snap of at most 130 ms on transform and opacity only', sAn.slice(0, 3));
+// clipped is the large view's measure when the read has it (hi: any channel), else the old one
+const hiSet = await L(() => { const l = __l(), Lo = l.layout(), c = l.curCell(), ids = Lo.rows[c.ri].r.ids; ids.forEach((id, k) => { l.data.byId[id].hi = (ids.length - k) * 3.5; }); return ids.length; });
 await key('KeyS', 250); r1 = await rowOf();
+ok(r1.clip[0] === 3.5 && r1.clip[r1.clip.length - 1] >= 3.5 && r1.chips[0] === 'clipped 3.5%', 'least clipped first reads the any-channel measure', [r1.clip, r1.chips[0], hiSet]);
 ok(r1.by === 'clip' && r1.clip.every((v, i) => !i || v >= r1.clip[i - 1]) && r1.chips.every(t => /^clipped [\d.]+%$/.test(t)), 'S again: least clipped first, clipped % on each tile', [r1.clip, r1.chips]);
 await key('Shift+KeyS', 250); r1 = await rowOf();
 ok(r1.by === 'sharp', '⇧S steps back to sharpest first', r1.by);
 await key('KeyS', 250); await page.keyboard.press('KeyS'); const sAn2 = await anims(); await wait(250); r1 = await rowOf(); s = await sel();
 ok(r1.by === null && r1.ids === r0.ids && s.cells === a0.cells && s.ord === 0, 'S a third time: as shot, exactly as it was', r1.by);
+await L(() => { const l = __l(); Object.values(l.data.byId).forEach(f => { delete f.hi; }); });
 ok(sAn2.length > 0 && sAn2.every(a => a.ms <= 130), 'and the way back is the same kind of snap', sAn2.length);
 ok(!/nothing sharp|\bsoft\b|\bblown\b/.test(await L(() => document.querySelector('[data-screen-label="1 Cull"]').innerText)), 'no verdict words in the grid');
 await key('Alt+KeyS', 250); s = await sel();
