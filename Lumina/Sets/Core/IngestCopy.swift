@@ -38,7 +38,13 @@ nonisolated enum IngestCopy {
         var already = false
         /// Where the main file is in the library ("2026-10-28/DSC01234.ARW").
         var rel: String?
+        /// The source files that now have a verified copy (the main file and its companions): what "safe to format"
+        /// is checked against (`unaccounted`).
+        var sources: [String] = []
     }
+
+    /// Why a copy stopped because the library's disk went away (unplugged, unmounted): the queue stops on it.
+    static let destinationGone = "destination gone"
 
     /// The files beside `url` that go with it: same stem (any case), then `.ext` or Sony's `M01.ext`, and an
     /// extension in `companionExts`. Not `url` itself, never a folder or a dot-file.
@@ -67,11 +73,18 @@ nonisolated enum IngestCopy {
     /// Copies one item and its companions into `library`, verified. Never writes to the source.
     static func copy(_ item: Item, into library: URL, store: IngestLibrary) -> Result {
         var r = Result(key: item.key, ok: false)
-        if let no = SetsFileOps.refusal(destination: library, sources: [item.root]) { r.why = no.hasPrefix("Pick a folder that isn't on the card") ? "library on the card" : "library inside the source"; return r }
-        guard let folder = safeFolder(item.folder) else { r.why = "refused"; return r }
         let fm = FileManager.default
+        if let no = SetsFileOps.refusal(destination: library, sources: [item.root]) { r.why = no.hasPrefix("Pick a folder that isn't on the card") ? "library on the card" : "library inside the source"; return r }
+        // A library whose disk went away fails at once, before the original is read in full.
+        guard fm.fileExists(atPath: library.path) else { r.why = destinationGone; return r }
+        guard let folder = safeFolder(item.folder) else { r.why = "refused"; return r }
+        if (try? fm.attributesOfItem(atPath: item.source.path))?[.type] as? FileAttributeType == .typeSymbolicLink { r.why = "a link, not copied"; return r }
         var isDir: ObjCBool = false
-        guard fm.fileExists(atPath: item.source.path, isDirectory: &isDir), !isDir.boolValue else { r.why = "missing"; return r }
+        guard fm.fileExists(atPath: item.source.path, isDirectory: &isDir) else { r.why = "missing"; return r }
+        guard !isDir.boolValue else { r.why = "a folder, not copied"; return r }
+        // The file the page read, not another one that answers to the same path (two chosen folders of one name)
+        // or one that changed since.
+        if !item.key.isEmpty, pageKey(item.source) != item.key { r.why = "not the file that was read"; return r }
         let lib = library.standardizedFileURL
         var dst = lib.appendingPathComponent(folder, isDirectory: true).appendingPathComponent(item.source.lastPathComponent)
         // Already here: the copy kept for this key, if its bytes are the original's.
@@ -90,6 +103,7 @@ nonisolated enum IngestCopy {
             case .renamed(let u): target = u; newBytes = true; numbered = true
             }
             r.files = 1
+            r.sources = [item.source.standardizedFileURL.path]
             r.bytes = Int64((try? item.source.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
             r.rel = String(target.standardizedFileURL.path.dropFirst(lib.path.count + 1))
             // Companions keep their own names beside the copy; a main file numbered for a name clash numbers them
@@ -105,11 +119,14 @@ nonisolated enum IngestCopy {
                 case .copied, .renamed: newBytes = true
                 }
                 r.files += 1
+                r.sources.append(c.standardizedFileURL.path)
                 r.bytes += Int64((try? c.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
             }
             if !item.key.isEmpty, let rel = r.rel { store.record(item.key, IngestLibrary.Entry(rel: rel, sha: sha, size: r.bytes)) }
             r.ok = true
             r.already = !newBytes
+        } catch where !fm.fileExists(atPath: library.path) {
+            r.why = destinationGone
         } catch let e as SetsFileOps.Failure {
             r.why = e.description.contains("doesn't match") ? "copy doesn't match" : e.description.contains("changed while") ? "changed while copying" : "failed"
         } catch {
@@ -170,9 +187,14 @@ extension IngestCopy {
     /// Where the page's file is on disk. The page knows a file as its `webkitRelativePath` ("SONY/DCIM/100MSDCF/
     /// DSC01234.ARW": the chosen folder's name first) or, for files chosen on their own, its name. Only inside a
     /// folder or file the owner chose in Ingest's open panel (`roots`); no `..`, no leading `/`.
-    static func resolve(_ path: String, roots: [URL]) -> (file: URL, root: URL)? {
+    static func resolve(_ path: String, roots: [URL]) -> (file: URL, root: URL)? { resolveAll(path, roots: roots).first }
+
+    /// Every chosen folder or file the page's path can name, newest choice first. Two chosen folders with one name
+    /// (two cards' `100MSDCF`) both answer; the copy takes the one whose bytes are the page's key.
+    static func resolveAll(_ path: String, roots: [URL]) -> [(file: URL, root: URL)] {
+        var out: [(file: URL, root: URL)] = []
         let parts = path.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
-        guard !path.hasPrefix("/"), !parts.isEmpty, !parts.contains(where: { $0 == ".." || $0 == "." || $0.isEmpty }) else { return nil }
+        guard !path.hasPrefix("/"), !parts.isEmpty, !parts.contains(where: { $0 == ".." || $0 == "." || $0.isEmpty }) else { return [] }
         let fm = FileManager.default
         for root in roots.reversed() {
             var isDir: ObjCBool = false
@@ -181,12 +203,65 @@ extension IngestCopy {
                 guard parts.count > 1, parts[0] == root.lastPathComponent else { continue }
                 let f = root.appendingPathComponent(parts.dropFirst().joined(separator: "/"))
                 let rp = root.standardizedFileURL.resolvingSymlinksInPath().path, fp = f.standardizedFileURL.resolvingSymlinksInPath().path
-                guard fp.hasPrefix(rp + "/"), fm.fileExists(atPath: f.path) else { continue }
-                return (f, root)
+                guard fp.hasPrefix(rp + "/"), fm.fileExists(atPath: f.path) || (try? fm.attributesOfItem(atPath: f.path)) != nil else { continue }
+                if !out.contains(where: { $0.file.standardizedFileURL.path == f.standardizedFileURL.path }) { out.append((f, root)) }
             } else if parts.count == 1, root.lastPathComponent == parts[0] {
-                return (root, root.deletingLastPathComponent())
+                if !out.contains(where: { $0.file.standardizedFileURL.path == root.standardizedFileURL.path }) { out.append((root, root.deletingLastPathComponent())) }
             }
         }
-        return nil
+        return out
+    }
+
+    /// The page's identity key for a file (`readOne`): size, then CRC-32 of the first 64 KB and of the last 64 KB
+    /// (none for a file of 128 KB or less), base 36. Nil for a file that can't be read.
+    static func pageKey(_ url: URL) -> String? {
+        guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? h.close() }
+        guard let size = try? h.seekToEnd() else { return nil }
+        try? h.seek(toOffset: 0)
+        guard let head = try? h.read(upToCount: 65536) ?? Data() else { return nil }
+        var tail = Data()
+        if size > 131072 { try? h.seek(toOffset: size - 65536); guard let t = try? h.read(upToCount: 65536) else { return nil }; tail = t }
+        return String(size, radix: 36) + "-" + String(crc32(head), radix: 36) + "-" + String(crc32(tail), radix: 36)
+    }
+
+    private static let crcTable: [UInt32] = (0..<256).map { n -> UInt32 in
+        var c = UInt32(n); for _ in 0..<8 { c = c & 1 != 0 ? 0xEDB88320 ^ (c >> 1) : c >> 1 }; return c
+    }
+
+    static func crc32(_ d: Data) -> UInt32 {
+        var c: UInt32 = 0xFFFFFFFF
+        for b in d { c = crcTable[Int((c ^ UInt32(b)) & 0xFF)] ^ (c >> 8) }
+        return c ^ 0xFFFFFFFF
+    }
+
+    /// What the page skips as system files (`junk`): any part of the path a dot-name, `Thumbs.db`, `desktop.ini`.
+    static func isSystemFile(_ rel: String) -> Bool {
+        rel.split(separator: "/").contains { $0.hasPrefix(".") || $0 == "Thumbs.db" || $0 == "desktop.ini" }
+    }
+
+    /// "Safe to format" is said by the card, not by what was sent: every file under `root` (a card's root) that is
+    /// not a system file must have a verified copy (`copied`: standardized source paths). Answers the files still
+    /// only on the card, as paths under `root`, in order. Links and unreadable folders are listed too.
+    static func unaccounted(under root: URL, copied: Set<String>) -> [String] {
+        let base = root.standardizedFileURL.path
+        var left: [String] = []
+        var unreadable = false
+        let en = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey], options: [],
+                                                errorHandler: { u, _ in
+            let rel = String(u.standardizedFileURL.path.dropFirst(base.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            if !isSystemFile(rel) { unreadable = true }
+            return true
+        })
+        while let u = en?.nextObject() as? URL {
+            let p = u.standardizedFileURL.path
+            let rel = String(p.dropFirst(base.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            if isSystemFile(rel) { if u.hasDirectoryPath { en?.skipDescendants() }; continue }
+            let v = try? u.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            if v?.isDirectory == true, v?.isSymbolicLink != true { continue }
+            if !copied.contains(p) { left.append(rel) }
+        }
+        if unreadable { left.append("(a folder that can't be read)") }
+        return left.sorted()
     }
 }

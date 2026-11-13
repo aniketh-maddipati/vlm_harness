@@ -162,11 +162,11 @@ function plan(groups) {
   for (const g of groups) {
     let label = g.label, n = 2; while (S.sources.has(label)) label = g.label + ' ' + n++;
     const src = { label, files: 0 }; S.sources.set(label, src);
-    const byStem = new Map();
+    const byStem = new Map(), sides = [];
     for (const { f, path } of g.files) {
       const k = kindOf(f.name);
       if (!k) { S.other++; S.extra.push({ path, src: label }); continue; }
-      if (k === 'side') { S.side++; continue; }
+      if (k === 'side') { S.side++; sides.push(path); continue; }
       // Sony proxies (C0001S03.MP4 in SUB/) go with their clip and never show as tiles.
       if (k === 'video' && (/\/SUB\//i.test('/' + path) || /^C\d{4}S\d{2}\.MP4$/i.test(f.name))) { S.proxies++; S.extra.push({ path, src: label }); continue; }
       const st = stem(path);
@@ -179,6 +179,8 @@ function plan(groups) {
       const job = { f, path, kind: k, src: label };
       byStem.set(st, job); jobs.push(job); src.files++;
     }
+    // a sidecar with no photo or clip of its stem (Sony's C0001M01.XML goes with C0001) is copied on its own
+    for (const path of sides) { const st = stem(path); if (!byStem.has(st) && !byStem.has(st.replace(/m\d\d$/, ''))) S.extra.push({ path, src: label }); }
   }
   return jobs;
 }
@@ -288,11 +290,11 @@ function shiftClocks() {
 // ---- the copy into the library (the Mac copies, checks every copy, and says when a card is safe) ----------
 const pad = (n) => String(n).padStart(2, '0');
 const dayFolder = (it) => { if (!it.date) return 'No date'; const d = new Date(it.date); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-const cpOf = (src) => { if (!S.cp.has(src)) S.cp.set(src, { sent: 0, ok: 0, bad: 0, card: false }); return S.cp.get(src); };
+const cpOf = (src) => { if (!S.cp.has(src)) S.cp.set(src, { sent: 0, ok: 0, bad: 0, card: false, left: null }); return S.cp.get(src); };
 function copyAll() {
   if (!host) return;
   const items = [], batch = [];
-  const job = (key, path, src, folder) => { items.push({ key, path, src, folder }); cpOf(src).sent++; };
+  const job = (key, path, src, folder) => { items.push({ key, path, src, folder }); const c = cpOf(src); c.sent++; c.left = null; };
   for (const it of S.items.values()) {
     if (it.cpSent) continue; it.cpSent = true; batch.push(it); it.cpWait = 1 + (it.also || []).length;
     job(it.key, it.path, it.src, dayFolder(it));
@@ -319,11 +321,15 @@ window.luminaIngest = {
       if (--it.cpWait <= 0 && it.copy !== 'bad') { it.copy = 'ok'; library.add(it.key); }
     }
     dirty(!d.ok);
-  }
+  },
+  // the Mac counted the card itself once its copies were done: files still only on it (left), the first by name
+  audited(d) { const c = cpOf(d.src); c.left = d.left; c.first = d.first || ''; dirty(); }
 };
 const copying = () => S.cpDone < S.cpSent;
-// "safe to format" only for a whole card (the Mac says so: the card's root was chosen) with every file copied and checked
-const safeSources = () => [...S.cp].filter(([, c]) => c.card && c.sent && c.ok === c.sent).map(([src]) => ({ src }));
+// "safe to format" only for a whole card (the Mac says so: the card's root was chosen) with every file sent copied and
+// checked, and the Mac's count of the card itself: nothing on it without a copy
+const safeSources = () => [...S.cp].filter(([, c]) => c.card && c.sent && c.ok === c.sent && c.left === 0).map(([src]) => ({ src }));
+const leftOn = () => [...S.cp].filter(([, c]) => c.card && c.left > 0).map(([src, c]) => ({ src, left: c.left, first: c.first }));
 function eject(src) { call('ingestEject', { src }).then((r) => say(r && r.ok ? `Ejected ${src}` : `Not ejected: ${(r && r.why) || 'no answer'}`)); }
 
 // ---- sets: chips --------------------------------------------------------------------------------
@@ -473,6 +479,7 @@ function drawFoot() {
   if (here) parts.push(n(here, 'already here', 'already here'));
   if (bad) parts.push(n(bad, 'unreadable', 'unreadable'));
   const nc = count((i) => i.copy === 'bad'); if (nc) parts.push(n(nc, 'not copied', 'not copied'));
+  if (!S.reading && !copying()) for (const { src, left, first } of leftOn()) parts.push(`<span class="n" title="${esc(first)}">${fmt(left)} only on ${esc(src)}</span>`);
   if (!S.reading && !copying()) for (const { src } of safeSources()) parts.push(`<span class="n" data-w="${esc(src)}">safe to format ${esc(src)}</span> <span class="n" data-eject="${esc(src)}">Eject</span>`);
   if (S.items.size) parts.push(`<span class="n" data-more="1">${$('#notes').classList.contains('off') ? 'Details' : 'Hide details'}</span>`);
   $('#foot').innerHTML = parts.join(' · ');

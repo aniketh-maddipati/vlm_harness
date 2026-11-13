@@ -30,6 +30,8 @@ final class IngestCopyTests: XCTestCase {
         return out
     }
 
+    private func key(_ u: URL) -> String { IngestCopy.pageKey(u)! }
+
     private func store() -> IngestLibrary { IngestLibrary(url: dir.appendingPathComponent("container/ingest/library.json")) }
 
     func testCopiesAPairWithItsSidecarsAndLeavesTheSourceAsItWas() throws {
@@ -39,7 +41,7 @@ final class IngestCopyTests: XCTestCase {
         _ = try put("DCIM/100MSDCF/DSC01235.ARW", "another photo")
         let before = snapshot(card)
         let s = store()
-        let r = IngestCopy.copy(.init(key: "k1", source: raw, root: card, folder: "2026-10-28"), into: lib, store: s)
+        let r = IngestCopy.copy(.init(key: key(raw), source: raw, root: card, folder: "2026-10-28"), into: lib, store: s)
         XCTAssertTrue(r.ok, r.why ?? "")
         XCTAssertEqual(r.files, 3)
         XCTAssertFalse(r.already)
@@ -49,8 +51,9 @@ final class IngestCopyTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: day.appendingPathComponent("DSC01234.xmp"), encoding: .utf8), "<x/>")
         XCTAssertFalse(FileManager.default.fileExists(atPath: day.appendingPathComponent("DSC01235.ARW").path))
         XCTAssertEqual(snapshot(card), before, "the source is never written")
-        XCTAssertEqual(s.entry("k1")?.rel, "2026-10-28/DSC01234.ARW")
-        XCTAssertEqual(s.entry("k1")?.sha, SetsFileOps.sha256(Data("raw bytes".utf8)))
+        XCTAssertEqual(r.sources.count, 3, "the photo and both companions are accounted for")
+        XCTAssertEqual(s.entry(key(raw))?.rel, "2026-10-28/DSC01234.ARW")
+        XCTAssertEqual(s.entry(key(raw))?.sha, SetsFileOps.sha256(Data("raw bytes".utf8)))
     }
 
     func testSonyClipTakesItsXMLAndAgainIsAlreadyHere() throws {
@@ -58,9 +61,9 @@ final class IngestCopyTests: XCTestCase {
         _ = try put("PRIVATE/M4ROOT/CLIP/C0001M01.XML", "<meta/>")
         _ = try put("PRIVATE/M4ROOT/CLIP/C0010.MP4", "not its companion")
         let s = store()
-        let r = IngestCopy.copy(.init(key: "c1", source: clip, root: card, folder: "2026-10-28"), into: lib, store: s)
+        let r = IngestCopy.copy(.init(key: key(clip), source: clip, root: card, folder: "2026-10-28"), into: lib, store: s)
         XCTAssertTrue(r.ok); XCTAssertEqual(r.files, 2)
-        let again = IngestCopy.copy(.init(key: "c1", source: clip, root: card, folder: "2026-10-29"), into: lib, store: s)
+        let again = IngestCopy.copy(.init(key: key(clip), source: clip, root: card, folder: "2026-10-29"), into: lib, store: s)
         XCTAssertTrue(again.ok); XCTAssertTrue(again.already)
         XCTAssertEqual(again.rel, "2026-10-28/C0001.MP4", "already here: checked against the copy kept, not copied again")
         XCTAssertFalse(FileManager.default.fileExists(atPath: lib.appendingPathComponent("2026-10-29").path))
@@ -71,8 +74,8 @@ final class IngestCopyTests: XCTestCase {
         let b = try put("B/DSC00001.ARW", "photo b")
         _ = try put("B/DSC00001.JPG", "jpeg b")
         let s = store()
-        XCTAssertTrue(IngestCopy.copy(.init(key: "a", source: a, root: card, folder: "d"), into: lib, store: s).ok)
-        let r = IngestCopy.copy(.init(key: "b", source: b, root: card, folder: "d"), into: lib, store: s)
+        XCTAssertTrue(IngestCopy.copy(.init(key: key(a), source: a, root: card, folder: "d"), into: lib, store: s).ok)
+        let r = IngestCopy.copy(.init(key: key(b), source: b, root: card, folder: "d"), into: lib, store: s)
         XCTAssertTrue(r.ok); XCTAssertEqual(r.rel, "d/DSC00001-2.ARW")
         XCTAssertEqual(try String(contentsOf: lib.appendingPathComponent("d/DSC00001-2.JPG"), encoding: .utf8), "jpeg b")
         XCTAssertEqual(try String(contentsOf: lib.appendingPathComponent("d/DSC00001.ARW"), encoding: .utf8), "photo a")
@@ -91,13 +94,72 @@ final class IngestCopyTests: XCTestCase {
     }
 
     func testAKeyThatMatchedByChanceIsStillCopied() throws {
-        let a = try put("A/DSC00001.ARW", "photo a")
-        let b = try put("B/DSC00002.ARW", "photo b")
+        // Same size, same first and last 64 KB, other bytes between: the page's key can't tell them apart.
+        let edge = Data(repeating: 7, count: 65536)
+        let a = card.appendingPathComponent("A/DSC00001.ARW"), b = card.appendingPathComponent("B/DSC00002.ARW")
+        for (u, mid) in [(a, UInt8(1)), (b, UInt8(2))] {
+            try FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try (edge + Data(repeating: mid, count: 1000) + edge).write(to: u)
+        }
+        XCTAssertEqual(key(a), key(b))
         let s = store()
-        XCTAssertTrue(IngestCopy.copy(.init(key: "same", source: a, root: card, folder: "d"), into: lib, store: s).ok)
-        let r = IngestCopy.copy(.init(key: "same", source: b, root: card, folder: "d"), into: lib, store: s)
+        XCTAssertTrue(IngestCopy.copy(.init(key: key(a), source: a, root: card, folder: "d"), into: lib, store: s).ok)
+        let r = IngestCopy.copy(.init(key: key(b), source: b, root: card, folder: "d"), into: lib, store: s)
         XCTAssertTrue(r.ok); XCTAssertFalse(r.already)
-        XCTAssertEqual(try String(contentsOf: lib.appendingPathComponent(r.rel!), encoding: .utf8), "photo b")
+        XCTAssertEqual(try Data(contentsOf: lib.appendingPathComponent(r.rel!)), try Data(contentsOf: b))
+    }
+
+    func testTheFileReadIsTheFileCopied() throws {
+        let a = try put("A/DSC00001.ARW", "photo a")
+        let r = IngestCopy.copy(.init(key: key(a), source: try put("B/DSC00001.ARW", "photo b"), root: card, folder: "d"), into: lib, store: store())
+        XCTAssertFalse(r.ok); XCTAssertEqual(r.why, "not the file that was read")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: lib.appendingPathComponent("d").path))
+    }
+
+    func testPageKeyIsThePages() throws {
+        XCTAssertEqual(IngestCopy.crc32(Data("123456789".utf8)), 0xCBF43926)
+        let small = try put("x.JPG", "abc")
+        XCTAssertEqual(IngestCopy.pageKey(small), "3-" + String(0x352441C2 as UInt32, radix: 36) + "-0", "128 KB or less: no tail")
+        let big = card.appendingPathComponent("big.ARW")
+        let head = Data(repeating: 1, count: 65536), mid = Data(repeating: 2, count: 10), tail = Data(repeating: 3, count: 65536)
+        try (head + mid + tail).write(to: big)
+        XCTAssertEqual(IngestCopy.pageKey(big), String(131082, radix: 36) + "-" + String(IngestCopy.crc32(head), radix: 36) + "-" + String(IngestCopy.crc32(tail), radix: 36))
+    }
+
+    func testAGoneLibraryStopsAtOnceAndFoldersAndLinksAreNamed() throws {
+        let a = try put("A/DSC00001.ARW", "photo a")
+        let gone = IngestCopy.copy(.init(key: key(a), source: a, root: card, folder: "d"), into: dir.appendingPathComponent("unplugged"), store: store())
+        XCTAssertFalse(gone.ok); XCTAssertEqual(gone.why, IngestCopy.destinationGone)
+        let bundle = card.appendingPathComponent("C0002.fcpbundle")
+        try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        XCTAssertEqual(IngestCopy.copy(.init(key: "", source: bundle, root: card, folder: "d"), into: lib, store: store()).why, "a folder, not copied")
+        let link = card.appendingPathComponent("C4815.mp4")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: dir.appendingPathComponent("elsewhere.mp4"))
+        XCTAssertEqual(IngestCopy.copy(.init(key: "", source: link, root: card, folder: "d"), into: lib, store: store()).why, "a link, not copied")
+    }
+
+    func testTheCardSaysWhatIsStillOnlyOnIt() throws {
+        let raw = try put("DCIM/100MSDCF/DSC01234.ARW", "raw")
+        _ = try put("DCIM/100MSDCF/DSC01234.JPG", "jpeg")
+        let orphan = try put("PRIVATE/M4ROOT/CLIP/C0009M01.XML", "<meta/>")
+        _ = try put(".Spotlight-V100/store.db", "x"); _ = try put("DCIM/.DS_Store", "x"); _ = try put("DCIM/Thumbs.db", "x")
+        let s = store()
+        var copied = Set(IngestCopy.copy(.init(key: key(raw), source: raw, root: card, folder: "d"), into: lib, store: s).sources)
+        XCTAssertEqual(IngestCopy.unaccounted(under: card, copied: copied), ["PRIVATE/M4ROOT/CLIP/C0009M01.XML"], "the sidecar with no clip is still only on the card; system files don't count")
+        copied.formUnion(IngestCopy.copy(.init(key: "", source: orphan, root: card, folder: "Other"), into: lib, store: s).sources)
+        XCTAssertEqual(IngestCopy.unaccounted(under: card, copied: copied), [])
+    }
+
+    func testTwoChosenFoldersOfOneNameBothAnswer() throws {
+        let one = dir.appendingPathComponent("one/100MSDCF"), two = dir.appendingPathComponent("two/100MSDCF")
+        for (d, t) in [(one, "first"), (two, "second")] {
+            try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+            try Data(t.utf8).write(to: d.appendingPathComponent("DSC00001.ARW"))
+        }
+        let all = IngestCopy.resolveAll("100MSDCF/DSC00001.ARW", roots: [one, two])
+        XCTAssertEqual(all.map { $0.file.path }, [two, one].map { $0.appendingPathComponent("DSC00001.ARW").path }, "newest choice first, both listed")
+        let wanted = key(one.appendingPathComponent("DSC00001.ARW"))
+        XCTAssertEqual(all.first { IngestCopy.pageKey($0.file) == wanted }?.file.deletingLastPathComponent().path, one.path)
     }
 
     func testRefusesALibraryInsideTheSourceAndUnsafeFolders() throws {
