@@ -73,11 +73,16 @@ check((await asked('ingestForgetPlaces')).length === 1, 'Forget these forgets th
 console.log('== nothing is turned away for its kind');
 const d = path.join(TMP, 'Notes'); fs.mkdirSync(path.join(d, 'sub'), { recursive: true });
 fs.writeFileSync(path.join(d, 'shotlist.pdf'), 'pdf'); fs.writeFileSync(path.join(d, 'sub', 'track.gpx'), 'gpx'); fs.writeFileSync(path.join(d, 'lonely.xmp'), '<x/>');
+// a Final Cut library with a clip inside: one thing, copied whole, its clip no tile
+fs.mkdirSync(path.join(d, 'Trip.fcpbundle', 'Original Media'), { recursive: true });
+fs.writeFileSync(path.join(d, 'Trip.fcpbundle', 'Original Media', 'C0001.MP4'), 'clip'); fs.writeFileSync(path.join(d, 'Trip.fcpbundle', 'Settings.plist'), 'p');
 await page.setInputFiles('#pick', d);
 await page.waitForFunction(() => window.__asked.some((m) => m.op === 'ingestCopy'));
 const sent = (await asked('ingestCopy'))[0].items;
-check(sent.length === 3 && sent.every((i) => i.key === '' && i.folder.startsWith('Other/Notes')), `the PDF, the GPX and the sidecar with no photo are sent to be copied: ${sent.map((i) => i.folder + ' ← ' + i.path).join(', ')}`);
-check(/No photos or clips there · 3 other files copied as they are/.test(await text('#say')), 'and the page says what happened to them');
+check(sent.length === 4 && sent.every((i) => i.key === '' && i.folder.startsWith('Other/Notes')), `the PDF, the GPX, the sidecar with no photo and the package are sent to be copied: ${sent.map((i) => i.folder + ' ← ' + i.path).join(', ')}`);
+check(sent.filter((i) => i.path.includes('fcpbundle')).length === 1 && sent.some((i) => i.path === 'Notes/Trip.fcpbundle' && i.folder === 'Other/Notes'), 'the package is sent once, as itself, not file by file');
+check((await page.evaluate(() => window.__ingest.state().items)) === 0, 'the clip inside it is no tile');
+check(/No photos or clips there · 4 other files copied as they are/.test(await text('#say')), 'and the page says what happened to them');
 
 console.log('== the library goes away; its record is not written');
 await page.evaluate(() => window.luminaIngest.copied({ key: '', src: 'Notes', ok: false, why: 'destination gone', files: 0, bytes: 0 }));

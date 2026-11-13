@@ -135,7 +135,7 @@ final class IngestCopyTests: XCTestCase {
         XCTAssertEqual(IngestCopy.copy(.init(key: key(a), source: a, root: card.appendingPathComponent("DCIM"), folder: "d"), into: notAFolder, store: store()).why, IngestCopy.destinationGone)
         let bundle = card.appendingPathComponent("C0002.fcpbundle")
         try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
-        XCTAssertEqual(IngestCopy.copy(.init(key: "", source: bundle, root: card, folder: "d"), into: lib, store: store()).why, "a folder, not copied")
+        XCTAssertTrue(IngestCopy.copy(.init(key: "", source: bundle, root: card, folder: "d"), into: lib, store: store()).ok, "a folder is copied whole (testAPackageIsCopiedWhole)")
         let link = card.appendingPathComponent("C4815.mp4")
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: dir.appendingPathComponent("elsewhere.mp4"))
         XCTAssertEqual(IngestCopy.copy(.init(key: "", source: link, root: card, folder: "d"), into: lib, store: store()).why, "a link, not copied")
@@ -237,6 +237,41 @@ final class IngestCopyTests: XCTestCase {
         let a = try put("A/DSC00001.ARW", "photo a")
         let r = IngestCopy.copy(.init(key: key(a), source: a, root: card, folder: "2026/2026-10-28 Death Valley/Photos"), into: lib, store: s)
         XCTAssertTrue(r.ok, r.why ?? ""); XCTAssertEqual(r.rel, "2026/2026-10-28 Death Valley/Photos/DSC00001.ARW")
+    }
+
+    func testAPackageIsCopiedWhole() throws {
+        _ = try put("CLIP/Lib.fcpbundle/Day 1/CurrentVersion.fcpevent", "event")
+        _ = try put("CLIP/Lib.fcpbundle/Settings.plist", "plist")
+        _ = try put("CLIP/Lib.fcpbundle/.lock", "hidden, and the package's own")
+        let pkg = card.appendingPathComponent("CLIP/Lib.fcpbundle")
+        let fm = FileManager.default
+        try fm.createDirectory(at: pkg.appendingPathComponent("Empty"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: pkg.appendingPathComponent("Original Media"), withIntermediateDirectories: true)
+        try fm.createSymbolicLink(atPath: pkg.appendingPathComponent("Original Media/C4815.mp4").path, withDestinationPath: "/nowhere/C4815.mp4")
+        let before = snapshot(card)
+        let s = store()
+        let r = IngestCopy.copy(.init(key: "", source: pkg, root: card, folder: "Other/SONY/CLIP"), into: lib, store: s)
+        XCTAssertTrue(r.ok, r.why ?? ""); XCTAssertEqual(r.files, 3); XCTAssertFalse(r.already)
+        XCTAssertEqual(r.rel, "Other/SONY/CLIP/Lib.fcpbundle"); XCTAssertEqual(r.sources, [pkg.standardizedFileURL.path])
+        let out = lib.appendingPathComponent("Other/SONY/CLIP/Lib.fcpbundle")
+        XCTAssertEqual(try String(contentsOf: out.appendingPathComponent("Day 1/CurrentVersion.fcpevent"), encoding: .utf8), "event")
+        XCTAssertEqual(try String(contentsOf: out.appendingPathComponent(".lock"), encoding: .utf8), "hidden, and the package's own")
+        XCTAssertTrue(fm.fileExists(atPath: out.appendingPathComponent("Empty").path))
+        XCTAssertEqual(try fm.destinationOfSymbolicLink(atPath: out.appendingPathComponent("Original Media/C4815.mp4").path), "/nowhere/C4815.mp4", "a link stays a link")
+        XCTAssertEqual(snapshot(card), before, "the source is never written")
+        XCTAssertTrue(IngestCopy.copy(.init(key: "", source: pkg, root: card, folder: "Other/SONY/CLIP"), into: lib, store: s).already, "again: already here")
+        // the card's own count: everything inside the package is accounted for, the broken link included
+        _ = try put("CLIP/C0001.MP4", "a clip beside it")
+        XCTAssertEqual(IngestCopy.unaccounted(under: card, copied: Set(r.sources)), ["CLIP/C0001.MP4"])
+        // another package of that name is never mixed into
+        _ = try put("B/Lib.fcpbundle/Settings.plist", "another library")
+        let other = IngestCopy.copy(.init(key: "", source: card.appendingPathComponent("B/Lib.fcpbundle"), root: card, folder: "Other/SONY/CLIP"), into: lib, store: s)
+        XCTAssertTrue(other.ok, other.why ?? ""); XCTAssertEqual(other.rel, "Other/SONY/CLIP/Lib-2.fcpbundle")
+        XCTAssertEqual(try String(contentsOf: out.appendingPathComponent("Settings.plist"), encoding: .utf8), "plist", "the first is as it was")
+        // a package dropped as it is: the page names it by its own name
+        let found = IngestCopy.resolveAll("Lib.fcpbundle", roots: [pkg])
+        XCTAssertEqual(found.map { $0.file.path }, [pkg.path]); XCTAssertEqual(found.first?.root.path, pkg.path)
+        XCTAssertTrue(IngestCopy.resolveAll("Other.fcpbundle", roots: [pkg]).isEmpty)
     }
 
     func testOnlyAVolumesRootIsAWholeCard() throws {

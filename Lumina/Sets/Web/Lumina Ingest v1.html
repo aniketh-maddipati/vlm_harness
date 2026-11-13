@@ -116,6 +116,9 @@ const EXT = {
 const kindOf = (name) => { const e = (name.split('.').pop() || '').toLowerCase(); for (const k in EXT) if (EXT[k].includes(e)) return k; return null; };
 const stem = (p) => p.replace(/\.[^./]+$/, '').toLowerCase();
 const junk = (name) => name.startsWith('.') || name === 'Thumbs.db' || name === 'desktop.ini';
+// A folder macOS shows as one file (a Final Cut library, a Photos library): copied whole, never opened up into tiles.
+const PKG = /\.(fcpbundle|photoslibrary|imovielibrary|tvlibrary|aplibrary|lrdata|logicx|band|app|rtfd|key|pages|numbers)$/i;
+const pkgOf = (path) => { const p = path.split('/'), i = p.slice(0, -1).findIndex((x) => PKG.test(x)); return i < 0 ? null : p.slice(0, i + 1).join('/'); };
 
 // ---- state ---------------------------------------------------------------------------------
 // The library is the Mac's (IngestHost): the folder picked once, its identities, the verified copy and Eject.
@@ -129,7 +132,7 @@ const S = {
   items: new Map(),     // key -> item (one per photo or clip)
   sources: new Map(),   // label -> {label, files}
   total: 0, done: 0, t0: 0, reading: false,
-  junk: 0, side: 0, other: 0, paired: 0, proxies: 0, lost: 0,
+  junk: 0, side: 0, other: 0, paired: 0, proxies: 0, lost: 0, pkgs: 0,
   chips: [], group: 'day', tw: 150, tripName: null,
   cut: new Set(), join: new Set(), names: new Map(),  // shoots corrected by hand (lumina-ingest-shoots.js) and named
   shoots: [], at: new Map(),   // the shoots as they stand, and key -> {shoot, part}
@@ -145,6 +148,8 @@ function readAll(reader) { return new Promise((res) => { const out = []; const m
 async function walk(entry, path, files) {
   if (junk(entry.name)) { if (entry.isFile) S.junk++; return; }
   if (entry.isFile) { const f = await new Promise((r) => entry.file(r, () => r(null))); if (f) files.push({ f, path: path + entry.name }); else S.lost++; return; }
+  // a package is one thing: named, not read into
+  if (entry.isDirectory && PKG.test(entry.name)) { files.push({ f: null, path: path + entry.name, pkg: true }); return; }
   if (entry.isDirectory) for (const e of await readAll(entry.createReader())) await walk(e, path + entry.name + '/', files);
 }
 async function fromDrop(dt) {
@@ -171,8 +176,11 @@ function plan(groups) {
   for (const g of groups) {
     let label = g.label, n = 2; while (S.sources.has(label)) label = g.label + ' ' + n++;
     const src = { label, files: 0 }; S.sources.set(label, src);
-    const byStem = new Map(), sides = [];
-    for (const { f, path } of g.files) {
+    const byStem = new Map(), sides = [], pkgs = new Set();
+    for (const { f, path, pkg } of g.files) {
+      // a package (dropped: named once; picked: its files, which are left to the Mac) is copied whole
+      const pk = pkg ? path : pkgOf(path);
+      if (pk) { if (!pkgs.has(pk)) { pkgs.add(pk); S.pkgs++; S.extra.push({ path: pk, src: label, pkg: true }); } continue; }
       const k = kindOf(f.name);
       if (!k) { S.other++; S.extra.push({ path, src: label }); continue; }
       if (k === 'side') { S.side++; sides.push(path); continue; }
@@ -625,7 +633,7 @@ function drawNotes() {
   const z = day0(), days = new Map(); for (const it of S.items.values()) { const k = dayOf(it, z); if (k) days.set(k, (days.get(k) || 0) + 1); }
   const bc = new Map(); for (const it of S.items.values()) if (it.body) bc.set(it.body, (bc.get(it.body) || 0) + 1);
   const pick = (words, label) => `<span data-c="${esc(words)}">${esc(label)}</span>`;
-  const handled = [S.paired && `${fmt(S.paired)} RAW + JPEG pairs joined`, S.proxies && `${fmt(S.proxies)} proxies left with their clips`, S.side && `${fmt(S.side)} sidecars kept`, S.junk && `${fmt(S.junk)} system files skipped`, S.other && `${fmt(S.other)} other files ${host ? 'copied as they are' : 'left alone'}`, S.lost && `${fmt(S.lost)} could not be opened`].filter(Boolean);
+  const handled = [S.paired && `${fmt(S.paired)} RAW + JPEG pairs joined`, S.proxies && `${fmt(S.proxies)} proxies left with their clips`, S.side && `${fmt(S.side)} sidecars kept`, S.junk && `${fmt(S.junk)} system files skipped`, S.other && `${fmt(S.other)} other files ${host ? 'copied as they are' : 'left alone'}`, S.pkgs && `${fmt(S.pkgs)} ${S.pkgs === 1 ? 'package' : 'packages'} ${host ? 'copied whole' : 'left whole'}`, S.lost && `${fmt(S.lost)} could not be opened`].filter(Boolean);
   const line = (t) => `<div class="n"><i>●</i><span>${t}</span></div>`;
   d.innerHTML = `<span class="h">What was read</span>`
     + line('From ' + [...S.sources.values()].map((s) => pick(s.label, `${s.label} (${fmt(s.files)})`)).join(', '))

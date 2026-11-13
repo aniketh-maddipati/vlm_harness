@@ -82,7 +82,8 @@ nonisolated enum IngestCopy {
         if (try? fm.attributesOfItem(atPath: item.source.path))?[.type] as? FileAttributeType == .typeSymbolicLink { r.why = "a link, not copied"; return r }
         var isDir: ObjCBool = false
         guard fm.fileExists(atPath: item.source.path, isDirectory: &isDir) else { r.why = "missing"; return r }
-        guard !isDir.boolValue else { r.why = "a folder, not copied"; return r }
+        // A folder macOS shows as one file (a Final Cut library, a Photos library): copied whole, as it is.
+        if isDir.boolValue { return copyPackage(item, folder: folder, library: library, lib: library.standardizedFileURL) }
         // The file the page read, not another one that answers to the same path (two chosen folders of one name)
         // or one that changed since.
         if !item.key.isEmpty, pageKey(item.source) != item.key { r.why = "not the file that was read"; return r }
@@ -230,7 +231,12 @@ nonisolated extension IngestCopy {
             var isDir: ObjCBool = false
             guard fm.fileExists(atPath: root.path, isDirectory: &isDir) else { continue }
             if isDir.boolValue {
-                guard parts.count > 1, parts[0] == root.lastPathComponent else { continue }
+                guard parts[0] == root.lastPathComponent else { continue }
+                // the chosen folder itself: a package that was dropped as it is
+                if parts.count == 1 {
+                    if !out.contains(where: { $0.file.standardizedFileURL.path == root.standardizedFileURL.path }) { out.append((root, root)) }
+                    continue
+                }
                 let f = root.appendingPathComponent(parts.dropFirst().joined(separator: "/"))
                 let rp = root.standardizedFileURL.resolvingSymlinksInPath().path, fp = f.standardizedFileURL.resolvingSymlinksInPath().path
                 guard fp.hasPrefix(rp + "/"), fm.fileExists(atPath: f.path) || (try? fm.attributesOfItem(atPath: f.path)) != nil else { continue }
@@ -265,13 +271,96 @@ nonisolated extension IngestCopy {
         return c ^ 0xFFFFFFFF
     }
 
+    /// A package (a Final Cut library, a Photos library; any folder the page sends as one thing) copied whole into
+    /// `folder` under its own name: the same layout, every regular file through `copyVerified`, folders made, links
+    /// kept as links (the same target text; a link holds no bytes of its own). Nothing is left out, dot-files
+    /// included: a package is its maker's, not ours to thin. A different package already under that name is never
+    /// mixed into: this one takes a numbered name ("Trip-2.fcpbundle").
+    static func copyPackage(_ item: Item, folder: String, library: URL, lib: URL) -> Result {
+        var r = Result(key: item.key, ok: false)
+        let fm = FileManager.default
+        let src = item.source.standardizedFileURL
+        // Walked by name from the package's own path, so each entry's place inside it is exact (a listing by URL
+        // spells a link that points nowhere differently from its neighbours). An entry that can't be read or told
+        // apart stops the copy: nothing is skipped quietly.
+        var unreadable = false
+        var files: [(rel: String, url: URL, size: Int64)] = [], dirs: [String] = [], links: [(rel: String, to: String)] = []
+        var todo = [""]
+        while let dir = todo.popLast() {
+            let at = dir.isEmpty ? item.source : item.source.appendingPathComponent(dir, isDirectory: true)
+            guard let names = try? fm.contentsOfDirectory(atPath: at.path) else { unreadable = true; break }
+            for name in names.sorted() {
+                let rel = dir.isEmpty ? name : dir + "/" + name
+                let u = item.source.appendingPathComponent(rel)
+                guard name != "..", name != ".", let a = try? fm.attributesOfItem(atPath: u.path), let type = a[.type] as? FileAttributeType else { unreadable = true; continue }
+                switch type {
+                case .typeSymbolicLink:
+                    guard let to = try? fm.destinationOfSymbolicLink(atPath: u.path) else { unreadable = true; continue }
+                    links.append((rel, to))
+                case .typeDirectory: dirs.append(rel); todo.append(rel)
+                case .typeRegular: files.append((rel, u, (a[.size] as? NSNumber)?.int64Value ?? 0))
+                default: unreadable = true
+                }
+            }
+        }
+        guard !unreadable else { r.why = "part of it can't be read"; return r }
+        let parent = lib.appendingPathComponent(folder, isDirectory: true)
+        let base = (src.lastPathComponent as NSString).deletingPathExtension, ext = src.pathExtension
+        var dst = parent.appendingPathComponent(src.lastPathComponent, isDirectory: true), n = 2
+        // Another package under that name: one whose file at the same place has other bytes, or whose link points elsewhere.
+        func clashes(_ d: URL) -> Bool {
+            guard fm.fileExists(atPath: d.path) else { return false }
+            for f in files {
+                let t = d.appendingPathComponent(f.rel)
+                guard let a = try? fm.attributesOfItem(atPath: t.path) else { continue }
+                if a[.type] as? FileAttributeType != .typeRegular || (a[.size] as? NSNumber)?.int64Value != f.size { return true }
+                if (try? SetsFileOps.sha256(file: t)) != (try? SetsFileOps.sha256(file: f.url)) { return true }
+            }
+            for l in links { if let to = try? fm.destinationOfSymbolicLink(atPath: d.appendingPathComponent(l.rel).path), to != l.to { return true } }
+            return false
+        }
+        while clashes(dst) { dst = parent.appendingPathComponent("\(base)-\(n)" + (ext.isEmpty ? "" : ".\(ext)"), isDirectory: true); n += 1 }
+        do {
+            var newBytes = !fm.fileExists(atPath: dst.path)
+            try fm.createDirectory(at: dst, withIntermediateDirectories: true)
+            for d in dirs { try fm.createDirectory(at: dst.appendingPathComponent(d, isDirectory: true), withIntermediateDirectories: true) }
+            for f in files {
+                switch try SetsFileOps.copyVerified(f.url, to: dst.appendingPathComponent(f.rel)) {
+                case .alreadyThere: break
+                case .copied: newBytes = true
+                case .renamed: throw SetsFileOps.Failure("\(f.rel) changed in the library while the package was copied")
+                }
+                r.files += 1; r.bytes += f.size
+            }
+            for l in links {
+                let t = dst.appendingPathComponent(l.rel)
+                if (try? fm.destinationOfSymbolicLink(atPath: t.path)) == l.to { continue }
+                try fm.createDirectory(at: t.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try fm.createSymbolicLink(atPath: t.path, withDestinationPath: l.to)
+                newBytes = true
+            }
+            r.rel = String(dst.standardizedFileURL.path.dropFirst(lib.path.count + 1))
+            r.sources = [src.path]
+            r.ok = true
+            r.already = !newBytes
+        } catch where !fm.fileExists(atPath: library.path) {
+            r.why = destinationGone
+        } catch let e as SetsFileOps.Failure {
+            r.why = e.description.contains("doesn't match") ? "copy doesn't match" : e.description.contains("changed while") ? "changed while copying" : e.description.contains("changed in the library") ? "library changed while copying" : "failed"
+        } catch {
+            r.why = SetsFileOps.reason(error)
+        }
+        return r
+    }
+
     /// What the page skips as system files (`junk`): any part of the path a dot-name, `Thumbs.db`, `desktop.ini`.
     static func isSystemFile(_ rel: String) -> Bool {
         rel.split(separator: "/").contains { $0.hasPrefix(".") || $0 == "Thumbs.db" || $0 == "desktop.ini" }
     }
 
     /// "Safe to format" is said by the card, not by what was sent: every file under `root` (a card's root) that is
-    /// not a system file must have a verified copy (`copied`: standardized source paths). Answers the files still
+    /// not a system file must have a verified copy (`copied`: standardized source paths; a package copied whole is
+    /// its folder's path and covers what is in it). Answers the files still
     /// only on the card, as paths under `root`, in order. Links and unreadable folders are listed too.
     static func unaccounted(under root: URL, copied: Set<String>) -> [String] {
         let base = root.standardizedFileURL.path
@@ -288,7 +377,11 @@ nonisolated extension IngestCopy {
             let rel = String(p.dropFirst(base.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             if isSystemFile(rel) { if u.hasDirectoryPath { en?.skipDescendants() }; continue }
             let v = try? u.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-            if v?.isDirectory == true, v?.isSymbolicLink != true { continue }
+            if v?.isDirectory == true, v?.isSymbolicLink != true {
+                // a package copied whole (`copyPackage`): everything in it is accounted for
+                if copied.contains(p) { en?.skipDescendants() }
+                continue
+            }
             if !copied.contains(p) { left.append(rel) }
         }
         if unreadable { left.append("(a folder that can't be read)") }
