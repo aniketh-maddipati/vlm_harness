@@ -68,7 +68,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   bridge.pending = shoot; await page.evaluate(() => __lumina.openFolder());
   await loaded(page);
   let s = await S(page);
-  ok(s.view === 'edit', 'read: a small shoot with nothing decided opens in Edit', s.view);
+  ok(s.view === 'cull', 'read: a fresh read lands in Pick, a small shoot too', s.view);
   // The rest of this shoot is exercised from Pick, as before. Leaving Edit here, not beside the
   // first keep, so that keep is not waiting on Edit's save debounce.
   await page.evaluate(() => __lumina.logic().setView('cull', true));
@@ -562,7 +562,9 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   if (await page.evaluate(() => __lumina.logic().state.armed === 'save')) await page.evaluate(() => __lumina.command('save'));
   await page.waitForFunction(() => { const r = __lumina.logic().state.ex; return r && r.result; }, null, { timeout: 5000 }).catch(() => {});
   const res = await page.evaluate(() => __lumina.logic().state.ex.result);
-  ok(res && res.t === keptN + ' saved' && !res.bad, 'save: result "N saved"', res);
+  ok(res && res.t.startsWith(keptN + ' saved · ' + keptN + ' JPEGs') && !res.bad, 'save: the finished JPEGs are written unless switched off: "N saved · N JPEGs"', res);
+  // The sidecar checks below are about the rating files: finished JPEGs off for them (the choice is remembered).
+  await page.evaluate(() => __lumina.logic().hoPref({ jpg: false }));
   const xmps = fs.readdirSync(shoot).filter(f => /\.xmp$/.test(f));
   ok(xmps.length >= keptN, 'save: sidecars written next to the RAWs', xmps);
   const kept1 = Object.keys(saved.marks)[0].replace(/\.ARW$/, '.xmp');
@@ -573,6 +575,14 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   await page.evaluate(() => __lumina.command('finder')); await page.waitForTimeout(100);
   ok(bridge.revealed.length === 1, 'save: ⌘R reveals', bridge.revealed);
 
+  // Select-in culling: a row marked done, a row's order and the target ride the session by path, saved on the next tick.
+  const cullWant = await page.evaluate(() => { const l = __lumina.logic(), B = l.data.byId, r = l.data.R.find(r => r.ids.length >= 2), k = r.ids[0], ids = r.ids.slice().reverse();
+    l.setState({ done: { [k]: true }, ord: { [k]: { by: 'sharp', ids } }, aim: 7 }); return { key: B[k].file, ids: ids.map(i => B[i].file) }; });
+  await page.waitForTimeout(500);
+  const savedCull = bridge.sessions[sid] && JSON.parse(bridge.sessions[sid]);
+  const endsWith = (k, f) => k === f || k.endsWith('/' + f);
+  ok(savedCull && savedCull.aim === 7 && Object.keys(savedCull.done || {}).length === 1 && endsWith(Object.keys(savedCull.done)[0], cullWant.key), 'session: row done and target saved by path within 500 ms', savedCull && { aim: savedCull.aim, done: savedCull.done });
+  ok(savedCull && Object.values(savedCull.ord || {}).length === 1 && Object.values(savedCull.ord)[0].by === 'sharp' && Object.values(savedCull.ord)[0].ids.every((k, i) => endsWith(k, cullWant.ids[i])), 'session: a row\'s order saved as paths', savedCull && savedCull.ord);
   // Reopen: session restored by path
   const marksBefore = (await S(page)).marks;
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
@@ -584,6 +594,9 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   s = await S(page);
   ok(JSON.stringify(Object.keys(s.marks).sort()) === JSON.stringify(Object.keys(marksBefore).sort()), 'reopen: marks restored', { now: s.marks, before: marksBefore });
   ok((await page.evaluate(() => __lumina.unsaved())) === 0, 'reopen: saved keepers remembered');
+  const cullBack = await page.evaluate(() => { const l = __lumina.logic(), B = l.data.byId, s = l.state, f = id => B[id] && B[id].file; return { aim: s.aim, done: Object.keys(s.done || {}).map(f), ord: Object.entries(s.ord || {}).map(([k, v]) => ({ key: f(k), by: v.by, ids: v.ids.map(f) })) }; });
+  ok(cullBack.aim === 7 && cullBack.done.length === 1 && cullBack.done[0] === cullWant.key && cullBack.ord.length === 1 && cullBack.ord[0].key === cullWant.key && cullBack.ord[0].by === 'sharp' && JSON.stringify(cullBack.ord[0].ids) === JSON.stringify(cullWant.ids), 'reopen: row done, row order and target restored', { cullBack, cullWant });
+  await page.evaluate(() => __lumina.logic().setState({ done: {}, ord: {}, aim: 0 }));
 
   // Card removed mid-read, then back
   bridge.gone.add('2026-09-01');
