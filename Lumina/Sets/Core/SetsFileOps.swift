@@ -37,8 +37,21 @@ nonisolated enum SetsFileOps {
         let h = try FileHandle(forReadingFrom: url)
         defer { try? h.close() }
         var hasher = SHA256()
-        while let block = try h.read(upToCount: chunk), !block.isEmpty { hasher.update(data: block) }
+        // One block resident at a time (`pooled`): a 20 GB clip is hashed in 4 MB, not in 20 GB.
+        while try pooled({ guard let block = try h.read(upToCount: chunk), !block.isEmpty else { return false }; hasher.update(data: block); return true }) {}
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Runs `body` in its own autorelease pool. `FileHandle.read` hands back memory that is only let go when a
+    /// pool drains; a loop on a thread whose pool never drains (a command-line tool's main thread, one long
+    /// background job) would otherwise keep every block it read: a whole card's bytes, several times over.
+    @inline(__always)
+    static func pooled<T>(_ body: () throws -> T) rethrows -> T {
+        #if canImport(ObjectiveC)
+        return try autoreleasepool(invoking: body)
+        #else
+        return try body()
+        #endif
     }
 
     // MARK: Write
@@ -304,10 +317,12 @@ nonisolated enum SetsFileOps {
         let r = try FileHandle(forReadingFrom: src), w = try FileHandle(forWritingTo: tmp)
         var hasher = SHA256()
         do {
-            while let block = try r.read(upToCount: chunk), !block.isEmpty {
+            while try pooled({
+                guard let block = try r.read(upToCount: chunk), !block.isEmpty else { return false }
                 hasher.update(data: block)
                 try w.write(contentsOf: block)
-            }
+                return true
+            }) {}
             try w.synchronize()
             try w.close(); try r.close()
         } catch { try? w.close(); try? r.close(); throw error }
