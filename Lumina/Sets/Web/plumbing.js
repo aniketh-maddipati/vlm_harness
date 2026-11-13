@@ -110,8 +110,10 @@
   // the last successful Save, so Quit knows whether keepers are unsaved. The Edit step's look
   // strings (roadmap "Rendering contract") live here too: `look` per photo, by path, and `rowLook`
   // per row, by row id like `seen`. Never in XMP: the sidecars the page builds carry ratings only.
-  const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look'];
-  const SCALAR = ['seen', 'tsz', 'regions', 'lastEx', 'rowLook'];
+  // Select-in culling: rows marked done (`done`, by the row's first photo), the target (`aim`) and a row's
+  // chosen order (`ord`: { by, ids } under the row's first photo, every id saved as its path).
+  const BY_ID = ['marks', 'flags', 'stars', 'cuts', 'look', 'done'];
+  const SCALAR = ['seen', 'tsz', 'regions', 'lastEx', 'rowLook', 'aim'];
   let shootId = null, lastSaved = '', base = null, savedKeepers = null, cardPulledWhileReading = false, sessionRefused = null;
   // Path inside the opened folder ("sub/DSC00001.ARW"): stable across reopen and new files.
   const keyOf = p => { const r = (p && p.fileObj && p.fileObj.webkitRelativePath) || (p && p.path) || ''; return r ? r.split('/').slice(1).join('/') : (p && p.file) || ''; };
@@ -127,6 +129,9 @@
       out[k] = m;
     }
     for (const k of SCALAR) if (s[k] !== undefined) out[k] = s[k];
+    const ord = {}; for (const [p, v] of Object.entries((base && base.ord) || {})) if (!here.has(p)) ord[p] = v;
+    for (const [id, v] of Object.entries(s.ord || {})) { const p = pathOf(logic, id); if (p && v && Array.isArray(v.ids)) ord[p] = { by: v.by, ids: v.ids.map(i => pathOf(logic, i)).filter(Boolean) }; }
+    out.ord = ord;
     // Shift Capture Time (CHANGES-v0.04 B2): the page's shifts, by photo path, kept with the session only.
     out.shifts = logic._shifts || [];
     return out;
@@ -149,6 +154,9 @@
     for (const k of BY_ID) { const m = {}; for (const [p, v] of Object.entries(saved[k] || {})) if (idOf[p]) m[idOf[p]] = v; st[k] = live ? Object.assign(m, logic.state[k] || {}) : m; }
     st.marks = logic.constructor.clean(st.marks);
     for (const k of SCALAR) if (saved[k] !== undefined) st[k] = saved[k];
+    // A row's order comes back only for the photos read this time; an order set during this read wins.
+    const ord = {}; for (const [p, v] of Object.entries(saved.ord || {})) { const ids = idOf[p] && v && Array.isArray(v.ids) ? v.ids.map(q => idOf[q]).filter(Boolean) : []; if (ids.length) ord[idOf[p]] = { by: v.by, ids }; }
+    st.ord = live ? Object.assign(ord, logic.state.ord || {}) : ord;
     if (Object.keys(st.cuts || {}).length) logic.data = logic.build(st.cuts);
     const cur = saved.cur && idOf[saved.cur];
     if (cur && logic.data.byId[cur] && !live) st.cur = cur;
@@ -185,7 +193,7 @@
   // Every 2 s and on every view change (SAFETY.md 2). A decision (keep, drop, flag, star, cut, a row
   // seen) is saved on the next 150 ms tick, not the next 2 s one: the page's process can be gone
   // within a second of a key. The page replaces these objects on every change, so identity tells.
-  const DECISIONS = ['marks', 'flags', 'stars', 'cuts', 'seen'];
+  const DECISIONS = ['marks', 'flags', 'stars', 'cuts', 'seen', 'done', 'ord', 'aim'];
   let lastView = null, lastDecided = null, lastDecisions = [];
   const decided = l => {
     if (!(l && l.real && shootId)) { lastDecided = null; return false; }
