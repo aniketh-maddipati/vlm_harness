@@ -746,7 +746,7 @@ final class LookPipelineTests: XCTestCase {
     /// keeps a grey ramp grey and monotonic, and never leaves 0…1.
     func testDisplayMapperKernelEqualsLookMath() throws {
         let ramp = pipe.ramp(steps: 64, columnWidth: 2, height: 8, lo: 0, hi: 1.2)
-        XCTAssertEqual(pipe.pixel(pipe.output(ramp.image), x: 127, y: 4).g, 1, accuracy: 2e-3, "the shipped mapper is the clamp")
+        XCTAssertEqual(pipe.pixel(pipe.output(ramp.image), x: 127, y: 4).g, 1, accuracy: 2e-3, "grey past white is white")
         XCTAssertFalse(LookKernels.stageNames.contains("lookDisplay"), "nothing new compiles with the shipped mapper")
 
         var r = rules!
@@ -771,5 +771,43 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertEqual(last, 1, accuracy: 2e-3)
         // The encoders go through the same mapper.
         XCTAssertGreaterThan(try mapped.jpeg(mapped.apply(try Look.parse("ev:+2"), to: wide)).count, 100)
+    }
+
+    /// The shipped mapper is `hueClamp`: the Metal kernel equals `LookMath.hueClamp`; inside white it
+    /// is the clamp; past white the hue stays (the middle channel keeps its place between the others),
+    /// grey stays grey and monotonic, nothing leaves 0…1.
+    func testHueClampKernelEqualsLookMath() throws {
+        XCTAssertEqual(rules.mapper, .hueClamp, "what ships")
+        XCTAssertTrue(LookKernels.stageNames.contains("lookHueClamp"), "compiled with the pipeline, not on the first frame")
+        let colours: [LookMath.RGB] = [.gray(0), .gray(0.18), .gray(0.6), .gray(1), .gray(1.5), .gray(40),
+                                       LookMath.RGB(r: 0.6, g: 0.35, b: 0.25), LookMath.RGB(r: 1, g: 0.5, b: 0.05), LookMath.RGB(r: -0.02, g: 0.4, b: 0.9),
+                                       LookMath.RGB(r: 2, g: 0.3, b: 0.1), LookMath.RGB(r: 4, g: 2, b: 0.2), LookMath.RGB(r: 3, g: 1.5, b: 1.2),
+                                       LookMath.RGB(r: 0.8, g: 1.6, b: 4), LookMath.RGB(r: 30, g: 0, b: 0)]
+        for c in colours {
+            let got = pipe.pixel(pipe.output(pipe.flat(c, size: 16).image), x: 8, y: 8)
+            let want = LookMath.output(c, rules)
+            for (g, w) in [(got.r, want.r), (got.g, want.g), (got.b, want.b)] { XCTAssertEqual(g, w, accuracy: 0.004, "\(c): graph \(got) vs maths \(want)") }
+            for v in [want.r, want.g, want.b] { XCTAssertTrue(v >= 0 && v <= 1 + 1e-9, "\(c) → \(want)") }
+            if max(c.r, c.g, c.b) <= 1 {
+                XCTAssertEqual(want, LookMath.RGB(r: max(0, c.r), g: max(0, c.g), b: max(0, c.b)), "inside white: the clamp")
+            }
+        }
+        // Past white the middle channel keeps its place: a red pushed to 2, green 0.6, blue 0.2 stays
+        // red-orange, where the clamp makes it (1, 0.6, 0.2) at most and orange-yellow beyond.
+        let red = LookMath.hueClamp(LookMath.RGB(r: 2, g: 1.2, b: 0.2), rules)
+        let g = rules.perceptualGamma
+        let place = { (c: LookMath.RGB) in (pow(c.g, 1 / g) - pow(c.b, 1 / g)) / (pow(c.r, 1 / g) - pow(c.b, 1 / g)) }
+        XCTAssertEqual(red.r, 1, accuracy: 1e-9)
+        XCTAssertEqual(place(red), place(LookMath.RGB(r: 2, g: 1.2, b: 0.2)), accuracy: 1e-9, "the middle channel's place")
+        XCTAssertLessThan(red.g, 1, "not the clamp's yellow")
+        // Brighter in stays brighter out, per channel, along a gain (what Exposure does to a pixel).
+        var last = LookMath.RGB.gray(0)
+        for i in 0...200 {
+            let k = Double(i) / 20
+            let o = LookMath.hueClamp(LookMath.RGB(r: 0.6 * k, g: 0.35 * k, b: 0.25 * k), rules)
+            XCTAssertTrue(o.r >= last.r - 1e-12 && o.g >= last.g - 1e-12 && o.b >= last.b - 1e-12, "gain \(k): \(o) after \(last)")
+            last = o
+        }
+        XCTAssertEqual(last, LookMath.RGB.gray(1), "far enough past white, white")
     }
 }

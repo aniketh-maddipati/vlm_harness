@@ -16,9 +16,10 @@ nonisolated struct LookRules: Codable, Equatable, Sendable {
         var tables: [String: [Double]]? = nil
     }
 
-    /// How outputTransform brings the working space into 0…1: `clamp` (what ships) or `sigmoid`
-    /// (`LookMath.DisplayMapper`, a prototype: measured, not adopted).
-    enum Mapper: String, Sendable { case clamp, sigmoid }
+    /// How outputTransform brings the working space into 0…1: `clamp` (per channel), `hueClamp`
+    /// (what ships: `LookMath.hueClamp`, the hue kept past white) or `sigmoid` (`LookMath.DisplayMapper`,
+    /// a prototype: measured, not adopted).
+    enum Mapper: String, Sendable { case clamp, hueClamp, sigmoid }
     var mapper: Mapper { stages["outputTransform"]?.mapper.flatMap(Mapper.init(rawValue:)) ?? .clamp }
 
     var version: Int = 1
@@ -105,7 +106,7 @@ nonisolated struct LookRules: Codable, Equatable, Sendable {
         }
         guard perceptualGamma > 1, perceptualGamma < 4 else { throw LoadError(description: "perceptualGamma \(perceptualGamma)") }
         guard luma.count == 3, abs(luma.reduce(0, +) - 1) < 1e-3 else { throw LoadError(description: "luma weights must sum to 1") }
-        if let m = stages["outputTransform"]?.mapper, Mapper(rawValue: m) == nil { throw LoadError(description: "outputTransform.mapper \(m): clamp or sigmoid") }
+        if let m = stages["outputTransform"]?.mapper, Mapper(rawValue: m) == nil { throw LoadError(description: "outputTransform.mapper \(m): clamp, hueClamp or sigmoid") }
         for (s, st) in stages { for (k, v) in st.coefficients where !v.isFinite { throw LoadError(description: "\(s).\(k) is \(v)") } }
         if let p = stages["profile"] { try Self.validateProfile(p) }
     }
