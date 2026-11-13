@@ -1,0 +1,82 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v12.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Edit entered while a folder is still read: it opens on Pick's photo and stays there when the read ends.",
+ "deadline": 240,
+ "steps": [
+  {
+   "do": "openFolder",
+   "path": "${LUMINA_SCROLL_DIR}",
+   "via": "js",
+   "until": "shown",
+   "timeoutMs": 300000
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "times": 3,
+   "gapMs": 120
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 150
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state,B=l.data.byId;let f=null;try{f=window.lumina.edit.facts()}catch(e){};return JSON.stringify({view:s.view,reading:!!s.realLoad,n:l.data.order.length,cur:B[s.cur]&&B[s.cur].file,editStart:B[l._editStart]&&B[l._editStart].file,canvas:f&&f.rel})"
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "cmd": true,
+   "settleMs": 700
+  },
+  {
+   "do": "snap",
+   "name": "01-edit-while-reading"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state,B=l.data.byId;let f=null;try{f=window.lumina.edit.facts()}catch(e){};return JSON.stringify({view:s.view,reading:!!s.realLoad,n:l.data.order.length,cur:B[s.cur]&&B[s.cur].file,editStart:B[l._editStart]&&B[l._editStart].file,canvas:f&&f.rel})"
+  },
+  {
+   "do": "waitFor",
+   "js": "return !__probe.logic().state.realLoad",
+   "timeoutMs": 900000,
+   "what": "read finished"
+  },
+  {
+   "do": "wait",
+   "ms": 1500
+  },
+  {
+   "do": "snap",
+   "name": "02-after-read"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state,B=l.data.byId;let f=null;try{f=window.lumina.edit.facts()}catch(e){};return JSON.stringify({view:s.view,reading:!!s.realLoad,n:l.data.order.length,cur:B[s.cur]&&B[s.cur].file,editStart:B[l._editStart]&&B[l._editStart].file,canvas:f&&f.rel})"
+  },
+  {
+   "do": "key",
+   "k": "2",
+   "cmd": true,
+   "settleMs": 700
+  },
+  {
+   "do": "snap",
+   "name": "03-back-in-pick"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state,B=l.data.byId;let f=null;try{f=window.lumina.edit.facts()}catch(e){};return JSON.stringify({view:s.view,reading:!!s.realLoad,n:l.data.order.length,cur:B[s.cur]&&B[s.cur].file,editStart:B[l._editStart]&&B[l._editStart].file,canvas:f&&f.rel})"
+  }
+ ]
+}
