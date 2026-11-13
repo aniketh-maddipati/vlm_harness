@@ -222,6 +222,18 @@ await L(() => __l().setState({ aim: 0, done: {}, ord: {}, tsz: 5 })); await wait
   await key('Digit0', 300); ok((await st()).tsz === h4, '0 returns to the shoot\'s resting size', (await st()).tsz);
   await L(() => { const l = __l(); l._p75 = 0; l.setState({ tsz: l.tszHome() }); }); await wait(300); ok((await st()).tsz === base, 'and without a read it is as before', base); }
 
+// nothing resizes by itself: when a read ends the tiles stay the size they are, and 0 / Reset zoom is what goes to the shoot's size
+{ const snap = () => L(() => { const l = __l(), Lo = l.layout(), n = document.querySelector('[data-tile]').firstElementChild.getBoundingClientRect(); return { tsz: l.state.tsz, TW: Lo.TW, per: Lo.per, w: Math.round(n.width), home: l.tszHome(), reset: !!document.querySelector('[data-lumina="zoom-reset"]') }; });
+  await L(() => { const l = __l(); l._p75 = 0; l.setState({ tsz: l.tszHome(), realLoad: { done: 1, total: 2, t0: Date.now() } }); }); await wait(300);
+  const during = await snap();
+  await L(() => { const l = __l(); l.shootP75 = () => 3; l.setState({ realLoad: null }); }); await wait(500);
+  const after = await snap();
+  ok(after.tsz === during.tsz && after.w === during.w && after.per === during.per, 'a read ends: the tiles keep their size', [during, after]);
+  ok(after.home !== after.tsz && after.reset, 'the shoot\'s size is offered by Reset zoom', after);
+  await key('Digit0', 400); const went = await snap();
+  ok(went.tsz === went.home && went.per === 3 && !went.reset, '0 goes to it', went);
+  await L(() => { const l = __l(); delete l.shootP75; l._p75 = 0; l.setState({ tsz: l.tszHome() }); }); await wait(300); }
+
 // the large view shows the whole photo whichever way the camera was held: the stored size is landscape, the photo upright
 { const box = async (portrait, pw, ph) => { await L(([po, w, h]) => { const l = __l(), f = l.data.byId[l.data.order[0]]; f.portrait = po; f.pw = w; f.ph = h; l.setState({ cur: l.cellIdOf(f.id), open: null, large: true, zl: 1, zx: 0, zy: 0 }); }, [portrait, pw, ph]); await wait(400);
     return L(() => { const st = document.querySelector('[data-lumina="large-stage"]'), d = st && [...st.querySelectorAll('div')].find(x => /url/.test(x.style.backgroundImage) && x.style.backgroundSize === 'contain' && x.style.boxShadow), r = d.getBoundingClientRect(), sr = st.getBoundingClientRect(), b = __l().pickBox(); return { w: r.width, h: r.height, inside: r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 && r.left >= sr.left - 1 && r.right <= sr.right + 1, bw: b.bw, bh: b.bh }; }); };
