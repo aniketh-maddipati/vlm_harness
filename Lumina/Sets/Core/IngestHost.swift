@@ -65,7 +65,7 @@ final class IngestHost {
         case "ingestHas":
             return store.has((body["keys"] as? [String] ?? []).prefix(100_000).map { $0 })
         case "ingestForget":
-            store.forget(); Self.save(store)
+            store.forget(); saved(Self.save(store))
             return libraryJSON()
         case "ingestPickLibrary":
             return await pickLibrary(refusal: nil)
@@ -118,7 +118,7 @@ final class IngestHost {
         libraryURL = u
         _ = u.startAccessingSecurityScopedResource()
         store.setFolder(u.standardizedFileURL.path, bookmark: try? u.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil))
-        Self.save(store)
+        saved(Self.save(store))
         return libraryJSON()
     }
 
@@ -143,10 +143,10 @@ final class IngestHost {
                 let i = j.cands.count > 1 && !j.key.isEmpty ? (j.cands.firstIndex { IngestCopy.pageKey($0) == j.key } ?? 0) : 0
                 let r = IngestCopy.copy(IngestCopy.Item(key: j.key, source: j.cands[i], root: j.roots[i], folder: j.folder), into: lib, store: store)
                 n += 1
-                if n % 20 == 0 { Self.save(store) }
+                if n % 20 == 0 { await self?.saved(Self.save(store)) }
                 await self?.finished(r, src: j.src)
             }
-            Self.save(store)
+            await self?.saved(Self.save(store))
             await self?.drained()
         }
     }
@@ -190,9 +190,24 @@ final class IngestHost {
         return left
     }
 
-    /// The library's record; a failed write costs only re-checking next time, but is logged, never dropped.
-    nonisolated static func save(_ store: IngestLibrary) {
-        do { try store.save() } catch { LuminaLog.app.error("ingest: library record not saved: \(String(describing: error), privacy: .private)") }
+    /// The library's record; a failed write costs only re-checking next time, but is logged and answered (why),
+    /// never dropped.
+    @discardableResult
+    nonisolated static func save(_ store: IngestLibrary) -> String? {
+        do { try store.save(); return nil }
+        catch {
+            LuminaLog.app.error("ingest: library record not saved: \(String(describing: error), privacy: .private)")
+            return SetsFileOps.reason(error)
+        }
+    }
+
+    /// A failed save is said on the page once (again after a save that worked), not only logged.
+    private var saveFailed = false
+    private func saved(_ why: String?) {
+        guard let why else { saveFailed = false; return }
+        guard !saveFailed else { return }
+        saveFailed = true
+        webView?.evaluateJavaScript("window.luminaIngest && luminaIngest.saveFailed && luminaIngest.saveFailed(\(SetsBridge.json(why)))", completionHandler: nil)
     }
 
     private func post(_ d: [String: Any], src: String) {

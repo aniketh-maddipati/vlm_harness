@@ -76,7 +76,8 @@ nonisolated enum IngestCopy {
         let fm = FileManager.default
         if let no = SetsFileOps.refusal(destination: library, sources: [item.root]) { r.why = no.hasPrefix("Pick a folder that isn't on the card") ? "library on the card" : "library inside the source"; return r }
         // A library whose disk went away fails at once, before the original is read in full.
-        guard fm.fileExists(atPath: library.path) else { r.why = destinationGone; return r }
+        var libIsDir: ObjCBool = false
+        guard fm.fileExists(atPath: library.path, isDirectory: &libIsDir), libIsDir.boolValue else { r.why = destinationGone; return r }
         guard let folder = safeFolder(item.folder) else { r.why = "refused"; return r }
         if (try? fm.attributesOfItem(atPath: item.source.path))?[.type] as? FileAttributeType == .typeSymbolicLink { r.why = "a link, not copied"; return r }
         var isDir: ObjCBool = false
@@ -177,7 +178,7 @@ nonisolated final class IngestLibrary: @unchecked Sendable {
     }
 }
 
-extension IngestCopy {
+nonisolated extension IngestCopy {
     /// Whether `url` is the root of its volume (a whole card chosen, not one of its folders).
     static func isVolumeRoot(_ url: URL) -> Bool {
         guard let v = (try? url.resourceValues(forKeys: [.volumeURLKey]))?.volume else { return false }

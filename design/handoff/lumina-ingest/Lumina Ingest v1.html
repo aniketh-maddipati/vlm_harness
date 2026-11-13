@@ -320,8 +320,12 @@ window.luminaIngest = {
       if (!d.ok) { it.copy = 'bad'; it.why = d.why; it.v = (it.v || 0) + 1; }
       if (--it.cpWait <= 0 && it.copy !== 'bad') { it.copy = 'ok'; library.add(it.key); }
     }
+    // the library's disk went away: said once, and it stays said (every file left fails at once, nothing more is read)
+    if (d.why === 'destination gone') say(`Copy stopped: the library${libName ? ' ' + libName : ''} can't be reached`, true);
     dirty(!d.ok);
   },
+  // the library's record could not be written (the copies themselves are done and checked)
+  saveFailed(why) { say(`Library record not saved (${why}): the copies are checked, and will be checked again next time`, true); },
   // the Mac counted the card itself once its copies were done: files still only on it (left), the first by name
   audited(d) { const c = cpOf(d.src); c.left = d.left; c.first = d.first || ''; dirty(); }
 };
