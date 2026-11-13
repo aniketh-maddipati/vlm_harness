@@ -136,7 +136,8 @@ class LookMathMirrorTests(unittest.TestCase):
         self.assertAlmostEqual(g(0.0, -100), 1.0)
         self.assertLess(g(1.0, -100), 0.4)
         self.assertGreater(g(1.0, 60), 1.0)
-        self.assertGreater(g(0.5 ** 0.5, -100), 0.85, "at the reset shape the edges' middles are barely touched")
+        # Lightroom darkens the edges' middles too (fitted 2026-11-12 on the owner's DV edits), less than the corners
+        self.assertTrue(g(1.0, -100) < g(0.5 ** 0.5, -100) < 1.0, "edges' middles darkened, less than the corners")
         for q in (0.0, 0.2, 0.5, 0.9):
             self.assertAlmostEqual(float(lm.clarity(np.array(q), np.array(q), 100, r)), q)
             self.assertAlmostEqual(float(lm.sharpen(np.array(q), np.array(q), 150, r)), q)
@@ -147,11 +148,15 @@ class LookMathMirrorTests(unittest.TestCase):
     def test_vignette_shape(self):
         """The vignette on the page's scale (ruled 2026-10-05; LookMathTests' vignette tests)."""
         r = self.rules
-        # the reset shape: the page's edges, the frame's ellipse whatever the aspect
+        c = r["stages"]["vignette"]["coefficients"]
+        d0 = lambda mid: c["midpointAt0"] + mid / 100 * c["midpointPer100"]
+        wd = lambda fe: c["featherAt0"] + fe / 100 * c["featherPer100"]
+        fi = c["featherInside"]
+        # the reset shape: the edges from the rules' numbers, the frame's ellipse whatever the aspect
         for aspect in (1.5, 1.0, 0.6667, 2.4):
             form = lm.vignette_form(lm.VIGNETTE_SHAPE, -50, aspect, r)
-            self.assertAlmostEqual(form["edge0"], 0.75 - 0.3 * 0.38, places=12)
-            self.assertAlmostEqual(form["edge1"], 0.75 + 0.7 * 0.38, places=12)
+            self.assertAlmostEqual(form["edge0"], d0(50) - fi * wd(50), places=12)
+            self.assertAlmostEqual(form["edge1"], d0(50) + (1 - fi) * wd(50), places=12)
             self.assertEqual((form["sx"], form["sy"], form["power"], form["keep"]), (1.0, 1.0, 2.0, 0.0))
             for u, w in ((1, 0), (0, 1), (-1, 0), (0, -1)):
                 self.assertAlmostEqual(float(lm.vignette_distance(u, w, form)), float(np.sqrt(0.5)), places=12)
@@ -169,10 +174,10 @@ class LookMathMirrorTests(unittest.TestCase):
         self.assertGreater(float(lm.vignette_distance(1, 0, rect)), 0.9)
         self.assertEqual(lm.vignette_form((50, 100, 50, 0), -60, 1.0, r), lm.vignette_form((50, 0, 50, 0), -60, 1.0, r))
         # midpoint and feather on the page's scale
-        self.assertAlmostEqual(lm.vignette_form((0, 0, 50, 0), -60, 1.5, r)["edge0"] + 0.3 * 0.38, 0.5, places=12)
-        self.assertAlmostEqual(lm.vignette_form((100, 0, 50, 0), -60, 1.5, r)["edge0"] + 0.3 * 0.38, 1.0, places=12)
-        self.assertAlmostEqual(lm.vignette_form((50, 0, 0, 0), -60, 1.5, r)["edge1"] - lm.vignette_form((50, 0, 0, 0), -60, 1.5, r)["edge0"], 0.08, places=12)
-        self.assertAlmostEqual(lm.vignette_form((50, 0, 100, 0), -60, 1.5, r)["edge1"] - lm.vignette_form((50, 0, 100, 0), -60, 1.5, r)["edge0"], 0.68, places=12)
+        self.assertAlmostEqual(lm.vignette_form((0, 0, 50, 0), -60, 1.5, r)["edge0"] + fi * wd(50), d0(0), places=12)
+        self.assertAlmostEqual(lm.vignette_form((100, 0, 50, 0), -60, 1.5, r)["edge0"] + fi * wd(50), d0(100), places=12)
+        self.assertAlmostEqual(lm.vignette_form((50, 0, 0, 0), -60, 1.5, r)["edge1"] - lm.vignette_form((50, 0, 0, 0), -60, 1.5, r)["edge0"], wd(0), places=12)
+        self.assertAlmostEqual(lm.vignette_form((50, 0, 100, 0), -60, 1.5, r)["edge1"] - lm.vignette_form((50, 0, 100, 0), -60, 1.5, r)["edge0"], wd(100), places=12)
         # highlights: white spared in full at 100, only when darkening; monotonic and grey on a ramp for any shape
         white = lm.flat(np.array([1.0, 1.0, 1.0]), lm.parse_look("vig:-100 vigs:50,0,50,100"), AS_SHOT, r, vignette_r=1.1)
         np.testing.assert_allclose(white, 1.0, atol=1e-12)

@@ -243,7 +243,8 @@ final class LookPipelineTests: XCTestCase {
         XCTAssertEqual(pipe.pixel(d, x: 128, y: 128).g, 0.5, accuracy: 3e-3)
         XCTAssertLessThan(pipe.pixel(d, x: 2, y: 2).g, 0.2)
         XCTAssertLessThan(pipe.pixel(d, x: 2, y: 2).g, pipe.pixel(d, x: 40, y: 40).g)
-        XCTAssertGreaterThan(pipe.pixel(d, x: 128, y: 2).g, 0.45, "at the reset shape the edges are almost untouched")
+        XCTAssertLessThan(pipe.pixel(d, x: 128, y: 2).g, 0.5, "the edges' middles darkened (Lightroom does, fitted 2026-11-12)")
+        XCTAssertGreaterThan(pipe.pixel(d, x: 128, y: 2).g, pipe.pixel(d, x: 2, y: 2).g, "less than the corners")
         XCTAssertGreaterThan(pipe.pixel(l, x: 2, y: 253).g, 0.5)
         XCTAssertTrue(pipe.pixel(d, x: 2, y: 2).isNeutral(tolerance: 4e-3))
         let form = LookMath.VignetteForm(shape: Look.VignetteShape(), vignette: -100, aspect: 1, rules)
@@ -393,7 +394,7 @@ final class LookPipelineTests: XCTestCase {
         // Roundness 0 follows the frame: in a 3:1 frame the middles of the long and the short edges are darkened alike
         // (a circle would darken the short edges' middles far more), and the corners most.
         let wide = LookPipeline.Developed(image: pipe.flat(.gray(0.5), size: 192).image.cropped(to: CGRect(x: 0, y: 0, width: 192, height: 64)), asShot: asShot, anchor: .reference, linear: false)
-        let oval = pipe.apply(try Look.parse("vig:-100 vigs:0,0,100,0"), to: wide), round = pipe.apply(try Look.parse("vig:-100 vigs:0,+100,100,0"), to: wide)
+        let oval = pipe.apply(try Look.parse("vig:-100 vigs:50,0,100,0"), to: wide), round = pipe.apply(try Look.parse("vig:-100 vigs:50,+100,100,0"), to: wide)
         XCTAssertEqual(pipe.pixel(oval, x: 191, y: 32).g, pipe.pixel(oval, x: 96, y: 63).g, accuracy: 0.01)
         XCTAssertLessThan(pipe.pixel(oval, x: 0, y: 0).g, pipe.pixel(oval, x: 191, y: 32).g - 0.05)
         XCTAssertLessThan(pipe.pixel(round, x: 191, y: 32).g, pipe.pixel(round, x: 96, y: 63).g - 0.1, "+100 is a circle in pixels")

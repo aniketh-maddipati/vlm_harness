@@ -702,14 +702,17 @@ final class LookMathTests: XCTestCase {
         XCTAssertTrue(LookMath.flat(skin, look: bw, asShot: asShot, rules: rules).isNeutral)
     }
 
-    /// The vignette on the page's scale (ruled 2026-10-05): at the reset shape the corners are
-    /// darkened and the edges almost untouched; the centre never moves.
+    /// The vignette on the page's scale (ruled 2026-10-05; strength, midpoint and feather fitted
+    /// 2026-11-12 on the owner's Death Valley edits): at the reset shape the corners darken most, the
+    /// edges' middles less (Lightroom darkens them too); the centre never moves.
     func testVignetteAtTheResetShape() throws {
         typealias Shape = Look.VignetteShape
+        let k = { (n: String) in self.rules.k("vignette", n, 0) }
+        let d0 = k("midpointAt0") + 0.5 * k("midpointPer100"), w = k("featherAt0") + 0.5 * k("featherPer100"), fi = k("featherInside")
         for aspect in [1.5, 1.0, 0.6667, 2.4] {
             let form = LookMath.VignetteForm(shape: Shape(), vignette: -100, aspect: aspect, rules)
-            // The page's numbers: d0 = 0.5 + 50/100·0.5, w = 0.08 + 50/100·0.6, from d0 − 0.3w to d0 + 0.7w.
-            XCTAssertEqual(form.edge0, 0.75 - 0.3 * 0.38, accuracy: 1e-12); XCTAssertEqual(form.edge1, 0.75 + 0.7 * 0.38, accuracy: 1e-12)
+            // d0 = midpointAt0 + 50/100·midpointPer100, w = featherAt0 + 50/100·featherPer100, from d0 − featherInside·w to d0 + (1 − featherInside)·w.
+            XCTAssertEqual(form.edge0, d0 - fi * w, accuracy: 1e-12); XCTAssertEqual(form.edge1, d0 + (1 - fi) * w, accuracy: 1e-12)
             XCTAssertEqual(form.power, 2); XCTAssertEqual(form.sx, 1); XCTAssertEqual(form.sy, 1); XCTAssertEqual(form.keep, 0)
             // Roundness 0 follows the frame: its ellipse, the same distance at every edge's middle whatever the aspect.
             for (u, v) in [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)] { XCTAssertEqual(form.distance(u: u, v: v), 0.5.squareRoot(), accuracy: 1e-12, "aspect \(aspect)") }
@@ -717,7 +720,7 @@ final class LookMathTests: XCTestCase {
             let centre = LookMath.vignette(.gray(0.5), d: form.distance(u: 0, v: 0), vignette: -100, form: form, rules)
             let edge = LookMath.vignette(.gray(0.5), d: form.distance(u: 1, v: 0), vignette: -100, form: form, rules)
             let corner = LookMath.vignette(.gray(0.5), d: form.distance(u: 1, v: 1), vignette: -100, form: form, rules)
-            XCTAssertEqual(centre, .gray(0.5)); XCTAssertGreaterThan(edge.g, 0.42, "the edges' middles barely touched, even at −100"); XCTAssertLessThan(corner.g, 0.2, "the corners darkened")
+            XCTAssertEqual(centre, .gray(0.5)); XCTAssertLessThan(edge.g, 0.5, "the edges' middles darkened"); XCTAssertGreaterThan(edge.g, corner.g, "less than the corners"); XCTAssertLessThan(corner.g, 0.2, "the corners darkened")
             XCTAssertTrue(corner.isNeutral)
         }
         var dark = Look(); dark.vignette = -100
@@ -741,14 +744,19 @@ final class LookMathTests: XCTestCase {
         func at(_ s: Shape, d: Double, vignette: Double = -60, grey: Double = 0.4) -> Double {
             LookMath.vignette(.gray(grey), d: d, vignette: vignette, form: form(s, vignette: vignette), rules).g
         }
-        // Midpoint: a higher one starts the falloff farther out (the page: d0 from 0.5 to 1.0).
+        let k = { (n: String) in self.rules.k("vignette", n, 0) }
+        let w50 = k("featherAt0") + 0.5 * k("featherPer100"), fi = k("featherInside")
+        // Midpoint: a higher one starts the falloff farther out (d0 from midpointAt0 to + midpointPer100).
         XCTAssertGreaterThan(at(Shape(midpoint: 80), d: 0.8), at(Shape(midpoint: 20), d: 0.8))
-        XCTAssertEqual(at(Shape(midpoint: 100), d: 0.85), 0.4, accuracy: 1e-12, "nothing yet, well inside the midpoint")
-        XCTAssertEqual(form(Shape(midpoint: 0)).edge0 + 0.3 * 0.38, 0.5, accuracy: 1e-12); XCTAssertEqual(form(Shape(midpoint: 100)).edge0 + 0.3 * 0.38, 1.0, accuracy: 1e-12)
-        // Feather: the falloff's width, 0.08 at 0 (a narrow edge, not a step) to 0.68 at 100.
-        XCTAssertEqual(form(Shape(feather: 0)).edge1 - form(Shape(feather: 0)).edge0, 0.08, accuracy: 1e-12)
-        XCTAssertEqual(form(Shape(feather: 100)).edge1 - form(Shape(feather: 100)).edge0, 0.68, accuracy: 1e-12)
-        XCTAssertEqual(at(Shape(feather: 0), d: 0.72), 0.4, accuracy: 1e-12); XCTAssertEqual(at(Shape(feather: 0), d: 0.81), 0.4 * exp2(-60 * rules.k("vignette", "stopsPerUnit", 0.02)), accuracy: 1e-12)
+        XCTAssertEqual(at(Shape(midpoint: 100), d: form(Shape(midpoint: 100)).edge0 - 0.01), 0.4, accuracy: 1e-12, "nothing yet, inside the falloff")
+        XCTAssertEqual(form(Shape(midpoint: 0)).edge0 + fi * w50, k("midpointAt0"), accuracy: 1e-12)
+        XCTAssertEqual(form(Shape(midpoint: 100)).edge0 + fi * w50, k("midpointAt0") + k("midpointPer100"), accuracy: 1e-12)
+        // Feather: the falloff's width, featherAt0 at 0 (a narrow edge, not a step) to + featherPer100 at 100.
+        XCTAssertEqual(form(Shape(feather: 0)).edge1 - form(Shape(feather: 0)).edge0, k("featherAt0"), accuracy: 1e-12)
+        XCTAssertEqual(form(Shape(feather: 100)).edge1 - form(Shape(feather: 100)).edge0, k("featherAt0") + k("featherPer100"), accuracy: 1e-12)
+        let f0 = form(Shape(feather: 0))
+        XCTAssertEqual(at(Shape(feather: 0), d: f0.edge0 - 0.01), 0.4, accuracy: 1e-12)
+        XCTAssertEqual(at(Shape(feather: 0), d: f0.edge1 + 0.01), 0.4 * exp2(-60 * k("stopsPerUnit")), accuracy: 1e-12)
         // Roundness: every shape is 0 at the centre, 1 at the corners, and grows along every ray from the centre.
         for r in [-100.0, -75, -50, -25, 0, 40, 100] {
             for aspect in [1.5, 0.6667, 1.0] {
