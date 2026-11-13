@@ -1386,7 +1386,7 @@ class Component extends DCLogic {
       gone.forEach(g=>{ const n=g.node; n.removeAttribute('data-tile'); n.style.position='absolute'; n.style.left=g.x+'px'; n.style.top=g.y+'px'; n.style.width=g.w+'px'; n.style.height=g.h+'px'; n.style.margin='0'; box.appendChild(n); const a=n.animate([{opacity:1,transform:'none'},{opacity:0,transform:'translateY(-6px)'}],{...O,fill:'forwards'}); a.onfinish=a.oncancel=done; }); setTimeout(()=>{ box.remove(); if(this._flipBox===box) this._flipBox=null; },400); } }
   // ——— open
   impSet(p){ this.setState(s=>({imp:{...s.imp,...(typeof p==='function'?p(s.imp):p)}})); }
-  smallShoot(){ return this.data.order.length<=(this.props.editFirstUpTo??150); }
+  /* a fresh read lands in Pick whatever its size (owner, 2026-11-13: cull 20 of 100 starts in Pick); Open's Edit button is how a shoot goes straight to Edit. editFirstUpTo brings the old rule back for a host that sets it */ smallShoot(){ return this.data.order.length<=(this.props.editFirstUpTo??0); }
   decidedN(){ return Object.keys(this.state.marks).length; }
   landView(){ const s=this.state; if(s.lastView&&s.lastView!=='import') return s.lastView; return this.smallShoot()&&!this.decidedN()?'edit':'cull'; }
   impStart(v){ if(!this.data.order.length) return this.say('0 photos'); const to=v||'cull'; if(to==='edit'){ window.luminaShoot=()=>this.editShoot(); this._viewT=Date.now(); this.setState({view:'edit',large:false,zoom:false,armed:null}); if(!this.decidedN()) this.say('All '+this.data.order.length+' photos are in · R sets one aside · ⌘2 to cull'); return; } this.setView('cull',true); this.land(); }

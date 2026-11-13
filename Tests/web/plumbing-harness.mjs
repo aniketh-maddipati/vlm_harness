@@ -68,7 +68,7 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   bridge.pending = shoot; await page.evaluate(() => __lumina.openFolder());
   await loaded(page);
   let s = await S(page);
-  ok(s.view === 'edit', 'read: a small shoot with nothing decided opens in Edit', s.view);
+  ok(s.view === 'cull', 'read: a fresh read lands in Pick, a small shoot too', s.view);
   // The rest of this shoot is exercised from Pick, as before. Leaving Edit here, not beside the
   // first keep, so that keep is not waiting on Edit's save debounce.
   await page.evaluate(() => __lumina.logic().setView('cull', true));

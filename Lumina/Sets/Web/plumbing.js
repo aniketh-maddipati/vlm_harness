@@ -375,8 +375,8 @@
       if (r && r.session) { try { restore(logic, JSON.parse(r.session), live); } catch (_) {} }
       // Decisions made while the folder was read aren't in the session yet: the next save sends them.
       lastSaved = live ? '' : JSON.stringify(snapshot(logic));
-      // The page's landView(), now that a saved session's decisions count. A small shoot with
-      // nothing decided opens in Edit. Anything already decided, or too big for that, opens in Pick.
+      // The page's landView(), now that a saved session's decisions count. A fresh read opens
+      // in Pick (the page's editFirstUpTo is 0 unless a host sets it; then a shoot that small, undecided, opens in Edit).
       const post = logic._postLoad;
       logic._postLoad = null;
       if (post) {
