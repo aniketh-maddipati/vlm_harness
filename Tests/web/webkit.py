@@ -280,7 +280,7 @@ const ri = L().state.realInfo || {};
 // 'import', and a step to Pick made then is undone when the page lands in Edit: the keeps that follow go nowhere
 // (seen on CI: view 'import' here, then 'edit' with no marks). So wait for the landing, then for Pick.
 await until(() => L().state.view !== 'import', 8000);
-t('read: 12 photos, a small shoot with nothing decided opens in Edit', L().state.view === 'edit' && ri.n === 12 && ri.bad === 0, { view: L().state.view, ri });
+t('read: 12 photos, a fresh read lands in Pick (a small shoot too)', L().state.view === 'cull' && ri.n === 12 && ri.bad === 0, { view: L().state.view, ri });
 // The rest of this shoot is exercised from Pick, as before (plumbing-harness.mjs does the same).
 L().setView('cull', true); await until(() => L().state.view === 'cull', 4000); await W(200);
 const notes = (L().state.notes || []).map(x => x.t).join(' | ');
@@ -302,7 +302,7 @@ t('save: ⌘4 via luminaCommand', L().state.view === 'export', L().state.view);
 __lumina.command('save'); await W(150); if (L().state.armed === 'save') __lumina.command('save');   // v8's guard: unseen rows ask for a second ⌘⏎
 await until(() => L().state.ex && L().state.ex.result, 8000);
 const res = L().state.ex.result || {};
-t('save: "2 saved"', res.t === '2 saved' && !res.bad, res);
+t('save: "2 saved" and the finished JPEGs (on unless switched off)', res.t.startsWith('2 saved \u00b7 2 JPEGs') && !res.bad, res);
 const ls = await C('ls', { path: shoot }); const xmps = ls.filter(f => /\.xmp$/.test(f));
 t('save: sidecars written into the folder', Object.keys(sm).length > 0 && Object.keys(sm).every(k => ls.includes(k.split('/').pop().replace(/\.ARW$/, '.xmp'))), ls);
 const x1 = Object.keys(sm).length ? await C('read', { path: shoot + '/' + Object.keys(sm)[0].replace(/\.ARW$/, '.xmp') }) : '';
