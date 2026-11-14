@@ -1,0 +1,436 @@
+{
+ "mode": "app",
+ "page": "Lumina Sets v12.dc.html",
+ "size": [
+  1440,
+  900
+ ],
+ "clock": "2026-09-08T14:30:00",
+ "stopOnFailure": false,
+ "checklist": "Assessment walk 2026-11-13: read, keep, order, done, target, large view, upright, burst, zoom, trim, Edit, Save, relaunch. Pictures and state dumps only.",
+ "deadline": 280,
+ "steps": [
+  {
+   "do": "snap",
+   "name": "00-empty-open"
+  },
+  {
+   "do": "copyTree",
+   "from": "${HOME_ASSESS}/shoot-src",
+   "to": "${OUT}/shoot/src"
+  },
+  {
+   "do": "openFolder",
+   "path": "${OUT}/shoot/src",
+   "timeoutMs": 120000
+  },
+  {
+   "do": "snap",
+   "name": "01-just-read"
+  },
+  {
+   "do": "js",
+   "src": "return __probe.logic().state.view"
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 400
+  },
+  {
+   "do": "key",
+   "k": "2",
+   "cmd": true,
+   "settleMs": 800
+  },
+  {
+   "do": "wait",
+   "ms": 1500
+  },
+  {
+   "do": "snap",
+   "name": "02-grid-rest"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state;return JSON.stringify({view:s.view,n:l.data.order.length,rows:l.data.R.length,kept:l.kept().length,aim:s.aim,done:Object.keys(s.done||{}).length,ord:Object.keys(s.ord||{}).length,tsz:s.tsz,pass:s.pass,trim:!!s.trim,cur:l.data.byId[s.cur]&&l.data.byId[s.cur].file})"
+  },
+  {
+   "do": "js",
+   "src": "const el=__probe.logic().scrollRef.current;if(!el)return 'no grid';const B=__probe.logic().data.byId;return JSON.stringify([...el.querySelectorAll('[data-tile]')].slice(0,60).map(n=>{const r=n.firstElementChild.getBoundingClientRect(),f=B[n.dataset.tile];return (f?f.file.slice(3,8):'?')+(f&&f.portrait?'P':'L')+':'+Math.round(r.width)+'x'+Math.round(r.height)}))"
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 350
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 350
+  },
+  {
+   "do": "snap",
+   "name": "03-kept-one"
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 350
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 350
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 350
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 350
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 350
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 350
+  },
+  {
+   "do": "snap",
+   "name": "04-kept-four"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state;return JSON.stringify({view:s.view,n:l.data.order.length,rows:l.data.R.length,kept:l.kept().length,aim:s.aim,done:Object.keys(s.done||{}).length,ord:Object.keys(s.ord||{}).length,tsz:s.tsz,pass:s.pass,trim:!!s.trim,cur:l.data.byId[s.cur]&&l.data.byId[s.cur].file})"
+  },
+  {
+   "do": "key",
+   "k": "s",
+   "settleMs": 350
+  },
+  {
+   "do": "snap",
+   "name": "05-order-sharpest"
+  },
+  {
+   "do": "key",
+   "k": "s",
+   "settleMs": 350
+  },
+  {
+   "do": "snap",
+   "name": "06-order-clipped"
+  },
+  {
+   "do": "key",
+   "k": "s",
+   "settleMs": 350
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state;return JSON.stringify({view:s.view,n:l.data.order.length,rows:l.data.R.length,kept:l.kept().length,aim:s.aim,done:Object.keys(s.done||{}).length,ord:Object.keys(s.ord||{}).length,tsz:s.tsz,pass:s.pass,trim:!!s.trim,cur:l.data.byId[s.cur]&&l.data.byId[s.cur].file})"
+  },
+  {
+   "do": "key",
+   "k": "s",
+   "settleMs": 350
+  },
+  {
+   "do": "key",
+   "k": "d",
+   "settleMs": 350
+  },
+  {
+   "do": "snap",
+   "name": "07-row-done"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state;return JSON.stringify({view:s.view,n:l.data.order.length,rows:l.data.R.length,kept:l.kept().length,aim:s.aim,done:Object.keys(s.done||{}).length,ord:Object.keys(s.ord||{}).length,tsz:s.tsz,pass:s.pass,trim:!!s.trim,cur:l.data.byId[s.cur]&&l.data.byId[s.cur].file})"
+  },
+  {
+   "do": "key",
+   "k": "]",
+   "settleMs": 350
+  },
+  {
+   "do": "key",
+   "k": "]",
+   "settleMs": 350
+  },
+  {
+   "do": "snap",
+   "name": "08-target"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state;return JSON.stringify({view:s.view,n:l.data.order.length,rows:l.data.R.length,kept:l.kept().length,aim:s.aim,done:Object.keys(s.done||{}).length,ord:Object.keys(s.ord||{}).length,tsz:s.tsz,pass:s.pass,trim:!!s.trim,cur:l.data.byId[s.cur]&&l.data.byId[s.cur].file})"
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 350
+  },
+  {
+   "do": "key",
+   "k": " ",
+   "settleMs": 700
+  },
+  {
+   "do": "snap",
+   "name": "09-large-landscape"
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 500
+  },
+  {
+   "do": "snap",
+   "name": "10-large-next"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 500
+  },
+  {
+   "do": "snap",
+   "name": "11-large-kept"
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 500
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),d=l.data;const id=d.order.find(i=>d.byId[i].portrait);if(id)l.setState({cur:id});return id?d.byId[id].file:'no upright'"
+  },
+  {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "snap",
+   "name": "12-grid-on-upright"
+  },
+  {
+   "do": "key",
+   "k": " ",
+   "settleMs": 800
+  },
+  {
+   "do": "snap",
+   "name": "13-large-upright"
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 500
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),d=l.data;const g=Object.values(d.G||{}).sort((a,b)=>b.frames.length-a.frames.length)[0];if(g)l.setState({cur:g.frames[0].id});return g?g.kind+' '+g.frames.length:'no stack'"
+  },
+  {
+   "do": "wait",
+   "ms": 500
+  },
+  {
+   "do": "snap",
+   "name": "14-on-burst"
+  },
+  {
+   "do": "key",
+   "k": "ArrowDown",
+   "settleMs": 500
+  },
+  {
+   "do": "snap",
+   "name": "15-burst-open"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 350
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 350
+  },
+  {
+   "do": "snap",
+   "name": "16-burst-kept"
+  },
+  {
+   "do": "key",
+   "k": "=",
+   "settleMs": 500
+  },
+  {
+   "do": "snap",
+   "name": "17-zoom-in"
+  },
+  {
+   "do": "key",
+   "k": "=",
+   "settleMs": 500
+  },
+  {
+   "do": "key",
+   "k": "=",
+   "settleMs": 500
+  },
+  {
+   "do": "snap",
+   "name": "18-zoom-in-3"
+  },
+  {
+   "do": "js",
+   "src": "const el=__probe.logic().scrollRef.current;if(!el)return 'no grid';const B=__probe.logic().data.byId;return JSON.stringify([...el.querySelectorAll('[data-tile]')].slice(0,60).map(n=>{const r=n.firstElementChild.getBoundingClientRect(),f=B[n.dataset.tile];return (f?f.file.slice(3,8):'?')+(f&&f.portrait?'P':'L')+':'+Math.round(r.width)+'x'+Math.round(r.height)}))"
+  },
+  {
+   "do": "key",
+   "k": "0",
+   "settleMs": 500
+  },
+  {
+   "do": "snap",
+   "name": "19-zoom-reset"
+  },
+  {
+   "do": "key",
+   "k": "T",
+   "settleMs": 600,
+   "shift": true
+  },
+  {
+   "do": "snap",
+   "name": "20-trim-keepers"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state;return JSON.stringify({view:s.view,n:l.data.order.length,rows:l.data.R.length,kept:l.kept().length,aim:s.aim,done:Object.keys(s.done||{}).length,ord:Object.keys(s.ord||{}).length,tsz:s.tsz,pass:s.pass,trim:!!s.trim,cur:l.data.byId[s.cur]&&l.data.byId[s.cur].file})"
+  },
+  {
+   "do": "key",
+   "k": "Escape",
+   "settleMs": 500
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state;return JSON.stringify({view:s.view,n:l.data.order.length,rows:l.data.R.length,kept:l.kept().length,aim:s.aim,done:Object.keys(s.done||{}).length,ord:Object.keys(s.ord||{}).length,tsz:s.tsz,pass:s.pass,trim:!!s.trim,cur:l.data.byId[s.cur]&&l.data.byId[s.cur].file})"
+  },
+  {
+   "do": "wait",
+   "ms": 2600
+  },
+  {
+   "do": "key",
+   "k": "3",
+   "settleMs": 2500,
+   "cmd": true
+  },
+  {
+   "do": "snap",
+   "name": "21-edit-entry"
+  },
+  {
+   "do": "wait",
+   "ms": 2500
+  },
+  {
+   "do": "snap",
+   "name": "22-edit-rest"
+  },
+  {
+   "do": "js",
+   "src": "return JSON.stringify(window.lumina&&lumina.edit&&lumina.edit.facts?lumina.edit.facts():null)"
+  },
+  {
+   "do": "key",
+   "k": "ArrowRight",
+   "settleMs": 1500
+  },
+  {
+   "do": "snap",
+   "name": "23-edit-next"
+  },
+  {
+   "do": "key",
+   "k": "4",
+   "settleMs": 1200,
+   "cmd": true
+  },
+  {
+   "do": "snap",
+   "name": "24-save"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state;return JSON.stringify({view:s.view,n:l.data.order.length,rows:l.data.R.length,kept:l.kept().length,aim:s.aim,done:Object.keys(s.done||{}).length,ord:Object.keys(s.ord||{}).length,tsz:s.tsz,pass:s.pass,trim:!!s.trim,cur:l.data.byId[s.cur]&&l.data.byId[s.cur].file})"
+  },
+  {
+   "do": "key",
+   "k": "2",
+   "settleMs": 800,
+   "cmd": true
+  },
+  {
+   "do": "snap",
+   "name": "25-back-to-pick"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state;return JSON.stringify({view:s.view,n:l.data.order.length,rows:l.data.R.length,kept:l.kept().length,aim:s.aim,done:Object.keys(s.done||{}).length,ord:Object.keys(s.ord||{}).length,tsz:s.tsz,pass:s.pass,trim:!!s.trim,cur:l.data.byId[s.cur]&&l.data.byId[s.cur].file})"
+  },
+  {
+   "do": "wait",
+   "ms": 2600
+  },
+  {
+   "do": "reload"
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "snap",
+   "name": "26-relaunch-open"
+  },
+  {
+   "do": "key",
+   "k": "Enter",
+   "settleMs": 400
+  },
+  {
+   "do": "waitFor",
+   "js": "const l=__probe.logic(); return !!(l.real && !l.state.realLoad && l.state.realInfo)",
+   "timeoutMs": 60000,
+   "what": "reopened"
+  },
+  {
+   "do": "wait",
+   "ms": 1200
+  },
+  {
+   "do": "snap",
+   "name": "27-reopened"
+  },
+  {
+   "do": "js",
+   "src": "const l=__probe.logic(),s=l.state;return JSON.stringify({view:s.view,n:l.data.order.length,rows:l.data.R.length,kept:l.kept().length,aim:s.aim,done:Object.keys(s.done||{}).length,ord:Object.keys(s.ord||{}).length,tsz:s.tsz,pass:s.pass,trim:!!s.trim,cur:l.data.byId[s.cur]&&l.data.byId[s.cur].file})"
+  }
+ ]
+}

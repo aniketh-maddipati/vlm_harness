@@ -222,7 +222,7 @@
   {
    "do": "expect",
    "js": "return __probe.logic().state.ex.result.t",
-   "equals": "2 saved"
+   "equals": "2 saved \u00b7 2 JPEGs \u00b7 JPEG/"
   },
   {
    "do": "fs",
