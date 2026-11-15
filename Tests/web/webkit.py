@@ -302,7 +302,7 @@ t('save: ⌘4 via luminaCommand', L().state.view === 'export', L().state.view);
 __lumina.command('save'); await W(150); if (L().state.armed === 'save') __lumina.command('save');   // v8's guard: unseen rows ask for a second ⌘⏎
 await until(() => L().state.ex && L().state.ex.result, 8000);
 const res = L().state.ex.result || {};
-t('save: "2 saved" and the finished JPEGs (on unless switched off)', res.t.startsWith('2 saved \u00b7 2 JPEGs') && !res.bad, res);
+t('save: "2 saved" and the finished JPEGs (on unless switched off)', (res.t || '').startsWith('2 saved \u00b7 2 JPEGs') && !res.bad, res);
 const ls = await C('ls', { path: shoot }); const xmps = ls.filter(f => /\.xmp$/.test(f));
 t('save: sidecars written into the folder', Object.keys(sm).length > 0 && Object.keys(sm).every(k => ls.includes(k.split('/').pop().replace(/\.ARW$/, '.xmp'))), ls);
 const x1 = Object.keys(sm).length ? await C('read', { path: shoot + '/' + Object.keys(sm)[0].replace(/\.ARW$/, '.xmp') }) : '';
