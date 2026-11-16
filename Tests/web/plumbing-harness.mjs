@@ -649,6 +649,22 @@ const loaded = page => page.waitForFunction(() => { const l = __lumina.logic(); 
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
   const again = await during('reopen during read', ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowRight']);
   ok(again.end.kept.length === 2 && again.end.kept.includes(first.end.kept[0]), 'reopen during read: the saved keep and the new one both kept', { first: first.end.kept, again: again.end.kept });
+  // Edit was the last step used, then another folder is opened: its rows show in Pick while it is read,
+  // and the read ending does not move the reader to Edit.
+  await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
+  await page.evaluate(() => __lumina.logic().setState({ lastView: 'edit' }));
+  bridge.delayMs = 25; bridge.pending = slow; await page.evaluate(() => __lumina.openFolder());
+  await page.waitForFunction(() => { const l = __lumina.logic(); return l.state.view === 'cull' && l.state.realLoad && l.real && l.real.length >= 48; }, null, { timeout: 30000 });
+  await key(page, 'ArrowDown'); await page.waitForTimeout(120);
+  const sameMid = await page.evaluate(() => { const l = __lumina.logic(); return { view: l.state.view, cur: l.data.byId[l.state.cur].path }; });
+  await loaded(page); await page.waitForTimeout(600);
+  const sameEnd = await page.evaluate(() => { const l = __lumina.logic(); return { view: l.state.view, cur: l.data.byId[l.state.cur].path }; });
+  bridge.delayMs = 0;
+  ok(sameMid.view === 'cull' && sameEnd.view === 'cull' && sameEnd.cur === sameMid.cur, 'during read: the read ends on the screen and photo the reader is on, whatever step was used last', { sameMid, sameEnd });
+  await page.evaluate(() => __lumina.logic().setView('edit', true)); await page.waitForTimeout(300);
+  const sameEdit = await page.evaluate(() => { const l = __lumina.logic(), s = l.editShoot(), B = l.data.byId; return { start: B[l._editStart] && B[l._editStart].path, cur: B[l.state.cur].path }; });
+  ok(sameEdit.start === sameEnd.cur, 'after the read: Edit opens on the photo Pick was on', sameEdit);
+  await page.evaluate(() => __lumina.logic().setView('cull', true));
   await page.evaluate(() => __lumina.closeShoot()); await page.waitForTimeout(200);
   // Edit opened while the folder is still being read: the photo's path includes the folder
   // (realInfo arrives only when the read ends), and finishing the read does not send you back to Pick.

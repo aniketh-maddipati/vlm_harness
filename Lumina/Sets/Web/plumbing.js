@@ -383,7 +383,7 @@
         let sessionDecided = false;
         if (r && r.session) { try { const saved = JSON.parse(r.session); sessionDecided = !!(saved.marks && Object.keys(saved.marks).length); } catch (_) {} }
         const decided = sessionDecided || (typeof logic.decidedN === 'function' && logic.decidedN() > 0);
-        const to = landTo(post.remembered, decided);
+        const to = post.early ? logic.state.view : landTo(post.remembered, decided);
         if (logic.state.view !== to) logic.setView(to, true);
         if (to === 'cull' && !post.moved) { logic._landT = Date.now(); setTimeout(() => logic.land(), 0); }
       }
@@ -639,7 +639,10 @@
       if (intoEdit && logic.state.view !== 'edit') logic.setView('edit', true);
       // Not Pick yet. The session arrives in afterRead, and landView counts its decisions.
       // land() waits too: restoring marks must not look like a new decision and move the cursor.
-      logic._postLoad = away ? null : { remembered, moved };
+      // `early`: rows were on screen while the folder was still read. The screen the reader is on then is the
+      // screen they are on when the read ends (owner, 2026-11-13): the remembered step applies only to a read
+      // that showed nothing before it finished.
+      logic._postLoad = away ? null : { remembered, moved, early: shown };
       if (run.gone) logic.say('Card removed · ' + ok.length + ' of ' + files.length + ' read · re-insert to keep going');
     };
 
