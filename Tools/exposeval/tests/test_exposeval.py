@@ -218,6 +218,45 @@ class MatchClips(unittest.TestCase):
         f2 = match_clips.feature(img * 4.0 + 0.1, black=0.1)  # brighter, with a black offset taken off
         self.assertAlmostEqual(float(f1 @ f2 / len(f1)), 1.0, places=2)
 
+    def test_video_samples_reads_the_sample_table(self):
+        import struct
+        import match_clips
+
+        def atom(t, body):
+            return struct.pack(">I4s", 8 + len(body), t) + body
+
+        def full(t, body):
+            return atom(t, b"\0\0\0\0" + body)
+
+        def trak(handler, chunks, sizes, per_chunk):
+            stbl = atom(b"stbl", b"".join([
+                full(b"stts", struct.pack(">III", 1, len(sizes), 1001)),
+                full(b"stsc", struct.pack(">IIII", 1, 1, per_chunk, 1)),
+                full(b"stsz", struct.pack(">II", 0, len(sizes)) + struct.pack(">%dI" % len(sizes), *sizes)),
+                full(b"co64", struct.pack(">I", len(chunks)) + struct.pack(">%dQ" % len(chunks), *chunks))]))
+            mdhd = full(b"mdhd", struct.pack(">IIII", 0, 0, 60000, 5005) + b"\0\0\0\0")
+            hdlr = full(b"hdlr", b"\0\0\0\0" + handler + b"\0" * 12)
+            return atom(b"trak", atom(b"mdia", mdhd + hdlr + atom(b"minf", stbl)))
+
+        moov = atom(b"moov", trak(b"soun", [1], [4], 1) + trak(b"vide", [100, 5000], [10, 20, 30], 2))
+        s = match_clips.video_samples(moov)
+        self.assertEqual([(o, n) for _, o, n in s], [(100, 10), (110, 20), (5000, 30)])
+        self.assertAlmostEqual(s[2][0], 2 * 1001 / 60000)
+
+    def test_found_and_frame_times(self):
+        import match_clips
+        frames = [{"t": 0.0, "still": "choice00010.tif", "r": 0.97, "next_r": 0.5},
+                  {"t": 1.0, "still": "choice00040.tif", "r": 0.75, "next_r": 0.4},   # r too low
+                  {"t": 2.0, "still": "choice00060.tif", "r": 0.90, "next_r": 0.8},   # margin too small
+                  {"t": 3.0, "still": "choice00011.tif", "r": 0.85, "next_r": 0.5},
+                  {"t": 4.0, "still": "choice00020.tif", "r": 0.88, "next_r": 0.6}]
+        f = match_clips.found(frames)
+        self.assertEqual([o["stills"] for o in f], [["choice00010.tif", "choice00011.tif"], ["choice00020.tif"]])
+        self.assertEqual(f[0]["best_r"], 0.97)
+        self.assertEqual(f[0]["t"], [0.0, 3.0])
+        times = [i / 60 for i in range(200)]
+        self.assertEqual(match_clips.frame_times(times, 1.0), [0, 60, 120, 180])
+
     def test_match_pools_the_two_stills(self):
         import match_clips
         rng = np.random.default_rng(4)
