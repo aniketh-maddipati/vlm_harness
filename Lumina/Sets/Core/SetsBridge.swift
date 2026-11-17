@@ -684,8 +684,10 @@ final class SetsBridge: NSObject, WKScriptMessageHandlerWithReply {
             let rect = SetsNumber.canvasRect(body)
             if rect == nil { onEvent?("canvasLayout refused: not a rect") }
             // `holes`: the page's chrome over the photo, at most 16, left see-through (LookCanvasHoles).
+            // One with `r` or `sh` is a soft hole: rounded, and the photo fades under its shadow.
             let holes = rect.map { LookCanvasHoles.parse(body["holes"], in: $0) } ?? []
-            c.layout(rect: rect ?? .null, visible: rect != nil && (body["visible"] as? Bool ?? false), dpr: CGFloat(SetsNumber.dpr(body["dpr"])), holes: holes,
+            let soft = rect.map { LookCanvasHoles.parseSoft(body["holes"], in: $0) } ?? []
+            c.layout(rect: rect ?? .null, visible: rect != nil && (body["visible"] as? Bool ?? false), dpr: CGFloat(SetsNumber.dpr(body["dpr"])), holes: holes, soft: soft,
                      viewportHeight: SetsNumber.viewportHeight(body["vh"]).map { CGFloat($0) })
             return (["path": c.path.rawValue], nil)
         case "canvasLook":

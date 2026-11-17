@@ -33,7 +33,7 @@ nonisolated enum LookCanvasHoles {
         let bounds = CGRect(origin: .zero, size: rect.size)
         return list.prefix(maxCount).compactMap { item in
             guard let d = item as? [String: Any], let x = number(d["x"]), let y = number(d["y"]),
-                  let w = number(d["w"]), let h = number(d["h"]), w > 0, h > 0 else { return nil }
+                  let w = number(d["w"]), let h = number(d["h"]), w > 0, h > 0, !isSoft(d) else { return nil }
             let r = CGRect(x: x - rect.minX, y: y - rect.minY, width: w, height: h).intersection(bounds)
             return r.isNull || r.width <= 0 || r.height <= 0 ? nil : r
         }
@@ -55,6 +55,102 @@ nonisolated enum LookCanvasHoles {
             mask = mask.subtracting(CGPath(rect: cut, transform: nil))
         }
         return mask
+    }
+
+    /// A hole the page shapes (Edit's right-click menu): rounded corners, and a shadow the photo
+    /// fades into below and around it, so the page's own shadow shows through instead of being cut
+    /// off at a rect. `rect` is in the canvas frame (top-left origin) and not clipped: the corners
+    /// and the shadow of a menu half over the photo are still where the page draws them.
+    struct Soft: Equatable {
+        var rect: CGRect
+        var radius: CGFloat = 0
+        var shadows: [Shadow] = []
+    }
+
+    /// One outer layer of the page's CSS `box-shadow`, CSS px: offset, blur, spread and alpha.
+    struct Shadow: Equatable {
+        var dx: CGFloat = 0
+        var dy: CGFloat = 0
+        var blur: CGFloat = 0
+        var spread: CGFloat = 0
+        var alpha: CGFloat = 0
+    }
+
+    /// Layers per soft hole: a menu's shadow is a handful; more is not a shadow.
+    static let maxShadows = 6
+    /// Core Graphics' shadow blur falls off about 15 % sooner than the same CSS blur (measured on a
+    /// straight edge at 4, 24 and 70 px), so the canvas widens it to fade where the page's does.
+    static let cssBlur: CGFloat = 1.15
+
+    /// An entry carrying `r` or `sh` is a soft hole: `parse` leaves it to `parseSoft`.
+    private static func isSoft(_ d: [String: Any]) -> Bool { d["r"] != nil || d["sh"] != nil }
+
+    /// The soft holes among the first `maxCount` entries: `{x, y, w, h, r, sh}`, CSS px like `parse`,
+    /// where `sh` is the layers `[{dx, dy, blur, spread, a}]` (or one `{dy, blur, a}`). The rect must
+    /// be four finite numbers with a positive size that meet the canvas; a radius or a layer value
+    /// that is not a number is read as 0 (the hole stays a hole), and each is held to what a menu can
+    /// use: radius ≤ half the short side, |dx|, |dy| and blur ≤ 200, |spread| ≤ 50, alpha 0…1; a
+    /// layer with no alpha is dropped, and at most `maxShadows` are kept.
+    static func parseSoft(_ value: Any?, in rect: CGRect) -> [Soft] {
+        guard let list = value as? [Any], LookCanvasController.layable(rect, dpr: 1), rect.width > 0, rect.height > 0 else { return [] }
+        let bounds = CGRect(origin: .zero, size: rect.size)
+        return list.prefix(maxCount).compactMap { item in
+            guard let d = item as? [String: Any], isSoft(d), let x = number(d["x"]), let y = number(d["y"]),
+                  let w = number(d["w"]), let h = number(d["h"]), w > 0, h > 0 else { return nil }
+            let r = CGRect(x: x - rect.minX, y: y - rect.minY, width: w, height: h)
+            guard r.intersects(bounds) else { return nil }
+            let clamp = { (v: Double?, lo: Double, hi: Double) in CGFloat(min(hi, max(lo, v ?? 0))) }
+            let layers = (d["sh"] as? [Any]) ?? (d["sh"].map { [$0] } ?? [])
+            let shadows = layers.prefix(maxShadows).compactMap { item -> Shadow? in
+                guard let sh = item as? [String: Any] else { return nil }
+                let s = Shadow(dx: clamp(number(sh["dx"]), -200, 200), dy: clamp(number(sh["dy"]), -200, 200),
+                               blur: clamp(number(sh["blur"]), 0, 200), spread: clamp(number(sh["spread"]), -50, 50),
+                               alpha: clamp(number(sh["a"]), 0, 1))
+                return s.alpha > 0 ? s : nil
+            }
+            return Soft(rect: r, radius: clamp(number(d["r"]), 0, Double(min(w, h)) / 2), shadows: shadows)
+        }
+    }
+
+    /// The layer mask as an image when any hole is soft: alpha 1 where the photo is drawn, 0 in every
+    /// hole (rects for `hard`, rounded rects for `soft`), and in between under a soft hole's shadow,
+    /// so the photo fades toward the page there. Row 0 is the canvas's top. `scale` is the backing
+    /// scale; the image is at most `maxDrawableEdge` on a side. Nil when there is nothing to draw.
+    static func maskImage(_ hard: [CGRect], soft: [Soft], size: CGSize, scale: CGFloat) -> CGImage? {
+        guard size.width >= 1, size.height >= 1, scale.isFinite, scale > 0 else { return nil }
+        let k = min(scale, CGFloat(LookCanvasController.maxDrawableEdge) / max(size.width, size.height))
+        let w = max(1, Int((size.width * k).rounded())), h = max(1, Int((size.height * k).rounded()))
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                  space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue),
+              let data = ctx.data else { return nil }
+        // Paint what is NOT drawn (holes and shadows), then invert: CG shadows add coverage, they
+        // can't take it away. Base space has its origin at the bottom; offsets ignore the CTM.
+        ctx.scaleBy(x: CGFloat(w) / size.width, y: CGFloat(h) / size.height)
+        ctx.setFillColor(CGColor(gray: 0, alpha: 1))
+        let up = { (r: CGRect) in CGRect(x: r.minX, y: size.height - r.maxY, width: r.width, height: r.height) }
+        for r in hard { ctx.fill(up(r)) }
+        // Each layer is the shadow alone, as CSS draws it: its shape (the box grown by the spread)
+        // is filled a canvas-width away, off the image, and the shadow is offset back. Layers add
+        // as source-over, so their coverage combines the way the page's stacked shadows do.
+        let away = size.width + size.height + 1000
+        for s in soft {
+            for l in s.shadows {
+                let box = up(s.rect).insetBy(dx: -l.spread, dy: -l.spread)
+                guard box.width > 0, box.height > 0 else { continue }
+                let r = max(0, min(s.radius + l.spread, min(box.width, box.height) / 2))
+                ctx.saveGState()
+                ctx.setShadow(offset: CGSize(width: (l.dx - away) * k, height: -l.dy * k), blur: l.blur * k * cssBlur,
+                              color: CGColor(gray: 0, alpha: l.alpha))
+                ctx.addPath(CGPath(roundedRect: box.offsetBy(dx: away, dy: 0), cornerWidth: r, cornerHeight: r, transform: nil))
+                ctx.fillPath()
+                ctx.restoreGState()
+            }
+            ctx.addPath(CGPath(roundedRect: up(s.rect), cornerWidth: s.radius, cornerHeight: s.radius, transform: nil))
+            ctx.fillPath()
+        }
+        let px = data.assumingMemoryBound(to: UInt8.self)
+        for i in 0..<(w * h) { px[i] = 255 &- px[i] }
+        return ctx.makeImage()
     }
 
     /// A page number: an `NSNumber` that is not a boolean, finite, within the reach of a layable rect.
@@ -245,6 +341,7 @@ final class LookCanvasController: NSObject {
     private var regionSeq = 0
     private var placement: Placement?
     private var holes: [CGRect] = []
+    private var softHoles: [LookCanvasHoles.Soft] = []
     private var loupe: (on: Bool, roi: LookCanvasSchedule.ROI?) = (false, nil)
     private var loupeStillTimer: Timer?
     private var refiningTimer: Timer?
@@ -492,7 +589,7 @@ final class LookCanvasController: NSObject {
     /// The page's canvas rect in CSS px (origin top-left of the page's viewport), whether Edit is
     /// showing, and the page chrome over it to leave see-through (`LookCanvasHoles.parse`'s frame).
     /// Holes alone change only the mask: no base, render or cache key follows them.
-    func layout(rect: CGRect, visible: Bool, dpr: CGFloat, holes: [CGRect] = [], viewportHeight: CGFloat? = nil) {
+    func layout(rect: CGRect, visible: Bool, dpr: CGFloat, holes: [CGRect] = [], soft: [LookCanvasHoles.Soft] = [], viewportHeight: CGFloat? = nil) {
         // Not a rect a display can hold (not finite, negative, absurdly large): the canvas hides and
         // keeps the size it had. `Int(_:)` on such a number stops the app (Q4-hostile F2).
         guard Self.layable(rect, dpr: dpr) else {
@@ -506,7 +603,7 @@ final class LookCanvasController: NSObject {
         guard let view, let host = view.superview else { return }
         let placed = Placement(rect: rect, visible: visible, dpr: dpr, hostHeight: host.bounds.height, viewportHeight: viewportHeight)
         if placed == placement {
-            if holes != self.holes { applyHoles(holes) }
+            if holes != self.holes || soft != softHoles { applyHoles(holes, soft: soft) }
             return
         }
         placement = placed
@@ -516,7 +613,7 @@ final class LookCanvasController: NSObject {
         let sizeChanged = view.frame.size != r.size || view.drawableSize != px
         view.frame = r
         view.drawableSize = px
-        applyHoles(holes)
+        applyHoles(holes, soft: soft)
         stats.canvas = [Int(px.width), Int(px.height)]
         let show = visible && rect.width >= 2 && rect.height >= 2
         view.isHidden = !show
@@ -1061,13 +1158,24 @@ final class LookCanvasController: NSObject {
 
     /// The layer mask that leaves `new` see-through; no holes, no mask. Masks only: the drawable,
     /// the bases and the schedule never see the holes.
-    private func applyHoles(_ new: [CGRect]) {
+    /// A soft hole (rounded, with a shadow) makes the mask an image (`LookCanvasHoles.maskImage`);
+    /// without one it stays the shape layer's path.
+    private func applyHoles(_ new: [CGRect], soft: [LookCanvasHoles.Soft] = []) {
         holes = new
-        stats.holes = new.count
+        softHoles = soft
+        stats.holes = new.count + soft.count
         guard let view, let layer = view.layer else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        if let path = LookCanvasHoles.maskPath(new, size: view.bounds.size, flipped: view.isFlipped) {
+        let scale = view.window?.backingScaleFactor ?? layer.contentsScale
+        if !soft.isEmpty, let image = LookCanvasHoles.maskImage(new, soft: soft, size: view.bounds.size, scale: scale) {
+            let mask = layer.mask.flatMap { $0 is CAShapeLayer ? nil : $0 } ?? CALayer()
+            mask.frame = CGRect(origin: .zero, size: view.bounds.size)
+            mask.contentsGravity = .resize
+            mask.contentsScale = scale
+            mask.contents = image
+            layer.mask = mask
+        } else if let path = LookCanvasHoles.maskPath(new, size: view.bounds.size, flipped: view.isFlipped) {
             let mask = (layer.mask as? CAShapeLayer) ?? CAShapeLayer()
             mask.frame = CGRect(origin: .zero, size: view.bounds.size)
             mask.contentsScale = view.window?.backingScaleFactor ?? layer.contentsScale
