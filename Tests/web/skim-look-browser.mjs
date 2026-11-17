@@ -5,6 +5,10 @@
 //      (a WebGL canvas over the video, brighter than the clip as shot).
 //   2. ⌘C on one clip and ⌘V on the next gives it the same look; ⌘Z takes the paste back.
 //   3. More ▸ Mix opens on Blue; a move there marks the chip. The Shadows wheel tints. Looks outlast a reload.
+//   4. The hub's motion and strips (LOCAL-CHANGES 327): a number on each target, a strip beside Light (Highlights) and Color
+//      (Saturation), the detent (a drag let go near the middle is exactly 0), the rubber band, the lift, the faces turning,
+//      and Reduce motion (a reset puts the dot in the middle on the next frame). Motion changes timing: the checks wait on
+//      the hub settling (no data-moving, no animation on its stage), not on longer sleeps.
 //
 //   node Tests/web/skim-look-browser.mjs        # needs ffmpeg and Playwright's Chromium
 import fs from 'node:fs';
@@ -44,11 +48,24 @@ const mean = async () => {
   return p.evaluate(async b64 => { const im = new Image(); im.src = 'data:image/png;base64,' + b64; await im.decode(); const c = document.createElement('canvas'); c.width = 64; c.height = 36;
     const x = c.getContext('2d'); x.drawImage(im, 0, 0, 64, 36); const d = x.getImageData(0, 0, 64, 36).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return s / (d.length / 4) / 3; }, png);
 };
+// the hub has stopped moving: its loop is done and its faces have finished turning
+const settle = () => p.waitForFunction(() => { const h = document.querySelector('[data-lumina="look-hub"]'), st = document.querySelector('[data-lumina="look-hub-stage"]');
+  return !!h && !h.dataset.moving && !(st.getAnimations ? st.getAnimations({subtree:true}) : []).some(a => a.playState === 'running'); }, null, {timeout:4000});
+const hubSay = () => p.$eval('[data-lumina="look-hub-say"]', e => e.innerText);
+const frame = () => p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+const dotOff = () => p.evaluate(() => { const h = document.querySelector('[data-lumina="look-hub"]').getBoundingClientRect(), d = document.querySelector('[data-lumina="look-hub-dot"]').getBoundingClientRect();
+  return Math.hypot(d.x + d.width / 2 - (h.x + h.width / 2), d.y + d.height / 2 - (h.y + h.height / 2)); });
+const axes = () => p.$$eval('[data-lumina="look-hub"] [role="slider"]', s => s.map(x => x.getAttribute('aria-valuenow')).join(' '));
 const drag = async (sel, dx) => { await (await p.$(sel)).scrollIntoViewIfNeeded(); const r = await (await p.$(sel)).boundingBox(); const y = r.y + r.height / 2, x = r.x + 30;
   await p.mouse.move(x, y); await p.mouse.down(); for (let i = 1; i <= 6; i++) await p.mouse.move(x + dx * i / 6, y); await p.mouse.up(); await p.waitForTimeout(250); };
 
 ok(!!(await p.$('[data-lumina="look"]')), 'the Viewer has the Color card');
-ok((await p.$$eval('[data-lkt]', b => b.map(x => x.innerText.trim()))).join(' ') === 'Light Color Shadows Mids Highs', 'Light · Color · Shadows · Mids · Highs');
+ok((await p.$$eval('[data-lkt] [data-lumina="look-tgt-name"]', b => b.map(x => x.innerText.trim()))).join(' ') === 'Light Color Shadows Mids Highs', 'Light · Color · Shadows · Mids · Highs');
+{ const n = await p.$$eval('[data-lkt]', b => b.map(x => { const n = x.querySelector('[data-lumina="look-tgt-n"]'), r = x.getBoundingClientRect(), q = n.getBoundingClientRect();
+    return {t:n.innerText.trim(), hid:n.getAttribute('aria-hidden'), corner:r.right - q.right < 12 && q.top - r.top < 10, mono:/mono|menlo/i.test(getComputedStyle(n).fontFamily)}; }));
+  ok(n.map(x => x.t).join(' ') === '1 2 3 4 5' && n.every(x => x.hid === 'true' && x.corner && x.mono), 'each target carries its key, 1–5, top right, mono: ' + JSON.stringify(n[0])); }
+{ const s = await p.$eval('[data-lumina="look-hub-l"]', e => [e.getAttribute('role'), e.getAttribute('aria-label'), getComputedStyle(e).display].join('|'));
+  ok(s === 'slider|Highlights|block', 'Light has a strip, a slider named Highlights: ' + s); }
 ok(await say() === 'as shot', 'a clip starts as shot: ' + JSON.stringify(await say()));
 ok(await lookOp() === '0', 'no grade canvas while the clip is as shot');
 const m0 = await mean();
@@ -60,15 +77,16 @@ await p.waitForTimeout(400);
 ok(await lookOp() === '1', 'the grade canvas is on the picture: ' + await p.evaluate(() => document.querySelector('[data-lumina="viewer-look"]')?.dataset.look));
 const m1 = await mean();
 ok(m1 > m0 + 12, 'the picture is brighter: ' + m0.toFixed(1) + ' → ' + m1.toFixed(1));
-await p.dblclick('[data-lumina="look-hub"]'); await p.waitForTimeout(250);
-ok(await say() === 'as shot', 'double-click resets Light');
+await p.dblclick('[data-lumina="look-hub"]'); await p.waitForTimeout(50);
+ok(await dotOff() > 3, 'the reset springs the dot back (not there on the next frame): ' + (await dotOff()).toFixed(1) + ' px'); await settle();
+ok(await say() === 'as shot' && await dotOff() < 1, 'double-click resets Light, the dot settles in the middle');
 await p.keyboard.press('Meta+z'); await p.waitForTimeout(250);
 ok(await say() === s1, '⌘Z brings the exposure back');
 
 // keys (326): 2 picks Color and gives the hub the keys; arrows step it, the burst is one ⌘Z; esc gives the keys back
 await p.keyboard.press('2'); await p.waitForTimeout(200);
 ok(await p.$eval('[data-lkt="color"]', b => b.getAttribute('aria-selected')) === 'true' && await p.evaluate(() => document.activeElement?.getAttribute('data-lumina')) === 'look-hub', '2: Color, the hub has the keys');
-for (let i = 0; i < 3; i++) await p.keyboard.press('ArrowRight'); await p.waitForTimeout(150);
+for (let i = 0; i < 3; i++) await p.keyboard.press('ArrowRight'); await p.waitForTimeout(150); await settle();
 ok(/^Temp \+15 · Tint 0$/.test(await p.$eval('[data-lumina="look-hub-say"]', e => e.innerText)), 'three → warm it 15: ' + await p.$eval('[data-lumina="look-hub-say"]', e => e.innerText));
 await p.waitForTimeout(600); await p.keyboard.press('Meta+z'); await p.waitForTimeout(250);
 ok(await say() === s1, 'the arrows were one ⌘Z step: ' + JSON.stringify(await say()));
@@ -99,10 +117,53 @@ ok(/Blue saturation -\d+/.test(await say()), 'blue saturation down: ' + JSON.str
 ok(await p.$eval('[data-lkhue="blue"]', b => b.children.length > 1), 'the Blue chip shows it is moved');
 
 // the Shadows wheel tints the shadows
-await p.click('[data-lkt="sh"]'); await p.waitForTimeout(200);
+await p.click('[data-lkt="sh"]'); await p.waitForTimeout(30);
+ok(await p.evaluate(() => document.querySelector('[data-lumina="look-hub-stage"]').getAnimations({subtree:true}).length) > 0, 'the face turns to Shadows'); await settle();
 const w = await (await p.$('[data-lumina="look-hub"]')).boundingBox();
 await p.mouse.move(w.x + w.width * 0.5, w.y + w.height * 0.5); await p.mouse.down(); await p.mouse.move(w.x + w.width * 0.2, w.y + w.height * 0.8, {steps:5}); await p.mouse.up(); await p.waitForTimeout(250);
+await settle();
 ok(/^Hue 2\d\d° · strength \d+$/.test(await p.$eval('[data-lumina="look-hub-say"]', e => e.innerText)), 'the wheel reads a hue and a strength: ' + await p.$eval('[data-lumina="look-hub-say"]', e => e.innerText));
+
+// 327: the side strips, the detent, the rubber band, the lift
+const stripDrag = async (to) => { const r = await (await p.$('[data-lumina="look-hub-l"]')).boundingBox(), x = r.x + r.width / 2;
+  await p.mouse.move(x, r.y + r.height / 2); await p.mouse.down(); await p.mouse.move(x, r.y + r.height * to, {steps:6}); await p.mouse.up(); await settle(); };
+const now = sel => p.$eval(sel, e => +e.getAttribute('aria-valuenow'));
+await p.keyboard.press('1'); await settle();
+await stripDrag(0.2);
+ok(await now('[data-lumina="look-hub-l"]') > 40 && /highlights \+\d+$/.test(await hubSay()), 'the Light strip up raises Highlights: ' + await hubSay());
+{ const h0 = await now('[data-lumina="look-hub-l"]'); await p.keyboard.press('PageDown'); await settle();
+  ok(await now('[data-lumina="look-hub-l"]') === h0 - 5, 'PageDown steps the strip: ' + h0 + ' → ' + await now('[data-lumina="look-hub-l"]')); }
+await p.keyboard.press('2'); await settle();
+ok(await p.$eval('[data-lumina="look-hub-l"]', e => e.getAttribute('aria-label')) === 'Saturation', 'Color\'s strip is Saturation');
+await stripDrag(0.85);
+ok(await now('[data-lumina="look-hub-l"]') < -40 && /saturation -\d+$/.test(await hubSay()), 'the Color strip down takes Saturation out: ' + await hubSay());
+await p.keyboard.press('1'); await settle();
+await p.keyboard.press('Backspace'); await settle();
+ok(await now('[data-lumina="look-hub-l"]') === 0 && await axes() === '0 0', '⌫ puts Light back, its strip too');
+{ const h = await (await p.$('[data-lumina="look-hub"]')).boundingBox(), cx = h.x + h.width / 2, cy = h.y + h.height / 2;
+  await p.mouse.move(cx, h.y + h.height * 0.2); await p.mouse.down(); await p.waitForTimeout(250);
+  const lift = await p.$eval('[data-lumina="look-hub-dot"]', d => +(d.style.scale || 1));
+  ok(lift > 1.05, 'the dot lifts while held: ×' + lift.toFixed(3));
+  ok(await p.$eval('[data-lumina="look-hub"]', e => getComputedStyle(e).cursor) === 'none', 'no cursor over the pad while dragging');
+  await p.mouse.move(cx + h.width * 0.02, cy - h.height * 0.015, {steps:8}); await p.mouse.up(); await settle();
+  ok(await axes() === '0 0' && /^Exposure 0\.00 · Contrast 0$/.test(await hubSay()), 'a drag let go near the middle is exactly 0 (the detent): ' + await axes() + ' · ' + await hubSay());
+  await p.mouse.move(cx, cy); await p.mouse.down(); await p.mouse.move(cx, h.y - h.height * 0.3, {steps:8}); await p.waitForTimeout(400);
+  const past = await p.evaluate(() => { const h = document.querySelector('[data-lumina="look-hub"]').getBoundingClientRect(), d = document.querySelector('[data-lumina="look-hub-dot"]').getBoundingClientRect(); return h.top - (d.y + d.height / 2); });
+  ok(past > 3 && past < h.height * 0.12 && (await axes()).split(' ')[0] === '4', 'past the edge the value stops at +4 and the dot stretches a little: ' + past.toFixed(1) + ' px');
+  await p.mouse.up(); await settle();
+  ok(await p.$eval('[data-lumina="look-hub-dot"]', d => d.style.translate) === '', 'let go, it springs back to the edge'); }
+await p.keyboard.press('Backspace'); await settle();
+
+// Reduce motion: no springs, the faces swap
+await p.emulateMedia({reducedMotion:'reduce'});
+{ const h = await (await p.$('[data-lumina="look-hub"]')).boundingBox();
+  await p.mouse.move(h.x + h.width * 0.8, h.y + h.height * 0.25); await p.mouse.down(); await p.mouse.up(); await frame();
+  ok(await dotOff() > 40, 'reduced: a press puts the dot there at once');
+  await p.keyboard.press('Backspace'); await frame();
+  ok(await dotOff() < 1, 'reduced: a reset puts the dot in the middle on the next frame: ' + (await dotOff()).toFixed(1) + ' px');
+  await p.keyboard.press('3'); await p.waitForTimeout(20);
+  ok(await p.evaluate(() => document.querySelector('[data-lumina="look-hub-stage"]').getAnimations({subtree:true}).length) === 0, 'reduced: the face swaps without turning'); }
+await p.emulateMedia({reducedMotion:'no-preference'});
 
 // looks are kept per shoot (and outlast a reload)
 await p.waitForTimeout(500);
