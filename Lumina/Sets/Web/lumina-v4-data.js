@@ -142,7 +142,7 @@ function facts(data,failed){ const P=data.order.map(id=>data.byId[id]); if(!P.le
   out.push(['dates',t[0]+' → '+t[t.length-1]]);
   out.push(['per row','min '+rows[0]+' · median '+rows[Math.floor(rows.length/2)]+' · max '+rows[rows.length-1]]);
   out.push(['largest stack',String(big)]);
-  const ns=P.filter(p=>p.seq==null).length, np=P.filter(p=>p.nopv).length, nf=(failed||[]).length; if(np) out.push(['no preview',String(np)]); if(nf) out.push(['unreadable',String(nf)]); (failed||[]).slice(0,12).forEach(f=>out.push(['',f.name+' · '+f.reason]));
+  const ns=P.filter(p=>p.seq==null).length, np=P.filter(p=>p.nopv).length, nf=(failed||[]).length; if(np) out.push(['no preview',String(np)]); if(nf) out.push(['unreadable',String(nf)]); (failed||[]).slice(0,12).forEach(f=>out.push(['',f.name+' · '+f.reason])); if(nf>12) out.push(['','and '+(nf-12)+' more']);
   return out; }
 
 // Sample shoot images ship with the app (no network).
