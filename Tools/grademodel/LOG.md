@@ -209,3 +209,84 @@ floor carries over. Judge's risks from the per-shot losses:
   where the grader wanted −0.8);
 - dark mid-tones against bright areas can move the wrong way (Sparks 11198-11570: +0.5 → −0.03, wanted +0.7;
   ToS 05_4h to −1.0, wanted +0.3).
+
+---
+
+# Loop "shift-e-logmean" (2026-11-09): the evaluator scores the page's own JavaScript
+
+Gate: `criteria.json` as frozen (pooled per-shot held row, owner-approved 2026-11-09), unchanged. This loop's own
+limits, from its brief: 4 rounds or 2 rejected in a row (stricter than the file's 8 / 3). One change per round; each
+judged by a fresh subagent that did not write it. Evidence: `~/LuminaEvidence/grademodel/shift-e-logmean/2026-11-09/`
+(`<candidate>.json`, `.compare.txt`, `.lowkey.md`; Skim screens in `shots/`).
+
+## S0: the runner (no tuning)
+
+Until now `rule.py` and every candidate scored a numpy copy of the page's `sceneSl` / `evAutoMap`, never checked
+against the page. `Tools/exposeval/page.mjs` reads `prof`, `sceneSl`, `evAutoMap` out of `Lumina Skim v3.dc.html` and
+runs them in Node on 8-bit frames; `candidates/page_js.py` balances through it (the cached scene-linear samples go
+back to the 8-bit S-Log3 / sRGB codes Skim reads); a round's candidate is a text patch on the page, applied before
+the page is changed. `Tools/exposeval/page_parity.py`: page JS vs `rule.py` on the same frames, max per frame / per clip:
+
+| shoot | frames | frame Δ (stops) | clip Δ (stops) |
+|---|---|---|---|
+| adaCG, 7 locations | 1564 stills | ≤ 3.0e-8 | 0 |
+| Sparks | 108 | 2.8e-8 | 0 |
+| Tears of Steel | 80 | 7.5e-9 | 0 |
+
+`Tools/exposeval/tests/test_page.py` fails over 1e-6 stops (synthetic frames on Linux; the real ones when on hand).
+Quantisation floor (numpy baseline → the 322 page through JS, same rule): pooled +0.001, per shot ≤ 0.16 ΔE,
+stops ±0.01, held p95 −0.06 … +0.03. Incumbent at start: `page_js_median322` (the page patched back to 322's median).
+
+| metric | dev median | dev p95/p90 | held median | held p95/p90 |
+|---|---|---|---|---|
+| exposure_adacg (stops) | 0.532 | 1.513 | 0.655 | 1.634 |
+| uday | 7.921 | 19.464 | 5.769 | 16.873 |
+| sparks | 5.026 | 13.939 | 6.061 | 16.092 |
+| tos | 7.919 | 13.127 | 8.104 | 14.101 |
+| look_composite | 4.576 | | 5.103 | |
+
+## S1: log-mean `sceneSl` (the page as shipped, LOCAL-CHANGES 325, #345's G1), through the page's JS: ADOPT
+
+| metric | dev median | dev p95/p90 | held median | held p95/p90 |
+|---|---|---|---|---|
+| exposure_adacg (stops) | 0.513 | 1.493 | 0.629 | 1.622 |
+| uday | 7.525 | 17.267 | 6.148 | 16.147 |
+| sparks | 6.290 | 16.217 | 6.466 | 12.095 |
+| tos | 6.097 | 12.454 | 7.623 | 12.597 |
+| look_composite | 4.385 | | 5.164 | |
+
+Reproduces G1 within the floor: adaCG stops identical on 782/782 shots; pooled −0.434 (G1 −0.456); p95 Uday 16.87 →
+16.15, Sparks 16.09 → 12.10, ToS 14.10 → 12.60. numpy r1 vs page: max per-shot 0.05 ΔE (ToS, 8-bit look input).
+Low-key (≥ 0.5 stop under the shoot, `lowkey.py`): dev 7 better / 3 worse, held 3/3 better; worst Sparks 30-511
++0.06 → +1.00 stops, ΔE 2.86 → 6.46, oracle −0.8. adaCG `night` held 1.240 → 1.171, bias −0.31 → −0.37.
+
+## S2: an upward lift capped at the median's answer + 0.5 stop (`s2_lift_cap`): REJECT
+
+`sceneSl(img, c, pp)` also writes the frame's upper median to `pp.slm`; `evAutoMap` caps e > 0 at max(0, median e + 0.5).
+Dev exposure 0.513 → 0.518, dev look 4.385 → 4.162; held adaCG 0.626, pooled +0.000, **Sparks p95 12.095 → 12.446
+(+0.351)**. Only Sparks 30-511 (dev) moved: +1.00 → +0.56, ΔE 6.46 → 4.09. No held shot's stops changed; held
+Sparks 5363-5763 p95 8.74 → 10.84 and 6026-6502 12.82 → 14.06 come from the look re-fit (judge: noise, rule stands).
+
+## S3: log floor 1e-4 → 0.0018 (18 % / 100, Reinhard's δ; `s3_log_floor`): REJECT
+
+Dev exposure 0.513 → 0.507, **dev look 4.385 → 4.471 (+0.086)**; held adaCG 0.634, pooled −0.012, p95 Uday −0.19,
+Sparks +0.08, ToS −0.03. Moves dark shots ≤ 0.09 stops: low-key dev −0.074 (8/10 better), held +0.043 (3/3 worse);
+30-511 still +1.00.
+
+**Stop: 2 rejected in a row.** Adopted: S1 only (already the page). No page change.
+
+| row | 322 median (page JS) | 325 log-mean (page JS, kept) |
+|---|---|---|
+| exposure vs adaCG dev / held (stops) | 0.532 / 0.655 | 0.513 / 0.629 |
+| look dev / held composite | 4.576 / 5.103 | 4.385 / 5.164 |
+| pooled per-shot Δ (21 held) | | −0.434 |
+| held p95 Uday / Sparks / ToS | 16.87 / 16.09 / 14.10 | 16.15 / 12.10 / 12.60 |
+
+For the owner (criteria are yours):
+1. A balance change on a few dark shots is under the gate's noise: re-fitting the look on re-balanced training shots
+   moves held shots 1–2 ΔE p95 with their own stops unchanged, and a per-set p95 over 4 held shots flips on two of
+   them. Judges' proposal: score balance-only candidates with the incumbent's look held fixed, and add a low-key
+   held row (or pool the per-set p95s).
+2. The low-key risk is real in Skim (screens: Sparks 30-511, a dusk silhouette, lifted to grey at +1.00). S2 fixes
+   that shot (ΔE −2.4) and was rejected only on the re-fit row; it is the one to re-run under any revised gate.
+3. `criteria.json` says 3 rejects in a row; this loop's brief said 2. A third round was not run.

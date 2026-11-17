@@ -65,6 +65,22 @@ and they read ~0.5 stop brighter than the thumbnails (thumbnail ≈ 0.905 · TIF
 factor cancels in ⇧E's frame, and the report also shows a corrected column. The label histograms match the TIFF's
 linear Y on some stills and its encoded Y on others, so they appear only as a diagnostic.
 
+## ⇧E from the page itself (`page.mjs`, `page.py`, `page_parity.py`)
+
+`rule.py` is a copy. `page.mjs` reads `prof`, `sceneSl` and `evAutoMap` out of the Skim page by brace-matching and runs
+them in Node on 8-bit frames (`page.py` packs frames for it; `Sampled` passes only the pixels `sceneSl` reads). A
+patch list (`[[old, new]]`, each matched once) changes the page's text first: how a candidate is tried before the
+page is edited. Tools/grademodel's `candidates/page_js.py` balances through it, so the grade model scores the page.
+
+```bash
+~/LuminaEvidence/venv-parity/bin/python -I Tools/exposeval/page_parity.py   # page JS vs rule.py on the adaCG stills + Sparks / ToS frames
+make exposeval-test                                                         # includes tests/test_page.py: synthetic frames, needs node
+```
+
+`page_parity.py` fails over 1e-6 stops per frame or per clip; on 2026-11-09 the worst was 3.0e-8 (float32 table in
+the page, float64 in numpy). `tests/test_page.py` also checks that the page's measure sites call `sceneSl` the way
+the harness does.
+
 ## What's scored
 
 For each shot the report gives the median and p90 of |predicted − target| stops, the bias, the share within ⅓ stop,

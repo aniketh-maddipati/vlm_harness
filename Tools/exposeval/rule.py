@@ -11,7 +11,8 @@ below; Tools/grademodel round G1); `scene_sl` keeps the 322 form so the 2026-11-
     shoot's middle is the upper median of its clips' values; a clip's Exposure is
     round(clamp(log2(mid / clip), −1, +1) × 100) / 100 stops.
 
-Nothing here reads files. Frames come in as uint8 arrays (H, W, 3 or 4).
+Since 2026-11-09 the evaluators run the page itself (page.mjs); this file is the cross-check, held to it by
+page_parity.py / tests/test_page.py (≤ 1e-6 stops). Nothing here reads files. Frames come in as uint8 arrays (H, W, 3 or 4).
 """
 
 import math

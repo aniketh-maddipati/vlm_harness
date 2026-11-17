@@ -12,15 +12,17 @@ when the owner says so.
 | `evaluate.py` | The evaluator: one candidate → one table + `~/LuminaEvidence/grademodel/<date>/<candidate>.json` |
 | `compare.py` | The adopt rule written out: incumbent vs candidate, every delta, a verdict |
 | `gm.py` | S-Log3, CIELAB / ΔE2000, the smoothed 17³ LUT |
-| `candidates/` | One file per candidate (`balance`, `fit_look`, `apply_look`); `baseline.py` is Skim as it ships |
+| `candidates/` | One file per candidate (`balance`, `fit_look`, `apply_look`). `page_js.py` is Skim as it ships, its balance run through the page's own JavaScript (Tools/exposeval/page.mjs); a balance candidate is `PATCHES` on the page's text (`s2_lift_cap.py`). `baseline.py` / `r1_logmean.py` are the numpy ports, kept for the history |
+| `lowkey.py` | Low-key shots apart (info): adaCG `night`, and look shots ≥ 0.5 stop under their shoot |
 | `LOG.md` | Every round, numbers only |
 | `test_grademodel.py` | Synthetic tests (Linux too): `make grademodel-test` |
 
 ```bash
 PY=~/LuminaEvidence/venv-parity/bin/python
 $PY -I Tools/grademodel/prepare.py                       # once; reads the T7 (slow: NTFS)
-$PY -I Tools/grademodel/evaluate.py Tools/grademodel/candidates/baseline.py
+$PY -I Tools/grademodel/evaluate.py Tools/grademodel/candidates/page_js.py    # the page as it ships (needs node)
 python3 Tools/grademodel/compare.py ~/LuminaEvidence/grademodel/<date>/baseline.json ~/LuminaEvidence/grademodel/<date>/<cand>.json
+$PY -I Tools/grademodel/lowkey.py <incumbent.json> <candidate.json>
 make grademodel-test
 ```
 
